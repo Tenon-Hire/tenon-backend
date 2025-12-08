@@ -2,10 +2,6 @@ name: Backend CI
 
 on:
   push:
-    paths:
-      - "app/**"
-      - "tests/**"
-      - "pyproject.toml"
   pull_request:
 
 jobs:
@@ -13,8 +9,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
+
+      - name: Set PYTHONPATH
+        run: echo "PYTHONPATH=$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
 
       - name: Install Python 3.11
         uses: actions/setup-python@v4
