@@ -8,13 +8,35 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/simuhire_test
+      DATABASE_URL_SYNC: postgresql://postgres:postgres@localhost:5432/simuhire_test
+      DATABASE_URL_ASYNC: postgresql+asyncpg://postgres:postgres@localhost:5432/simuhire_test
+      ENV: ci
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: simuhire_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
       - uses: actions/checkout@v3
 
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
 
-      - name: Install Python 3.11
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
@@ -24,6 +46,9 @@ jobs:
 
       - name: Install dependencies
         run: poetry install --no-interaction --no-root
+
+      - name: Run Alembic migrations
+        run: poetry run alembic upgrade head
 
       - name: Run tests
         run: poetry run pytest
