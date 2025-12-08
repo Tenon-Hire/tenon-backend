@@ -1,0 +1,41 @@
+[tool.poetry]
+name = "simuhire-backend"
+version = "0.1.0"
+description = "SimuHire backend – simulation-based hiring platform"
+authors = ["SimuHire <founders@simuhire.com>"]
+packages = [{ include = "app" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+# Core web framework
+fastapi = "^0.109.0"
+uvicorn = { extras = ["standard"], version = "^0.27.0" }
+
+# Database
+sqlalchemy = "^2.0.25"
+asyncpg = "^0.29.0"
+psycopg2-binary = "^2.9.9"
+alembic = "^1.13.1"
+
+# Pydantic Settings (for loading env vars cleanly)
+pydantic-settings = "^2.1.0"
+
+# Security / Auth
+python-jose = "^3.3.0"
+passlib = "^1.7.4"
+bcrypt = "^4.1.2"
+
+# Utils
+python-dotenv = "^1.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.4"
+pytest-asyncio = "^0.23.2"
+httpx = "^0.26.0"
+black = "^24.1.1"
+ruff = "^0.2.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

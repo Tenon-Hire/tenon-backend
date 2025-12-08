@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo "🚀 SimuHire Backend — Local Runner"
+
+PROJECT_ROOT="$(dirname "$0")"
+cd "$PROJECT_ROOT" || exit 1
+
+# Colors
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+# Check for poetry
+if command -v poetry &> /dev/null
+then
+    echo -e "${GREEN}Using Poetry environment...${NC}"
+    RUN="poetry run"
+else
+    echo -e "${GREEN}Poetry not found. Falling back to system Python/pip...${NC}"
+    RUN=""
+fi
+
+# Handle arguments
+if [[ "$1" == "test" ]]; then
+    echo "🧪 Running tests..."
+    $RUN pytest -q
+    exit 0
+fi
+
+if [[ "$1" == "migrate" ]]; then
+    echo "📦 Running Alembic migrations..."
+    $RUN alembic upgrade head
+    exit 0
+fi
+
+echo "🔧 Starting FastAPI server..."
+
+$RUN uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
