@@ -10,7 +10,7 @@ jobs:
 
     env:
       PYTHONPATH: ${{ github.workspace }}
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/simuhire_test
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/simuhire_test
       DATABASE_URL_SYNC: postgresql://postgres:postgres@localhost:5432/simuhire_test
       DATABASE_URL_ASYNC: postgresql+asyncpg://postgres:postgres@localhost:5432/simuhire_test
       ENV: ci
