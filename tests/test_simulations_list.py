@@ -101,6 +101,7 @@ async def test_list_simulations_candidate_counts(authed_client, async_session):
     cs1 = CandidateSession(
         simulation_id=sim_id,
         candidate_user_id=None,
+        candidate_name="Candidate A",
         invite_email="a@example.com",
         token="tok_1",
         status="invited",
@@ -110,6 +111,7 @@ async def test_list_simulations_candidate_counts(authed_client, async_session):
     cs2 = CandidateSession(
         simulation_id=sim_id,
         candidate_user_id=None,
+        candidate_name="Candidate B",
         invite_email="b@example.com",
         token="tok_2",
         status="invited",

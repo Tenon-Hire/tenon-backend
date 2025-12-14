@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     AUTH0_CLIENT_ID: str | None = None
     AUTH0_CLIENT_SECRET: str | None = None
 
+    CANDIDATE_PORTAL_BASE_URL: str = ""
+
     @property
     def database_url_sync(self) -> str:
         """Sync DSN for Alembic / sync SQLAlchemy.

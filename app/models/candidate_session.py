@@ -5,13 +5,14 @@ from app.models.base import Base
 
 
 class CandidateSession(Base):
-    """Candidate's invitation and progress for a simulation."""
+    """Candidate session record for invited candidates."""
 
     __tablename__ = "candidate_sessions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     simulation_id: Mapped[int] = mapped_column(ForeignKey("simulations.id"))
     candidate_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    candidate_name: Mapped[str] = mapped_column(String(255))
     invite_email: Mapped[str] = mapped_column(String(255))
     token: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     status: Mapped[str] = mapped_column(String(50))

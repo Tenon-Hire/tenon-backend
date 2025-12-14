@@ -1,13 +1,20 @@
+import secrets
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.db import get_session
 from app.models.candidate_session import CandidateSession
 from app.models.simulation import Simulation
 from app.models.task import Task
+from app.schemas.candidate_session import (
+    CandidateInviteRequest,
+    CandidateInviteResponse,
+)
 from app.schemas.simulation import (
     SimulationCreate,
     SimulationCreateResponse,
@@ -121,3 +128,60 @@ async def create_simulation(
             for t in created_tasks
         ],
     )
+
+
+@router.post(
+    "/{simulation_id}/invite",
+    response_model=CandidateInviteResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_candidate_invite(
+    simulation_id: int,
+    payload: CandidateInviteRequest,
+    db: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[Any, Depends(get_current_user)],
+):
+    """Create a candidate_session invite token for a simulation (recruiter-only)."""
+    if getattr(user, "role", None) not in (None, "recruiter"):
+        raise HTTPException(status_code=403, detail="Recruiter access required")
+
+    # Must exist AND be owned by recruiter
+    stmt = select(Simulation).where(
+        Simulation.id == simulation_id,
+        Simulation.created_by == user.id,
+    )
+    sim = (await db.execute(stmt)).scalar_one_or_none()
+    if sim is None:
+        # 404 for both invalid id and "not owned" to avoid leaking ids
+        raise HTTPException(status_code=404, detail="Simulation not found")
+
+    # Create session with strong random token.
+    # Retry a few times on the ultra-rare chance of token collision.
+    for _ in range(3):
+        token = secrets.token_urlsafe(32)  # typically ~43 chars, url-safe
+        cs = CandidateSession(
+            simulation_id=simulation_id,
+            candidate_name=payload.candidateName,
+            invite_email=str(payload.inviteEmail).lower(),
+            token=token,
+            status="not_started",
+        )
+        db.add(cs)
+
+        try:
+            await db.commit()
+            await db.refresh(cs)
+
+            invite_url = (
+                f"{settings.CANDIDATE_PORTAL_BASE_URL.rstrip('/')}"
+                f"/candidate/session/{token}"
+            )
+            return CandidateInviteResponse(
+                candidateSessionId=cs.id,
+                token=token,
+                inviteUrl=invite_url,
+            )
+        except IntegrityError:
+            await db.rollback()
+
+    raise HTTPException(status_code=500, detail="Failed to generate invite token")
