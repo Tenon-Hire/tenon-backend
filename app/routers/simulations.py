@@ -1,4 +1,5 @@
 import secrets
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -25,6 +26,8 @@ from app.security.current_user import get_current_user
 from app.services.simulation_blueprint import DEFAULT_5_DAY_BLUEPRINT
 
 router = APIRouter()
+
+INVITE_TOKEN_TTL_DAYS = 14
 
 
 @router.get("", response_model=list[SimulationListItem], status_code=status.HTTP_200_OK)
@@ -95,7 +98,7 @@ async def create_simulation(
     )
 
     db.add(sim)
-    await db.flush()  # ensures sim.id is populated
+    await db.flush()
 
     created_tasks: list[Task] = []
     for t in DEFAULT_5_DAY_BLUEPRINT:
@@ -155,6 +158,8 @@ async def create_candidate_invite(
         # 404 for both invalid id and "not owned" to avoid leaking ids
         raise HTTPException(status_code=404, detail="Simulation not found")
 
+    now = datetime.now(UTC)
+    expires_at = now + timedelta(days=INVITE_TOKEN_TTL_DAYS)
     # Create session with strong random token.
     # Retry a few times on the ultra-rare chance of token collision.
     for _ in range(3):
@@ -165,6 +170,7 @@ async def create_candidate_invite(
             invite_email=str(payload.inviteEmail).lower(),
             token=token,
             status="not_started",
+            expires_at=expires_at,
         )
         db.add(cs)
 

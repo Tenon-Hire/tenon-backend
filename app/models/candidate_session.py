@@ -38,6 +38,10 @@ class CandidateSession(Base):
         DateTime(timezone=True), nullable=True
     )
 
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     simulation = relationship("Simulation", back_populates="candidate_sessions")
     candidate_user = relationship("User", back_populates="candidate_sessions")
     submissions = relationship(

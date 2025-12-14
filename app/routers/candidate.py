@@ -25,6 +25,7 @@ async def resolve_candidate_session(
 
     No auth: possession of the token is the access mechanism.
     On first access, transitions status from not_started -> in_progress and sets started_at.
+    If expired, returns 410 with a safe error message.
     """
     stmt = (
         select(CandidateSession)
@@ -38,6 +39,9 @@ async def resolve_candidate_session(
         raise HTTPException(status_code=404, detail="Invalid invite token")
 
     now = datetime.now(UTC)
+
+    if cs.expires_at is not None and cs.expires_at < now:
+        raise HTTPException(status_code=410, detail="Invite token expired")
 
     if cs.status == "not_started":
         cs.status = "in_progress"
