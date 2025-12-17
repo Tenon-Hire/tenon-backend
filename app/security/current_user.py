@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -22,8 +23,8 @@ def _env_name() -> str:
 
 async def get_current_user(
     request: Request,
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
-    db: AsyncSession = Depends(get_session),
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+    db: Annotated[AsyncSession, Depends(get_session)],
 ) -> User:
     """Return the current user, creating them on first login.
 
