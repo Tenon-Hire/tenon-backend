@@ -588,8 +588,9 @@ async def test_get_current_user_dev_bypass_with_env(async_session, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_get_current_user_dev_local_path(async_session):
+async def test_get_current_user_dev_local_path(async_session, monkeypatch):
     # ENV test triggers dev path
+    monkeypatch.setattr(current_user.settings, "ENV", "test")
     await create_recruiter(async_session, email="local@example.com")
     req = _request_with_headers(
         {"x-dev-user-email": "local@example.com"}, client=("127.0.0.1", 0)
