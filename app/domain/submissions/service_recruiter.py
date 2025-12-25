@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from typing import Any
+
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,11 +11,25 @@ from app.domain import CandidateSession, Simulation, Submission, Task
 
 
 def derive_test_status(
-    passed: int | None, failed: int | None, output: str | None
+    passed: int | None, failed: int | None, output: dict[str, Any] | str | None
 ) -> str | None:
     """Summarize test results into a status string."""
-    if passed is None and failed is None and (output is None or output.strip() == ""):
+    parsed: dict[str, Any] | None = output if isinstance(output, dict) else None
+    if (
+        passed is None
+        and failed is None
+        and (
+            parsed is None
+            and (not output or (isinstance(output, str) and not output.strip()))
+        )
+    ):
         return None
+    if parsed:
+        status_text = str(parsed.get("status") or "").lower()
+        if parsed.get("timeout") is True:
+            return "timeout"
+        if status_text in {"passed", "failed", "timeout", "error"}:
+            return status_text
     if failed is not None and failed > 0:
         return "failed"
     if passed is not None and (failed is None or failed == 0):
@@ -63,3 +80,16 @@ async def list_submissions(
 
     rows = (await db.execute(stmt)).all()
     return rows
+
+
+def parse_test_output(test_output: str | None) -> dict[str, Any] | str | None:
+    """Parse stored test_output into a dict when JSON, else return raw string."""
+    if not test_output:
+        return None
+    try:
+        parsed = json.loads(test_output)
+        if isinstance(parsed, dict):
+            return parsed
+    except ValueError:
+        return test_output
+    return test_output

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
+import json
+from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
@@ -10,9 +11,15 @@ from app.domain import CandidateSession, Submission, Task
 from app.domain.candidate_sessions import service as cs_service
 from app.domain.simulations import tasks_repository as tasks_repo
 from app.domain.submissions import repository as submissions_repo
+from app.services.sandbox_client import SandboxClient, SandboxRunResult
 
 TEXT_TASK_TYPES = {"design", "documentation", "handoff"}
 CODE_TASK_TYPES = {"code", "debug"}
+
+
+def is_code_task(task: Task) -> bool:
+    """Return True if the task requires code (code/debug)."""
+    return (task.type or "").lower() in CODE_TASK_TYPES
 
 
 async def load_task_or_404(db: AsyncSession, task_id: int) -> Task:
@@ -82,8 +89,7 @@ def validate_payload(task: Task, payload) -> None:
 
 def validate_run_payload(task: Task, payload) -> None:
     """Validate sandbox run payload for code/debug tasks."""
-    task_type = (task.type or "").lower()
-    if task_type not in CODE_TASK_TYPES:
+    if not is_code_task(task):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Run tests is only available for code tasks",
@@ -139,8 +145,20 @@ async def create_submission(
     payload,
     *,
     now: datetime,
+    sandbox_result: SandboxRunResult | None = None,
 ) -> Submission:
     """Persist a submission with conflict handling."""
+    tests_passed = None
+    tests_failed = None
+    test_output = None
+    last_run_at = None
+    if sandbox_result is not None:
+        serialized = serialize_sandbox_result(sandbox_result, now=now)
+        tests_passed = serialized["tests_passed"]
+        tests_failed = serialized["tests_failed"]
+        test_output = serialized["test_output"]
+        last_run_at = serialized["last_run_at"]
+
     sub = Submission(
         candidate_session_id=candidate_session.id,
         task_id=task.id,
@@ -148,6 +166,10 @@ async def create_submission(
         content_text=payload.contentText,
         code_blob=payload.codeBlob,
         code_repo_path=None,
+        tests_passed=tests_passed,
+        tests_failed=tests_failed,
+        test_output=test_output,
+        last_run_at=last_run_at,
     )
     db.add(sub)
     try:
@@ -182,3 +204,38 @@ async def progress_after_submission(
         await db.refresh(candidate_session)
 
     return completed, total, is_complete
+
+
+def serialize_sandbox_result(
+    result: SandboxRunResult, *, now: datetime | None = None
+) -> dict[str, object]:
+    """Convert sandbox result into fields stored on Submission."""
+    now = now or datetime.now(UTC)
+    payload = {
+        "status": result.status,
+        "passed": result.passed,
+        "failed": result.failed,
+        "total": result.total,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "timeout": result.timeout,
+    }
+    return {
+        "tests_passed": result.passed,
+        "tests_failed": result.failed,
+        "test_output": json.dumps(payload, ensure_ascii=False),
+        "last_run_at": now,
+    }
+
+
+async def run_sandbox_tests(
+    db: AsyncSession,
+    task: Task,
+    payload,
+    sandbox_client: SandboxClient,
+) -> SandboxRunResult:
+    """Execute sandbox tests for a task using common taskRef mapping."""
+    task_ref = await build_task_ref(db, task)
+    return await sandbox_client.run_tests(
+        task_ref=task_ref, code=payload.codeBlob, files=payload.files
+    )

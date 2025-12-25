@@ -123,6 +123,7 @@ async def create_submission(
     tests_failed: int | None = None,
     test_output: str | None = None,
     code_repo_path: str | None = None,
+    last_run_at: datetime | None = None,
 ) -> Submission:
     submission = Submission(
         candidate_session_id=candidate_session.id,
@@ -134,6 +135,7 @@ async def create_submission(
         tests_passed=tests_passed,
         tests_failed=tests_failed,
         test_output=test_output,
+        last_run_at=last_run_at,
     )
     session.add(submission)
     await session.flush()

@@ -84,7 +84,8 @@ class RecruiterTestResultsOut(APIModel):
     passed: int | None = None
     failed: int | None = None
     total: int | None = None
-    output: str | None = None
+    output: dict[str, object] | str | None = None
+    lastRunAt: datetime | None = None
 
 
 class RecruiterSubmissionDetailOut(APIModel):

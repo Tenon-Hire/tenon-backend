@@ -28,9 +28,12 @@ class Submission(Base):
     code_repo_path: Mapped[str | None] = mapped_column(String(500))
     code_blob: Mapped[str | None] = mapped_column(Text)
 
-    tests_passed: Mapped[int | None] = mapped_column(Integer)
-    tests_failed: Mapped[int | None] = mapped_column(Integer)
-    test_output: Mapped[str | None] = mapped_column(Text)
+    tests_passed: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    tests_failed: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    test_output: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     candidate_session = relationship("CandidateSession", back_populates="submissions")
     task = relationship("Task", back_populates="submissions")
