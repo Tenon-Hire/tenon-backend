@@ -4,7 +4,6 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import declarative_base
 
 from app.config import settings
 
@@ -23,8 +22,6 @@ async_session_maker = async_sessionmaker(
 )
 
 AsyncSessionLocal = async_session_maker
-
-Base = declarative_base()
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
