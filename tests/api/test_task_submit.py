@@ -118,9 +118,10 @@ async def test_submit_day1_text_creates_submission_and_advances(
 
 @pytest.mark.asyncio
 async def test_submit_day2_code_stores_code_blob(
-    async_client, async_session: AsyncSession, monkeypatch
+    async_client, async_session: AsyncSession, monkeypatch, sandbox_stubber
 ):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
+    sandbox_stubber()
 
     recruiter_email = "recruiterA@simuhire.com"
     await seed_recruiter(
@@ -342,9 +343,10 @@ async def test_code_submission_requires_code_or_files(
 
 @pytest.mark.asyncio
 async def test_submitting_all_tasks_marks_session_complete(
-    async_client, async_session: AsyncSession, monkeypatch
+    async_client, async_session: AsyncSession, monkeypatch, sandbox_stubber
 ):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
+    sandbox_stubber()
 
     recruiter_email = "recruiterA@simuhire.com"
     await seed_recruiter(

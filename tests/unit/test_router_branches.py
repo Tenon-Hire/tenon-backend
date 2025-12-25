@@ -10,6 +10,7 @@ from app.api.routes.recruiter import simulations, submissions
 from app.core.security import auth0, current_user
 from app.domain.candidate_sessions.schemas import CandidateInviteRequest
 from app.domain.submissions.schemas import SubmissionCreateRequest
+from app.services.sandbox_client import SandboxRunResult
 from tests.factories import (
     create_candidate_session,
     create_recruiter,
@@ -24,6 +25,23 @@ def _request_with_headers(
     raw_headers = [(k.encode(), v.encode()) for k, v in headers.items()]
     scope = {"type": "http", "headers": raw_headers, "client": client}
     return Request(scope)
+
+
+class StubSandboxClient:
+    def __init__(self, result: SandboxRunResult | None = None):
+        self._result = result or SandboxRunResult(
+            status="passed",
+            passed=0,
+            failed=0,
+            total=0,
+            stdout="",
+            stderr="",
+            duration_ms=None,
+            raw=None,
+        )
+
+    async def run_tests(self, **_kwargs):
+        return self._result
 
 
 @pytest.mark.asyncio
@@ -159,6 +177,7 @@ async def test_tasks_submit_unknown_type_direct(async_session):
             x_candidate_token=cs.token,
             x_candidate_session_id=cs.id,
             db=async_session,
+            sandbox_client=StubSandboxClient(),
         )
     assert exc.value.status_code == 500
 
@@ -178,6 +197,7 @@ async def test_tasks_submit_success_direct(async_session):
         x_candidate_token=cs.token,
         x_candidate_session_id=cs.id,
         db=async_session,
+        sandbox_client=StubSandboxClient(),
     )
     assert resp.progress.completed == 1
     assert resp.isComplete is False
@@ -194,6 +214,7 @@ async def test_tasks_submit_success_direct(async_session):
             x_candidate_token=cs.token,
             x_candidate_session_id=cs.id,
             db=async_session,
+            sandbox_client=StubSandboxClient(),
         )
 
     refreshed = await candidate.get_current_task(
@@ -218,6 +239,7 @@ async def test_tasks_submit_task_not_found_direct(async_session):
             x_candidate_token=cs.token,
             x_candidate_session_id=cs.id,
             db=async_session,
+            sandbox_client=StubSandboxClient(),
         )
     assert exc.value.status_code == 404
 

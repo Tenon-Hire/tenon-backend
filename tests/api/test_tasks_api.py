@@ -1,13 +1,26 @@
+import json
+
 import pytest
 from sqlalchemy import delete, select
 
-from app.domain import Task
+from app.api.routes.candidate import submissions as candidate_submissions
+from app.domain import Submission, Task
+from app.main import app
+from app.services.sandbox_client import SandboxError, SandboxRunResult
 from tests.factories import (
     create_candidate_session,
     create_recruiter,
     create_simulation,
     create_submission,
 )
+
+
+class StubSandboxClient:
+    def __init__(self, result: SandboxRunResult):
+        self._result = result
+
+    async def run_tests(self, **_kwargs):
+        return self._result
 
 
 @pytest.mark.asyncio
@@ -170,3 +183,115 @@ async def test_submit_unknown_task_type_errors(async_client, async_session):
         json={"contentText": "unknown"},
     )
     assert res.status_code == 500
+
+
+@pytest.mark.asyncio
+async def test_submit_code_task_persists_sandbox_results(
+    async_client, async_session, candidate_header_factory
+):
+    recruiter = await create_recruiter(async_session, email="code-submit@sim.com")
+    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    cs = await create_candidate_session(
+        async_session, simulation=sim, status="in_progress"
+    )
+    # Seed day 1 submission to unlock day 2 code task
+    await create_submission(
+        async_session, candidate_session=cs, task=tasks[0], content_text="day1"
+    )
+    await async_session.commit()
+
+    fake_result = SandboxRunResult(
+        status="failed",
+        passed=1,
+        failed=2,
+        total=3,
+        stdout="prints",
+        stderr="boom",
+        duration_ms=None,
+        raw=None,
+    )
+    app.dependency_overrides[candidate_submissions.get_sandbox_client] = (
+        lambda: StubSandboxClient(fake_result)
+    )
+
+    headers = candidate_header_factory(cs.id, cs.token)
+    resp = await async_client.post(
+        f"/api/tasks/{tasks[1].id}/submit",
+        headers=headers,
+        json={"codeBlob": "print('hi')"},
+    )
+
+    app.dependency_overrides.pop(candidate_submissions.get_sandbox_client, None)
+
+    assert resp.status_code == 201, resp.text
+    sub = await async_session.get(Submission, resp.json()["submissionId"])
+    assert sub.tests_passed == 1
+    assert sub.tests_failed == 2
+    assert sub.last_run_at is not None
+    assert sub.test_output
+    payload = json.loads(sub.test_output)
+    assert payload["status"] == "failed"
+    assert payload["passed"] == 1
+    assert payload["failed"] == 2
+    assert payload["total"] == 3
+    assert payload["stdout"] == "prints"
+    assert payload["stderr"] == "boom"
+    assert payload["timeout"] is False
+
+
+@pytest.mark.asyncio
+async def test_submit_text_task_leaves_test_fields_null(
+    async_client, async_session, candidate_header_factory
+):
+    recruiter = await create_recruiter(async_session, email="text-submit@sim.com")
+    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    cs = await create_candidate_session(
+        async_session, simulation=sim, status="in_progress"
+    )
+
+    headers = candidate_header_factory(cs.id, cs.token)
+    resp = await async_client.post(
+        f"/api/tasks/{tasks[0].id}/submit",
+        headers=headers,
+        json={"contentText": "design answer"},
+    )
+
+    assert resp.status_code == 201, resp.text
+    sub = await async_session.get(Submission, resp.json()["submissionId"])
+    assert sub.tests_passed is None
+    assert sub.tests_failed is None
+    assert sub.test_output is None
+    assert sub.last_run_at is None
+
+
+@pytest.mark.asyncio
+async def test_submit_code_task_sandbox_error_returns_502_no_submission(
+    async_client, async_session, candidate_header_factory, sandbox_stubber
+):
+    recruiter = await create_recruiter(async_session, email="sandbox-err@sim.com")
+    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    cs = await create_candidate_session(
+        async_session, simulation=sim, status="in_progress"
+    )
+    # seed day 1 to reach day 2 code task
+    await create_submission(
+        async_session, candidate_session=cs, task=tasks[0], content_text="day1"
+    )
+    await async_session.commit()
+
+    sandbox_stubber(error=SandboxError("boom"))
+
+    headers = candidate_header_factory(cs.id, cs.token)
+    resp = await async_client.post(
+        f"/api/tasks/{tasks[1].id}/submit",
+        headers=headers,
+        json={"codeBlob": "print('hi')"},
+    )
+
+    assert resp.status_code == 502
+    result = await async_session.execute(
+        select(Submission).where(
+            Submission.candidate_session_id == cs.id, Submission.task_id == tasks[1].id
+        )
+    )
+    assert result.scalar_one_or_none() is None

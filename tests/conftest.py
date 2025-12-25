@@ -9,10 +9,12 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.api.routes.candidate import submissions as candidate_submissions
 from app.core.db import get_session
 from app.core.security.current_user import get_current_user
 from app.domain import Base, User
 from app.main import app
+from app.services.sandbox_client import SandboxRunResult
 
 
 @pytest.fixture(scope="session")
@@ -86,6 +88,40 @@ async def async_client(db_session: AsyncSession):
 
     app.dependency_overrides.pop(get_session, None)
     app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.fixture
+def sandbox_stubber():
+    """Fixture-scoped helper to override sandbox client dependency."""
+
+    def _apply(result: SandboxRunResult | None = None, error: Exception | None = None):
+        class StubClient:
+            def __init__(self, res: SandboxRunResult | None, err: Exception | None):
+                self._result = res or SandboxRunResult(
+                    status="passed",
+                    passed=0,
+                    failed=0,
+                    total=0,
+                    stdout="",
+                    stderr="",
+                    duration_ms=None,
+                    raw=None,
+                )
+                self._error = err
+
+            async def run_tests(self, **_kwargs):
+                if self._error:
+                    raise self._error
+                return self._result
+
+        client = StubClient(result, error)
+        app.dependency_overrides[candidate_submissions.get_sandbox_client] = (
+            lambda: client
+        )
+        return client
+
+    yield _apply
+    app.dependency_overrides.pop(candidate_submissions.get_sandbox_client, None)
 
 
 @pytest.fixture

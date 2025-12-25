@@ -22,9 +22,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["submissions"])
 
 
-def _derive_test_status(
-    passed: int | None, failed: int | None, output: str | None
-) -> str | None:
+def _derive_test_status(passed: int | None, failed: int | None, output) -> str | None:
     return recruiter_sub_service.derive_test_status(passed, failed, output)
 
 
@@ -44,12 +42,18 @@ async def get_submission_detail(
         db, submission_id, user.id
     )
 
-    status_str = _derive_test_status(
-        sub.tests_passed, sub.tests_failed, sub.test_output
-    )
+    parsed_output = recruiter_sub_service.parse_test_output(sub.test_output)
+    passed_val = sub.tests_passed
+    failed_val = sub.tests_failed
+    if isinstance(parsed_output, dict):
+        if passed_val is None:
+            passed_val = int(parsed_output.get("passed") or 0)
+        if failed_val is None:
+            failed_val = int(parsed_output.get("failed") or 0)
+    status_str = _derive_test_status(passed_val, failed_val, parsed_output)
     total = None
-    if sub.tests_passed is not None or sub.tests_failed is not None:
-        total = (sub.tests_passed or 0) + (sub.tests_failed or 0)
+    if passed_val is not None or failed_val is not None:
+        total = (passed_val or 0) + (failed_val or 0)
 
     logger.info(
         "recruiter_fetch_submission",
@@ -81,16 +85,17 @@ async def get_submission_detail(
         testResults=(
             {
                 "status": status_str,
-                "passed": sub.tests_passed,
-                "failed": sub.tests_failed,
+                "passed": passed_val,
+                "failed": failed_val,
                 "total": total,
-                "output": sub.test_output,
+                "output": parsed_output,
+                "lastRunAt": sub.last_run_at,
             }
             if (
                 status_str is not None
                 or sub.tests_passed is not None
                 or sub.tests_failed is not None
-                or sub.test_output is not None
+                or parsed_output is not None
             )
             else None
         ),

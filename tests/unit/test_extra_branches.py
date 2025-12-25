@@ -9,12 +9,30 @@ from app.api.routes.recruiter import simulations, submissions
 from app.core.security import current_user
 from app.domain import Task
 from app.domain.simulations.schemas import SimulationCreate
+from app.services.sandbox_client import SandboxRunResult
 from tests.factories import (
     create_candidate_session,
     create_recruiter,
     create_simulation,
     create_submission,
 )
+
+
+class StubSandboxClient:
+    def __init__(self, result: SandboxRunResult | None = None):
+        self._result = result or SandboxRunResult(
+            status="passed",
+            passed=0,
+            failed=0,
+            total=0,
+            stdout="",
+            stderr="",
+            duration_ms=None,
+            raw=None,
+        )
+
+    async def run_tests(self, **_kwargs):
+        return self._result
 
 
 @pytest.mark.asyncio
@@ -187,6 +205,7 @@ async def test_tasks_submit_wrong_simulation(async_session):
             x_candidate_token=cs.token,
             x_candidate_session_id=cs.id,
             db=async_session,
+            sandbox_client=StubSandboxClient(),
         )
     assert exc.value.status_code == 404
 
@@ -228,6 +247,7 @@ async def test_tasks_submit_duplicate_and_outcomes(async_session, monkeypatch):
             x_candidate_token=cs.token,
             x_candidate_session_id=cs.id,
             db=async_session,
+            sandbox_client=StubSandboxClient(),
         )
     assert exc.value.status_code == 409
 
@@ -243,6 +263,7 @@ async def test_tasks_submit_duplicate_and_outcomes(async_session, monkeypatch):
             x_candidate_token=cs.token,
             x_candidate_session_id=cs.id,
             db=async_session,
+            sandbox_client=StubSandboxClient(),
         )
     assert exc.value.status_code == 409
 
@@ -267,6 +288,7 @@ async def test_tasks_submit_out_of_order_and_validation(async_session, monkeypat
             x_candidate_token=cs.token,
             x_candidate_session_id=cs.id,
             db=async_session,
+            sandbox_client=StubSandboxClient(),
         )
     assert exc.value.status_code == 400
 
@@ -284,6 +306,7 @@ async def test_tasks_submit_out_of_order_and_validation(async_session, monkeypat
             x_candidate_token=cs.token,
             x_candidate_session_id=cs.id,
             db=async_session,
+            sandbox_client=StubSandboxClient(),
         )
     assert exc.value.status_code == 400
 
@@ -297,6 +320,7 @@ async def test_tasks_submit_out_of_order_and_validation(async_session, monkeypat
             x_candidate_token=cs.token,
             x_candidate_session_id=cs.id,
             db=async_session,
+            sandbox_client=StubSandboxClient(),
         )
     assert exc.value.status_code == 400
 
@@ -311,6 +335,7 @@ async def test_tasks_submit_out_of_order_and_validation(async_session, monkeypat
             x_candidate_token=cs.token,
             x_candidate_session_id=cs.id,
             db=async_session,
+            sandbox_client=StubSandboxClient(),
         )
     assert exc.value.status_code == 409
 
@@ -341,6 +366,7 @@ async def test_tasks_submit_integrity_error(monkeypatch, async_session):
             x_candidate_token=cs.token,
             x_candidate_session_id=cs.id,
             db=async_session,
+            sandbox_client=StubSandboxClient(),
         )
     assert exc.value.status_code == 409
 

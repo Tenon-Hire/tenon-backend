@@ -61,6 +61,7 @@ async def submit_task(
     x_candidate_token: Annotated[str, Header(..., alias="x-candidate-token")],
     x_candidate_session_id: Annotated[int, Header(..., alias="x-candidate-session-id")],
     db: Annotated[AsyncSession, Depends(get_session)],
+    sandbox_client: Annotated[SandboxClient, Depends(get_sandbox_client)],
 ) -> SubmissionCreateResponse:
     """Submit a task for a candidate session. Enforces ordering and idempotency."""
     cs = await _load_candidate_session_or_404(
@@ -76,7 +77,43 @@ async def submit_task(
     submission_service.validate_payload(task, payload)
 
     now = datetime.now(UTC)
-    sub = await submission_service.create_submission(db, cs, task, payload, now=now)
+    sandbox_result = None
+    if submission_service.is_code_task(task):
+        try:
+            sandbox_result = await submission_service.run_sandbox_tests(
+                db, task, payload, sandbox_client
+            )
+        except SandboxError as exc:
+            logger.error(
+                "sandbox_submit_failed",
+                extra={
+                    "task_id": task.id,
+                    "candidate_session_id": cs.id,
+                    "simulation_id": task.simulation_id,
+                    "error": str(exc),
+                },
+            )
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Sandbox unavailable. Please try again.",
+            ) from exc
+        except Exception as exc:  # pragma: no cover - safety net
+            logger.exception(
+                "sandbox_submit_unhandled",
+                extra={
+                    "task_id": task.id,
+                    "candidate_session_id": cs.id,
+                    "simulation_id": task.simulation_id,
+                },
+            )
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Sandbox unavailable. Please try again.",
+            ) from exc
+
+    sub = await submission_service.create_submission(
+        db, cs, task, payload, now=now, sandbox_result=sandbox_result
+    )
 
     completed, total, is_complete = await submission_service.progress_after_submission(
         db, cs, now=now
@@ -125,11 +162,8 @@ async def run_task_tests(
     submission_service.validate_run_payload(task, payload)
 
     try:
-        task_ref = await submission_service.build_task_ref(db, task)
-        result = await sandbox_client.run_tests(
-            task_ref=task_ref,
-            code=payload.codeBlob,
-            files=payload.files,
+        result = await submission_service.run_sandbox_tests(
+            db, task, payload, sandbox_client
         )
     except SandboxError as exc:
         logger.error(
