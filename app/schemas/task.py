@@ -1,7 +1,7 @@
-from pydantic import BaseModel
+from app.schemas.base import APIModel
 
 
-class TaskPublic(BaseModel):
+class TaskPublic(APIModel):
     """Public-facing task schema for candidates. Keeps only what the candidate needs to see."""
 
     id: int

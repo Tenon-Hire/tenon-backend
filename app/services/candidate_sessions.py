@@ -3,11 +3,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
-from sqlalchemy import distinct, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.models import CandidateSession, Submission, Task
+from app.models import CandidateSession, Task
+from app.repositories import candidate_sessions as cs_repo
 from app.utils.progress import compute_current_task, summarize_progress
 
 
@@ -15,13 +14,7 @@ async def fetch_by_token(
     db: AsyncSession, token: str, *, now: datetime | None = None
 ) -> CandidateSession:
     """Load a candidate session by invite token or raise 404/410."""
-    stmt = (
-        select(CandidateSession)
-        .where(CandidateSession.token == token)
-        .options(selectinload(CandidateSession.simulation))
-    )
-    res = await db.execute(stmt)
-    cs = res.scalar_one_or_none()
+    cs = await cs_repo.get_by_token(db, token, with_simulation=True)
     if cs is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite token"
@@ -35,9 +28,7 @@ async def fetch_by_id_and_token(
     db: AsyncSession, session_id: int, token: str, *, now: datetime | None = None
 ) -> CandidateSession:
     """Load a candidate session by id + token or raise 404/410."""
-    stmt = select(CandidateSession).where(CandidateSession.id == session_id)
-    res = await db.execute(stmt)
-    cs = res.scalar_one_or_none()
+    cs = await cs_repo.get_by_id(db, session_id)
 
     if cs is None or cs.token != token:
         raise HTTPException(
@@ -50,13 +41,7 @@ async def fetch_by_id_and_token(
 
 async def load_tasks(db: AsyncSession, simulation_id: int) -> list[Task]:
     """Fetch ordered tasks for a simulation or raise if missing."""
-    tasks_stmt = (
-        select(Task)
-        .where(Task.simulation_id == simulation_id)
-        .order_by(Task.day_index.asc())
-    )
-    tasks_res = await db.execute(tasks_stmt)
-    tasks = list(tasks_res.scalars().all())
+    tasks = await cs_repo.tasks_for_simulation(db, simulation_id)
 
     if not tasks:
         raise HTTPException(
@@ -68,11 +53,7 @@ async def load_tasks(db: AsyncSession, simulation_id: int) -> list[Task]:
 
 async def completed_task_ids(db: AsyncSession, candidate_session_id: int) -> set[int]:
     """Return ids of tasks already submitted for this session."""
-    completed_stmt = select(distinct(Submission.task_id)).where(
-        Submission.candidate_session_id == candidate_session_id
-    )
-    completed_res = await db.execute(completed_stmt)
-    return set(completed_res.scalars().all())
+    return await cs_repo.completed_task_ids(db, candidate_session_id)
 
 
 async def progress_snapshot(

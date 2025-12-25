@@ -6,17 +6,13 @@ from alembic import context
 from app.config import settings
 from app.models.base import Base
 
-# Alembic Config object
 config = context.config
 
-# Inject database URL dynamically
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL_SYNC)
 
-# Logging configuration
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Target metadata for autogenerate
 target_metadata = Base.metadata
 
 

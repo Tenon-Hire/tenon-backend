@@ -5,12 +5,13 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models import CandidateSession, ExecutionProfile, Simulation, Task
+from app.repositories import simulations as sim_repo
 from app.schemas.candidate_session import CandidateInviteRequest
 from app.services.simulation_blueprint import DEFAULT_5_DAY_BLUEPRINT
 
@@ -21,11 +22,7 @@ async def require_owned_simulation(
     db: AsyncSession, simulation_id: int, user_id: int
 ) -> Simulation:
     """Return simulation if recruiter owns it; otherwise raise 404."""
-    stmt = select(Simulation).where(
-        Simulation.id == simulation_id,
-        Simulation.created_by == user_id,
-    )
-    sim = (await db.execute(stmt)).scalar_one_or_none()
+    sim = await sim_repo.get_owned(db, simulation_id, user_id)
     if sim is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Simulation not found"
@@ -35,27 +32,7 @@ async def require_owned_simulation(
 
 async def list_simulations(db: AsyncSession, user_id: int):
     """List simulations with candidate counts for a recruiter."""
-    counts_subq = (
-        select(
-            CandidateSession.simulation_id.label("simulation_id"),
-            func.count(CandidateSession.id).label("num_candidates"),
-        )
-        .group_by(CandidateSession.simulation_id)
-        .subquery()
-    )
-
-    stmt = (
-        select(
-            Simulation,
-            func.coalesce(counts_subq.c.num_candidates, 0).label("num_candidates"),
-        )
-        .outerjoin(counts_subq, counts_subq.c.simulation_id == Simulation.id)
-        .where(Simulation.created_by == user_id)
-        .order_by(Simulation.created_at.desc())
-    )
-
-    result = await db.execute(stmt)
-    return result.all()
+    return await sim_repo.list_with_candidate_counts(db, user_id)
 
 
 async def create_simulation_with_tasks(

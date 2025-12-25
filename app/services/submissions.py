@@ -3,11 +3,12 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import CandidateSession, Submission, Task
+from app.repositories import submissions as submissions_repo
+from app.repositories import tasks as tasks_repo
 from app.services import candidate_sessions as cs_service
 
 TEXT_TASK_TYPES = {"design", "documentation", "handoff"}
@@ -16,8 +17,7 @@ CODE_TASK_TYPES = {"code", "debug"}
 
 async def load_task_or_404(db: AsyncSession, task_id: int) -> Task:
     """Fetch a task by id or raise 404."""
-    task_res = await db.execute(select(Task).where(Task.id == task_id))
-    task = task_res.scalar_one_or_none()
+    task = await tasks_repo.get_by_id(db, task_id)
     if task is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Task not found"
@@ -37,12 +37,7 @@ async def ensure_not_duplicate(
     db: AsyncSession, candidate_session_id: int, task_id: int
 ) -> None:
     """Guard against duplicate submissions for a task."""
-    dup_stmt = select(Submission.id).where(
-        Submission.candidate_session_id == candidate_session_id,
-        Submission.task_id == task_id,
-    )
-    dup_res = await db.execute(dup_stmt)
-    if dup_res.scalar_one_or_none() is not None:
+    if await submissions_repo.find_duplicate(db, candidate_session_id, task_id):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Task already submitted"
         )

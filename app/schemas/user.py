@@ -1,7 +1,9 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import ConfigDict
+
+from app.schemas.base import APIModel
 
 
-class UserRead(BaseModel):
+class UserRead(APIModel):
     """Serialized user returned by the API."""
 
     model_config = ConfigDict(from_attributes=True)

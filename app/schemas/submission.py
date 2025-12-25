@@ -4,6 +4,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.schemas.base import APIModel
+
 
 class SubmissionCreateRequest(BaseModel):
     """Schema for creating a submission."""
@@ -13,14 +15,14 @@ class SubmissionCreateRequest(BaseModel):
     files: dict[str, str] | None = Field(default=None)
 
 
-class ProgressSummary(BaseModel):
+class ProgressSummary(APIModel):
     """Schema for summarizing progress."""
 
     completed: int
     total: int
 
 
-class SubmissionCreateResponse(BaseModel):
+class SubmissionCreateResponse(APIModel):
     """Schema for submission creation response."""
 
     submissionId: int
@@ -31,7 +33,7 @@ class SubmissionCreateResponse(BaseModel):
     isComplete: bool
 
 
-class RecruiterTaskMetaOut(BaseModel):
+class RecruiterTaskMetaOut(APIModel):
     """Schema for recruiter task metadata output."""
 
     taskId: int
@@ -41,14 +43,14 @@ class RecruiterTaskMetaOut(BaseModel):
     prompt: str | None = None
 
 
-class RecruiterCodeArtifactOut(BaseModel):
+class RecruiterCodeArtifactOut(APIModel):
     """Schema for recruiter code artifact output."""
 
     blob: str | None = None
     repoPath: str | None = None
 
 
-class RecruiterTestResultsOut(BaseModel):
+class RecruiterTestResultsOut(APIModel):
     """Schema for recruiter test results output."""
 
     status: str | None = None
@@ -58,7 +60,7 @@ class RecruiterTestResultsOut(BaseModel):
     output: str | None = None
 
 
-class RecruiterSubmissionDetailOut(BaseModel):
+class RecruiterSubmissionDetailOut(APIModel):
     """Schema for recruiter submission details output."""
 
     submissionId: int
@@ -70,7 +72,7 @@ class RecruiterSubmissionDetailOut(BaseModel):
     submittedAt: datetime
 
 
-class RecruiterSubmissionListItemOut(BaseModel):
+class RecruiterSubmissionListItemOut(APIModel):
     """Schema for recruiter submission list item output."""
 
     submissionId: int
@@ -81,7 +83,7 @@ class RecruiterSubmissionListItemOut(BaseModel):
     submittedAt: datetime
 
 
-class RecruiterSubmissionListOut(BaseModel):
+class RecruiterSubmissionListOut(APIModel):
     """Schema for recruiter submission list output."""
 
     items: list[RecruiterSubmissionListItemOut]

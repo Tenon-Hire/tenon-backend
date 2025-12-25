@@ -17,7 +17,7 @@ from app.schemas.simulation import (
     TaskOut,
 )
 from app.security.current_user import get_current_user
-from app.security.roles import ensure_recruiter
+from app.security.roles import ensure_recruiter_or_none
 from app.services import simulations as sim_service
 
 router = APIRouter()
@@ -31,7 +31,7 @@ async def list_simulations(
     user: Annotated[Any, Depends(get_current_user)],
 ):
     """List simulations for recruiter dashboard (scoped to current user)."""
-    ensure_recruiter(user, allow_none=True)
+    ensure_recruiter_or_none(user)
     rows = await sim_service.list_simulations(db, user.id)
 
     return [
@@ -56,7 +56,7 @@ async def create_simulation(
     user: Annotated[Any, Depends(get_current_user)],
 ):
     """Create a simulation and seed default tasks."""
-    ensure_recruiter(user, allow_none=True)
+    ensure_recruiter_or_none(user)
 
     sim, created_tasks = await sim_service.create_simulation_with_tasks(
         db, payload, user
@@ -88,7 +88,7 @@ async def create_candidate_invite(
     user: Annotated[Any, Depends(get_current_user)],
 ):
     """Create a candidate_session invite token for a simulation (recruiter-only)."""
-    ensure_recruiter(user, allow_none=True)
+    ensure_recruiter_or_none(user)
 
     await sim_service.require_owned_simulation(db, simulation_id, user.id)
     cs = await sim_service.create_invite(
@@ -112,7 +112,7 @@ async def list_simulation_candidates(
     user: Annotated[Any, Depends(get_current_user)],
 ):
     """List candidate sessions for a simulation (recruiter-only)."""
-    ensure_recruiter(user, allow_none=True)
+    ensure_recruiter_or_none(user)
 
     await sim_service.require_owned_simulation(db, simulation_id, user.id)
     rows = await sim_service.list_candidates_with_profile(db, simulation_id)

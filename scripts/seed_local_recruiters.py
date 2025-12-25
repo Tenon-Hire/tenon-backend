@@ -2,13 +2,17 @@ import asyncio
 
 from sqlalchemy import select
 
-from app.db import async_session_maker
+from app.db import async_session_maker, engine
+from app.models import Base
 from app.models.company import Company
 from app.models.user import User
 
 
 async def main():
-    """Seed local recruiters into the database."""
+    """Seed default recruiters for local development."""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
     async with async_session_maker() as s:
         # Ensure company exists
         c = await s.scalar(select(Company).where(Company.name == "LocalCo"))

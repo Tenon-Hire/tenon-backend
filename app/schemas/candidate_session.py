@@ -1,21 +1,20 @@
 from datetime import datetime
-from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import EmailStr, Field
 
+from app.schemas.base import APIModel
 from app.schemas.task import TaskPublic
+from app.schemas.types import CandidateSessionStatus
 
-CandidateSessionStatus = Literal["not_started", "in_progress", "completed", "expired"]
 
-
-class CandidateInviteRequest(BaseModel):
+class CandidateInviteRequest(APIModel):
     """Schema for inviting a candidate to a simulation."""
 
     candidateName: str = Field(..., min_length=1, max_length=255)
     inviteEmail: EmailStr
 
 
-class CandidateInviteResponse(BaseModel):
+class CandidateInviteResponse(APIModel):
     """Schema for the response after inviting a candidate."""
 
     candidateSessionId: int
@@ -23,7 +22,7 @@ class CandidateInviteResponse(BaseModel):
     inviteUrl: str
 
 
-class CandidateSimulationSummary(BaseModel):
+class CandidateSimulationSummary(APIModel):
     """Summary of the simulation for candidate session response."""
 
     id: int
@@ -31,29 +30,29 @@ class CandidateSimulationSummary(BaseModel):
     role: str
 
 
-class CandidateSessionResolveResponse(BaseModel):
+class CandidateSessionResolveResponse(APIModel):
     """Schema for resolving a candidate session."""
 
     candidateSessionId: int
-    status: str
+    status: CandidateSessionStatus
     startedAt: datetime | None
     completedAt: datetime | None
     candidateName: str
     simulation: CandidateSimulationSummary
 
 
-class ProgressSummary(BaseModel):
+class ProgressSummary(APIModel):
     """Summary of progress for the candidate session."""
 
     completed: int
     total: int
 
 
-class CurrentTaskResponse(BaseModel):
+class CurrentTaskResponse(APIModel):
     """Schema for the current task assigned to the candidate."""
 
     candidateSessionId: int
-    status: str
+    status: CandidateSessionStatus
     currentDayIndex: int | None
     currentTask: TaskPublic | None
     completedTaskIds: list[int]
@@ -61,7 +60,7 @@ class CurrentTaskResponse(BaseModel):
     isComplete: bool
 
 
-class CandidateSessionListItem(BaseModel):
+class CandidateSessionListItem(APIModel):
     """Schema for listing candidate sessions."""
 
     candidateSessionId: int
