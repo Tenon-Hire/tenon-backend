@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-TaskType = Literal["design", "code", "debug", "handoff", "documentation"]
+from app.schemas.types import TaskType
 
 
 class SimulationCreate(BaseModel):

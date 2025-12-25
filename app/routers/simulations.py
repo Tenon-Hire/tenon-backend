@@ -1,18 +1,10 @@
-import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.db import get_session
-from app.models.candidate_session import CandidateSession
-from app.models.execution_profile import ExecutionProfile
-from app.models.simulation import Simulation
-from app.models.task import Task
 from app.schemas.candidate_session import (
     CandidateInviteRequest,
     CandidateInviteResponse,
@@ -25,7 +17,8 @@ from app.schemas.simulation import (
     TaskOut,
 )
 from app.security.current_user import get_current_user
-from app.services.simulation_blueprint import DEFAULT_5_DAY_BLUEPRINT
+from app.security.roles import ensure_recruiter_or_none
+from app.services import simulations as sim_service
 
 router = APIRouter()
 
@@ -38,30 +31,8 @@ async def list_simulations(
     user: Annotated[Any, Depends(get_current_user)],
 ):
     """List simulations for recruiter dashboard (scoped to current user)."""
-    if getattr(user, "role", None) not in (None, "recruiter"):
-        raise HTTPException(status_code=403, detail="Recruiter access required")
-
-    counts_subq = (
-        select(
-            CandidateSession.simulation_id.label("simulation_id"),
-            func.count(CandidateSession.id).label("num_candidates"),
-        )
-        .group_by(CandidateSession.simulation_id)
-        .subquery()
-    )
-
-    stmt = (
-        select(
-            Simulation,
-            func.coalesce(counts_subq.c.num_candidates, 0).label("num_candidates"),
-        )
-        .outerjoin(counts_subq, counts_subq.c.simulation_id == Simulation.id)
-        .where(Simulation.created_by == user.id)
-        .order_by(Simulation.created_at.desc())
-    )
-
-    result = await db.execute(stmt)
-    rows = result.all()
+    ensure_recruiter_or_none(user)
+    rows = await sim_service.list_simulations(db, user.id)
 
     return [
         SimulationListItem(
@@ -85,42 +56,11 @@ async def create_simulation(
     user: Annotated[Any, Depends(get_current_user)],
 ):
     """Create a simulation and seed default tasks."""
-    if getattr(user, "role", None) not in (None, "recruiter"):
-        raise HTTPException(status_code=403, detail="Recruiter access required")
+    ensure_recruiter_or_none(user)
 
-    sim = Simulation(
-        title=payload.title,
-        role=payload.role,
-        tech_stack=payload.techStack,
-        seniority=payload.seniority,
-        focus=payload.focus,
-        scenario_template="default-5day-node-postgres",
-        company_id=user.company_id,
-        created_by=user.id,
+    sim, created_tasks = await sim_service.create_simulation_with_tasks(
+        db, payload, user
     )
-
-    db.add(sim)
-    await db.flush()
-
-    created_tasks: list[Task] = []
-    for t in DEFAULT_5_DAY_BLUEPRINT:
-        task = Task(
-            simulation_id=sim.id,
-            day_index=t["day_index"],
-            type=t["type"],
-            title=t["title"],
-            description=t["description"],
-        )
-        db.add(task)
-        created_tasks.append(task)
-
-    await db.commit()
-
-    await db.refresh(sim)
-    for t in created_tasks:
-        await db.refresh(t)
-
-    created_tasks.sort(key=lambda x: x.day_index)
 
     return SimulationCreateResponse(
         id=sim.id,
@@ -148,52 +88,17 @@ async def create_candidate_invite(
     user: Annotated[Any, Depends(get_current_user)],
 ):
     """Create a candidate_session invite token for a simulation (recruiter-only)."""
-    if getattr(user, "role", None) not in (None, "recruiter"):
-        raise HTTPException(status_code=403, detail="Recruiter access required")
+    ensure_recruiter_or_none(user)
 
-    # Must exist AND be owned by recruiter
-    stmt = select(Simulation).where(
-        Simulation.id == simulation_id,
-        Simulation.created_by == user.id,
+    await sim_service.require_owned_simulation(db, simulation_id, user.id)
+    cs = await sim_service.create_invite(
+        db, simulation_id, payload, now=datetime.now(UTC)
     )
-    sim = (await db.execute(stmt)).scalar_one_or_none()
-    if sim is None:
-        # 404 for both invalid id and "not owned" to avoid leaking ids
-        raise HTTPException(status_code=404, detail="Simulation not found")
-
-    now = datetime.now(UTC)
-    expires_at = now + timedelta(days=INVITE_TOKEN_TTL_DAYS)
-    # Create session with strong random token.
-    # Retry a few times on the ultra-rare chance of token collision.
-    for _ in range(3):
-        token = secrets.token_urlsafe(32)  # typically ~43 chars, url-safe
-        cs = CandidateSession(
-            simulation_id=simulation_id,
-            candidate_name=payload.candidateName,
-            invite_email=str(payload.inviteEmail).lower(),
-            token=token,
-            status="not_started",
-            expires_at=expires_at,
-        )
-        db.add(cs)
-
-        try:
-            await db.commit()
-            await db.refresh(cs)
-
-            invite_url = (
-                f"{settings.CANDIDATE_PORTAL_BASE_URL.rstrip('/')}"
-                f"/candidate/session/{token}"
-            )
-            return CandidateInviteResponse(
-                candidateSessionId=cs.id,
-                token=token,
-                inviteUrl=invite_url,
-            )
-        except IntegrityError:
-            await db.rollback()
-
-    raise HTTPException(status_code=500, detail="Failed to generate invite token")
+    return CandidateInviteResponse(
+        candidateSessionId=cs.id,
+        token=cs.token,
+        inviteUrl=sim_service.invite_url(cs.token),
+    )
 
 
 @router.get(
@@ -207,29 +112,10 @@ async def list_simulation_candidates(
     user: Annotated[Any, Depends(get_current_user)],
 ):
     """List candidate sessions for a simulation (recruiter-only)."""
-    if getattr(user, "role", None) not in (None, "recruiter"):
-        raise HTTPException(status_code=403, detail="Recruiter access required")
+    ensure_recruiter_or_none(user)
 
-    # Match existing ownership model (same as invite)
-    sim_stmt = select(Simulation).where(
-        Simulation.id == simulation_id,
-        Simulation.created_by == user.id,
-    )
-    sim = (await db.execute(sim_stmt)).scalar_one_or_none()
-    if sim is None:
-        raise HTTPException(status_code=404, detail="Simulation not found")
-
-    stmt = (
-        select(CandidateSession, ExecutionProfile.id)
-        .outerjoin(
-            ExecutionProfile,
-            ExecutionProfile.candidate_session_id == CandidateSession.id,
-        )
-        .where(CandidateSession.simulation_id == simulation_id)
-        .order_by(CandidateSession.id.desc())
-    )
-
-    rows = (await db.execute(stmt)).all()
+    await sim_service.require_owned_simulation(db, simulation_id, user.id)
+    rows = await sim_service.list_candidates_with_profile(db, simulation_id)
 
     return [
         CandidateSessionListItem(

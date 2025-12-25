@@ -11,7 +11,6 @@ cd "$PROJECT_ROOT" || exit 1
 GREEN='\033[0;32m'
 NC='\033[0m'
 
-# Check for poetry
 if command -v poetry &> /dev/null
 then
     echo -e "${GREEN}Using Poetry environment...${NC}"
@@ -21,7 +20,6 @@ else
     RUN=""
 fi
 
-# Handle arguments
 if [[ "$1" == "test" ]]; then
     echo "🧪 Running tests..."
     $RUN pytest -q
@@ -41,4 +39,9 @@ poetry run python scripts/seed_local_recruiters.py
 
 echo "🔧 Starting FastAPI server..."
 
-$RUN uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+RELOAD_FLAG="--reload"
+if [[ "${DISABLE_RELOAD:-0}" == "1" ]]; then
+  RELOAD_FLAG=""
+fi
+
+$RUN uvicorn app.main:app ${RELOAD_FLAG} --host 0.0.0.0 --port 8000

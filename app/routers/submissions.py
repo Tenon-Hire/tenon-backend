@@ -3,15 +3,10 @@ from __future__ import annotations
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
-from app.models.candidate_session import CandidateSession
-from app.models.simulation import Simulation
-from app.models.submission import Submission
-from app.models.task import Task
 from app.models.user import User
 from app.schemas.submission import (
     RecruiterSubmissionDetailOut,
@@ -19,27 +14,18 @@ from app.schemas.submission import (
     RecruiterSubmissionListOut,
 )
 from app.security.current_user import get_current_user
+from app.security.roles import ensure_recruiter
+from app.services import recruiter_submissions as recruiter_sub_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/submissions", tags=["submissions"])
 
 
-def _require_recruiter(user) -> None:
-    if getattr(user, "role", None) != "recruiter":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-
-
 def _derive_test_status(
     passed: int | None, failed: int | None, output: str | None
 ) -> str | None:
-    if passed is None and failed is None and (output is None or output.strip() == ""):
-        return None
-    if failed is not None and failed > 0:
-        return "failed"
-    if passed is not None and (failed is None or failed == 0):
-        return "passed"
-    return "unknown"
+    return recruiter_sub_service.derive_test_status(passed, failed, output)
 
 
 @router.get("/{submission_id}", response_model=RecruiterSubmissionDetailOut)
@@ -52,22 +38,11 @@ async def get_submission_detail(
 
     Recruiter must own the underlying simulation. Returns 404 if not found or not authorized.
     """
-    _require_recruiter(user)
+    ensure_recruiter(user)
 
-    stmt = (
-        select(Submission, Task, CandidateSession, Simulation)
-        .join(Task, Task.id == Submission.task_id)
-        .join(CandidateSession, CandidateSession.id == Submission.candidate_session_id)
-        .join(Simulation, Simulation.id == CandidateSession.simulation_id)
-        .where(Submission.id == submission_id)
-        .where(Simulation.created_by == user.id)
+    sub, task, cs, sim = await recruiter_sub_service.fetch_detail(
+        db, submission_id, user.id
     )
-
-    row = (await db.execute(stmt)).first()
-    if not row:
-        raise HTTPException(status_code=404, detail="Submission not found")
-
-    sub, task, cs, sim = row
 
     status_str = _derive_test_status(
         sub.tests_passed, sub.tests_failed, sub.test_output
@@ -134,23 +109,11 @@ async def list_submissions(
 
     Optional filters: candidateSessionId, taskId.
     """
-    _require_recruiter(user)
+    ensure_recruiter(user)
 
-    stmt = (
-        select(Submission, Task, CandidateSession, Simulation)
-        .join(Task, Task.id == Submission.task_id)
-        .join(CandidateSession, CandidateSession.id == Submission.candidate_session_id)
-        .join(Simulation, Simulation.id == CandidateSession.simulation_id)
-        .where(Simulation.created_by == user.id)
-        .order_by(Submission.submitted_at.desc())
+    rows = await recruiter_sub_service.list_submissions(
+        db, user.id, candidateSessionId, taskId
     )
-
-    if candidateSessionId is not None:
-        stmt = stmt.where(Submission.candidate_session_id == candidateSessionId)
-    if taskId is not None:
-        stmt = stmt.where(Submission.task_id == taskId)
-
-    rows = (await db.execute(stmt)).all()
 
     items: list[RecruiterSubmissionListItemOut] = []
     for sub, task, _cs, _sim in rows:
