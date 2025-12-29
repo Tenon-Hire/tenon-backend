@@ -3,8 +3,14 @@
 SimuHire now runs code tasks entirely on GitHub: template repositories per task, Codespaces for editing, and Actions for tests.
 
 ## Template repositories
-- Each code/debug task sets `tasks.template_repo` to `owner/name`.
-- The backend is the source of truth for this mapping (seeded via migrations/fixtures).
+- Each code/debug task sets `tasks.template_repo` to `owner/name`, resolved from `simulations.template_key` (API: `templateKey`).
+- The backend is the source of truth for this mapping (see `app/services/template_catalog.py`); frontend should only pass the `templateKey`.
+- Available template keys -> repos:
+  - Backend: `python-fastapi`, `node-express-ts`, `node-nest-ts`, `java-springboot`, `go-gin`, `dotnet-webapi`
+  - Web full-stack: `monorepo-nextjs-nest`, `monorepo-nextjs-fastapi`, `monorepo-react-express`, `monorepo-react-springboot`
+  - Mobile: `mobile-fullstack-expo-fastapi`, `mobile-backend-fastapi`
+  - ML: `ml-backend-fastapi`, `ml-infra-mlops`
+- To add a new template: add to the catalog module, create a migration/backfill if needed, ensure the GitHub template repo has the Actions workflow.
 - Workflow file: `GITHUB_ACTIONS_WORKFLOW_FILE` (e.g., `simuhire-ci.yml`) must exist in each template.
 
 ## Candidate flow (backend endpoints)

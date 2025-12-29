@@ -1,7 +1,8 @@
 import pytest
+from sqlalchemy import select
 
 from app.core.security.current_user import get_current_user
-from app.domain import Company, User
+from app.domain import Company, Task, User
 from app.main import app
 
 
@@ -50,6 +51,7 @@ async def test_create_simulation_creates_sim_and_5_tasks(async_client, async_ses
             "handoff",
             "documentation",
         ]
+        assert data["templateKey"] == "python-fastapi"
     finally:
         app.dependency_overrides.pop(get_current_user, None)
 
@@ -108,3 +110,233 @@ async def test_create_simulation_forbidden_for_non_recruiter(
         assert resp.status_code == 403, resp.text
     finally:
         app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.mark.asyncio
+async def test_create_simulation_with_template_key_persists(
+    async_client, async_session
+):
+    company = Company(name="Acme Inc")
+    async_session.add(company)
+    await async_session.flush()
+
+    user = User(
+        name="Recruiter One",
+        email="recruiter1@acme.com",
+        role="recruiter",
+        company_id=company.id,
+        password_hash=None,
+    )
+    async_session.add(user)
+    await async_session.commit()
+
+    class FakeUser:
+        id = user.id
+        company_id = company.id
+        role = "recruiter"
+
+    app.dependency_overrides[get_current_user] = lambda: FakeUser()
+    try:
+        payload = {
+            "title": "Fullstack Simulation",
+            "role": "Fullstack Engineer",
+            "techStack": "Next.js, FastAPI",
+            "seniority": "Senior",
+            "focus": "Ship a fullstack feature",
+            "templateKey": "monorepo-nextjs-fastapi",
+        }
+
+        resp = await async_client.post("/api/simulations", json=payload)
+        assert resp.status_code == 201, resp.text
+        data = resp.json()
+        assert data["templateKey"] == "monorepo-nextjs-fastapi"
+
+        sim_id = data["id"]
+        from app.domain.simulations.simulation import Simulation
+
+        saved = await async_session.get(Simulation, sim_id)
+        assert saved is not None
+        assert saved.template_key == "monorepo-nextjs-fastapi"
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.mark.asyncio
+async def test_create_simulation_with_invalid_template_key_returns_422(
+    async_client, async_session
+):
+    company = Company(name="Acme Inc")
+    async_session.add(company)
+    await async_session.flush()
+
+    user = User(
+        name="Recruiter One",
+        email="recruiter1@acme.com",
+        role="recruiter",
+        company_id=company.id,
+        password_hash=None,
+    )
+    async_session.add(user)
+    await async_session.commit()
+
+    class FakeUser:
+        id = user.id
+        company_id = company.id
+        role = "recruiter"
+
+    app.dependency_overrides[get_current_user] = lambda: FakeUser()
+    try:
+        payload = {
+            "title": "Backend Node Simulation",
+            "role": "Backend Engineer",
+            "techStack": "Node.js, PostgreSQL",
+            "seniority": "Mid",
+            "focus": "Build new API feature and debug an issue",
+            "templateKey": "unknown-template-key",
+        }
+
+        resp = await async_client.post("/api/simulations", json=payload)
+        assert resp.status_code == 422, resp.text
+        detail = resp.json()["detail"][0]["msg"]
+        assert "Invalid templateKey" in detail
+        assert "python-fastapi" in detail
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.mark.asyncio
+async def test_seeded_tasks_use_template_catalog(async_client, async_session):
+    company = Company(name="Acme Inc")
+    async_session.add(company)
+    await async_session.flush()
+
+    user = User(
+        name="Recruiter One",
+        email="recruiter1@acme.com",
+        role="recruiter",
+        company_id=company.id,
+        password_hash=None,
+    )
+    async_session.add(user)
+    await async_session.commit()
+
+    class FakeUser:
+        id = user.id
+        company_id = company.id
+        role = "recruiter"
+
+    app.dependency_overrides[get_current_user] = lambda: FakeUser()
+    try:
+        payload = {
+            "title": "Backend Node Simulation",
+            "role": "Backend Engineer",
+            "techStack": "Node.js, PostgreSQL",
+            "seniority": "Mid",
+            "focus": "Build new API feature and debug an issue",
+            "templateKey": "node-express-ts",
+        }
+
+        resp = await async_client.post("/api/simulations", json=payload)
+        assert resp.status_code == 201, resp.text
+        sim_id = resp.json()["id"]
+
+        rows = (
+            await async_session.execute(
+                select(Task)
+                .where(Task.simulation_id == sim_id)
+                .order_by(Task.day_index)
+            )
+        ).scalars()
+        tasks = list(rows)
+        day2 = next(t for t in tasks if t.day_index == 2)
+        day3 = next(t for t in tasks if t.day_index == 3)
+        assert day2.template_repo == "simuhire-dev/simuhire-template-node-express-ts"
+        assert day3.template_repo == "simuhire-dev/simuhire-template-node-express-ts"
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.mark.asyncio
+async def test_default_template_key_applied(
+    async_client, async_session, auth_header_factory
+):
+    company = Company(name="DefaultCo")
+    async_session.add(company)
+    await async_session.flush()
+
+    user = User(
+        name="Recruiter Default",
+        email="recruiter-default@acme.com",
+        role="recruiter",
+        company_id=company.id,
+        password_hash=None,
+    )
+    async_session.add(user)
+    await async_session.commit()
+
+    resp = await async_client.post(
+        "/api/simulations",
+        headers=auth_header_factory(user),
+        json={
+            "title": "Backend Node Simulation",
+            "role": "Backend Engineer",
+            "techStack": "Node.js, PostgreSQL",
+            "seniority": "Mid",
+            "focus": "Build new API feature and debug an issue",
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    data = resp.json()
+    assert data["templateKey"] == "python-fastapi"
+    sim_id = data["id"]
+
+    rows = (
+        await async_session.execute(
+            select(Task).where(Task.simulation_id == sim_id).order_by(Task.day_index)
+        )
+    ).scalars()
+    tasks = list(rows)
+    day2 = next(t for t in tasks if t.day_index == 2)
+    day3 = next(t for t in tasks if t.day_index == 3)
+    assert day2.template_repo == "simuhire-dev/simuhire-template-python-fastapi"
+    assert day3.template_repo == "simuhire-dev/simuhire-template-python-fastapi"
+
+
+@pytest.mark.asyncio
+async def test_list_includes_template_key(
+    async_client, async_session, auth_header_factory
+):
+    company = Company(name="ListCo")
+    async_session.add(company)
+    await async_session.flush()
+
+    user = User(
+        name="Recruiter List",
+        email="recruiter-list@acme.com",
+        role="recruiter",
+        company_id=company.id,
+        password_hash=None,
+    )
+    async_session.add(user)
+    await async_session.commit()
+
+    create = await async_client.post(
+        "/api/simulations",
+        headers=auth_header_factory(user),
+        json={
+            "title": "ML Simulation",
+            "role": "ML Infra Engineer",
+            "techStack": "Python",
+            "seniority": "Senior",
+            "focus": "MLOps",
+            "templateKey": "ml-infra-mlops",
+        },
+    )
+    assert create.status_code == 201, create.text
+
+    resp = await async_client.get("/api/simulations", headers=auth_header_factory(user))
+    assert resp.status_code == 200, resp.text
+    items = resp.json()
+    assert len(items) >= 1
+    item = next(i for i in items if i["id"] == create.json()["id"])
+    assert item["templateKey"] == "ml-infra-mlops"

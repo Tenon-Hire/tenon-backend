@@ -7,7 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain import CandidateSession, Company, Simulation, Submission, Task, User
 from app.domain.simulations.blueprints import DEFAULT_5_DAY_BLUEPRINT
-from app.domain.simulations.service import DEFAULT_TEMPLATE_REPOS
+from app.services.template_catalog import (
+    DEFAULT_TEMPLATE_KEY,
+    resolve_template_repo_full_name,
+)
 
 
 async def create_company(session: AsyncSession, *, name: str = "Acme Corp") -> Company:
@@ -49,6 +52,7 @@ async def create_simulation(
     tech_stack: str = "Node.js, PostgreSQL",
     seniority: str = "Mid",
     focus: str = "Deliver a backend feature over 5 days",
+    template_key: str = DEFAULT_TEMPLATE_KEY,
 ) -> tuple[Simulation, list[Task]]:
     sim = Simulation(
         company_id=created_by.company_id,
@@ -60,13 +64,16 @@ async def create_simulation(
         scenario_template="default-5day-node-postgres",
         created_by=created_by.id,
         status="active",
+        template_key=template_key,
     )
     session.add(sim)
     await session.flush()
 
     tasks: list[Task] = []
     for blueprint_task in DEFAULT_5_DAY_BLUEPRINT:
-        template_repo = DEFAULT_TEMPLATE_REPOS.get(blueprint_task["day_index"])
+        template_repo = None
+        if blueprint_task["type"] in {"code", "debug"}:
+            template_repo = resolve_template_repo_full_name(template_key)
         task = Task(
             simulation_id=sim.id,
             day_index=blueprint_task["day_index"],

@@ -3,10 +3,9 @@ from tests.factories import create_recruiter, create_simulation
 
 
 async def test_template_repo_mapping_code_and_debug(async_session):
-    assert _template_repo_for_task(2, "code") == "simuhire-dev/simuhire-template-python"
-    assert (
-        _template_repo_for_task(3, "debug") == "simuhire-dev/simuhire-template-python"
-    )
+    expected = "simuhire-dev/simuhire-template-python-fastapi"
+    assert _template_repo_for_task(2, "code", "python-fastapi") == expected
+    assert _template_repo_for_task(3, "debug", "python-fastapi") == expected
 
 
 async def test_create_simulation_sets_template_repo(async_session):
