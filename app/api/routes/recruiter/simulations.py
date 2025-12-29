@@ -38,6 +38,7 @@ async def list_simulations(
             title=sim.title,
             role=sim.role,
             techStack=sim.tech_stack,
+            templateKey=sim.template_key,
             createdAt=sim.created_at,
             numCandidates=int(num_candidates),
         )
@@ -67,6 +68,7 @@ async def create_simulation(
         techStack=sim.tech_stack,
         seniority=sim.seniority,
         focus=sim.focus,
+        templateKey=sim.template_key,
         tasks=[
             TaskOut(id=t.id, day_index=t.day_index, type=t.type, title=t.title)
             for t in created_tasks

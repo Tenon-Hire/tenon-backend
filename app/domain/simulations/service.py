@@ -14,6 +14,11 @@ from app.domain import CandidateSession, ExecutionProfile, Simulation, Task
 from app.domain.candidate_sessions.schemas import CandidateInviteRequest
 from app.domain.simulations import repository as sim_repo
 from app.domain.simulations.blueprints import DEFAULT_5_DAY_BLUEPRINT
+from app.services.template_catalog import (
+    DEFAULT_TEMPLATE_KEY,
+    resolve_template_repo_full_name,
+    validate_template_key,
+)
 
 INVITE_TOKEN_TTL_DAYS = 14
 
@@ -39,6 +44,10 @@ async def create_simulation_with_tasks(
     db: AsyncSession, payload, user: Any
 ) -> tuple[Simulation, list[Task]]:
     """Create simulation and seed default tasks."""
+    template_key = validate_template_key(
+        getattr(payload, "templateKey", DEFAULT_TEMPLATE_KEY) or DEFAULT_TEMPLATE_KEY
+    )
+
     sim = Simulation(
         title=payload.title,
         role=payload.role,
@@ -48,18 +57,21 @@ async def create_simulation_with_tasks(
         scenario_template="default-5day-node-postgres",
         company_id=user.company_id,
         created_by=user.id,
+        template_key=template_key,
     )
     db.add(sim)
     await db.flush()
 
     created_tasks: list[Task] = []
     for t in DEFAULT_5_DAY_BLUEPRINT:
+        template_repo = _template_repo_for_task(t["day_index"], t["type"], template_key)
         task = Task(
             simulation_id=sim.id,
             day_index=t["day_index"],
             type=t["type"],
             title=t["title"],
             description=t["description"],
+            template_repo=template_repo,
         )
         db.add(task)
         created_tasks.append(task)
@@ -72,6 +84,26 @@ async def create_simulation_with_tasks(
 
     created_tasks.sort(key=lambda x: x.day_index)
     return sim, created_tasks
+
+
+def _template_repo_for_task(
+    day_index: int, task_type: str, template_key: str
+) -> str | None:
+    """Resolve a template repo for a seeded task."""
+    task_type = (task_type or "").lower()
+    if task_type not in {"code", "debug"}:
+        return None
+
+    # Most blueprints use day 2/3 for code/debug, but support other days too.
+    if day_index not in {2, 3}:
+        return resolve_template_repo_full_name(template_key)
+
+    repo = resolve_template_repo_full_name(template_key)
+
+    # Allow overriding owner via env when repo name is provided without owner.
+    if "/" not in repo and settings.github.GITHUB_TEMPLATE_OWNER:
+        return f"{settings.github.GITHUB_TEMPLATE_OWNER}/{repo}"
+    return repo
 
 
 async def create_invite(

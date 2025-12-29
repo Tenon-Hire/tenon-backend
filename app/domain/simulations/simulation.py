@@ -2,6 +2,7 @@ from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db.base import Base, TimestampMixin
+from app.services.template_catalog import DEFAULT_TEMPLATE_KEY
 
 
 class Simulation(Base, TimestampMixin):
@@ -16,6 +17,12 @@ class Simulation(Base, TimestampMixin):
     tech_stack: Mapped[str] = mapped_column(String(255))
     seniority: Mapped[str] = mapped_column(String(100))
     scenario_template: Mapped[str] = mapped_column(String(255))
+    template_key: Mapped[str] = mapped_column(
+        String(255),
+        default=DEFAULT_TEMPLATE_KEY,
+        server_default=DEFAULT_TEMPLATE_KEY,
+        nullable=False,
+    )
 
     focus: Mapped[str] = mapped_column(
         Text, nullable=False, server_default="", default=""
