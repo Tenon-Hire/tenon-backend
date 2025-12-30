@@ -8,7 +8,11 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from app.services.github import GithubClient, GithubError, WorkflowRun
-from app.services.github.artifacts import ParsedTestResults, parse_test_results_zip
+from app.services.github.artifacts import (
+    PREFERRED_ARTIFACT_NAMES,
+    ParsedTestResults,
+    parse_test_results_zip,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -175,16 +179,13 @@ class GithubActionsRunner:
         self, repo_full_name: str, run_id: int
     ) -> ParsedTestResults | None:
         artifacts = await self.client.list_artifacts(repo_full_name, run_id)
-        preferred = []
-        others = []
+        preferred: list[dict[str, Any]] = []
+        others: list[dict[str, Any]] = []
         for artifact in artifacts:
             if not artifact or artifact.get("expired"):
                 continue
             name = str(artifact.get("name") or "").lower()
-            if name in {"simuhire-test-results", "test-results", "junit"}:
-                preferred.append(artifact)
-            else:
-                others.append(artifact)
+            (preferred if name in PREFERRED_ARTIFACT_NAMES else others).append(artifact)
 
         for artifact in preferred + others:
             artifact_id = artifact.get("id")

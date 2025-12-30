@@ -10,8 +10,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
+from app.core.config import settings  # noqa: F401
 from app.core.db import async_session_maker, get_session
+from app.core.env import env_name as _env_name_base
 from app.core.security import auth0
 from app.core.security.errors import AuthError
 from app.domain import User
@@ -22,10 +23,6 @@ bearer_scheme = HTTPBearer(auto_error=False)
 def _current_user_module():
     """Return the loaded current_user module."""
     return sys.modules.get("app.core.security.current_user")
-
-
-def _env_name_base() -> str:
-    return str(getattr(settings, "ENV", os.getenv("ENV", "local"))).lower()
 
 
 def _env_name() -> str:

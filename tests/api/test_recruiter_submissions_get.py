@@ -35,7 +35,6 @@ async def test_recruiter_can_fetch_known_submission(
         candidate_session=cs,
         task=task,
         content_text="my design answer",
-        code_blob=None,
         submitted_at=datetime.now(UTC),
         tests_passed=3,
         tests_failed=0,
@@ -84,7 +83,6 @@ async def test_recruiter_cannot_access_other_recruiters_submission(
         async_session,
         candidate_session=cs,
         task=task,
-        code_blob="console.log('secret')",
         submitted_at=datetime.now(UTC),
     )
 
@@ -123,7 +121,6 @@ async def test_recruiter_parses_structured_test_output(
         candidate_session=cs,
         task=task,
         content_text=None,
-        code_blob="code",
         tests_passed=None,
         tests_failed=None,
         test_output=json.dumps(output),
@@ -172,7 +169,6 @@ async def test_recruiter_list_includes_links(async_client, async_session: AsyncS
         async_session,
         candidate_session=cs,
         task=tasks[0],
-        code_blob=None,
         code_repo_path="org/repo",
         commit_sha="abc123",
         workflow_run_id="555",

@@ -3,7 +3,6 @@ import pytest_asyncio
 
 from app.core.security.current_user import get_current_user
 from app.domain import CandidateSession, Company, User
-from app.main import app
 
 
 @pytest_asyncio.fixture
@@ -26,15 +25,12 @@ async def recruiter_user(async_session):
 
 
 @pytest_asyncio.fixture
-async def authed_client(async_client, recruiter_user):
+async def authed_client(async_client, recruiter_user, override_dependencies):
     async def override_get_current_user():
         return recruiter_user
 
-    app.dependency_overrides[get_current_user] = override_get_current_user
-    try:
+    with override_dependencies({get_current_user: override_get_current_user}):
         yield async_client
-    finally:
-        app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.mark.asyncio
@@ -167,7 +163,7 @@ async def test_list_simulations_does_not_show_other_users(authed_client, async_s
 
 @pytest.mark.asyncio
 async def test_list_simulations_forbidden_for_non_recruiter(
-    async_client, async_session
+    async_client, async_session, override_dependencies
 ):
     company = Company(name="CandidateCo")
     async_session.add(company)
@@ -186,10 +182,7 @@ async def test_list_simulations_forbidden_for_non_recruiter(
     def override_user():
         return candidate_user
 
-    app.dependency_overrides[get_current_user] = override_user
-    try:
+    with override_dependencies({get_current_user: override_user}):
         resp = await async_client.get("/api/simulations")
         assert resp.status_code == 403
         assert resp.json()["detail"] == "Recruiter access required"
-    finally:
-        app.dependency_overrides.pop(get_current_user, None)

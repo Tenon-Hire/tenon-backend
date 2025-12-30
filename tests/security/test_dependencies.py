@@ -27,6 +27,14 @@ def _make_request(headers: dict[str, str], host: str = "127.0.0.1") -> Request:
     return Request(scope, _receive)
 
 
+def _ctx_maker(session):
+    @asynccontextmanager
+    async def maker():
+        yield session
+
+    return maker
+
+
 @pytest.mark.asyncio
 async def test_dev_bypass_allows_local_requests(async_session, monkeypatch):
     user = await create_recruiter(async_session, email="dev@local.test")
@@ -100,14 +108,10 @@ async def test_dev_bypass_fallback_session_maker(monkeypatch):
         async def commit(self):
             return None
 
-    @asynccontextmanager
-    async def dummy_maker():
-        yield DummySession()
-
     monkeypatch.setitem(
         dependencies.sys.modules,
         "app.core.security.current_user",
-        type("mod", (), {"async_session_maker": dummy_maker}),
+        type("mod", (), {"async_session_maker": _ctx_maker(DummySession())}),
     )
 
     with pytest.raises(Exception) as excinfo:
@@ -146,14 +150,10 @@ async def test_auth0_user_uses_fallback_session(monkeypatch):
         async def refresh(self, _obj):
             self.refreshed = True
 
-    @asynccontextmanager
-    async def dummy_maker():
-        yield DummySession()
-
     monkeypatch.setitem(
         dependencies.sys.modules,
         "app.core.security.current_user",
-        type("mod", (), {"async_session_maker": dummy_maker}),
+        type("mod", (), {"async_session_maker": _ctx_maker(DummySession())}),
     )
 
     user = await dependencies._auth0_user(creds, None)

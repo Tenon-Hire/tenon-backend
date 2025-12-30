@@ -100,7 +100,6 @@ class RecruiterTaskMetaOut(APIModel):
 class RecruiterCodeArtifactOut(APIModel):
     """Schema for recruiter code artifact output."""
 
-    blob: str | None = None
     repoPath: str | None = None
     repoFullName: str | None = None
     repoUrl: str | None = None
