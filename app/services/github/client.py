@@ -211,18 +211,7 @@ class GithubClient:
                 )
                 raise GithubError("GitHub request failed") from exc
 
-        if resp.status_code >= 400:
-            logger.error(
-                f"github_error {resp.status_code}",
-                extra={
-                    "url": url,
-                    "status_code": resp.status_code,
-                    "body": resp.text[:500],
-                },
-            )
-            raise GithubError(
-                f"GitHub API error ({resp.status_code})", status_code=resp.status_code
-            )
+        _raise_for_status(url, resp)
 
         if not expect_body:
             return {}
@@ -260,16 +249,22 @@ class GithubClient:
                 )
                 raise GithubError("GitHub request failed") from exc
 
-        if resp.status_code >= 400:
-            logger.error(
-                "github_error",
-                extra={
-                    "url": url,
-                    "status_code": resp.status_code,
-                    "body": resp.text[:500],
-                },
-            )
-            raise GithubError(
-                f"GitHub API error ({resp.status_code})", status_code=resp.status_code
-            )
+        _raise_for_status(url, resp)
         return resp.content
+
+
+def _raise_for_status(url: str, resp: httpx.Response) -> None:
+    """Common error handler for GitHub responses."""
+    if resp.status_code < 400:
+        return
+    logger.error(
+        "github_error",
+        extra={
+            "url": url,
+            "status_code": resp.status_code,
+            "body": resp.text[:500],
+        },
+    )
+    raise GithubError(
+        f"GitHub API error ({resp.status_code})", status_code=resp.status_code
+    )

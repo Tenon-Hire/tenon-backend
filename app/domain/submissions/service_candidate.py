@@ -13,6 +13,11 @@ from app.domain import CandidateSession, Submission, Task
 from app.domain.candidate_sessions import service as cs_service
 from app.domain.simulations import tasks_repository as tasks_repo
 from app.domain.submissions import repository as submissions_repo
+from app.domain.submissions.exceptions import (
+    SimulationComplete,
+    SubmissionConflict,
+    SubmissionOrderError,
+)
 from app.domain.workspaces import repository as workspace_repo
 from app.domain.workspaces.workspace import Workspace
 from app.services.github.actions import ActionsRunResult, GithubActionsRunner
@@ -53,21 +58,15 @@ async def ensure_not_duplicate(
 ) -> None:
     """Guard against duplicate submissions for a task."""
     if await submissions_repo.find_duplicate(db, candidate_session_id, task_id):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Task already submitted"
-        )
+        raise SubmissionConflict()
 
 
 def ensure_in_order(current_task: Task | None, target_task_id: int) -> None:
     """Verify the submission is for the current task in sequence."""
     if current_task is None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Simulation already completed"
-        )
+        raise SimulationComplete()
     if current_task.id != target_task_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Task out of order"
-        )
+        raise SubmissionOrderError()
 
 
 def validate_submission_payload(task: Task, payload) -> None:
@@ -276,7 +275,6 @@ async def create_submission(
         submitted_at=now,
         content_text=payload.contentText,
         code_repo_path=workspace.repo_full_name if workspace else None,
-        code_blob=None,
         commit_sha=commit_sha,
         workflow_run_id=workflow_run_id,
         diff_summary_json=diff_summary_json,
@@ -290,9 +288,7 @@ async def create_submission(
         await db.commit()
     except IntegrityError as exc:
         await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Task already submitted"
-        ) from exc
+        raise SubmissionConflict() from exc
     await db.refresh(sub)
     return sub
 

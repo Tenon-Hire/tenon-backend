@@ -6,7 +6,6 @@ from sqlalchemy import select
 from app.api.routes.candidate import submissions as candidate_submissions
 from app.domain.workspaces import repository as workspace_repo
 from app.domain.workspaces.workspace import Workspace
-from app.main import app
 from app.services.github.actions import ActionsRunResult
 from app.services.github.client import GithubError
 from tests.factories import (
@@ -43,9 +42,6 @@ async def test_codespace_init_works_for_debug_task(
         json={"githubUsername": "octocat"},
     )
 
-    app.dependency_overrides.pop(candidate_submissions.get_actions_runner, None)
-    app.dependency_overrides.pop(candidate_submissions.get_github_client, None)
-
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["repoFullName"]
@@ -80,16 +76,13 @@ async def test_codespace_init_missing_template_repo_returns_500(
         json={"githubUsername": "octocat"},
     )
 
-    app.dependency_overrides.pop(candidate_submissions.get_actions_runner, None)
-    app.dependency_overrides.pop(candidate_submissions.get_github_client, None)
-
     assert resp.status_code == 500
     assert "template repository is not configured" in resp.json()["detail"].lower()
 
 
 @pytest.mark.asyncio
 async def test_codespace_init_reuses_existing_workspace_and_skips_github(
-    async_client, async_session, candidate_header_factory
+    async_client, async_session, candidate_header_factory, override_dependencies
 ):
     recruiter = await create_recruiter(async_session, email="reuse@sim.com")
     sim, tasks = await create_simulation(async_session, created_by=recruiter)
@@ -140,18 +133,15 @@ async def test_codespace_init_reuses_existing_workspace_and_skips_github(
         async def get_compare(self, repo_full_name: str, base: str, head: str):
             return {}
 
-    app.dependency_overrides[candidate_submissions.get_github_client] = (
-        lambda: CountingGithubClient()
-    )
-    try:
+    with override_dependencies(
+        {candidate_submissions.get_github_client: lambda: CountingGithubClient()}
+    ):
         headers = candidate_header_factory(cs.id, cs.token)
         resp = await async_client.post(
             f"/api/tasks/{tasks[1].id}/codespace/init",
             headers=headers,
             json={"githubUsername": "octocat"},
         )
-    finally:
-        app.dependency_overrides.pop(candidate_submissions.get_github_client, None)
 
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -169,7 +159,7 @@ async def test_codespace_init_reuses_existing_workspace_and_skips_github(
 
 @pytest.mark.asyncio
 async def test_codespace_init_maps_github_errors_to_502(
-    async_client, async_session, candidate_header_factory
+    async_client, async_session, candidate_header_factory, override_dependencies
 ):
     recruiter = await create_recruiter(async_session, email="gh-error@sim.com")
     sim, tasks = await create_simulation(async_session, created_by=recruiter)
@@ -185,18 +175,15 @@ async def test_codespace_init_maps_github_errors_to_502(
         async def generate_repo_from_template(self, **_kwargs):
             raise GithubError("Bad credentials", status_code=403)
 
-    app.dependency_overrides[candidate_submissions.get_github_client] = (
-        lambda: ErrorGithubClient()
-    )
-    try:
+    with override_dependencies(
+        {candidate_submissions.get_github_client: lambda: ErrorGithubClient()}
+    ):
         headers = candidate_header_factory(cs.id, cs.token)
         resp = await async_client.post(
             f"/api/tasks/{tasks[1].id}/codespace/init",
             headers=headers,
             json={"githubUsername": "octocat"},
         )
-    finally:
-        app.dependency_overrides.pop(candidate_submissions.get_github_client, None)
 
     assert resp.status_code == 502
     assert "GitHub unavailable" in resp.json()["detail"]
@@ -245,9 +232,6 @@ async def test_run_tests_returns_actions_result(
         headers=headers,
         json={},
     )
-
-    app.dependency_overrides.pop(candidate_submissions.get_actions_runner, None)
-    app.dependency_overrides.pop(candidate_submissions.get_github_client, None)
 
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -367,9 +351,6 @@ async def test_run_tests_handles_actions_error(
         json={},
     )
 
-    app.dependency_overrides.pop(candidate_submissions.get_actions_runner, None)
-    app.dependency_overrides.pop(candidate_submissions.get_github_client, None)
-
     assert resp.status_code == 502
     assert "GitHub unavailable" in resp.json()["detail"]
 
@@ -441,9 +422,6 @@ async def test_get_run_result_returns_parsed_counts(
         headers=headers,
     )
 
-    app.dependency_overrides.pop(candidate_submissions.get_actions_runner, None)
-    app.dependency_overrides.pop(candidate_submissions.get_github_client, None)
-
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["runId"] == 123
@@ -492,9 +470,6 @@ async def test_get_run_result_marks_timeout(
         headers=headers,
     )
 
-    app.dependency_overrides.pop(candidate_submissions.get_actions_runner, None)
-    app.dependency_overrides.pop(candidate_submissions.get_github_client, None)
-
     assert resp.status_code == 200, resp.text
     data = resp.json()
     assert data["timeout"] is True
@@ -503,7 +478,7 @@ async def test_get_run_result_marks_timeout(
 
 @pytest.mark.asyncio
 async def test_get_run_result_github_error_maps_to_502(
-    async_client, async_session, candidate_header_factory
+    async_client, async_session, candidate_header_factory, override_dependencies
 ):
     recruiter = await create_recruiter(async_session, email="run-fetch-err@sim.com")
     sim, tasks = await create_simulation(async_session, created_by=recruiter)
@@ -545,13 +520,12 @@ async def test_get_run_result_github_error_maps_to_502(
         async def get_compare(self, repo_full_name: str, base: str, head: str):
             return {}
 
-    app.dependency_overrides[candidate_submissions.get_actions_runner] = (
-        lambda: ErrorRunner()
-    )
-    app.dependency_overrides[candidate_submissions.get_github_client] = (
-        lambda: StubGithubClient()
-    )
-    try:
+    with override_dependencies(
+        {
+            candidate_submissions.get_actions_runner: lambda: ErrorRunner(),
+            candidate_submissions.get_github_client: lambda: StubGithubClient(),
+        }
+    ):
         headers = candidate_header_factory(cs.id, cs.token)
         await async_client.post(
             f"/api/tasks/{tasks[1].id}/codespace/init",
@@ -562,8 +536,5 @@ async def test_get_run_result_github_error_maps_to_502(
             f"/api/tasks/{tasks[1].id}/run/9999",
             headers=headers,
         )
-    finally:
-        app.dependency_overrides.pop(candidate_submissions.get_actions_runner, None)
-        app.dependency_overrides.pop(candidate_submissions.get_github_client, None)
 
     assert resp.status_code == 502

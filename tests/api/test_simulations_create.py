@@ -3,11 +3,12 @@ from sqlalchemy import select
 
 from app.core.security.current_user import get_current_user
 from app.domain import Company, Task, User
-from app.main import app
 
 
 @pytest.mark.asyncio
-async def test_create_simulation_creates_sim_and_5_tasks(async_client, async_session):
+async def test_create_simulation_creates_sim_and_5_tasks(
+    async_client, async_session, override_dependencies
+):
     company = Company(name="Acme Inc")
     async_session.add(company)
     await async_session.flush()
@@ -27,8 +28,7 @@ async def test_create_simulation_creates_sim_and_5_tasks(async_client, async_ses
         company_id = company.id
         role = "recruiter"
 
-    app.dependency_overrides[get_current_user] = lambda: FakeUser()
-    try:
+    with override_dependencies({get_current_user: lambda: FakeUser()}):
         payload = {
             "title": "Backend Node Simulation",
             "role": "Backend Engineer",
@@ -52,14 +52,10 @@ async def test_create_simulation_creates_sim_and_5_tasks(async_client, async_ses
             "documentation",
         ]
         assert data["templateKey"] == "python-fastapi"
-    finally:
-        app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.mark.asyncio
 async def test_create_simulation_unauthorized_returns_401(async_client):
-    app.dependency_overrides.pop(get_current_user, None)
-
     payload = {
         "title": "Backend Node Simulation",
         "role": "Backend Engineer",
@@ -74,7 +70,7 @@ async def test_create_simulation_unauthorized_returns_401(async_client):
 
 @pytest.mark.asyncio
 async def test_create_simulation_forbidden_for_non_recruiter(
-    async_client, async_session
+    async_client, async_session, override_dependencies
 ):
     company = Company(name="Acme Inc")
     async_session.add(company)
@@ -96,8 +92,7 @@ async def test_create_simulation_forbidden_for_non_recruiter(
         company_id = company.id
         role = "candidate"
 
-    app.dependency_overrides[get_current_user] = lambda: FakeCandidate()
-    try:
+    with override_dependencies({get_current_user: lambda: FakeCandidate()}):
         payload = {
             "title": "Backend Node Simulation",
             "role": "Backend Engineer",
@@ -108,13 +103,11 @@ async def test_create_simulation_forbidden_for_non_recruiter(
 
         resp = await async_client.post("/api/simulations", json=payload)
         assert resp.status_code == 403, resp.text
-    finally:
-        app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.mark.asyncio
 async def test_create_simulation_with_template_key_persists(
-    async_client, async_session
+    async_client, async_session, override_dependencies
 ):
     company = Company(name="Acme Inc")
     async_session.add(company)
@@ -135,8 +128,7 @@ async def test_create_simulation_with_template_key_persists(
         company_id = company.id
         role = "recruiter"
 
-    app.dependency_overrides[get_current_user] = lambda: FakeUser()
-    try:
+    with override_dependencies({get_current_user: lambda: FakeUser()}):
         payload = {
             "title": "Fullstack Simulation",
             "role": "Fullstack Engineer",
@@ -157,13 +149,11 @@ async def test_create_simulation_with_template_key_persists(
         saved = await async_session.get(Simulation, sim_id)
         assert saved is not None
         assert saved.template_key == "monorepo-nextjs-fastapi"
-    finally:
-        app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.mark.asyncio
 async def test_create_simulation_with_invalid_template_key_returns_422(
-    async_client, async_session
+    async_client, async_session, override_dependencies
 ):
     company = Company(name="Acme Inc")
     async_session.add(company)
@@ -184,8 +174,7 @@ async def test_create_simulation_with_invalid_template_key_returns_422(
         company_id = company.id
         role = "recruiter"
 
-    app.dependency_overrides[get_current_user] = lambda: FakeUser()
-    try:
+    with override_dependencies({get_current_user: lambda: FakeUser()}):
         payload = {
             "title": "Backend Node Simulation",
             "role": "Backend Engineer",
@@ -200,12 +189,12 @@ async def test_create_simulation_with_invalid_template_key_returns_422(
         detail = resp.json()["detail"][0]["msg"]
         assert "Invalid templateKey" in detail
         assert "python-fastapi" in detail
-    finally:
-        app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.mark.asyncio
-async def test_seeded_tasks_use_template_catalog(async_client, async_session):
+async def test_seeded_tasks_use_template_catalog(
+    async_client, async_session, override_dependencies
+):
     company = Company(name="Acme Inc")
     async_session.add(company)
     await async_session.flush()
@@ -225,8 +214,7 @@ async def test_seeded_tasks_use_template_catalog(async_client, async_session):
         company_id = company.id
         role = "recruiter"
 
-    app.dependency_overrides[get_current_user] = lambda: FakeUser()
-    try:
+    with override_dependencies({get_current_user: lambda: FakeUser()}):
         payload = {
             "title": "Backend Node Simulation",
             "role": "Backend Engineer",
@@ -252,8 +240,6 @@ async def test_seeded_tasks_use_template_catalog(async_client, async_session):
         day3 = next(t for t in tasks if t.day_index == 3)
         assert day2.template_repo == "simuhire-dev/simuhire-template-node-express-ts"
         assert day3.template_repo == "simuhire-dev/simuhire-template-node-express-ts"
-    finally:
-        app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.mark.asyncio

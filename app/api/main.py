@@ -11,6 +11,7 @@ from app.api.routes.recruiter import simulations as recruiter_simulations
 from app.api.routes.recruiter import submissions as recruiter_submissions
 from app.core.config import settings
 from app.core.db import init_db_if_needed
+from app.core.env import env_name
 
 
 def _parse_csv(value: str | None) -> list[str]:
@@ -20,7 +21,7 @@ def _parse_csv(value: str | None) -> list[str]:
 
 
 def _env_name() -> str:
-    return str(getattr(settings, "ENV", os.getenv("ENV", "local"))).lower()
+    return env_name()
 
 
 @asynccontextmanager

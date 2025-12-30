@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from contextlib import contextmanager
 
 import pytest
 import pytest_asyncio
@@ -183,3 +184,19 @@ def candidate_header_factory():
         }
 
     return _build
+
+
+@pytest.fixture
+def override_dependencies():
+    """Context manager to temporarily override FastAPI dependencies."""
+
+    @contextmanager
+    def _override(overrides: dict):
+        app.dependency_overrides.update(overrides)
+        try:
+            yield
+        finally:
+            for dep in overrides:
+                app.dependency_overrides.pop(dep, None)
+
+    return _override

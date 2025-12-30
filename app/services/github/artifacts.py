@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from typing import Any
 from xml.etree import ElementTree
 
+PREFERRED_ARTIFACT_NAMES = {"simuhire-test-results", "test-results", "junit"}
+
 
 @dataclass
 class ParsedTestResults:

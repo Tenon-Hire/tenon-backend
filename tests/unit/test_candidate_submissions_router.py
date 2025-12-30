@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
+from app.api.dependencies.candidate import CandidateSessionAuth, candidate_headers
 from app.api.routes.candidate import submissions as candidate_submissions
 from app.domain.submissions.schemas import (
     CodespaceInitRequest,
@@ -68,9 +69,7 @@ async def test_init_codespace_success_path(monkeypatch, async_session):
     async def _return_workspace(*_a, **_k):
         return workspace
 
-    monkeypatch.setattr(
-        candidate_submissions, "_load_candidate_session_or_404", _return_cs
-    )
+    monkeypatch.setattr(candidate_submissions, "fetch_candidate_session", _return_cs)
     monkeypatch.setattr(
         candidate_submissions.submission_service,
         "load_task_or_404",
@@ -106,8 +105,7 @@ async def test_init_codespace_success_path(monkeypatch, async_session):
     result = await candidate_submissions.init_codespace(
         task_id=task.id,
         payload=payload,
-        x_candidate_token="tok",
-        x_candidate_session_id=cs.id,
+        auth=CandidateSessionAuth(session_id=cs.id, token="tok"),
         db=async_session,
         github_client=object(),
     )
@@ -129,9 +127,7 @@ async def test_init_codespace_maps_github_error(monkeypatch, async_session):
     async def _return_current(*_a, **_k):
         return task
 
-    monkeypatch.setattr(
-        candidate_submissions, "_load_candidate_session_or_404", _return_cs
-    )
+    monkeypatch.setattr(candidate_submissions, "fetch_candidate_session", _return_cs)
     monkeypatch.setattr(
         candidate_submissions.submission_service,
         "load_task_or_404",
@@ -169,8 +165,7 @@ async def test_init_codespace_maps_github_error(monkeypatch, async_session):
         await candidate_submissions.init_codespace(
             task_id=task.id,
             payload=payload,
-            x_candidate_token="tok",
-            x_candidate_session_id=cs.id,
+            auth=CandidateSessionAuth(session_id=cs.id, token="tok"),
             db=async_session,
             github_client=object(),
         )
@@ -193,9 +188,7 @@ async def test_codespace_status_invalid_summary(monkeypatch, async_session):
     async def _return_workspace_obj(*_a, **_kw):
         return workspace
 
-    monkeypatch.setattr(
-        candidate_submissions, "_load_candidate_session_or_404", _return_cs
-    )
+    monkeypatch.setattr(candidate_submissions, "fetch_candidate_session", _return_cs)
     monkeypatch.setattr(
         candidate_submissions.submission_service,
         "load_task_or_404",
@@ -209,8 +202,7 @@ async def test_codespace_status_invalid_summary(monkeypatch, async_session):
 
     resp = await candidate_submissions.codespace_status(
         task_id=task.id,
-        x_candidate_token="tok",
-        x_candidate_session_id=cs.id,
+        auth=CandidateSessionAuth(session_id=cs.id, token="tok"),
         db=async_session,
     )
     assert resp.lastTestSummary is None
@@ -248,9 +240,7 @@ async def test_run_task_tests_success_direct(monkeypatch, async_session):
     monkeypatch.setattr(
         candidate_submissions, "_rate_limit_or_429", lambda *_a, **_k: None
     )
-    monkeypatch.setattr(
-        candidate_submissions, "_load_candidate_session_or_404", _return_cs
-    )
+    monkeypatch.setattr(candidate_submissions, "fetch_candidate_session", _return_cs)
     monkeypatch.setattr(
         candidate_submissions.submission_service,
         "load_task_or_404",
@@ -295,8 +285,7 @@ async def test_run_task_tests_success_direct(monkeypatch, async_session):
         payload=RunTestsRequest(branch=None, workflowInputs=None),
         db=async_session,
         actions_runner=object(),
-        x_candidate_token="tok",
-        x_candidate_session_id=cs.id,
+        auth=CandidateSessionAuth(session_id=cs.id, token="tok"),
     )
     assert resp.runId == 9
     assert resp.status == "passed"
@@ -329,9 +318,7 @@ async def test_get_run_result_success_direct(monkeypatch, async_session):
     monkeypatch.setattr(
         candidate_submissions, "_rate_limit_or_429", lambda *_a, **_k: None
     )
-    monkeypatch.setattr(
-        candidate_submissions, "_load_candidate_session_or_404", _return_cs
-    )
+    monkeypatch.setattr(candidate_submissions, "fetch_candidate_session", _return_cs)
     monkeypatch.setattr(
         candidate_submissions.submission_service,
         "load_task_or_404",
@@ -367,8 +354,7 @@ async def test_get_run_result_success_direct(monkeypatch, async_session):
         run_id=result.run_id,
         db=async_session,
         actions_runner=Runner(),
-        x_candidate_token="tok",
-        x_candidate_session_id=cs.id,
+        auth=CandidateSessionAuth(session_id=cs.id, token="tok"),
     )
     assert resp.runId == 10
     assert resp.status == "failed"
@@ -403,9 +389,7 @@ async def test_submit_task_code_path(monkeypatch, async_session):
     monkeypatch.setattr(
         candidate_submissions, "_rate_limit_or_429", lambda *_a, **_k: None
     )
-    monkeypatch.setattr(
-        candidate_submissions, "_load_candidate_session_or_404", _return_cs
-    )
+    monkeypatch.setattr(candidate_submissions, "fetch_candidate_session", _return_cs)
     monkeypatch.setattr(candidate_submissions, "_compute_current_task", _return_current)
     candidate_submissions._compute_current_task = _return_current
     monkeypatch.setattr(
@@ -482,8 +466,7 @@ async def test_submit_task_code_path(monkeypatch, async_session):
     resp = await candidate_submissions.submit_task(
         task_id=task.id,
         payload=SubmissionCreateRequest(contentText=None),
-        x_candidate_token="tok",
-        x_candidate_session_id=cs.id,
+        auth=CandidateSessionAuth(session_id=cs.id, token="tok"),
         db=async_session,
         github_client=StubGithubClient(),
         actions_runner=object(),
@@ -524,7 +507,7 @@ async def test_codespace_status_raises_when_workspace_missing(
     cs = _stub_cs()
     task = _stub_task()
     monkeypatch.setattr(
-        candidate_submissions, "_load_candidate_session_or_404", _async_return(cs)
+        candidate_submissions, "fetch_candidate_session", _async_return(cs)
     )
     monkeypatch.setattr(
         candidate_submissions.submission_service,
@@ -539,8 +522,7 @@ async def test_codespace_status_raises_when_workspace_missing(
     with pytest.raises(HTTPException) as excinfo:
         await candidate_submissions.codespace_status(
             task_id=task.id,
-            x_candidate_token="tok",
-            x_candidate_session_id=cs.id,
+            auth=CandidateSessionAuth(session_id=cs.id, token="tok"),
             db=async_session,
         )
     assert excinfo.value.status_code == 404
@@ -549,12 +531,7 @@ async def test_codespace_status_raises_when_workspace_missing(
 @pytest.mark.asyncio
 async def test_run_task_tests_requires_headers(async_session):
     with pytest.raises(HTTPException) as excinfo:
-        await candidate_submissions.run_task_tests(
-            task_id=1,
-            payload=RunTestsRequest(branch=None, workflowInputs=None),
-            db=async_session,
-            actions_runner=object(),
-        )
+        candidate_headers(x_candidate_token=None, x_candidate_session_id=None)
     assert excinfo.value.status_code == 401
 
 
@@ -563,7 +540,7 @@ async def test_run_task_tests_workspace_missing(monkeypatch, async_session):
     cs = _stub_cs()
     task = _stub_task()
     monkeypatch.setattr(
-        candidate_submissions, "_load_candidate_session_or_404", _async_return(cs)
+        candidate_submissions, "fetch_candidate_session", _async_return(cs)
     )
     monkeypatch.setattr(
         candidate_submissions.submission_service,
@@ -591,8 +568,7 @@ async def test_run_task_tests_workspace_missing(monkeypatch, async_session):
             payload=RunTestsRequest(branch=None, workflowInputs=None),
             db=async_session,
             actions_runner=object(),
-            x_candidate_token="tok",
-            x_candidate_session_id=cs.id,
+            auth=CandidateSessionAuth(session_id=cs.id, token="tok"),
         )
     assert excinfo.value.status_code == 400
 
@@ -603,7 +579,7 @@ async def test_run_task_tests_github_error(monkeypatch, async_session):
     task = _stub_task()
     workspace = _stub_workspace()
     monkeypatch.setattr(
-        candidate_submissions, "_load_candidate_session_or_404", _async_return(cs)
+        candidate_submissions, "fetch_candidate_session", _async_return(cs)
     )
     monkeypatch.setattr(
         candidate_submissions.submission_service,
@@ -641,8 +617,7 @@ async def test_run_task_tests_github_error(monkeypatch, async_session):
             payload=RunTestsRequest(branch="main", workflowInputs=None),
             db=async_session,
             actions_runner=Runner(),
-            x_candidate_token="tok",
-            x_candidate_session_id=cs.id,
+            auth=CandidateSessionAuth(session_id=cs.id, token="tok"),
         )
     assert excinfo.value.status_code == 502
 
@@ -652,7 +627,7 @@ async def test_get_run_result_workspace_missing(monkeypatch, async_session):
     cs = _stub_cs()
     task = _stub_task()
     monkeypatch.setattr(
-        candidate_submissions, "_load_candidate_session_or_404", _async_return(cs)
+        candidate_submissions, "fetch_candidate_session", _async_return(cs)
     )
     monkeypatch.setattr(
         candidate_submissions.submission_service,
@@ -680,8 +655,7 @@ async def test_get_run_result_workspace_missing(monkeypatch, async_session):
             run_id=1,
             db=async_session,
             actions_runner=object(),
-            x_candidate_token="tok",
-            x_candidate_session_id=cs.id,
+            auth=CandidateSessionAuth(session_id=cs.id, token="tok"),
         )
     assert excinfo.value.status_code == 400
 
@@ -692,7 +666,7 @@ async def test_get_run_result_github_error(monkeypatch, async_session):
     task = _stub_task()
     workspace = _stub_workspace()
     monkeypatch.setattr(
-        candidate_submissions, "_load_candidate_session_or_404", _async_return(cs)
+        candidate_submissions, "fetch_candidate_session", _async_return(cs)
     )
     monkeypatch.setattr(
         candidate_submissions.submission_service,
@@ -725,8 +699,7 @@ async def test_get_run_result_github_error(monkeypatch, async_session):
             run_id=123,
             db=async_session,
             actions_runner=Runner(),
-            x_candidate_token="tok",
-            x_candidate_session_id=cs.id,
+            auth=CandidateSessionAuth(session_id=cs.id, token="tok"),
         )
     assert excinfo.value.status_code == 502
 
@@ -736,7 +709,7 @@ async def test_submit_task_missing_workspace(monkeypatch, async_session):
     cs = _stub_cs()
     task = _stub_task()
     monkeypatch.setattr(
-        candidate_submissions, "_load_candidate_session_or_404", _async_return(cs)
+        candidate_submissions, "fetch_candidate_session", _async_return(cs)
     )
     monkeypatch.setattr(
         candidate_submissions.submission_service,
@@ -781,8 +754,7 @@ async def test_submit_task_missing_workspace(monkeypatch, async_session):
         await candidate_submissions.submit_task(
             task_id=task.id,
             payload=SubmissionCreateRequest(contentText=None),
-            x_candidate_token="tok",
-            x_candidate_session_id=cs.id,
+            auth=CandidateSessionAuth(session_id=cs.id, token="tok"),
             db=async_session,
             github_client=object(),
             actions_runner=object(),
@@ -793,9 +765,7 @@ async def test_submit_task_missing_workspace(monkeypatch, async_session):
 @pytest.mark.asyncio
 async def test_get_run_result_missing_headers(async_session):
     with pytest.raises(HTTPException) as excinfo:
-        await candidate_submissions.get_run_result(
-            task_id=1, run_id=2, db=async_session, actions_runner=object()
-        )
+        candidate_headers(x_candidate_token=None, x_candidate_session_id=None)
     assert excinfo.value.status_code == 401
 
 
@@ -805,7 +775,7 @@ async def test_submit_task_github_error(monkeypatch, async_session):
     task = _stub_task()
     workspace = _stub_workspace()
     monkeypatch.setattr(
-        candidate_submissions, "_load_candidate_session_or_404", _async_return(cs)
+        candidate_submissions, "fetch_candidate_session", _async_return(cs)
     )
     monkeypatch.setattr(
         candidate_submissions, "_compute_current_task", _async_return(task)
@@ -859,8 +829,7 @@ async def test_submit_task_github_error(monkeypatch, async_session):
         await candidate_submissions.submit_task(
             task_id=task.id,
             payload=SubmissionCreateRequest(contentText=None),
-            x_candidate_token="tok",
-            x_candidate_session_id=cs.id,
+            auth=CandidateSessionAuth(session_id=cs.id, token="tok"),
             db=async_session,
             github_client=object(),
             actions_runner=Runner(),

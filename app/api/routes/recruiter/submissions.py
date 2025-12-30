@@ -105,14 +105,13 @@ async def get_submission_detail(
         contentText=sub.content_text,
         code=(
             {
-                "blob": sub.code_blob,
                 "repoPath": sub.code_repo_path,
                 "repoFullName": sub.code_repo_path,
                 "repoUrl": f"https://github.com/{sub.code_repo_path}"
                 if sub.code_repo_path
                 else None,
             }
-            if (sub.code_blob is not None or sub.code_repo_path is not None)
+            if sub.code_repo_path is not None
             else None
         ),
         testResults=(
