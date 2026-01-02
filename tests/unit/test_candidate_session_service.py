@@ -6,6 +6,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.domains.candidate_sessions import service as cs_service
+from app.infra.config import settings
 from app.infra.security.principal import Principal
 from tests.factories import (
     create_candidate_session,
@@ -15,6 +16,8 @@ from tests.factories import (
 
 
 def _principal(email: str) -> Principal:
+    email_claim = settings.auth.AUTH0_EMAIL_CLAIM
+    permissions_claim = settings.auth.AUTH0_PERMISSIONS_CLAIM
     return Principal(
         sub=f"auth0|{email}",
         email=email,
@@ -24,8 +27,9 @@ def _principal(email: str) -> Principal:
         claims={
             "sub": f"auth0|{email}",
             "email": email,
-            "https://simuhire.com/email": email,
+            email_claim: email,
             "permissions": ["candidate:access"],
+            permissions_claim: ["candidate:access"],
         },
     )
 

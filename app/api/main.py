@@ -12,6 +12,7 @@ from app.api.routes import (
     submissions,
     tasks_codespaces,
 )
+from app.core.brand import APP_NAME
 from app.infra.config import settings
 from app.infra.db import init_db_if_needed
 from app.infra.env import env_name
@@ -44,7 +45,7 @@ def create_app() -> FastAPI:
             "Refusing to start: DEV_AUTH_BYPASS enabled outside ENV=local"
         )
 
-    app = FastAPI(title="SimuHire Backend", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title=f"{APP_NAME} Backend", version="0.1.0", lifespan=lifespan)
 
     _configure_proxy_headers(app)
     _configure_cors(app)

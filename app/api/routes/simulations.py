@@ -139,7 +139,7 @@ async def list_simulation_candidates(
             status=cs.status,
             startedAt=cs.started_at,
             completedAt=cs.completed_at,
-            hasReport=(profile_id is not None),
+            hasFitProfile=(profile_id is not None),
             inviteEmailStatus=getattr(cs, "invite_email_status", None),
             inviteEmailSentAt=getattr(cs, "invite_email_sent_at", None),
             inviteEmailError=getattr(cs, "invite_email_error", None),

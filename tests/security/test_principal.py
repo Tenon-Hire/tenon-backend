@@ -23,26 +23,25 @@ def test_extract_principal_missing_email_claim_config(monkeypatch):
 
 
 def test_permissions_from_namespaced_claim(monkeypatch):
+    monkeypatch.setattr(settings.auth, "AUTH0_EMAIL_CLAIM", "https://tenon.ai/email")
     monkeypatch.setattr(
-        settings.auth, "AUTH0_EMAIL_CLAIM", "https://simuhire.com/email"
+        settings.auth, "AUTH0_PERMISSIONS_CLAIM", "https://tenon.ai/permissions"
     )
     claims = {
         "sub": "auth0|abc",
-        "https://simuhire.com/email": "jane@example.com",
-        "https://simuhire.com/permissions": ["candidate:access"],
+        "https://tenon.ai/email": "jane@example.com",
+        "https://tenon.ai/permissions": ["candidate:access"],
     }
     p = principal._extract_principal(claims)  # type: ignore[attr-defined]
     assert "candidate:access" in p.permissions
 
 
 def test_permissions_from_namespaced_string_claim(monkeypatch):
-    monkeypatch.setattr(
-        settings.auth, "AUTH0_EMAIL_CLAIM", "https://simuhire.com/email"
-    )
+    monkeypatch.setattr(settings.auth, "AUTH0_EMAIL_CLAIM", "https://tenon.ai/email")
     claims = {
         "sub": "auth0|abc",
-        "https://simuhire.com/email": "jane@example.com",
-        "https://simuhire.com/permissions_str": "candidate:access recruiter:access",
+        "https://tenon.ai/email": "jane@example.com",
+        "https://tenon.ai/permissions_str": "candidate:access recruiter:access",
     }
     p = principal._extract_principal(claims)  # type: ignore[attr-defined]
     assert "candidate:access" in p.permissions
@@ -50,16 +49,27 @@ def test_permissions_from_namespaced_string_claim(monkeypatch):
 
 
 def test_permissions_from_roles_mapping(monkeypatch):
-    monkeypatch.setattr(
-        settings.auth, "AUTH0_EMAIL_CLAIM", "https://simuhire.com/email"
-    )
-    monkeypatch.setattr(
-        settings.auth, "AUTH0_ROLES_CLAIM", "https://simuhire.com/roles"
-    )
+    monkeypatch.setattr(settings.auth, "AUTH0_EMAIL_CLAIM", "https://tenon.ai/email")
+    monkeypatch.setattr(settings.auth, "AUTH0_ROLES_CLAIM", "https://tenon.ai/roles")
     claims = {
         "sub": "auth0|abc",
-        "https://simuhire.com/email": "recruiter@example.com",
-        "https://simuhire.com/roles": ["senior-recruiter"],
+        "https://tenon.ai/email": "recruiter@example.com",
+        "https://tenon.ai/roles": ["senior-recruiter"],
     }
     p = principal._extract_principal(claims)  # type: ignore[attr-defined]
+    assert "recruiter:access" in p.permissions
+
+
+def test_extract_principal_supports_url_claim_keys(monkeypatch):
+    monkeypatch.setattr(settings.auth, "AUTH0_EMAIL_CLAIM", "https://tenon.ai/email")
+    monkeypatch.setattr(
+        settings.auth, "AUTH0_PERMISSIONS_CLAIM", "https://tenon.ai/permissions"
+    )
+    claims = {
+        "sub": "auth0|tenon123",
+        "https://tenon.ai/email": "x@y.com",
+        "https://tenon.ai/permissions": ["recruiter:access"],
+    }
+    p = principal._extract_principal(claims)  # type: ignore[attr-defined]
+    assert p.email == "x@y.com"
     assert "recruiter:access" in p.permissions

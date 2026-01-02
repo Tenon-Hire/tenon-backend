@@ -1,4 +1,4 @@
-"""Add execution profiles
+"""Add fit profiles
 
 Revision ID: fa61fe2e7edd
 Revises: b5e134bdb971
@@ -18,7 +18,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.create_table(
-        "execution_profiles",
+        "fit_profiles",
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column(
             "candidate_session_id",
@@ -29,13 +29,13 @@ def upgrade() -> None:
         sa.Column("generated_at", sa.DateTime(timezone=True), nullable=False),
     )
     op.create_index(
-        "ix_execution_profiles_candidate_session_id",
-        "execution_profiles",
+        "ix_fit_profiles_candidate_session_id",
+        "fit_profiles",
         ["candidate_session_id"],
         unique=True,
     )
 
 
 def downgrade() -> None:
-    op.drop_index("ix_execution_profiles_candidate_session_id", table_name="execution_profiles")
-    op.drop_table("execution_profiles")
+    op.drop_index("ix_fit_profiles_candidate_session_id", table_name="fit_profiles")
+    op.drop_table("fit_profiles")

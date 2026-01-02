@@ -16,18 +16,23 @@ down_revision: Union[str, Sequence[str], None] = "e1f4d2c7b9a0"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-TEMPLATE_REPO = "simuhire-dev/simuhire-template-python"
+TEMPLATE_REPO = "tenon-dev/tenon-template-python"
 
 
 def upgrade() -> None:
     """Set a default template repo for code/debug tasks that are empty."""
+    bind = op.get_bind()
+    if bind.dialect.name == "sqlite":
+        condition = "template_repo IS NULL OR trim(template_repo) = ''"
+    else:
+        condition = "template_repo IS NULL OR btrim(template_repo) = ''"
     op.execute(
         sa.text(
-            """
+            f"""
             UPDATE tasks
             SET template_repo = :repo
             WHERE type IN ('code', 'debug')
-              AND (template_repo IS NULL OR btrim(template_repo) = '')
+              AND ({condition})
             """
         ).bindparams(repo=TEMPLATE_REPO)
     )

@@ -14,21 +14,21 @@ from app.domains.tasks.template_catalog import (
 @pytest.mark.parametrize(
     ("template_key", "expected_repo"),
     [
-        ("python-fastapi", "simuhire-dev/simuhire-template-python-fastapi"),
-        ("node-express-ts", "simuhire-dev/simuhire-template-node-express-ts"),
+        ("python-fastapi", "tenon-dev/tenon-template-python-fastapi"),
+        ("node-express-ts", "tenon-dev/tenon-template-node-express-ts"),
         (
             "monorepo-nextjs-fastapi",
-            "simuhire-dev/simuhire-template-monorepo-nextjs-fastapi",
+            "tenon-dev/tenon-template-monorepo-nextjs-fastapi",
         ),
         (
             "monorepo-react-springboot",
-            "simuhire-dev/simuhire-template-monorepo-react-springboot",
+            "tenon-dev/tenon-template-monorepo-react-springboot",
         ),
         (
             "mobile-backend-fastapi",
-            "simuhire-dev/simuhire-template-mobile-backend-fastapi",
+            "tenon-dev/tenon-template-mobile-backend-fastapi",
         ),
-        ("ml-infra-mlops", "simuhire-dev/simuhire-template-ml-infra-mlops"),
+        ("ml-infra-mlops", "tenon-dev/tenon-template-ml-infra-mlops"),
     ],
 )
 def test_resolve_template_repo_full_name(template_key: str, expected_repo: str):
@@ -48,16 +48,16 @@ def test_invalid_template_key_raises():
     ("legacy_repo", "expected_repo"),
     [
         (
-            "simuhire-templates/node-day2-api",
-            LEGACY_TEMPLATE_REPO_REWRITES["simuhire-templates/node-day2-api"],
+            "tenon-templates/node-day2-api",
+            LEGACY_TEMPLATE_REPO_REWRITES["tenon-templates/node-day2-api"],
         ),
         (
-            "simuhire-templates/node-day3-debug",
-            LEGACY_TEMPLATE_REPO_REWRITES["simuhire-templates/node-day3-debug"],
+            "tenon-templates/node-day3-debug",
+            LEGACY_TEMPLATE_REPO_REWRITES["tenon-templates/node-day3-debug"],
         ),
         (
-            "simuhire-dev/simuhire-template-python",
-            "simuhire-dev/simuhire-template-python-fastapi",
+            "tenon-dev/tenon-template-python",
+            "tenon-dev/tenon-template-python-fastapi",
         ),
     ],
 )
@@ -74,9 +74,9 @@ def test_normalize_template_repo_value_uses_template_key_for_blank():
 
 def test_normalize_template_repo_value_rewrites_legacy_with_template_key():
     repo = normalize_template_repo_value(
-        "simuhire-templates/node-day2-api", template_key="node-express-ts"
+        "tenon-templates/node-day2-api", template_key="node-express-ts"
     )
-    assert repo == "simuhire-dev/simuhire-template-node-express-ts"
+    assert repo == "tenon-dev/tenon-template-node-express-ts"
 
 
 def test_normalize_template_repo_value_returns_none_when_no_hints():

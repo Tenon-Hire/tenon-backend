@@ -100,7 +100,7 @@ async def test_submit_day1_text_creates_submission_and_advances(
 ):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
 
-    recruiter_email = "recruiterA@simuhire.com"
+    recruiter_email = "recruiterA@tenon.com"
     await seed_recruiter(
         async_session, email=recruiter_email, company_name="Recruiter A"
     )
@@ -142,7 +142,7 @@ async def test_submit_day2_code_records_actions_run(
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
     actions_stubber()
 
-    recruiter_email = "recruiterA@simuhire.com"
+    recruiter_email = "recruiterA@tenon.com"
     await seed_recruiter(
         async_session, email=recruiter_email, company_name="Recruiter A"
     )
@@ -203,7 +203,7 @@ async def test_out_of_order_submission_rejected_400(
 ):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
 
-    recruiter_email = "recruiterA@simuhire.com"
+    recruiter_email = "recruiterA@tenon.com"
     await seed_recruiter(
         async_session, email=recruiter_email, company_name="Recruiter A"
     )
@@ -233,7 +233,7 @@ async def test_token_session_mismatch_rejected_404(
 ):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
 
-    recruiter_email = "recruiterA@simuhire.com"
+    recruiter_email = "recruiterA@tenon.com"
     await seed_recruiter(
         async_session, email=recruiter_email, company_name="Recruiter A"
     )
@@ -282,7 +282,7 @@ async def test_duplicate_submission_409(
 ):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
 
-    recruiter_email = "recruiterA@simuhire.com"
+    recruiter_email = "recruiterA@tenon.com"
     await seed_recruiter(
         async_session, email=recruiter_email, company_name="Recruiter A"
     )
@@ -317,7 +317,7 @@ async def test_text_submission_requires_content(
 ):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
 
-    recruiter_email = "recruiterA@simuhire.com"
+    recruiter_email = "recruiterA@tenon.com"
     await seed_recruiter(
         async_session, email=recruiter_email, company_name="Recruiter A"
     )
@@ -346,7 +346,7 @@ async def test_code_submission_requires_workspace(
 ):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
 
-    recruiter_email = "recruiterA@simuhire.com"
+    recruiter_email = "recruiterA@tenon.com"
     await seed_recruiter(
         async_session, email=recruiter_email, company_name="Recruiter A"
     )
@@ -387,7 +387,7 @@ async def test_submitting_all_tasks_marks_session_complete(
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
     actions_stubber()
 
-    recruiter_email = "recruiterA@simuhire.com"
+    recruiter_email = "recruiterA@tenon.com"
     await seed_recruiter(
         async_session, email=recruiter_email, company_name="Recruiter A"
     )

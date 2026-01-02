@@ -53,8 +53,8 @@ def test_auth0_fail_fast_missing_audience():
 
 
 def test_auth0_fail_fast_missing_issuer(monkeypatch):
-    monkeypatch.setenv("AUTH0_DOMAIN", "")
-    monkeypatch.delenv("AUTH0_ISSUER", raising=False)
+    monkeypatch.setenv("TENON_AUTH0_DOMAIN", "")
+    monkeypatch.delenv("TENON_AUTH0_ISSUER", raising=False)
     with pytest.raises(ValueError) as excinfo:
         Settings(_env_file=None, ENV="prod", AUTH0_API_AUDIENCE="api://aud")
     assert "AUTH0_ISSUER" in str(excinfo.value) or "AUTH0_DOMAIN" in str(excinfo.value)
@@ -63,18 +63,18 @@ def test_auth0_fail_fast_missing_issuer(monkeypatch):
 def test_github_settings_merge_flat_env():
     s = Settings(
         GITHUB_API_BASE="https://api.github.com",
-        GITHUB_ORG="simuhire",
+        GITHUB_ORG="tenon",
         GITHUB_TOKEN="ghp_123",
-        GITHUB_TEMPLATE_OWNER="simuhire-templates",
+        GITHUB_TEMPLATE_OWNER="tenon-templates",
         GITHUB_ACTIONS_WORKFLOW_FILE="ci.yml",
         GITHUB_REPO_PREFIX="prefix-",
         GITHUB_CLEANUP_ENABLED="True",
     )
 
     assert s.github.GITHUB_API_BASE == "https://api.github.com"
-    assert s.github.GITHUB_ORG == "simuhire"
+    assert s.github.GITHUB_ORG == "tenon"
     assert s.github.GITHUB_TOKEN == "ghp_123"
-    assert s.github.GITHUB_TEMPLATE_OWNER == "simuhire-templates"
+    assert s.github.GITHUB_TEMPLATE_OWNER == "tenon-templates"
     assert s.github.GITHUB_ACTIONS_WORKFLOW_FILE == "ci.yml"
     assert s.github.GITHUB_REPO_PREFIX == "prefix-"
     assert s.github.GITHUB_CLEANUP_ENABLED is True
@@ -95,9 +95,9 @@ def test_settings_attr_passthroughs_and_errors():
 
 
 def test_settings_merge_env(monkeypatch):
-    monkeypatch.setenv("AUTH0_DOMAIN", "env-domain.auth0.com")
-    monkeypatch.setenv("CORS_ALLOW_ORIGINS", '["https://a.com"]')
-    monkeypatch.setenv("GITHUB_API_BASE", "https://api.github.com")
+    monkeypatch.setenv("TENON_AUTH0_DOMAIN", "env-domain.auth0.com")
+    monkeypatch.setenv("TENON_CORS_ALLOW_ORIGINS", '["https://a.com"]')
+    monkeypatch.setenv("TENON_GITHUB_API_BASE", "https://api.github.com")
     s = Settings()
     assert s.auth.AUTH0_DOMAIN == "env-domain.auth0.com"
     assert ["https://a.com"] == s.cors.CORS_ALLOW_ORIGINS
@@ -105,8 +105,8 @@ def test_settings_merge_env(monkeypatch):
 
 
 def test_settings_merge_env_prefers_env_values(monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", "postgresql://env-db")
-    monkeypatch.setenv("CORS_ALLOW_ORIGIN_REGEX", "https://.*\\.example.com")
+    monkeypatch.setenv("TENON_DATABASE_URL", "postgresql://env-db")
+    monkeypatch.setenv("TENON_CORS_ALLOW_ORIGIN_REGEX", "https://.*\\.example.com")
     s = Settings(database={}, cors={})
     assert s.database.DATABASE_URL == "postgresql://env-db"
     assert s.cors.CORS_ALLOW_ORIGIN_REGEX == "https://.*\\.example.com"
@@ -134,9 +134,9 @@ def test_cors_coercion_variants():
 
 
 def test_merge_env_applies_nested_values(monkeypatch):
-    monkeypatch.setenv("DATABASE_URL_SYNC", "postgresql://env-sync")
-    monkeypatch.setenv("AUTH0_API_AUDIENCE", "api://aud")
-    monkeypatch.setenv("CORS_ALLOW_ORIGIN_REGEX", "^https://allowed")
+    monkeypatch.setenv("TENON_DATABASE_URL_SYNC", "postgresql://env-sync")
+    monkeypatch.setenv("TENON_AUTH0_API_AUDIENCE", "api://aud")
+    monkeypatch.setenv("TENON_CORS_ALLOW_ORIGIN_REGEX", "^https://allowed")
     s = Settings(database={}, auth={}, cors={})
     assert s.database.DATABASE_URL_SYNC == "postgresql://env-sync"
     assert s.auth.AUTH0_API_AUDIENCE == "api://aud"
@@ -150,7 +150,7 @@ def test_normalize_sync_url_passthrough():
 
 
 def test_to_async_url_passthrough_and_coerce():
-    assert _to_async_url("sqlite:///local.db") == "sqlite:///local.db"
+    assert _to_async_url("sqlite:///local.db") == "sqlite+aiosqlite:///local.db"
     assert (
         _to_async_url("postgresql://user:pass@localhost/db")
         == "postgresql+asyncpg://user:pass@localhost/db"
@@ -158,10 +158,10 @@ def test_to_async_url_passthrough_and_coerce():
 
 
 def test_merge_env_pulls_missing_sections(monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", "postgresql://db")
-    monkeypatch.setenv("AUTH0_DOMAIN", "auth.example.com")
-    monkeypatch.setenv("CORS_ALLOW_ORIGINS", "https://a.com,https://b.com")
-    monkeypatch.setenv("GITHUB_ORG", "org")
+    monkeypatch.setenv("TENON_DATABASE_URL", "postgresql://db")
+    monkeypatch.setenv("TENON_AUTH0_DOMAIN", "auth.example.com")
+    monkeypatch.setenv("TENON_CORS_ALLOW_ORIGINS", "https://a.com,https://b.com")
+    monkeypatch.setenv("TENON_GITHUB_ORG", "org")
     s = Settings()
     assert s.database.DATABASE_URL == "postgresql://db"
     assert s.auth.AUTH0_DOMAIN == "auth.example.com"
@@ -170,9 +170,9 @@ def test_merge_env_pulls_missing_sections(monkeypatch):
 
 
 def test_merge_legacy_validator_uses_env(monkeypatch):
-    monkeypatch.setenv("DATABASE_URL_SYNC", "postgresql://env-db")
-    monkeypatch.setenv("AUTH0_ISSUER", "https://issuer.test")
-    monkeypatch.setenv("CORS_ALLOW_ORIGIN_REGEX", "^https://allowed")
+    monkeypatch.setenv("TENON_DATABASE_URL_SYNC", "postgresql://env-db")
+    monkeypatch.setenv("TENON_AUTH0_ISSUER", "https://issuer.test")
+    monkeypatch.setenv("TENON_CORS_ALLOW_ORIGIN_REGEX", "^https://allowed")
     values = {}
     merged = Settings._merge_legacy(values)
     assert merged["database"]["DATABASE_URL_SYNC"] == "postgresql://env-db"

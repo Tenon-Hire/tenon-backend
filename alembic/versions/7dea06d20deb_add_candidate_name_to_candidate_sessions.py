@@ -21,7 +21,9 @@ def upgrade() -> None:
         "candidate_sessions",
         sa.Column("candidate_name", sa.String(length=255), nullable=False, server_default=""),
     )
-    op.alter_column("candidate_sessions", "candidate_name", server_default=None)
+    bind = op.get_bind()
+    if bind.dialect.name != "sqlite":
+        op.alter_column("candidate_sessions", "candidate_name", server_default=None)
 
 
 def downgrade() -> None:

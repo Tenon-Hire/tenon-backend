@@ -1,8 +1,8 @@
 [tool.poetry]
-name = "simuhire-backend"
+name = "tenon-backend"
 version = "0.1.0"
-description = "SimuHire backend – simulation-based hiring platform"
-authors = ["SimuHire <founders@simuhire.com>"]
+description = "Tenon backend – simulation-based hiring platform"
+authors = ["Tenon <founders@tenon.com>"]
 packages = [{ include = "app" }]
 
 [tool.poetry.dependencies]

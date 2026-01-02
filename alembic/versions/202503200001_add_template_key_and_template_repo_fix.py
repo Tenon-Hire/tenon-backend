@@ -19,29 +19,29 @@ DEFAULT_TEMPLATE_KEY = "python-fastapi"
 
 TEMPLATE_REPOS = {
     # Backend-only templates
-    "python-fastapi": "simuhire-dev/simuhire-template-python-fastapi",
-    "node-express-ts": "simuhire-dev/simuhire-template-node-express-ts",
-    "node-nest-ts": "simuhire-dev/simuhire-template-node-nest-ts",
-    "java-springboot": "simuhire-dev/simuhire-template-java-springboot",
-    "go-gin": "simuhire-dev/simuhire-template-go-gin",
-    "dotnet-webapi": "simuhire-dev/simuhire-template-dotnet-webapi",
+    "python-fastapi": "tenon-dev/tenon-template-python-fastapi",
+    "node-express-ts": "tenon-dev/tenon-template-node-express-ts",
+    "node-nest-ts": "tenon-dev/tenon-template-node-nest-ts",
+    "java-springboot": "tenon-dev/tenon-template-java-springboot",
+    "go-gin": "tenon-dev/tenon-template-go-gin",
+    "dotnet-webapi": "tenon-dev/tenon-template-dotnet-webapi",
     # Web full-stack monorepos
-    "monorepo-nextjs-nest": "simuhire-dev/simuhire-template-monorepo-nextjs-nest",
-    "monorepo-nextjs-fastapi": "simuhire-dev/simuhire-template-monorepo-nextjs-fastapi",
-    "monorepo-react-express": "simuhire-dev/simuhire-template-monorepo-react-express",
-    "monorepo-react-springboot": "simuhire-dev/simuhire-template-monorepo-react-springboot",
+    "monorepo-nextjs-nest": "tenon-dev/tenon-template-monorepo-nextjs-nest",
+    "monorepo-nextjs-fastapi": "tenon-dev/tenon-template-monorepo-nextjs-fastapi",
+    "monorepo-react-express": "tenon-dev/tenon-template-monorepo-react-express",
+    "monorepo-react-springboot": "tenon-dev/tenon-template-monorepo-react-springboot",
     # Mobile
-    "mobile-fullstack-expo-fastapi": "simuhire-dev/simuhire-template-monorepo-expo-fastapi",
-    "mobile-backend-fastapi": "simuhire-dev/simuhire-template-mobile-backend-fastapi",
+    "mobile-fullstack-expo-fastapi": "tenon-dev/tenon-template-monorepo-expo-fastapi",
+    "mobile-backend-fastapi": "tenon-dev/tenon-template-mobile-backend-fastapi",
     # ML
-    "ml-backend-fastapi": "simuhire-dev/simuhire-template-ml-backend-fastapi",
-    "ml-infra-mlops": "simuhire-dev/simuhire-template-ml-infra-mlops",
+    "ml-backend-fastapi": "tenon-dev/tenon-template-ml-backend-fastapi",
+    "ml-infra-mlops": "tenon-dev/tenon-template-ml-infra-mlops",
 }
 
 BAD_TEMPLATE_REPOS = (
-    "simuhire-templates/node-day2-api",
-    "simuhire-templates/node-day3-debug",
-    "simuhire-dev/simuhire-template-python",
+    "tenon-templates/node-day2-api",
+    "tenon-templates/node-day3-debug",
+    "tenon-dev/tenon-template-python",
 )
 
 

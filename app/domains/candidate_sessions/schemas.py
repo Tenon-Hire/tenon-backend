@@ -120,7 +120,7 @@ class CandidateSessionListItem(APIModel):
     status: CandidateSessionStatus
     startedAt: datetime | None
     completedAt: datetime | None
-    hasReport: bool
+    hasFitProfile: bool
     inviteEmailStatus: str | None = None
     inviteEmailSentAt: datetime | None = None
     inviteEmailError: str | None = None

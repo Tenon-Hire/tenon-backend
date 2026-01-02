@@ -26,7 +26,7 @@ async def test_send_verification_code_and_rate_limit(
 ):
     recruiter, sim, cs = await _seed_candidate_session(async_session)
     provider = MemoryEmailProvider()
-    email_service = EmailService(provider, sender="SimuHire <noreply@test.com>")
+    email_service = EmailService(provider, sender="Tenon <noreply@test.com>")
 
     with override_dependencies({get_email_service: lambda: email_service}):
         res = await async_client.post(

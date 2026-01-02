@@ -37,14 +37,14 @@ async def test_invite_creates_candidate_session(
 
     await seed_recruiter(
         async_session,
-        email="recruiterA@simuhire.com",
+        email="recruiterA@tenon.com",
         company_name="Recruiter A Co",
     )
 
     # Create simulation
     create_sim = await async_client.post(
         "/api/simulations",
-        headers={"x-dev-user-email": "recruiterA@simuhire.com"},
+        headers={"x-dev-user-email": "recruiterA@tenon.com"},
         json={
             "title": "Backend Node Simulation",
             "role": "Backend Engineer",
@@ -59,7 +59,7 @@ async def test_invite_creates_candidate_session(
     # Invite candidate
     resp = await async_client.post(
         f"/api/simulations/{sim_id}/invite",
-        headers={"x-dev-user-email": "recruiterA@simuhire.com"},
+        headers={"x-dev-user-email": "recruiterA@tenon.com"},
         json={"candidateName": "Jane Doe", "inviteEmail": "jane@example.com"},
     )
     assert resp.status_code == 201
@@ -98,13 +98,13 @@ async def test_invite_invalid_simulation_returns_404(
 
     await seed_recruiter(
         async_session,
-        email="recruiterA@simuhire.com",
+        email="recruiterA@tenon.com",
         company_name="Recruiter A Co",
     )
 
     resp = await async_client.post(
         "/api/simulations/999999/invite",
-        headers={"x-dev-user-email": "recruiterA@simuhire.com"},
+        headers={"x-dev-user-email": "recruiterA@tenon.com"},
         json={"candidateName": "Jane Doe", "inviteEmail": "jane@example.com"},
     )
     assert resp.status_code == 404
@@ -116,19 +116,19 @@ async def test_invite_not_owned_simulation_returns_404(
 ):
     await seed_recruiter(
         async_session,
-        email="recruiterA@simuhire.com",
+        email="recruiterA@tenon.com",
         company_name="Recruiter A Co",
     )
     await seed_recruiter(
         async_session,
-        email="recruiterB@simuhire.com",
+        email="recruiterB@tenon.com",
         company_name="Recruiter B Co",
     )
 
     # Recruiter A creates sim
     create_sim = await async_client.post(
         "/api/simulations",
-        headers={"x-dev-user-email": "recruiterA@simuhire.com"},
+        headers={"x-dev-user-email": "recruiterA@tenon.com"},
         json={
             "title": "Sim Owned By A",
             "role": "Backend Engineer",
@@ -143,7 +143,7 @@ async def test_invite_not_owned_simulation_returns_404(
     # Recruiter B attempts invite -> 404 (do not leak existence)
     resp = await async_client.post(
         f"/api/simulations/{sim_id}/invite",
-        headers={"x-dev-user-email": "recruiterB@simuhire.com"},
+        headers={"x-dev-user-email": "recruiterB@tenon.com"},
         json={"candidateName": "Jane Doe", "inviteEmail": "jane@example.com"},
     )
     assert resp.status_code == 404
