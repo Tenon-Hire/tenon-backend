@@ -20,8 +20,8 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Populate template_repo for existing code/debug tasks if missing."""
     template_mapping = {
-        2: "simuhire-templates/node-day2-api",
-        3: "simuhire-templates/node-day3-debug",
+        2: "tenon-templates/node-day2-api",
+        3: "tenon-templates/node-day3-debug",
     }
     for day_index, repo in template_mapping.items():
         op.execute(
@@ -40,8 +40,8 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Clear backfilled template_repo values to restore previous state."""
     template_mapping = {
-        2: "simuhire-templates/node-day2-api",
-        3: "simuhire-templates/node-day3-debug",
+        2: "tenon-templates/node-day2-api",
+        3: "tenon-templates/node-day3-debug",
     }
     for day_index, repo in template_mapping.items():
         op.execute(

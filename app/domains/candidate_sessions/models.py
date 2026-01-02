@@ -100,8 +100,8 @@ class CandidateSession(Base):
         cascade="all, delete-orphan",
     )
 
-    execution_profile = relationship(
-        "ExecutionProfile",
+    fit_profile = relationship(
+        "FitProfile",
         back_populates="candidate_session",
         uselist=False,
         cascade="all, delete-orphan",

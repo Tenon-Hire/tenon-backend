@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domains import CandidateSession, ExecutionProfile, Simulation, Task
+from app.domains import CandidateSession, FitProfile, Simulation, Task
 from app.domains.candidate_sessions.schemas import CandidateInviteRequest
 from app.domains.simulations import repository as sim_repo
 from app.domains.simulations.blueprints import DEFAULT_5_DAY_BLUEPRINT
@@ -146,10 +146,10 @@ async def list_candidates_with_profile(
 ) -> list[tuple[CandidateSession, int | None]]:
     """Return candidate sessions with attached report id if present."""
     stmt = (
-        select(CandidateSession, ExecutionProfile.id)
+        select(CandidateSession, FitProfile.id)
         .outerjoin(
-            ExecutionProfile,
-            ExecutionProfile.candidate_session_id == CandidateSession.id,
+            FitProfile,
+            FitProfile.candidate_session_id == CandidateSession.id,
         )
         .where(CandidateSession.simulation_id == simulation_id)
         .order_by(CandidateSession.id.desc())

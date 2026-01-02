@@ -6,6 +6,8 @@ import os
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+DEFAULT_CLAIM_NAMESPACE = "https://tenon.ai"
+
 
 def _normalize_sync_url(url: str) -> str:
     """Normalize postgres:// -> postgresql:// for sync DSNs."""
@@ -18,6 +20,8 @@ def _to_async_url(url: str) -> str:
     """Convert sync URL to asyncpg URL if needed."""
     if url.startswith("postgresql://") and "+asyncpg" not in url:
         return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    if url.startswith("sqlite:///") and "+aiosqlite" not in url:
+        return url.replace("sqlite:///", "sqlite+aiosqlite:///", 1)
     return url
 
 
@@ -27,7 +31,7 @@ class DatabaseSettings(BaseSettings):
     DATABASE_URL: str = Field(default="")
     DATABASE_URL_SYNC: str = Field(default="")
 
-    model_config = SettingsConfigDict(extra="ignore")
+    model_config = SettingsConfigDict(extra="ignore", env_prefix="TENON_")
 
     @property
     def sync_url(self) -> str:
@@ -51,11 +55,12 @@ class AuthSettings(BaseSettings):
     AUTH0_JWKS_URL: str | None = None
     AUTH0_API_AUDIENCE: str = ""
     AUTH0_ALGORITHMS: str = "RS256"
-    AUTH0_EMAIL_CLAIM: str = "https://simuhire.com/email"
-    AUTH0_ROLES_CLAIM: str = "https://simuhire.com/roles"
-    AUTH0_PERMISSIONS_CLAIM: str = "https://simuhire.com/permissions"
+    AUTH0_CLAIM_NAMESPACE: str = DEFAULT_CLAIM_NAMESPACE
+    AUTH0_EMAIL_CLAIM: str = ""
+    AUTH0_ROLES_CLAIM: str = ""
+    AUTH0_PERMISSIONS_CLAIM: str = ""
 
-    model_config = SettingsConfigDict(extra="ignore")
+    model_config = SettingsConfigDict(extra="ignore", env_prefix="TENON_")
 
     @property
     def issuer(self) -> str:
@@ -84,6 +89,30 @@ class AuthSettings(BaseSettings):
         ]
         return parts or ["RS256"]
 
+    @model_validator(mode="after")
+    def _apply_claim_namespace(self):
+        """Populate claim URIs from namespace when not explicitly set."""
+        namespace = (self.AUTH0_CLAIM_NAMESPACE or DEFAULT_CLAIM_NAMESPACE).rstrip("/")
+        if not self.AUTH0_EMAIL_CLAIM:
+            self.AUTH0_EMAIL_CLAIM = f"{namespace}/email"
+        if not self.AUTH0_ROLES_CLAIM:
+            self.AUTH0_ROLES_CLAIM = f"{namespace}/roles"
+        if not self.AUTH0_PERMISSIONS_CLAIM:
+            self.AUTH0_PERMISSIONS_CLAIM = f"{namespace}/permissions"
+        return self
+
+    @property
+    def permissions_str_claim(self) -> str:
+        """Namespaced claim used when permissions are space-delimited."""
+        namespace = (self.AUTH0_CLAIM_NAMESPACE or DEFAULT_CLAIM_NAMESPACE).rstrip("/")
+        return f"{namespace}/permissions_str"
+
+    @property
+    def name_claim(self) -> str:
+        """Namespaced claim for user name when provided by Auth0 Action."""
+        namespace = (self.AUTH0_CLAIM_NAMESPACE or DEFAULT_CLAIM_NAMESPACE).rstrip("/")
+        return f"{namespace}/name"
+
 
 class CorsSettings(BaseSettings):
     """CORS configuration."""
@@ -91,7 +120,7 @@ class CorsSettings(BaseSettings):
     CORS_ALLOW_ORIGINS: list[str] | str = Field(default_factory=list)
     CORS_ALLOW_ORIGIN_REGEX: str | None = None
 
-    model_config = SettingsConfigDict(extra="ignore")
+    model_config = SettingsConfigDict(extra="ignore", env_prefix="TENON_")
 
     @field_validator("CORS_ALLOW_ORIGINS", mode="before")
     @classmethod
@@ -121,18 +150,18 @@ class GithubSettings(BaseSettings):
     GITHUB_ORG: str = ""
     GITHUB_TOKEN: str = ""
     GITHUB_TEMPLATE_OWNER: str = ""
-    GITHUB_ACTIONS_WORKFLOW_FILE: str = "simuhire-ci.yml"
-    GITHUB_REPO_PREFIX: str = "simuhire-candidate-"
+    GITHUB_ACTIONS_WORKFLOW_FILE: str = "tenon-ci.yml"
+    GITHUB_REPO_PREFIX: str = "tenon-ws-"
     GITHUB_CLEANUP_ENABLED: bool = False
 
-    model_config = SettingsConfigDict(extra="ignore")
+    model_config = SettingsConfigDict(extra="ignore", env_prefix="TENON_")
 
 
 class EmailSettings(BaseSettings):
     """Email provider configuration."""
 
     EMAIL_PROVIDER: str = "console"
-    EMAIL_FROM: str = "SimuHire <notifications@simuhire.com>"
+    EMAIL_FROM: str = "Tenon <notifications@tenon.com>"
     RESEND_API_KEY: str = ""
     SENDGRID_API_KEY: str = ""
     SMTP_HOST: str = ""
@@ -141,7 +170,7 @@ class EmailSettings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_TLS: bool = True
 
-    model_config = SettingsConfigDict(extra="ignore")
+    model_config = SettingsConfigDict(extra="ignore", env_prefix="TENON_")
 
 
 class Settings(BaseSettings):
@@ -152,6 +181,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="allow",
         env_nested_delimiter="__",
+        env_prefix="TENON_",
     )
 
     ENV: str = "local"
@@ -190,6 +220,7 @@ class Settings(BaseSettings):
             "AUTH0_JWKS_URL",
             "AUTH0_API_AUDIENCE",
             "AUTH0_ALGORITHMS",
+            "AUTH0_CLAIM_NAMESPACE",
             "AUTH0_EMAIL_CLAIM",
             "AUTH0_ROLES_CLAIM",
             "AUTH0_PERMISSIONS_CLAIM",
@@ -218,45 +249,50 @@ class Settings(BaseSettings):
 
         db_data = dict(data.get("database", {}) or {})
         for key in db_keys:
+            env_key = f"TENON_{key}"
             if key in data:
                 db_data[key] = data.pop(key)
-            elif (env_val := os.getenv(key)) is not None:
+            elif (env_val := os.getenv(env_key)) is not None:
                 db_data[key] = env_val
         if db_data:
             data["database"] = db_data
 
         auth_data = dict(data.get("auth", {}) or {})
         for key in auth_keys:
+            env_key = f"TENON_{key}"
             if key in data:
                 auth_data[key] = data.pop(key)
-            elif (env_val := os.getenv(key)) is not None:
+            elif (env_val := os.getenv(env_key)) is not None:
                 auth_data[key] = env_val
         if auth_data:
             data["auth"] = auth_data
 
         cors_data = dict(data.get("cors", {}) or {})
         for key in cors_keys:
+            env_key = f"TENON_{key}"
             if key in data:
                 cors_data[key] = data.pop(key)
-            elif (env_val := os.getenv(key)) is not None:
+            elif (env_val := os.getenv(env_key)) is not None:
                 cors_data[key] = env_val
         if cors_data:
             data["cors"] = cors_data
 
         github_data = dict(data.get("github", {}) or {})
         for key in github_keys:
+            env_key = f"TENON_{key}"
             if key in data:
                 github_data[key] = data.pop(key)
-            elif (env_val := os.getenv(key)) is not None:
+            elif (env_val := os.getenv(env_key)) is not None:
                 github_data[key] = env_val
         if github_data:
             data["github"] = github_data
 
         email_data = dict(data.get("email", {}) or {})
         for key in email_keys:
+            env_key = f"TENON_{key}"
             if key in data:
                 email_data[key] = data.pop(key)
-            elif (env_val := os.getenv(key)) is not None:
+            elif (env_val := os.getenv(env_key)) is not None:
                 email_data[key] = env_val
         if email_data:
             data["email"] = email_data

@@ -6,6 +6,8 @@ from typing import Any
 
 import httpx
 
+from app.core.brand import DEFAULT_USER_AGENT
+
 logger = logging.getLogger(__name__)
 
 
@@ -197,7 +199,7 @@ class GithubClient:
         headers = {
             "Accept": "application/vnd.github+json",
             "Authorization": f"Bearer {self.token}",
-            "User-Agent": "SimuHire-Backend",
+            "User-Agent": DEFAULT_USER_AGENT,
         }
         async with httpx.AsyncClient(transport=self.transport) as client:
             try:
@@ -231,7 +233,7 @@ class GithubClient:
         headers = {
             "Accept": "application/vnd.github+json",
             "Authorization": f"Bearer {self.token}",
-            "User-Agent": "SimuHire-Backend",
+            "User-Agent": DEFAULT_USER_AGENT,
         }
         async with httpx.AsyncClient(transport=self.transport) as client:
             try:

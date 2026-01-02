@@ -7,7 +7,9 @@ from dataclasses import dataclass
 from typing import Any
 from xml.etree import ElementTree
 
-PREFERRED_ARTIFACT_NAMES = {"simuhire-test-results", "test-results", "junit"}
+from app.core.brand import TEST_ARTIFACT_NAMESPACE
+
+PREFERRED_ARTIFACT_NAMES = {TEST_ARTIFACT_NAMESPACE, "test-results", "junit"}
 
 
 @dataclass
@@ -26,9 +28,9 @@ def parse_test_results_zip(content: bytes) -> ParsedTestResults | None:
     """Extract test results from a GitHub Actions artifact zip."""
     try:
         with zipfile.ZipFile(io.BytesIO(content)) as zf:
-            # Prefer JSON file named simuhire-test-results.json
+            # Prefer JSON file named tenon-test-results.json
             for name in zf.namelist():
-                if name.endswith("simuhire-test-results.json"):
+                if name.endswith(f"{TEST_ARTIFACT_NAMESPACE}.json"):
                     with zf.open(name) as fp:
                         data = _safe_json_load(fp)
                         if data is None:

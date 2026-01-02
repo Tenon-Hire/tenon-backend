@@ -88,4 +88,4 @@ async def test_list_simulation_candidates_calls_service(monkeypatch):
         simulation_id=9, db=None, user=user
     )
     assert resp[0].candidateSessionId == cs.id
-    assert resp[0].hasReport is False
+    assert resp[0].hasFitProfile is False

@@ -15,6 +15,7 @@ from app.domains.submissions.schemas import (
     RunTestsRequest,
     SubmissionCreateRequest,
 )
+from app.infra.config import settings
 from app.infra.security.principal import Principal
 
 
@@ -56,6 +57,8 @@ def _stub_workspace():
 
 
 def _principal(email: str = "candidate@example.com") -> Principal:
+    email_claim = settings.auth.AUTH0_EMAIL_CLAIM
+    permissions_claim = settings.auth.AUTH0_PERMISSIONS_CLAIM
     return Principal(
         sub=f"auth0|{email}",
         email=email,
@@ -65,8 +68,9 @@ def _principal(email: str = "candidate@example.com") -> Principal:
         claims={
             "sub": f"auth0|{email}",
             "email": email,
-            "https://simuhire.com/email": email,
+            email_claim: email,
             "permissions": ["candidate:access"],
+            permissions_claim: ["candidate:access"],
         },
     )
 

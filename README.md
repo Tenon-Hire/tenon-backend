@@ -1,11 +1,11 @@
-# SimuHire Backend
+# Tenon Backend
 
-FastAPI + Postgres backend for SimuHire. Recruiters create 5-day simulations, invite candidates, and review GitHub-native task submissions. Candidates work entirely in GitHub (template repos + Codespaces + Actions) and authenticate via Auth0 access tokens tied to their invites.
+FastAPI + Postgres backend for Tenon. Recruiters create 5-day simulations, invite candidates, and review GitHub-native task submissions. Candidates work entirely in GitHub (template repos + Codespaces + Actions) and authenticate via Auth0 access tokens tied to their invites.
 
 ## GitHub-Native Execution
 
 - Template catalog source of truth: `app/domains/tasks/template_catalog.py` maps `templateKey` → template repo (`owner/name`). Code/debug tasks pull their template from the simulation’s `templateKey`.
-- Workflow expectations: `GITHUB_ACTIONS_WORKFLOW_FILE` must exist in each template repo and support `workflow_dispatch`. Artifact contract: preferred artifact name `simuhire-test-results` (case-insensitive) containing `simuhire-test-results.json` with `{passed, failed, total, stdout, stderr, summary?}`. Fallback: any JSON with those keys, else JUnit XML.
+- Workflow expectations: `TENON_GITHUB_ACTIONS_WORKFLOW_FILE` must exist in each template repo and support `workflow_dispatch`. Artifact contract: preferred artifact name `tenon-test-results` (case-insensitive) containing `tenon-test-results.json` with `{passed, failed, total, stdout, stderr, summary?}`. Fallback: any JSON with those keys, else JUnit XML.
 - Flow: backend provisions a workspace repo from the template → returns Codespace URL → triggers/polls Actions runs → parses artifacts → stores run/test/diff metadata on `Workspace` and `Submission`. Diff summary computed via GitHub compare (base template SHA → head commit).
 
 ## Architecture
@@ -19,7 +19,7 @@ FastAPI + Postgres backend for SimuHire. Recruiters create 5-day simulations, in
   - Submissions (`submissions/*`): submission model/services (candidate + recruiter), run/diff helpers, schemas, exceptions.
   - GitHub Native (`github_native/*`): REST client, Actions runner, artifact parsing, workspace model/repo.
   - Users/Companies (`users`, `companies`), Common types/schemas.
-- Data model highlights: `Simulation` → `Task` (5-day blueprint seeded on create); `Simulation` → `CandidateSession` (token, status, timestamps, expires_at); `CandidateSession` → `Submission` (one per task, stores code repo/run/diff/test info); `CandidateSession` → `Workspace` (GitHub repo metadata, last run info); `ExecutionProfile` placeholder for future reports.
+- Data model highlights: `Simulation` → `Task` (5-day blueprint seeded on create); `Simulation` → `CandidateSession` (token, status, timestamps, expires_at); `CandidateSession` → `Submission` (one per task, stores code repo/run/diff/test info); `CandidateSession` → `Workspace` (GitHub repo metadata, last run info); `FitProfile` placeholder for future reports.
 
 ## Domain Glossary
 
@@ -28,7 +28,7 @@ FastAPI + Postgres backend for SimuHire. Recruiters create 5-day simulations, in
 - Candidate Session: invite for a candidate; secured by invite token + Auth0 identity; tracks progress/expiry.
 - Workspace: GitHub repo generated from template for a candidate+task; stores last Actions results.
 - Submission: final turn-in for a task with optional test results and diff summary.
-- Execution Profile: planned evaluation/report entity (model exists; no generation).
+- Fit Profile: planned evaluation/report entity (model exists; no generation).
 
 ## API Overview
 
@@ -38,7 +38,7 @@ FastAPI + Postgres backend for SimuHire. Recruiters create 5-day simulations, in
   - `GET /api/simulations` list owned (with candidate counts)
   - `POST /api/simulations` create + seed 5 tasks (uses `templateKey`)
   - `POST /api/simulations/{id}/invite` create candidate token/link
-  - `GET /api/simulations/{id}/candidates` list sessions (`hasReport` if `execution_profiles` row)
+  - `GET /api/simulations/{id}/candidates` list sessions (`hasFitProfile` if `fit_profiles` row)
   - `GET /api/submissions` list submissions (filters `candidateSessionId`, `taskId`)
   - `GET /api/submissions/{id}` detail with content/code/test results + repo/commit/workflow/diff URLs
 - Candidate (Auth0 access token + invite token):
@@ -70,19 +70,19 @@ FastAPI + Postgres backend for SimuHire. Recruiters create 5-day simulations, in
 
 ## Configuration
 
-- DB: `DATABASE_URL`, `DATABASE_URL_SYNC` (sync used by Alembic; async derived automatically; SQLite fallback `local.db` if unset).
-- Auth0: `AUTH0_DOMAIN`, `AUTH0_ISSUER`, `AUTH0_JWKS_URL`, `AUTH0_API_AUDIENCE`, `AUTH0_ALGORITHMS`, `AUTH0_EMAIL_CLAIM`, `AUTH0_ROLES_CLAIM`, `AUTH0_PERMISSIONS_CLAIM`.
-- Auth0 Post Login Action must set `https://simuhire.com/permissions` (and `permissions`) on both access and ID tokens so first-login candidates receive `candidate:access`.
-- CORS: `CORS_ALLOW_ORIGINS` (JSON array or comma list), `CORS_ALLOW_ORIGIN_REGEX`.
-- Candidate portal: `CANDIDATE_PORTAL_BASE_URL` (used for invite links).
-- GitHub: `GITHUB_API_BASE`, `GITHUB_ORG`, `GITHUB_TEMPLATE_OWNER`, `GITHUB_REPO_PREFIX`, `GITHUB_ACTIONS_WORKFLOW_FILE`, `GITHUB_TOKEN`, `GITHUB_CLEANUP_ENABLED` (future).
+- DB: `TENON_DATABASE_URL`, `TENON_DATABASE_URL_SYNC` (sync used by Alembic; async derived automatically; SQLite fallback `local.db` if unset).
+- Auth0: `TENON_AUTH0_DOMAIN`, `TENON_AUTH0_ISSUER`, `TENON_AUTH0_JWKS_URL`, `TENON_AUTH0_API_AUDIENCE`, `TENON_AUTH0_ALGORITHMS`, `TENON_AUTH0_CLAIM_NAMESPACE`, `TENON_AUTH0_EMAIL_CLAIM`, `TENON_AUTH0_ROLES_CLAIM`, `TENON_AUTH0_PERMISSIONS_CLAIM`.
+- Auth0 Post Login Action must set `https://tenon.ai/permissions` (and `permissions`) on both access and ID tokens so first-login candidates receive `candidate:access`.
+- CORS: `TENON_CORS_ALLOW_ORIGINS` (JSON array or comma list), `TENON_CORS_ALLOW_ORIGIN_REGEX`.
+- Candidate portal: `TENON_CANDIDATE_PORTAL_BASE_URL` (used for invite links).
+- GitHub: `TENON_GITHUB_API_BASE`, `TENON_GITHUB_ORG`, `TENON_GITHUB_TEMPLATE_OWNER`, `TENON_GITHUB_REPO_PREFIX`, `TENON_GITHUB_ACTIONS_WORKFLOW_FILE`, `TENON_GITHUB_TOKEN`, `TENON_GITHUB_CLEANUP_ENABLED` (future).
 - Dev bypass: `DEV_AUTH_BYPASS=1` (local only; app aborts otherwise).
 
 ## Roadmap (not implemented yet)
 
 - Pre-provision repos at invite/simulation creation.
 - Invite email verification + notifications.
-- AI scenario generation/evaluation + repo tailoring commits; generate `ExecutionProfile` reports.
+- AI scenario generation/evaluation + repo tailoring commits; generate `FitProfile` reports.
 - Day4 media upload pipeline; Day5 structured documentation.
 - Background jobs system.
 - Repo cleanup post-eval.

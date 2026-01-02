@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.api.routes import tasks_codespaces as candidate_submissions
 from app.domains import Base, User
 from app.domains.github_native.actions_runner import ActionsRunResult
+from app.infra.config import settings
 from app.infra.db import get_session
 from app.infra.security.current_user import get_current_user
 from app.infra.security.principal import Principal, get_principal
@@ -111,6 +112,8 @@ async def async_client(db_session: AsyncSession):
         elif kind:
             perms = [kind]
 
+        email_claim = settings.auth.AUTH0_EMAIL_CLAIM
+        permissions_claim = settings.auth.AUTH0_PERMISSIONS_CLAIM
         return Principal(
             sub=f"{kind}-{email}",
             email=email,
@@ -120,8 +123,9 @@ async def async_client(db_session: AsyncSession):
             claims={
                 "sub": f"{kind}-{email}",
                 "email": email,
-                "https://simuhire.com/email": email,
+                email_claim: email,
                 "permissions": perms,
+                permissions_claim: perms,
             },
         )
 

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domains import CandidateSession
 from app.domains.candidate_sessions import repository as cs_repo
 from app.domains.candidate_sessions.auth_tokens import hash_token
+from app.infra.config import settings
 from app.infra.db import get_session
 from app.infra.security.principal import Principal, bearer_scheme, get_principal
 
@@ -60,8 +61,9 @@ async def require_candidate_principal(
                 claims={
                     "sub": f"candidate-access:{cs.id}",
                     "email": cs.invite_email,
-                    "https://simuhire.com/email": cs.invite_email,
+                    settings.auth.AUTH0_EMAIL_CLAIM: cs.invite_email,
                     "permissions": ["candidate:access"],
+                    settings.auth.AUTH0_PERMISSIONS_CLAIM: ["candidate:access"],
                     "candidate_session_id": cs.id,
                 },
             )
@@ -79,8 +81,9 @@ async def require_candidate_principal(
                 claims={
                     "sub": f"candidate-stub:{email}",
                     "email": email,
-                    "https://simuhire.com/email": email,
+                    settings.auth.AUTH0_EMAIL_CLAIM: email,
                     "permissions": ["candidate:access"],
+                    settings.auth.AUTH0_PERMISSIONS_CLAIM: ["candidate:access"],
                 },
             )
 

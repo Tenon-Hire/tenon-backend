@@ -1,6 +1,7 @@
 import pytest
 
 import app.infra.security.auth0 as auth0_module
+from app.infra.config import settings
 from app.infra.security import dependencies as security_deps
 from app.infra.security.current_user import get_current_user
 from tests.factories import (
@@ -21,11 +22,14 @@ def patch_auth0_decode(monkeypatch):
             perms = ["recruiter:access"]
         elif kind == "candidate":
             perms = ["candidate:access"]
+        email_claim = settings.auth.AUTH0_EMAIL_CLAIM
+        permissions_claim = settings.auth.AUTH0_PERMISSIONS_CLAIM
         return {
             "sub": f"{kind}|{email}",
             "email": email,
-            "https://simuhire.com/email": email,
+            email_claim: email,
             "permissions": perms,
+            permissions_claim: perms,
         }
 
     monkeypatch.setattr(auth0_module, "decode_auth0_token", fake_decode)
@@ -166,10 +170,12 @@ async def test_namespaced_permissions_only_candidate_access(
     cs = await create_candidate_session(async_session, simulation=sim)
 
     def decode(_token: str):
+        email_claim = settings.auth.AUTH0_EMAIL_CLAIM
+        permissions_claim = settings.auth.AUTH0_PERMISSIONS_CLAIM
         return {
             "sub": "auth0|c-ns",
-            "https://simuhire.com/email": cs.invite_email,
-            "https://simuhire.com/permissions": ["candidate:access"],
+            email_claim: cs.invite_email,
+            permissions_claim: ["candidate:access"],
         }
 
     monkeypatch.setattr(auth0_module, "decode_auth0_token", decode)
@@ -188,10 +194,12 @@ async def test_namespaced_permissions_allow_recruiter_route(
     async_client, monkeypatch, override_dependencies
 ):
     def decode(_token: str):
+        email_claim = settings.auth.AUTH0_EMAIL_CLAIM
+        permissions_claim = settings.auth.AUTH0_PERMISSIONS_CLAIM
         return {
             "sub": "auth0|r1",
-            "https://simuhire.com/email": "r@test.com",
-            "https://simuhire.com/permissions": ["recruiter:access"],
+            email_claim: "r@test.com",
+            permissions_claim: ["recruiter:access"],
         }
 
     monkeypatch.setattr(auth0_module, "decode_auth0_token", decode)
@@ -212,10 +220,12 @@ async def test_roles_mapping_allows_candidate_route(
     cs = await create_candidate_session(async_session, simulation=sim)
 
     def decode(_token: str):
+        email_claim = settings.auth.AUTH0_EMAIL_CLAIM
+        roles_claim = settings.auth.AUTH0_ROLES_CLAIM
         return {
             "sub": "auth0|c1",
-            "https://simuhire.com/email": cs.invite_email,
-            "https://simuhire.com/roles": ["candidate-basic"],
+            email_claim: cs.invite_email,
+            roles_claim: ["candidate-basic"],
         }
 
     monkeypatch.setattr(auth0_module, "decode_auth0_token", decode)
@@ -238,9 +248,10 @@ async def test_missing_permissions_and_roles_returns_403(
     cs = await create_candidate_session(async_session, simulation=sim)
 
     def decode(_token: str):
+        email_claim = settings.auth.AUTH0_EMAIL_CLAIM
         return {
             "sub": "auth0|c2",
-            "https://simuhire.com/email": cs.invite_email,
+            email_claim: cs.invite_email,
         }
 
     monkeypatch.setattr(auth0_module, "decode_auth0_token", decode)

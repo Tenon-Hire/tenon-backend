@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.brand import APP_NAME
 from app.domains import CandidateSession, Simulation
 from app.services.email import EmailSendResult, EmailService
 
@@ -52,7 +53,7 @@ def _invite_email_content(
     subject = f"You're invited: {simulation.title}"
     text = (
         f"Hi {candidate_name},\n\n"
-        f"You've been invited to complete the {simulation.role} simulation.\n"
+        f"You've been invited to complete the {simulation.role} simulation in {APP_NAME}.\n"
         f"Simulation: {simulation.title}\n"
         f"Role: {simulation.role}\n\n"
         f"Start here: {invite_url}\n\n"
@@ -61,7 +62,7 @@ def _invite_email_content(
     )
     html = (
         f"<p>Hi {candidate_name},</p>"
-        f"<p>You have been invited to complete the <strong>{simulation.role}</strong> simulation.</p>"
+        f"<p>You have been invited to complete the <strong>{simulation.role}</strong> simulation in {APP_NAME}.</p>"
         f"<p><strong>Simulation:</strong> {simulation.title}<br>"
         f"<strong>Role:</strong> {simulation.role}</p>"
         f'<p><a href="{invite_url}">Open your invite</a></p>'
@@ -78,17 +79,17 @@ def _verification_email_content(
     expires_at: datetime,
 ) -> tuple[str, str, str]:
     expires_text = expires_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
-    subject = "Your SimuHire verification code"
+    subject = f"Your {APP_NAME} verification code"
     text = (
         f"Hi {candidate_name},\n\n"
-        f"Use this code to verify your invite: {code}\n"
+        f"Use this code to verify your {APP_NAME} invite: {code}\n"
         f"Verification code expires at {expires_text}.\n\n"
         f"You can also open your invite directly: {invite_url}\n"
         "If you did not request this, you can ignore this email."
     )
     html = (
         f"<p>Hi {candidate_name},</p>"
-        f"<p>Use this code to verify your invite:</p>"
+        f"<p>Use this code to verify your {APP_NAME} invite:</p>"
         f"<h2>{code}</h2>"
         f"<p>This code expires at {expires_text}.</p>"
         f'<p><a href="{invite_url}">Open your invite</a></p>'

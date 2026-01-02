@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from app.domains import CandidateSession, Company, ExecutionProfile, Simulation, User
+from app.domains import CandidateSession, Company, FitProfile, Simulation, User
 
 
 @pytest.mark.asyncio
@@ -95,7 +95,7 @@ async def test_simulation_with_multiple_sessions_returns_all_and_has_report(
     await async_session.flush()
 
     async_session.add(
-        ExecutionProfile(candidate_session_id=cs2.id, generated_at=datetime.now(UTC))
+        FitProfile(candidate_session_id=cs2.id, generated_at=datetime.now(UTC))
     )
     await async_session.commit()
 
@@ -112,12 +112,12 @@ async def test_simulation_with_multiple_sessions_returns_all_and_has_report(
     assert by_id[cs1.id]["inviteEmail"] == "ada@example.com"
     assert by_id[cs1.id]["candidateName"] == "Ada Lovelace"
     assert by_id[cs1.id]["status"] == "not_started"
-    assert by_id[cs1.id]["hasReport"] is False
+    assert by_id[cs1.id]["hasFitProfile"] is False
 
     assert by_id[cs2.id]["inviteEmail"] == "bob@example.com"
     assert by_id[cs2.id]["candidateName"] == "Bob"
     assert by_id[cs2.id]["status"] == "completed"
-    assert by_id[cs2.id]["hasReport"] is True
+    assert by_id[cs2.id]["hasFitProfile"] is True
 
 
 @pytest.mark.asyncio

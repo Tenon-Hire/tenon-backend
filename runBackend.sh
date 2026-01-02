@@ -2,7 +2,7 @@
 
 set -e
 
-echo "🚀 SimuHire Backend — Local Runner"
+echo "🚀 Tenon Backend — Local Runner"
 
 PROJECT_ROOT="$(dirname "$0")"
 cd "$PROJECT_ROOT" || exit 1

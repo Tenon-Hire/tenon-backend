@@ -8,14 +8,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.infra.db.base import Base
 
 
-class ExecutionProfile(Base):
-    """Model for storing execution profiles for candidate sessions."""
+class FitProfile(Base):
+    """Model for storing fit profiles for candidate sessions."""
 
-    __tablename__ = "execution_profiles"
+    __tablename__ = "fit_profiles"
     __table_args__ = (
         UniqueConstraint(
             "candidate_session_id",
-            name="uq_execution_profiles_candidate_session_id",
+            name="uq_fit_profiles_candidate_session_id",
         ),
     )
 
@@ -31,6 +31,4 @@ class ExecutionProfile(Base):
         DateTime(timezone=True), nullable=False
     )
 
-    candidate_session = relationship(
-        "CandidateSession", back_populates="execution_profile"
-    )
+    candidate_session = relationship("CandidateSession", back_populates="fit_profile")

@@ -18,17 +18,21 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.add_column("submissions", sa.Column("code_blob", sa.Text(), nullable=True))
-    op.create_unique_constraint(
-        "uq_submissions_candidate_session_task",
-        "submissions",
-        ["candidate_session_id", "task_id"],
-    )
+    bind = op.get_bind()
+    if bind.dialect.name != "sqlite":
+        op.create_unique_constraint(
+            "uq_submissions_candidate_session_task",
+            "submissions",
+            ["candidate_session_id", "task_id"],
+        )
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        "uq_submissions_candidate_session_task",
-        "submissions",
-        type_="unique",
-    )
+    bind = op.get_bind()
+    if bind.dialect.name != "sqlite":
+        op.drop_constraint(
+            "uq_submissions_candidate_session_task",
+            "submissions",
+            type_="unique",
+        )
     op.drop_column("submissions", "code_blob")

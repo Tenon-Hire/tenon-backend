@@ -10,9 +10,7 @@ from app.domains import CandidateSession, Company, Submission, Task, User
 # -------------------------
 
 
-async def _seed_recruiter(
-    async_session, email: str = "recruiter1@simuhire.com"
-) -> User:
+async def _seed_recruiter(async_session, email: str = "recruiter1@tenon.com") -> User:
     company = Company(name="TestCo")
     async_session.add(company)
     await async_session.commit()
@@ -76,7 +74,7 @@ async def _verify(async_client, token: str, email: str = "jane@example.com"):
 @pytest.mark.asyncio
 async def test_current_task_initial_is_day_1(async_client, async_session, monkeypatch):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
-    recruiter_email = "recruiter1@simuhire.com"
+    recruiter_email = "recruiter1@tenon.com"
     await _seed_recruiter(async_session, recruiter_email)
 
     sim_id = await _create_simulation(async_client, recruiter_email)
@@ -110,7 +108,7 @@ async def test_current_task_advances_after_submission(
     async_client, async_session, monkeypatch
 ):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
-    recruiter_email = "recruiter1@simuhire.com"
+    recruiter_email = "recruiter1@tenon.com"
     await _seed_recruiter(async_session, recruiter_email)
 
     sim_id = await _create_simulation(async_client, recruiter_email)
@@ -157,7 +155,7 @@ async def test_current_task_completed_after_all_tasks(
     async_client, async_session, monkeypatch
 ):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
-    recruiter_email = "recruiter1@simuhire.com"
+    recruiter_email = "recruiter1@tenon.com"
     await _seed_recruiter(async_session, recruiter_email)
 
     sim_id = await _create_simulation(async_client, recruiter_email)
@@ -214,7 +212,7 @@ async def test_current_task_completed_after_all_tasks(
 
 @pytest.mark.asyncio
 async def test_current_task_expired_invite_410(async_client, async_session):
-    recruiter_email = "recruiter1@simuhire.com"
+    recruiter_email = "recruiter1@tenon.com"
     await _seed_recruiter(async_session, recruiter_email)
 
     sim_id = await _create_simulation(async_client, recruiter_email)
@@ -244,7 +242,7 @@ async def test_current_task_expired_invite_410(async_client, async_session):
 
 @pytest.mark.asyncio
 async def test_resolve_transitions_to_in_progress(async_client, async_session):
-    recruiter_email = "recruiter1@simuhire.com"
+    recruiter_email = "recruiter1@tenon.com"
     await _seed_recruiter(async_session, recruiter_email)
 
     sim_id = await _create_simulation(async_client, recruiter_email)
@@ -274,7 +272,7 @@ async def test_resolve_transitions_to_in_progress(async_client, async_session):
 
 @pytest.mark.asyncio
 async def test_resolve_expired_token_returns_410(async_client, async_session):
-    recruiter_email = "recruiter1@simuhire.com"
+    recruiter_email = "recruiter1@tenon.com"
     await _seed_recruiter(async_session, recruiter_email)
 
     sim_id = await _create_simulation(async_client, recruiter_email)
@@ -301,7 +299,7 @@ async def test_resolve_expired_token_returns_410(async_client, async_session):
 
 @pytest.mark.asyncio
 async def test_verify_wrong_email_returns_403(async_client, async_session):
-    recruiter_email = "recruiter1@simuhire.com"
+    recruiter_email = "recruiter1@tenon.com"
     await _seed_recruiter(async_session, recruiter_email)
 
     sim_id = await _create_simulation(async_client, recruiter_email)
@@ -329,7 +327,7 @@ async def test_verify_wrong_email_returns_403(async_client, async_session):
 
 @pytest.mark.asyncio
 async def test_verify_expired_invite_returns_410(async_client, async_session):
-    recruiter_email = "recruiter1@simuhire.com"
+    recruiter_email = "recruiter1@tenon.com"
     await _seed_recruiter(async_session, recruiter_email)
 
     sim_id = await _create_simulation(async_client, recruiter_email)

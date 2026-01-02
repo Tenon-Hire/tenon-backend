@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Annotated, Any
@@ -11,6 +12,7 @@ from app.infra.config import settings
 from app.infra.security import auth0
 
 bearer_scheme = HTTPBearer(auto_error=False)
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -57,14 +59,36 @@ def _extract_principal(claims: dict[str, Any]) -> Principal:
         )
 
     email = _normalize_email(
-        _first_claim(claims, [configured_email_claim, "email"], default=None)
+        _first_claim(
+            claims,
+            [
+                configured_email_claim,
+                "email",
+                next(
+                    (k for k in claims if isinstance(k, str) and k.endswith("/email")),
+                    None,
+                ),
+            ],
+            default=None,
+        )
     )
     if not email:
+        try:
+            available_claim_keys = sorted([str(k) for k in claims])[:50]
+        except Exception:  # pragma: no cover - defensive
+            available_claim_keys = []
+        logger.debug(
+            "email_claim_missing",
+            extra={
+                "expected_email_claim": configured_email_claim,
+                "available_claim_keys": available_claim_keys,
+            },
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Email claim missing"
         )
 
-    name_raw = _first_claim(claims, ["name", "https://simuhire.com/name"])
+    name_raw = _first_claim(claims, ["name", settings.auth.name_claim], default=None)
     name = name_raw.strip() if isinstance(name_raw, str) and name_raw.strip() else None
     roles_claim = _first_claim(
         claims, [settings.auth.AUTH0_ROLES_CLAIM, "roles"], default=[]
@@ -76,7 +100,7 @@ def _extract_principal(claims: dict[str, Any]) -> Principal:
         permissions_claim = claims.get(settings.auth.AUTH0_PERMISSIONS_CLAIM) or []
     permissions = [p for p in permissions_claim if isinstance(p, str)]
     if not permissions:
-        perm_str = claims.get("https://simuhire.com/permissions_str")
+        perm_str = claims.get(settings.auth.permissions_str_claim)
         if isinstance(perm_str, str) and perm_str.strip():
             permissions = [
                 p.strip() for p in perm_str.replace(",", " ").split() if p.strip()
