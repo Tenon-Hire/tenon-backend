@@ -160,8 +160,8 @@ class GithubSettings(BaseSettings):
 class EmailSettings(BaseSettings):
     """Email provider configuration."""
 
-    TENON_EMAIL_PROVIDER: str = "resend"
-    TENON_EMAIL_FROM: str = "Tenon <onboarding@resend.dev>"
+    TENON_EMAIL_PROVIDER: str = "console"
+    TENON_EMAIL_FROM: str = "Tenon <notifications@tenon.com>"
     TENON_RESEND_API_KEY: str = ""
     SENDGRID_API_KEY: str = ""
     SMTP_HOST: str = ""
