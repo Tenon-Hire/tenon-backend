@@ -68,6 +68,16 @@ class GithubActionsRunner:
         self.workflow_file = workflow_file
         self.poll_interval_seconds = poll_interval_seconds
         self.max_poll_seconds = max_poll_seconds
+        # Try preferred workflow file first, then Tenon defaults.
+        self._workflow_fallbacks = list(
+            dict.fromkeys(
+                [
+                    workflow_file,
+                    "tenon-ci.yml",
+                    ".github/workflows/tenon-ci.yml",
+                ]
+            )
+        )
 
     async def dispatch_and_wait(
         self,
@@ -78,15 +88,15 @@ class GithubActionsRunner:
     ) -> ActionsRunResult:
         """Trigger workflow_dispatch and poll until completion or timeout."""
         dispatch_started_at = datetime.now(UTC)
-        await self.client.trigger_workflow_dispatch(
-            repo_full_name, self.workflow_file, ref=ref, inputs=inputs
+        workflow_file = await self._dispatch_with_fallbacks(
+            repo_full_name, ref=ref, inputs=inputs
         )
 
         deadline = time.monotonic() + self.max_poll_seconds
         candidate: WorkflowRun | None = None
         while time.monotonic() < deadline:
             runs = await self.client.list_workflow_runs(
-                repo_full_name, self.workflow_file, branch=ref, per_page=5
+                repo_full_name, workflow_file, branch=ref, per_page=5
             )
             for run in runs:
                 if self._is_dispatched_run(run, dispatch_started_at):
@@ -106,6 +116,40 @@ class GithubActionsRunner:
         if candidate:
             return self._normalize_run(candidate, running=True)
         raise GithubError("No workflow run found after dispatch")
+
+    async def _dispatch_with_fallbacks(
+        self, repo_full_name: str, *, ref: str, inputs: dict[str, Any] | None
+    ) -> str:
+        """Dispatch workflow, retrying alternative file names on 404."""
+        errors: list[tuple[str, GithubError]] = []
+        tried = []
+        for wf in self._workflow_fallbacks:
+            if wf in tried:
+                continue
+            tried.append(wf)
+            try:
+                await self.client.trigger_workflow_dispatch(
+                    repo_full_name, wf, ref=ref, inputs=inputs
+                )
+                if wf != self.workflow_file:
+                    logger.warning(
+                        "github_workflow_dispatch_fallback",
+                        extra={
+                            "repo": repo_full_name,
+                            "preferred_workflow": self.workflow_file,
+                            "fallback_used": wf,
+                        },
+                    )
+                return wf
+            except GithubError as exc:
+                errors.append((wf, exc))
+                if exc.status_code and exc.status_code != 404:
+                    raise
+                continue
+        # If we get here, all attempts failed; raise the last error.
+        if errors:
+            raise errors[-1][1]
+        raise GithubError("Workflow dispatch failed")
 
     async def fetch_run_result(
         self, *, repo_full_name: str, run_id: int

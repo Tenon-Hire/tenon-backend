@@ -35,6 +35,13 @@ fi
 echo "🌱 Seeding local recruiters..."
 export ENV=local
 export DEV_AUTH_BYPASS=1
+if [[ -f ./setEnvVar.sh ]]; then
+    echo "🔧 Loading environment variables from setEnvVar.sh..."
+else
+    echo "⚠️  setEnvVar.sh not found."
+    source ./setEnvVar.sh
+fi
+
 poetry run python scripts/seed_local_recruiters.py
 
 echo "🔧 Starting FastAPI server..."
