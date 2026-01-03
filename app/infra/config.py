@@ -160,9 +160,9 @@ class GithubSettings(BaseSettings):
 class EmailSettings(BaseSettings):
     """Email provider configuration."""
 
-    EMAIL_PROVIDER: str = "console"
-    EMAIL_FROM: str = "Tenon <notifications@tenon.com>"
-    RESEND_API_KEY: str = ""
+    TENON_EMAIL_PROVIDER: str = "console"
+    TENON_EMAIL_FROM: str = "Tenon <notifications@tenon.com>"
+    TENON_RESEND_API_KEY: str = ""
     SENDGRID_API_KEY: str = ""
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
@@ -170,7 +170,7 @@ class EmailSettings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_TLS: bool = True
 
-    model_config = SettingsConfigDict(extra="ignore", env_prefix="TENON_")
+    model_config = SettingsConfigDict(extra="ignore", env_prefix="")
 
 
 class Settings(BaseSettings):
@@ -199,6 +199,14 @@ class Settings(BaseSettings):
 
     CORS_ALLOW_ORIGINS: str | list[str] | None = None
     CORS_ALLOW_ORIGIN_REGEX: str | None = None
+
+    GITHUB_API_BASE: str | None = None
+    GITHUB_ORG: str | None = None
+    GITHUB_TOKEN: str | None = None
+    GITHUB_TEMPLATE_OWNER: str | None = None
+    GITHUB_ACTIONS_WORKFLOW_FILE: str | None = None
+    GITHUB_REPO_PREFIX: str | None = None
+    GITHUB_CLEANUP_ENABLED: bool | None = None
 
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     auth: AuthSettings = Field(default_factory=AuthSettings)
@@ -236,9 +244,9 @@ class Settings(BaseSettings):
             "GITHUB_CLEANUP_ENABLED",
         }
         email_keys = {
-            "EMAIL_PROVIDER",
-            "EMAIL_FROM",
-            "RESEND_API_KEY",
+            "TENON_EMAIL_PROVIDER",
+            "TENON_EMAIL_FROM",
+            "TENON_RESEND_API_KEY",
             "SENDGRID_API_KEY",
             "SMTP_HOST",
             "SMTP_PORT",
@@ -252,6 +260,8 @@ class Settings(BaseSettings):
             env_key = f"TENON_{key}"
             if key in data:
                 db_data[key] = data.pop(key)
+            elif key.lower() in data:
+                db_data[key] = data.pop(key.lower())
             elif (env_val := os.getenv(env_key)) is not None:
                 db_data[key] = env_val
         if db_data:
@@ -262,6 +272,8 @@ class Settings(BaseSettings):
             env_key = f"TENON_{key}"
             if key in data:
                 auth_data[key] = data.pop(key)
+            elif key.lower() in data:
+                auth_data[key] = data.pop(key.lower())
             elif (env_val := os.getenv(env_key)) is not None:
                 auth_data[key] = env_val
         if auth_data:
@@ -272,6 +284,8 @@ class Settings(BaseSettings):
             env_key = f"TENON_{key}"
             if key in data:
                 cors_data[key] = data.pop(key)
+            elif key.lower() in data:
+                cors_data[key] = data.pop(key.lower())
             elif (env_val := os.getenv(env_key)) is not None:
                 cors_data[key] = env_val
         if cors_data:
@@ -282,6 +296,8 @@ class Settings(BaseSettings):
             env_key = f"TENON_{key}"
             if key in data:
                 github_data[key] = data.pop(key)
+            elif key.lower() in data:
+                github_data[key] = data.pop(key.lower())
             elif (env_val := os.getenv(env_key)) is not None:
                 github_data[key] = env_val
         if github_data:
@@ -289,10 +305,11 @@ class Settings(BaseSettings):
 
         email_data = dict(data.get("email", {}) or {})
         for key in email_keys:
-            env_key = f"TENON_{key}"
             if key in data:
                 email_data[key] = data.pop(key)
-            elif (env_val := os.getenv(env_key)) is not None:
+            elif key.lower() in data:
+                email_data[key] = data.pop(key.lower())
+            elif (env_val := os.getenv(key)) is not None:
                 email_data[key] = env_val
         if email_data:
             data["email"] = email_data

@@ -14,21 +14,21 @@ from app.domains.tasks.template_catalog import (
 @pytest.mark.parametrize(
     ("template_key", "expected_repo"),
     [
-        ("python-fastapi", "tenon-dev/tenon-template-python-fastapi"),
-        ("node-express-ts", "tenon-dev/tenon-template-node-express-ts"),
+        ("python-fastapi", "tenon-hire-dev/tenon-template-python-fastapi"),
+        ("node-express-ts", "tenon-hire-dev/tenon-template-node-express-ts"),
         (
             "monorepo-nextjs-fastapi",
-            "tenon-dev/tenon-template-monorepo-nextjs-fastapi",
+            "tenon-hire-dev/tenon-template-monorepo-nextjs-fastapi",
         ),
         (
             "monorepo-react-springboot",
-            "tenon-dev/tenon-template-monorepo-react-springboot",
+            "tenon-hire-dev/tenon-template-monorepo-react-springboot",
         ),
         (
             "mobile-backend-fastapi",
-            "tenon-dev/tenon-template-mobile-backend-fastapi",
+            "tenon-hire-dev/tenon-template-mobile-backend-fastapi",
         ),
-        ("ml-infra-mlops", "tenon-dev/tenon-template-ml-infra-mlops"),
+        ("ml-infra-mlops", "tenon-hire-dev/tenon-template-ml-infra-mlops"),
     ],
 )
 def test_resolve_template_repo_full_name(template_key: str, expected_repo: str):
@@ -57,7 +57,7 @@ def test_invalid_template_key_raises():
         ),
         (
             "tenon-dev/tenon-template-python",
-            "tenon-dev/tenon-template-python-fastapi",
+            "tenon-hire-dev/tenon-template-python-fastapi",
         ),
     ],
 )
@@ -76,7 +76,7 @@ def test_normalize_template_repo_value_rewrites_legacy_with_template_key():
     repo = normalize_template_repo_value(
         "tenon-templates/node-day2-api", template_key="node-express-ts"
     )
-    assert repo == "tenon-dev/tenon-template-node-express-ts"
+    assert repo == "tenon-hire-dev/tenon-template-node-express-ts"
 
 
 def test_normalize_template_repo_value_returns_none_when_no_hints():

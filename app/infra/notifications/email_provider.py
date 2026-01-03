@@ -97,7 +97,7 @@ class ResendEmailProvider:
     ):
         """Instantiate a Resend provider."""
         if not api_key:
-            raise ValueError("RESEND_API_KEY is required for Resend provider")
+            raise ValueError("TENON_RESEND_API_KEY is required for Resend provider")
         self.api_key = api_key
         self.sender = sender
         self.transport = transport

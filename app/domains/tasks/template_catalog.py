@@ -9,62 +9,62 @@ DEFAULT_TEMPLATE_KEY = "python-fastapi"
 TEMPLATE_CATALOG: dict[str, dict[str, Any]] = {
     # Backend-only templates
     "python-fastapi": {
-        "repo_full_name": "tenon-dev/tenon-template-python-fastapi",
+        "repo_full_name": "tenon-hire-dev/tenon-template-python-fastapi",
         "display_name": "Python (FastAPI)",
     },
     "node-express-ts": {
-        "repo_full_name": "tenon-dev/tenon-template-node-express-ts",
+        "repo_full_name": "tenon-hire-dev/tenon-template-node-express-ts",
         "display_name": "Node.js (Express, TS)",
     },
     "node-nest-ts": {
-        "repo_full_name": "tenon-dev/tenon-template-node-nest-ts",
+        "repo_full_name": "tenon-hire-dev/tenon-template-node-nest-ts",
         "display_name": "Node.js (NestJS, TS)",
     },
     "java-springboot": {
-        "repo_full_name": "tenon-dev/tenon-template-java-springboot",
+        "repo_full_name": "tenon-hire-dev/tenon-template-java-springboot",
         "display_name": "Java (Spring Boot)",
     },
     "go-gin": {
-        "repo_full_name": "tenon-dev/tenon-template-go-gin",
+        "repo_full_name": "tenon-hire-dev/tenon-template-go-gin",
         "display_name": "Go (Gin)",
     },
     "dotnet-webapi": {
-        "repo_full_name": "tenon-dev/tenon-template-dotnet-webapi",
+        "repo_full_name": "tenon-hire-dev/tenon-template-dotnet-webapi",
         "display_name": ".NET (Web API)",
     },
     # Web full-stack monorepos
     "monorepo-nextjs-nest": {
-        "repo_full_name": "tenon-dev/tenon-template-monorepo-nextjs-nest",
+        "repo_full_name": "tenon-hire-dev/tenon-template-monorepo-nextjs-nest",
         "display_name": "Monorepo (Next.js + NestJS)",
     },
     "monorepo-nextjs-fastapi": {
-        "repo_full_name": "tenon-dev/tenon-template-monorepo-nextjs-fastapi",
+        "repo_full_name": "tenon-hire-dev/tenon-template-monorepo-nextjs-fastapi",
         "display_name": "Monorepo (Next.js + FastAPI)",
     },
     "monorepo-react-express": {
-        "repo_full_name": "tenon-dev/tenon-template-monorepo-react-express",
+        "repo_full_name": "tenon-hire-dev/tenon-template-monorepo-react-express",
         "display_name": "Monorepo (React + Express)",
     },
     "monorepo-react-springboot": {
-        "repo_full_name": "tenon-dev/tenon-template-monorepo-react-springboot",
+        "repo_full_name": "tenon-hire-dev/tenon-template-monorepo-react-springboot",
         "display_name": "Monorepo (React + Spring Boot)",
     },
     # Mobile
     "mobile-fullstack-expo-fastapi": {
-        "repo_full_name": "tenon-dev/tenon-template-monorepo-expo-fastapi",
+        "repo_full_name": "tenon-hire-dev/tenon-template-monorepo-expo-fastapi",
         "display_name": "Mobile Fullstack (Expo + FastAPI)",
     },
     "mobile-backend-fastapi": {
-        "repo_full_name": "tenon-dev/tenon-template-mobile-backend-fastapi",
+        "repo_full_name": "tenon-hire-dev/tenon-template-mobile-backend-fastapi",
         "display_name": "Mobile Backend (FastAPI)",
     },
     # ML
     "ml-backend-fastapi": {
-        "repo_full_name": "tenon-dev/tenon-template-ml-backend-fastapi",
+        "repo_full_name": "tenon-hire-dev/tenon-template-ml-backend-fastapi",
         "display_name": "ML Backend (FastAPI)",
     },
     "ml-infra-mlops": {
-        "repo_full_name": "tenon-dev/tenon-template-ml-infra-mlops",
+        "repo_full_name": "tenon-hire-dev/tenon-template-ml-infra-mlops",
         "display_name": "ML Infra / MLOps",
     },
 }
@@ -79,6 +79,7 @@ LEGACY_TEMPLATE_REPO_REWRITES: dict[str, str] = {
     "tenon-templates/node-day3-debug": TEMPLATE_CATALOG[DEFAULT_TEMPLATE_KEY][
         "repo_full_name"
     ],
+    # Legacy owner -> new org fallbacks.
     "tenon-dev/tenon-template-python": TEMPLATE_CATALOG["python-fastapi"][
         "repo_full_name"
     ],
