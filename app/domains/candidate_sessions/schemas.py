@@ -64,6 +64,7 @@ class CandidateVerificationSendResponse(APIModel):
 class CandidateVerificationConfirmRequest(APIModel):
     """Request body for confirming a verification code."""
 
+    email: EmailStr
     code: str
 
 

@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy import select
 
 from app.domains import CandidateSession, Company, Submission, Task, User
+from app.domains.candidate_sessions.auth_tokens import mint_candidate_token
 
 # -------------------------
 # Shared helpers (mirrors resolve tests)
@@ -57,10 +58,19 @@ async def _invite_candidate(async_client, sim_id: int, recruiter_email: str) -> 
     return res.json()
 
 
-async def _verify(async_client, token: str, email: str = "jane@example.com"):
+async def _verify(async_client, async_session, token: str, email: str):
     res = await async_client.post(
-        f"/api/candidate/session/{token}/verify",
-        headers={"Authorization": f"Bearer candidate:{email}"},
+        f"/api/candidate/session/{token}/verification/code/send"
+    )
+    assert res.status_code == 200, res.text
+    cs = (
+        await async_session.execute(
+            select(CandidateSession).where(CandidateSession.token == token)
+        )
+    ).scalar_one()
+    res = await async_client.post(
+        f"/api/candidate/session/{token}/verification/code/confirm",
+        json={"code": cs.verification_code, "email": email},
     )
     assert res.status_code == 200, res.text
     return res.json()
@@ -80,14 +90,16 @@ async def test_current_task_initial_is_day_1(async_client, async_session, monkey
     sim_id = await _create_simulation(async_client, recruiter_email)
     invite = await _invite_candidate(async_client, sim_id, recruiter_email)
 
-    verification = await _verify(async_client, invite["token"])
-    cs_id = verification["candidateSessionId"]
-    candidate_email = "jane@example.com"
+    verification = await _verify(
+        async_client, async_session, invite["token"], "jane@example.com"
+    )
+    cs_id = invite["candidateSessionId"]
+    token = verification["candidateAccessToken"]
 
     res = await async_client.get(
         f"/api/candidate/session/{cs_id}/current_task",
         headers={
-            "Authorization": f"Bearer candidate:{candidate_email}",
+            "Authorization": f"Bearer {token}",
             "x-candidate-session-id": str(cs_id),
         },
     )
@@ -114,9 +126,11 @@ async def test_current_task_advances_after_submission(
     sim_id = await _create_simulation(async_client, recruiter_email)
     invite = await _invite_candidate(async_client, sim_id, recruiter_email)
 
-    verification = await _verify(async_client, invite["token"])
-    cs_id = verification["candidateSessionId"]
-    candidate_email = "jane@example.com"
+    verification = await _verify(
+        async_client, async_session, invite["token"], "jane@example.com"
+    )
+    cs_id = invite["candidateSessionId"]
+    token = verification["candidateAccessToken"]
 
     # Fetch Day 1 task
     day1_task = (
@@ -138,7 +152,7 @@ async def test_current_task_advances_after_submission(
     res = await async_client.get(
         f"/api/candidate/session/{cs_id}/current_task",
         headers={
-            "Authorization": f"Bearer candidate:{candidate_email}",
+            "Authorization": f"Bearer {token}",
             "x-candidate-session-id": str(cs_id),
         },
     )
@@ -161,9 +175,11 @@ async def test_current_task_completed_after_all_tasks(
     sim_id = await _create_simulation(async_client, recruiter_email)
     invite = await _invite_candidate(async_client, sim_id, recruiter_email)
 
-    verification = await _verify(async_client, invite["token"])
-    cs_id = verification["candidateSessionId"]
-    candidate_email = "jane@example.com"
+    verification = await _verify(
+        async_client, async_session, invite["token"], "jane@example.com"
+    )
+    cs_id = invite["candidateSessionId"]
+    token = verification["candidateAccessToken"]
 
     tasks = (
         (await async_session.execute(select(Task).where(Task.simulation_id == sim_id)))
@@ -188,7 +204,7 @@ async def test_current_task_completed_after_all_tasks(
     res = await async_client.get(
         f"/api/candidate/session/{cs_id}/current_task",
         headers={
-            "Authorization": f"Bearer candidate:{candidate_email}",
+            "Authorization": f"Bearer {token}",
             "x-candidate-session-id": str(cs_id),
         },
     )
@@ -218,8 +234,11 @@ async def test_current_task_expired_invite_410(async_client, async_session):
     sim_id = await _create_simulation(async_client, recruiter_email)
     invite = await _invite_candidate(async_client, sim_id, recruiter_email)
 
-    verification = await _verify(async_client, invite["token"])
-    cs_id = verification["candidateSessionId"]
+    verification = await _verify(
+        async_client, async_session, invite["token"], "jane@example.com"
+    )
+    cs_id = invite["candidateSessionId"]
+    token = verification["candidateAccessToken"]
 
     cs = (
         await async_session.execute(
@@ -233,7 +252,7 @@ async def test_current_task_expired_invite_410(async_client, async_session):
     res = await async_client.get(
         f"/api/candidate/session/{cs_id}/current_task",
         headers={
-            "Authorization": "Bearer candidate:jane@example.com",
+            "Authorization": f"Bearer {token}",
             "x-candidate-session-id": str(cs_id),
         },
     )
@@ -251,9 +270,12 @@ async def test_resolve_transitions_to_in_progress(async_client, async_session):
     token = invite["token"]
     cs_id = invite["candidateSessionId"]
 
-    res = await async_client.post(
-        f"/api/candidate/session/{token}/verify",
-        headers={"Authorization": "Bearer candidate:jane@example.com"},
+    verification = await _verify(async_client, async_session, token, "jane@example.com")
+    access_token = verification["candidateAccessToken"]
+
+    res = await async_client.get(
+        f"/api/candidate/session/{token}",
+        headers={"Authorization": f"Bearer {access_token}"},
     )
     assert res.status_code == 200, res.text
     body = res.json()
@@ -289,28 +311,47 @@ async def test_resolve_expired_token_returns_410(async_client, async_session):
     cs.expires_at = datetime.now(UTC) - timedelta(minutes=1)
     await async_session.commit()
 
+    access_token, token_hash, expires_at, issued_at = mint_candidate_token(
+        candidate_session_id=cs_id, invite_email="jane@example.com"
+    )
+    cs.candidate_access_token_hash = token_hash
+    cs.candidate_access_token_expires_at = expires_at
+    cs.candidate_access_token_issued_at = issued_at
+    await async_session.commit()
+
     res = await async_client.get(
         f"/api/candidate/session/{token}",
-        headers={"Authorization": "Bearer candidate:jane@example.com"},
+        headers={"Authorization": f"Bearer {access_token}"},
     )
     assert res.status_code == 410
     assert res.json()["detail"] == "Invite token expired"
 
 
 @pytest.mark.asyncio
-async def test_verify_wrong_email_returns_403(async_client, async_session):
+async def test_verify_wrong_email_returns_400(async_client, async_session):
     recruiter_email = "recruiter1@tenon.com"
     await _seed_recruiter(async_session, recruiter_email)
 
     sim_id = await _create_simulation(async_client, recruiter_email)
     invite = await _invite_candidate(async_client, sim_id, recruiter_email)
 
-    res = await async_client.post(
-        f"/api/candidate/session/{invite['token']}/verify",
-        headers={"Authorization": "Bearer candidate:wrong@example.com"},
+    send_res = await async_client.post(
+        f"/api/candidate/session/{invite['token']}/verification/code/send"
     )
-    assert res.status_code == 403
-    assert res.json()["detail"] == "Sign in with invited email"
+    assert send_res.status_code == 200
+    cs = (
+        await async_session.execute(
+            select(CandidateSession).where(
+                CandidateSession.id == invite["candidateSessionId"]
+            )
+        )
+    ).scalar_one()
+    res = await async_client.post(
+        f"/api/candidate/session/{invite['token']}/verification/code/confirm",
+        json={"code": cs.verification_code, "email": "wrong@example.com"},
+    )
+    assert res.status_code == 400
+    assert res.json()["error"] == "email_mismatch"
 
     cs = (
         await async_session.execute(
@@ -321,8 +362,8 @@ async def test_verify_wrong_email_returns_403(async_client, async_session):
     ).scalar_one()
     assert cs.status == "not_started"
     assert cs.started_at is None
-    assert cs.access_token is None
-    assert cs.access_token_expires_at is None
+    assert cs.candidate_access_token_hash is None
+    assert cs.candidate_access_token_expires_at is None
 
 
 @pytest.mark.asyncio
@@ -344,18 +385,26 @@ async def test_verify_expired_invite_returns_410(async_client, async_session):
     await async_session.commit()
 
     res = await async_client.post(
-        f"/api/candidate/session/{invite['token']}/verify",
-        headers={"Authorization": "Bearer candidate:jane@example.com"},
+        f"/api/candidate/session/{invite['token']}/verification/code/send"
     )
     assert res.status_code == 410
     assert res.json()["detail"] == "Invite token expired"
 
 
 @pytest.mark.asyncio
-async def test_resolve_invalid_token_returns_404(async_client):
+async def test_resolve_invalid_token_returns_404(async_client, async_session):
+    recruiter_email = "invalidtoken@test.com"
+    await _seed_recruiter(async_session, recruiter_email)
+    sim_id = await _create_simulation(async_client, recruiter_email)
+    invite = await _invite_candidate(async_client, sim_id, recruiter_email)
+    verification = await _verify(
+        async_client, async_session, invite["token"], "jane@example.com"
+    )
+    access_token = verification["candidateAccessToken"]
+
     res = await async_client.get(
         "/api/candidate/session/invalid-token-1234567890",
-        headers={"Authorization": "Bearer candidate:jane@example.com"},
+        headers={"Authorization": f"Bearer {access_token}"},
     )
     assert res.status_code == 404
     assert res.json()["detail"] == "Invalid invite token"
@@ -367,10 +416,15 @@ async def test_bootstrap_wrong_email_forbidden(async_client, async_session):
     await _seed_recruiter(async_session, recruiter_email)
     sim_id = await _create_simulation(async_client, recruiter_email)
     invite = await _invite_candidate(async_client, sim_id, recruiter_email)
+    other_invite = await _invite_candidate(async_client, sim_id, recruiter_email)
+    other_verification = await _verify(
+        async_client, async_session, other_invite["token"], "jane@example.com"
+    )
+    access_token = other_verification["candidateAccessToken"]
 
     res = await async_client.get(
         f"/api/candidate/session/{invite['token']}",
-        headers={"Authorization": "Bearer candidate:notme@example.com"},
+        headers={"Authorization": f"Bearer {access_token}"},
     )
     assert res.status_code == 403
-    assert res.json()["detail"] == "Sign in with invited email"
+    assert res.json()["detail"] == "Not authorized for this invite"

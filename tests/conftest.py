@@ -238,23 +238,12 @@ def candidate_header_factory():
             if hasattr(candidate_session_id, "id")
             else candidate_session_id
         )
-        resolved_email = email
-        if hasattr(candidate_session_id, "candidate_email") or hasattr(
-            candidate_session_id, "invite_email"
-        ):
-            resolved_email = resolved_email or getattr(
-                candidate_session_id, "candidate_email", None
-            )
-            resolved_email = resolved_email or getattr(
-                candidate_session_id, "invite_email", None
-            )
-        resolved_email = resolved_email or "jane@example.com"
+        if not token:
+            raise ValueError("Candidate access token required for candidate headers")
         headers = {
             "x-candidate-session-id": str(session_id),
-            "Authorization": f"Bearer candidate:{resolved_email}",
+            "Authorization": f"Bearer {token}",
         }
-        if token:
-            headers["x-candidate-token"] = token
         return headers
 
     return _build

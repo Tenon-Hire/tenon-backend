@@ -76,6 +76,12 @@ class CandidateSession(Base):
     )
 
     verification_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    verification_code_attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0
+    )
+    verification_code_send_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0
+    )
     verification_code_sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

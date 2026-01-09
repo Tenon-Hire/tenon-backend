@@ -1,5 +1,6 @@
 import pytest
 
+from app.domains import CandidateSession
 from tests.factories import create_recruiter
 
 
@@ -38,19 +39,24 @@ async def test_full_flow_invite_through_first_submission(
     assert invite_res.status_code == 201, invite_res.text
     invite = invite_res.json()
 
+    send_res = await async_client.post(
+        f"/api/candidate/session/{invite['token']}/verification/code/send"
+    )
+    assert send_res.status_code == 200, send_res.text
+    cs = await async_session.get(CandidateSession, invite["candidateSessionId"])
     verify_res = await async_client.post(
-        f"/api/candidate/session/{invite['token']}/claim",
-        headers={"Authorization": "Bearer candidate:flow@example.com"},
+        f"/api/candidate/session/{invite['token']}/verification/code/confirm",
+        json={"code": cs.verification_code, "email": "flow@example.com"},
     )
     assert verify_res.status_code == 200, verify_res.text
     verify_body = verify_res.json()
-    cs_id = verify_body["candidateSessionId"]
-    candidate_email = "flow@example.com"
+    cs_id = invite["candidateSessionId"]
+    access_token = verify_body["candidateAccessToken"]
 
     current_res = await async_client.get(
         f"/api/candidate/session/{cs_id}/current_task",
         headers={
-            "Authorization": f"Bearer candidate:{candidate_email}",
+            "Authorization": f"Bearer {access_token}",
             "x-candidate-session-id": str(cs_id),
         },
     )
@@ -61,7 +67,7 @@ async def test_full_flow_invite_through_first_submission(
     submit_res = await async_client.post(
         f"/api/tasks/{day1_task_id}/submit",
         headers={
-            "Authorization": f"Bearer candidate:{candidate_email}",
+            "Authorization": f"Bearer {access_token}",
             "x-candidate-session-id": str(cs_id),
         },
         json={"contentText": "Day 1 answer"},

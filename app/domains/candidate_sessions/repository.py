@@ -21,6 +21,19 @@ async def get_by_token(
     return res.scalar_one_or_none()
 
 
+async def get_by_token_for_update(
+    db: AsyncSession, token: str
+) -> CandidateSession | None:
+    """Return candidate session by token with a row lock."""
+    stmt = (
+        select(CandidateSession)
+        .where(CandidateSession.token == token)
+        .with_for_update()
+    )
+    res = await db.execute(stmt)
+    return res.scalar_one_or_none()
+
+
 async def get_by_id(db: AsyncSession, session_id: int) -> CandidateSession | None:
     """Return candidate session by id."""
     res = await db.execute(
