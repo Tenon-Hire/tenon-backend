@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains import CandidateSession, Company, Simulation, Submission, Task, User
+from app.domains.candidate_sessions.auth_tokens import mint_candidate_token
 from app.domains.simulations.blueprints import DEFAULT_5_DAY_BLUEPRINT
 from app.domains.tasks.template_catalog import (
     DEFAULT_TEMPLATE_KEY,
@@ -108,6 +109,8 @@ async def create_candidate_session(
     access_token_expires_in_minutes: int = 60,
     verification_code: str | None = None,
     verification_code_expires_at: datetime | None = None,
+    verification_code_attempts: int = 0,
+    verification_code_send_count: int = 0,
 ) -> CandidateSession:
     token = token or secrets.token_urlsafe(16)
     expires_at = datetime.now(UTC) + timedelta(days=expires_in_days)
@@ -126,10 +129,26 @@ async def create_candidate_session(
         started_at=started_at,
         completed_at=completed_at,
         verification_code=verification_code,
+        verification_code_attempts=verification_code_attempts,
+        verification_code_send_count=verification_code_send_count,
         verification_code_expires_at=verification_code_expires_at,
     )
     session.add(cs)
     await session.flush()
+    if access_token is not None:
+        now = datetime.now(UTC)
+        token, token_hash, expires_at, issued_at = mint_candidate_token(
+            candidate_session_id=cs.id,
+            invite_email=cs.invite_email,
+            now=now,
+        )
+        cs.access_token = token
+        cs.access_token_expires_at = expires_at
+        cs.candidate_access_token_hash = token_hash
+        cs.candidate_access_token_expires_at = expires_at
+        cs.candidate_access_token_issued_at = issued_at
+        session.add(cs)
+        await session.flush()
     return cs
 
 

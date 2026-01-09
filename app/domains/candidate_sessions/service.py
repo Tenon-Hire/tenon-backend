@@ -32,6 +32,19 @@ async def fetch_by_token(
     return cs
 
 
+async def fetch_by_token_for_update(
+    db: AsyncSession, token: str, *, now: datetime | None = None
+) -> CandidateSession:
+    """Load a candidate session by invite token with row lock or raise 404/410."""
+    cs = await cs_repo.get_by_token_for_update(db, token)
+    if cs is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite token"
+        )
+    _ensure_not_expired(cs, now=now)
+    return cs
+
+
 def _normalize_email(value: str) -> str:
     if not isinstance(value, str):
         return ""
@@ -63,7 +76,21 @@ def _ensure_sub_match(
     candidate_session: CandidateSession, principal: Principal
 ) -> None:
     """Block access when a different Auth0 subject attempts to reuse an invite."""
-    if principal.sub.startswith("candidate-access:"):
+    if principal.claims.get("typ") == "candidate":
+        claim_id = principal.claims.get("candidate_session_id") or principal.claims.get(
+            "sub"
+        )
+        try:
+            if int(claim_id) != candidate_session.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized for this invite",
+                )
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized for this invite",
+            ) from exc
         return
     stored_sub = getattr(candidate_session, "candidate_auth0_sub", None)
     if stored_sub and stored_sub != principal.sub:

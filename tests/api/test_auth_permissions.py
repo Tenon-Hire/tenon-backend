@@ -1,6 +1,7 @@
 import pytest
 
 import app.infra.security.auth0 as auth0_module
+from app.domains.candidate_sessions.auth_tokens import mint_candidate_token
 from app.infra.config import settings
 from app.infra.security import dependencies as security_deps
 from app.infra.security.current_user import get_current_user
@@ -35,18 +36,33 @@ def patch_auth0_decode(monkeypatch):
     monkeypatch.setattr(auth0_module, "decode_auth0_token", fake_decode)
 
 
+async def _candidate_token(async_session, cs) -> str:
+    token, token_hash, expires_at, issued_at = mint_candidate_token(
+        candidate_session_id=cs.id, invite_email=cs.invite_email
+    )
+    cs.candidate_access_token_hash = token_hash
+    cs.candidate_access_token_expires_at = expires_at
+    cs.candidate_access_token_issued_at = issued_at
+    await async_session.commit()
+    return token
+
+
 @pytest.mark.asyncio
 async def test_candidate_token_cannot_access_recruiter_routes(
     async_client, async_session, override_dependencies
 ):
     await create_recruiter(async_session, email="owner@test.com")
+    recruiter = await create_recruiter(async_session, email="owner2@test.com")
+    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    cs = await create_candidate_session(async_session, simulation=sim)
+    token = await _candidate_token(async_session, cs)
     # Restore real dependency to enforce Auth0 permissions for this test.
     with override_dependencies({get_current_user: security_deps.get_current_user}):
         res = await async_client.get(
             "/api/simulations",
-            headers={"Authorization": "Bearer candidate:jane@example.com"},
+            headers={"Authorization": f"Bearer {token}"},
         )
-    assert res.status_code == 403
+    assert res.status_code in {401, 403}
 
 
 @pytest.mark.asyncio
@@ -57,11 +73,14 @@ async def test_recruiter_token_cannot_access_candidate_routes(
     sim, _ = await create_simulation(async_session, created_by=recruiter)
     cs = await create_candidate_session(async_session, simulation=sim)
 
-    res = await async_client.post(
-        f"/api/candidate/session/{cs.token}/verify",
-        headers={"Authorization": "Bearer recruiter:recruiter@test.com"},
+    res = await async_client.get(
+        f"/api/candidate/session/{cs.id}/current_task",
+        headers={
+            "Authorization": "Bearer recruiter:recruiter@test.com",
+            "x-candidate-session-id": str(cs.id),
+        },
     )
-    assert res.status_code == 403
+    assert res.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -90,6 +109,22 @@ async def test_candidate_current_task_requires_auth(
             f"/api/candidate/session/{cs.id}/current_task",
             headers={"x-candidate-session-id": str(cs.id)},
         )
+    assert res.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_candidate_email_bypass_rejected(async_client, async_session):
+    recruiter = await create_recruiter(async_session, email="bypass@test.com")
+    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    cs = await create_candidate_session(async_session, simulation=sim)
+
+    res = await async_client.get(
+        f"/api/candidate/session/{cs.id}/current_task",
+        headers={
+            "Authorization": "Bearer candidate:bypass@example.com",
+            "x-candidate-session-id": str(cs.id),
+        },
+    )
     assert res.status_code == 401
 
 
@@ -140,10 +175,11 @@ async def test_candidate_matching_email_can_claim(async_client, async_session):
     recruiter = await create_recruiter(async_session, email="claim@test.com")
     sim, _ = await create_simulation(async_session, created_by=recruiter)
     cs = await create_candidate_session(async_session, simulation=sim)
+    token = await _candidate_token(async_session, cs)
 
-    res = await async_client.post(
-        f"/api/candidate/session/{cs.token}/claim",
-        headers={"Authorization": f"Bearer candidate:{cs.invite_email}"},
+    res = await async_client.get(
+        f"/api/candidate/session/{cs.token}",
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert res.status_code == 200
 
@@ -153,10 +189,14 @@ async def test_candidate_mismatched_email_gets_403(async_client, async_session):
     recruiter = await create_recruiter(async_session, email="claim403@test.com")
     sim, _ = await create_simulation(async_session, created_by=recruiter)
     cs = await create_candidate_session(async_session, simulation=sim)
+    other = await create_candidate_session(
+        async_session, simulation=sim, invite_email="other@example.com"
+    )
+    token = await _candidate_token(async_session, other)
 
-    res = await async_client.post(
-        f"/api/candidate/session/{cs.token}/claim",
-        headers={"Authorization": "Bearer candidate:notme@example.com"},
+    res = await async_client.get(
+        f"/api/candidate/session/{cs.token}",
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert res.status_code == 403
 
@@ -186,7 +226,7 @@ async def test_namespaced_permissions_only_candidate_access(
             f"/api/candidate/session/{cs.token}/verify",
             headers={"Authorization": "Bearer token"},
         )
-    assert res.status_code == 200
+    assert res.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -236,7 +276,7 @@ async def test_roles_mapping_allows_candidate_route(
             f"/api/candidate/session/{cs.token}/verify",
             headers={"Authorization": "Bearer token"},
         )
-    assert res.status_code == 200
+    assert res.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -262,4 +302,4 @@ async def test_missing_permissions_and_roles_returns_403(
             f"/api/candidate/session/{cs.token}/verify",
             headers={"Authorization": "Bearer token"},
         )
-    assert res.status_code == 403
+    assert res.status_code == 401

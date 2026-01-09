@@ -14,7 +14,9 @@ from tests.factories import (
 
 
 @pytest.mark.asyncio
-async def test_submit_rejects_expired_session(async_client, async_session):
+async def test_submit_rejects_expired_session(
+    async_client, async_session, candidate_header_factory
+):
     recruiter = await create_recruiter(async_session, email="expired@sim.com")
     sim, tasks = await create_simulation(async_session, created_by=recruiter)
     cs = await create_candidate_session(
@@ -26,19 +28,19 @@ async def test_submit_rejects_expired_session(async_client, async_session):
     )
 
     task_id = tasks[0].id
+    headers = candidate_header_factory(cs.id, cs.access_token)
     res = await async_client.post(
         f"/api/tasks/{task_id}/submit",
-        headers={
-            "Authorization": f"Bearer candidate:{cs.invite_email}",
-            "x-candidate-session-id": str(cs.id),
-        },
+        headers=headers,
         json={"contentText": "should fail"},
     )
     assert res.status_code == 410
 
 
 @pytest.mark.asyncio
-async def test_submit_after_completion_returns_409(async_client, async_session):
+async def test_submit_after_completion_returns_409(
+    async_client, async_session, candidate_header_factory
+):
     recruiter = await create_recruiter(async_session, email="done@sim.com")
     sim, tasks = await create_simulation(async_session, created_by=recruiter)
     cs = await create_candidate_session(
@@ -59,12 +61,10 @@ async def test_submit_after_completion_returns_409(async_client, async_session):
     await async_session.refresh(cs)
 
     task_id = tasks[-1].id
+    headers = candidate_header_factory(cs.id, cs.access_token)
     res = await async_client.post(
         f"/api/tasks/{task_id}/submit",
-        headers={
-            "Authorization": f"Bearer candidate:{cs.invite_email}",
-            "x-candidate-session-id": str(cs.id),
-        },
+        headers=headers,
         json={"contentText": "too late"},
     )
     assert res.status_code == 409
@@ -76,7 +76,7 @@ async def test_submit_after_completion_returns_409(async_client, async_session):
 
 @pytest.mark.asyncio
 async def test_submit_returns_500_when_simulation_missing_tasks(
-    async_client, async_session
+    async_client, async_session, candidate_header_factory
 ):
     recruiter = await create_recruiter(async_session, email="notasks@sim.com")
     sim, tasks = await create_simulation(async_session, created_by=recruiter)
@@ -91,40 +91,41 @@ async def test_submit_returns_500_when_simulation_missing_tasks(
     await async_session.execute(delete(Task).where(Task.simulation_id == sim.id))
     await async_session.commit()
 
+    headers = candidate_header_factory(cs.id, cs.access_token)
     res = await async_client.post(
         f"/api/tasks/{tasks[0].id}/submit",
-        headers={
-            "Authorization": f"Bearer candidate:{cs.invite_email}",
-            "x-candidate-session-id": str(cs.id),
-        },
+        headers=headers,
         json={"contentText": "should error"},
     )
     assert res.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_submit_task_not_found(async_client, async_session):
+async def test_submit_task_not_found(
+    async_client, async_session, candidate_header_factory
+):
     recruiter = await create_recruiter(async_session, email="missingtask@sim.com")
     sim, _ = await create_simulation(async_session, created_by=recruiter)
     cs = await create_candidate_session(
         async_session,
         simulation=sim,
         status="in_progress",
+        access_token="tok-missing-task",
     )
 
+    headers = candidate_header_factory(cs.id, cs.access_token)
     res = await async_client.post(
         "/api/tasks/999999/submit",
-        headers={
-            "Authorization": f"Bearer candidate:{cs.invite_email}",
-            "x-candidate-session-id": str(cs.id),
-        },
+        headers=headers,
         json={"contentText": "no task"},
     )
     assert res.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_submit_task_from_other_simulation(async_client, async_session):
+async def test_submit_task_from_other_simulation(
+    async_client, async_session, candidate_header_factory
+):
     recruiter = await create_recruiter(async_session, email="cross@sim.com")
     sim_a, tasks_a = await create_simulation(async_session, created_by=recruiter)
     sim_b, _ = await create_simulation(async_session, created_by=recruiter)
@@ -132,28 +133,30 @@ async def test_submit_task_from_other_simulation(async_client, async_session):
         async_session,
         simulation=sim_b,
         status="in_progress",
+        access_token="tok-cross-sim",
     )
 
     # Use task from sim_a with session from sim_b -> 404
+    headers = candidate_header_factory(cs.id, cs.access_token)
     res = await async_client.post(
         f"/api/tasks/{tasks_a[0].id}/submit",
-        headers={
-            "Authorization": f"Bearer candidate:{cs.invite_email}",
-            "x-candidate-session-id": str(cs.id),
-        },
+        headers=headers,
         json={"contentText": "wrong sim"},
     )
     assert res.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_submit_unknown_task_type_errors(async_client, async_session):
+async def test_submit_unknown_task_type_errors(
+    async_client, async_session, candidate_header_factory
+):
     recruiter = await create_recruiter(async_session, email="unk@sim.com")
     sim, _ = await create_simulation(async_session, created_by=recruiter)
     cs = await create_candidate_session(
         async_session,
         simulation=sim,
         status="in_progress",
+        access_token="tok-unknown-type",
     )
 
     # Manually insert a task with unsupported type
@@ -175,12 +178,10 @@ async def test_submit_unknown_task_type_errors(async_client, async_session):
     await async_session.commit()
     await async_session.refresh(bad_task)
 
+    headers = candidate_header_factory(cs.id, cs.access_token)
     res = await async_client.post(
         f"/api/tasks/{bad_task.id}/submit",
-        headers={
-            "Authorization": f"Bearer candidate:{cs.invite_email}",
-            "x-candidate-session-id": str(cs.id),
-        },
+        headers=headers,
         json={"contentText": "unknown"},
     )
     assert res.status_code == 500

@@ -179,6 +179,10 @@ async def send_verification_email(
         expires_at=expires_at,
     )
     candidate_session.verification_code = code
+    candidate_session.verification_code_attempts = 0
+    candidate_session.verification_code_send_count = (
+        int(getattr(candidate_session, "verification_code_send_count", 0) or 0) + 1
+    )
     candidate_session.verification_code_sent_at = now
     candidate_session.verification_code_expires_at = expires_at
 
