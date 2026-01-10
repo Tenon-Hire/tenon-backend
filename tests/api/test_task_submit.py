@@ -363,10 +363,11 @@ async def test_text_submission_requires_content(
 
 
 @pytest.mark.asyncio
-async def test_code_submission_requires_workspace(
-    async_client, async_session: AsyncSession, monkeypatch
+async def test_code_submission_uses_preprovisioned_workspace(
+    async_client, async_session: AsyncSession, monkeypatch, actions_stubber
 ):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
+    actions_stubber()
 
     recruiter_email = "recruiterA@tenon.com"
     await seed_recruiter(
@@ -400,8 +401,7 @@ async def test_code_submission_requires_workspace(
         headers=candidate_headers(cs_id, access_token),
         json={},
     )
-    assert res.status_code == 400
-    assert "Workspace not initialized" in res.json()["detail"]
+    assert res.status_code == 201, res.text
 
 
 @pytest.mark.asyncio
