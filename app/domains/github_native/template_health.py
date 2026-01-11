@@ -125,7 +125,8 @@ def _decode_contents(payload: dict[str, Any]) -> str | None:
         return None
     if encoding == "base64":
         try:
-            decoded = base64.b64decode(content, validate=True).decode(
+            normalized = "".join(str(content).split())
+            decoded = base64.b64decode(normalized, validate=True).decode(
                 "utf-8", errors="replace"
             )
         except (ValueError, UnicodeDecodeError):
