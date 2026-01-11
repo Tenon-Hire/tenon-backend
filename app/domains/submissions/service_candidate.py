@@ -173,6 +173,13 @@ async def ensure_workspace(
         db, candidate_session_id=candidate_session.id, task_id=task.id
     )
     if existing:
+        if github_username:
+            import contextlib
+
+            with contextlib.suppress(GithubError):
+                await github_client.add_collaborator(
+                    existing.repo_full_name, github_username
+                )
         return existing
 
     template_repo = (task.template_repo or "").strip()

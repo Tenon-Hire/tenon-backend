@@ -10,6 +10,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.api.dependencies.github_native import get_github_client
 from app.api.routes import tasks_codespaces as candidate_submissions
 from app.domains import Base, User
 from app.domains.github_native.actions_runner import ActionsRunResult
@@ -62,6 +63,32 @@ async def _async_session_alias(db_session: AsyncSession) -> AsyncSession:
 @pytest_asyncio.fixture
 async def async_client(db_session: AsyncSession):
     """FastAPI TestClient wired to the shared async session + auth override."""
+
+    class StubGithubClient:
+        async def generate_repo_from_template(
+            self,
+            *,
+            template_full_name: str,
+            new_repo_name: str,
+            owner=None,
+            private=True,
+        ):
+            return {
+                "full_name": f"{owner}/{new_repo_name}",
+                "id": 999,
+                "default_branch": "main",
+            }
+
+        async def add_collaborator(
+            self, repo_full_name: str, username: str, *, permission: str = "push"
+        ):
+            return {"ok": True}
+
+        async def get_branch(self, repo_full_name: str, branch: str):
+            return {"commit": {"sha": "base-sha-123"}}
+
+        async def get_compare(self, repo_full_name: str, base: str, head: str):
+            return {"ahead_by": 0, "behind_by": 0, "total_commits": 0, "files": []}
 
     async def override_get_session():
         yield db_session
@@ -132,6 +159,7 @@ async def async_client(db_session: AsyncSession):
     app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[get_current_user] = override_get_current_user
     app.dependency_overrides[get_principal] = override_get_principal
+    app.dependency_overrides[get_github_client] = lambda: StubGithubClient()
 
     async with AsyncClient(app=app, base_url="http://testserver") as client:
         yield client
@@ -139,6 +167,7 @@ async def async_client(db_session: AsyncSession):
     app.dependency_overrides.pop(get_session, None)
     app.dependency_overrides.pop(get_current_user, None)
     app.dependency_overrides.pop(get_principal, None)
+    app.dependency_overrides.pop(get_github_client, None)
 
 
 @pytest.fixture

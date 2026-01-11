@@ -1,9 +1,12 @@
+import logging
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.dependencies.github_native import get_github_client
 from app.api.dependencies.notifications import get_email_service
 from app.domains import CandidateSession
 from app.domains.candidate_sessions.schemas import (
@@ -11,6 +14,7 @@ from app.domains.candidate_sessions.schemas import (
     CandidateInviteResponse,
     CandidateSessionListItem,
 )
+from app.domains.github_native import GithubClient, GithubError
 from app.domains.notifications import service as notification_service
 from app.domains.simulations import service as sim_service
 from app.domains.simulations.schemas import (
@@ -22,12 +26,15 @@ from app.domains.simulations.schemas import (
     TaskOut,
 )
 from app.domains.simulations.simulation import Simulation
+from app.domains.submissions import service_candidate as submission_service
+from app.infra.config import settings
 from app.infra.db import get_session
 from app.infra.security.current_user import get_current_user
 from app.infra.security.roles import ensure_recruiter_or_none
 from app.services.email import EmailService
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("", response_model=list[SimulationListItem], status_code=status.HTTP_200_OK)
@@ -137,21 +144,75 @@ async def create_candidate_invite(
     db: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[Any, Depends(get_current_user)],
     email_service: Annotated[EmailService, Depends(get_email_service)],
+    github_client: Annotated[GithubClient, Depends(get_github_client)],
 ):
     """Create a candidate_session invite token for a simulation (recruiter-only)."""
     ensure_recruiter_or_none(user)
 
-    sim = await sim_service.require_owned_simulation(db, simulation_id, user.id)
-    cs = await sim_service.create_invite(
-        db, simulation_id, payload, now=datetime.now(UTC)
+    sim, tasks = await sim_service.require_owned_simulation_with_tasks(
+        db, simulation_id, user.id
     )
+    sim_snapshot = SimpleNamespace(id=sim.id, title=sim.title, role=sim.role)
+    task_snapshots = [
+        SimpleNamespace(
+            id=task.id,
+            day_index=task.day_index,
+            type=task.type,
+            template_repo=task.template_repo,
+        )
+        for task in tasks
+    ]
+    now = datetime.now(UTC)
+    cs = await sim_service.create_invite(db, simulation_id, payload, now=now)
+
+    repo_prefix = settings.github.GITHUB_REPO_PREFIX
+    template_owner = settings.github.GITHUB_TEMPLATE_OWNER or settings.github.GITHUB_ORG
+    try:
+        for task in task_snapshots:
+            task_type = str(task.type or "").lower()
+            if task.day_index not in {2, 3}:
+                continue
+            if task_type not in {"code", "debug"}:
+                continue
+            await submission_service.ensure_workspace(
+                db,
+                candidate_session=cs,
+                task=task,
+                github_client=github_client,
+                github_username="",
+                repo_prefix=repo_prefix,
+                template_default_owner=template_owner,
+                now=now,
+            )
+    except GithubError as exc:
+        template_repo = (task.template_repo or "").strip()
+        repo_name = submission_service.build_repo_name(
+            prefix=repo_prefix, candidate_session=cs, task=task
+        )
+        logger.error(
+            f"github_workspace_preprovision_failed {exc}",
+            extra={
+                "simulation_id": simulation_id,
+                "candidate_session_id": cs.id,
+                "task_id": task.id,
+                "day_index": task.day_index,
+                "template_repo": template_repo,
+                "repo_name": repo_name,
+                "error": str(exc),
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="GitHub unavailable. Please try again.",
+        ) from exc
+
     await notification_service.send_invite_email(
         db,
         candidate_session=cs,
-        simulation=sim,
+        simulation=sim_snapshot,
         invite_url=sim_service.invite_url(cs.token),
         email_service=email_service,
-        now=datetime.now(UTC),
+        now=now,
     )
     return CandidateInviteResponse(
         candidateSessionId=cs.id,
