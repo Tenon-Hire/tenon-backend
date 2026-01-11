@@ -41,6 +41,8 @@ FastAPI + Postgres backend for Tenon. Recruiters create 5-day simulations, invit
   - `GET /api/simulations/{id}/candidates` list sessions (`hasFitProfile` if `fit_profiles` row)
   - `GET /api/submissions` list submissions (filters `candidateSessionId`, `taskId`)
   - `GET /api/submissions/{id}` detail with content/code/test results + repo/commit/workflow/diff URLs
+- Admin (recruiter auth):
+  - `GET /api/admin/templates/health` validate template repos, workflow file, and artifact contract
 - Candidate (Auth0 access token + invite token):
   - `POST /api/candidate/session/{token}/verify` (Auth0 `Authorization: Bearer <access_token>`) claims invite for the logged-in candidate and transitions to in-progress
   - `GET /api/candidate/session/{token}` same as verify (idempotent claim/bootstrap with Auth0 identity)
