@@ -204,17 +204,29 @@ async def test_ensure_workspace_existing_and_missing_template(
         created_at=now,
     )
 
+    class StubGithub:
+        def __init__(self):
+            self.invites: list[tuple[str, str]] = []
+
+        async def add_collaborator(
+            self, repo_full_name, username, *, permission="push"
+        ):
+            self.invites.append((repo_full_name, username))
+            return {"invited": username}
+
+    stub = StubGithub()
     ws = await svc.ensure_workspace(
         async_session,
         candidate_session=cs,
         task=tasks[0],
-        github_client=object(),
-        github_username="",
+        github_client=stub,
+        github_username="octocat",
         repo_prefix="pref-",
         template_default_owner="org",
         now=now,
     )
     assert ws.id == existing.id
+    assert stub.invites == [("org/existing", "octocat")]
 
     bad_task = SimpleNamespace(
         id=99, template_repo=" ", simulation_id=sim.id, type="code"
