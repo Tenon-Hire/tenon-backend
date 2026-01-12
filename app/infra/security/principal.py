@@ -5,7 +5,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Annotated, Any
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.infra.config import settings
@@ -48,7 +48,7 @@ def _extract_principal(claims: dict[str, Any]) -> Principal:
     sub = claims.get("sub")
     if not isinstance(sub, str) or not sub:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid subject claim"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
         )
 
     configured_email_claim = (settings.auth.AUTH0_EMAIL_CLAIM or "").strip()
@@ -85,7 +85,7 @@ def _extract_principal(claims: dict[str, Any]) -> Principal:
             },
         )
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Email claim missing"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
         )
 
     name_raw = _first_claim(claims, ["name", settings.auth.name_claim], default=None)
@@ -124,6 +124,7 @@ def _extract_principal(claims: dict[str, Any]) -> Principal:
 
 async def get_principal(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+    request: Request,
 ) -> Principal:
     """Decode Auth0 JWT and build a typed principal."""
     if credentials is None or credentials.scheme.lower() != "bearer":
@@ -132,8 +133,40 @@ async def get_principal(
             detail="Not authenticated",
         )
 
-    claims = auth0.decode_auth0_token(credentials.credentials)
-    return _extract_principal(claims)
+    request_id = (
+        request.headers.get("x-request-id")
+        or request.headers.get("x-correlation-id")
+        or ""
+    ).strip() or None
+
+    try:
+        claims = auth0.decode_auth0_token(credentials.credentials)
+    except auth0.Auth0Error as exc:
+        reason = "invalid_token"
+        if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
+            reason = "jwks_fetch_failed"
+        elif str(exc.detail).lower().startswith("token expired"):
+            reason = "expired"
+        elif str(exc.detail).lower().startswith("signing key not found"):
+            reason = "kid_not_found"
+        logger.warning(
+            "auth0_token_invalid",
+            extra={"request_id": request_id, "detail": exc.detail, "reason": reason},
+        )
+        raise
+
+    try:
+        return _extract_principal(claims)
+    except HTTPException as exc:
+        logger.warning(
+            "auth0_claims_invalid",
+            extra={
+                "request_id": request_id,
+                "detail": exc.detail,
+                "reason": "claims_invalid",
+            },
+        )
+        raise
 
 
 def require_permissions(required: list[str]):

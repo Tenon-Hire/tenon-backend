@@ -55,6 +55,8 @@ class AuthSettings(BaseSettings):
     AUTH0_JWKS_URL: str | None = None
     AUTH0_API_AUDIENCE: str = ""
     AUTH0_ALGORITHMS: str = "RS256"
+    AUTH0_LEEWAY_SECONDS: int = 60
+    AUTH0_JWKS_CACHE_TTL_SECONDS: int = 3600
     AUTH0_CLAIM_NAMESPACE: str = DEFAULT_CLAIM_NAMESPACE
     AUTH0_EMAIL_CLAIM: str = ""
     AUTH0_ROLES_CLAIM: str = ""
@@ -68,9 +70,11 @@ class AuthSettings(BaseSettings):
     @property
     def issuer(self) -> str:
         """Issuer URL used to validate Auth0 tokens."""
-        if self.AUTH0_ISSUER:
-            return self.AUTH0_ISSUER
-        return f"https://{self.AUTH0_DOMAIN}/"
+        issuer = self.AUTH0_ISSUER or f"https://{self.AUTH0_DOMAIN}/"
+        issuer = issuer.strip()
+        if issuer and not issuer.endswith("/"):
+            issuer = f"{issuer}/"
+        return issuer
 
     @property
     def jwks_url(self) -> str:
@@ -232,6 +236,7 @@ class Settings(BaseSettings):
             "AUTH0_JWKS_URL",
             "AUTH0_API_AUDIENCE",
             "AUTH0_ALGORITHMS",
+            "AUTH0_JWKS_CACHE_TTL_SECONDS",
             "AUTH0_CLAIM_NAMESPACE",
             "AUTH0_EMAIL_CLAIM",
             "AUTH0_ROLES_CLAIM",
