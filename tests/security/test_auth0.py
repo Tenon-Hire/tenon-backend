@@ -1,6 +1,7 @@
+import httpx
 import pytest
 from jose import jwt
-from jose.exceptions import JWTError
+from jose.exceptions import ExpiredSignatureError, JWTError
 
 from app.infra.security import auth0
 
@@ -40,7 +41,7 @@ def test_decode_auth0_token_invalid_signature(monkeypatch):
     )
     monkeypatch.setattr(auth0, "get_jwks", lambda: {"keys": [{"kid": "k1"}]})
 
-    def bad_decode(token, key, algorithms, audience, issuer, options):
+    def bad_decode(token, key, algorithms, audience, issuer, options, leeway=0):
         raise JWTError("invalid")
 
     monkeypatch.setattr(jwt, "decode", bad_decode)
@@ -80,7 +81,7 @@ def test_decode_auth0_token_success(monkeypatch):
     monkeypatch.setattr(
         jwt,
         "decode",
-        lambda token, key, algorithms, audience, issuer, options: {
+        lambda token, key, algorithms, audience, issuer, options, leeway=0: {
             "email": "ok@example.com"
         },
     )
@@ -96,7 +97,7 @@ def test_decode_auth0_token_invalid_issuer(monkeypatch):
     )
     monkeypatch.setattr(auth0, "get_jwks", lambda: {"keys": [{"kid": "kid1"}]})
 
-    def bad_decode(token, key, algorithms, audience, issuer, options):
+    def bad_decode(token, key, algorithms, audience, issuer, options, leeway=0):
         assert issuer == auth0.settings.auth0_issuer
         raise JWTError("invalid issuer")
 
@@ -113,7 +114,7 @@ def test_decode_auth0_token_invalid_audience(monkeypatch):
     )
     monkeypatch.setattr(auth0, "get_jwks", lambda: {"keys": [{"kid": "kid1"}]})
 
-    def bad_decode(token, key, algorithms, audience, issuer, options):
+    def bad_decode(token, key, algorithms, audience, issuer, options, leeway=0):
         assert audience == auth0.settings.auth0_audience
         raise JWTError("invalid audience")
 
@@ -131,3 +132,32 @@ def test_decode_auth0_token_rejects_unapproved_alg(monkeypatch):
     with pytest.raises(auth0.Auth0Error) as excinfo:
         auth0.decode_auth0_token("tok")
     assert "algorithm" in excinfo.value.detail
+
+
+def test_decode_auth0_token_expired(monkeypatch):
+    monkeypatch.setattr(
+        jwt, "get_unverified_header", lambda _t: {"kid": "kid1", "alg": "RS256"}
+    )
+    monkeypatch.setattr(auth0, "get_jwks", lambda: {"keys": [{"kid": "kid1"}]})
+
+    def bad_decode(token, key, algorithms, audience, issuer, options, leeway=0):
+        raise ExpiredSignatureError("expired")
+
+    monkeypatch.setattr(jwt, "decode", bad_decode)
+
+    with pytest.raises(auth0.Auth0Error) as exc:
+        auth0.decode_auth0_token("tok")
+    assert "expired" in str(exc.value.detail).lower()
+
+
+def test_get_jwks_fetch_failure(monkeypatch):
+    auth0.get_jwks.cache_clear()
+
+    def bad_get(_url, timeout=5):
+        raise httpx.ConnectError("down")
+
+    monkeypatch.setattr(auth0.httpx, "get", bad_get)
+
+    with pytest.raises(auth0.Auth0Error) as exc:
+        auth0.get_jwks()
+    assert exc.value.status_code == 503

@@ -1,12 +1,15 @@
 from functools import lru_cache
+import logging
 from typing import Any
 
 import httpx
 from fastapi import HTTPException, status
 from jose import jwt
-from jose.exceptions import JWTError
+from jose.exceptions import ExpiredSignatureError, JWTError
 
 from app.infra.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class Auth0Error(HTTPException):
@@ -18,12 +21,26 @@ class Auth0Error(HTTPException):
         super().__init__(status_code=status_code, detail=detail)
 
 
-@lru_cache(maxsize=1)
-def get_jwks() -> dict[str, Any]:
-    """Fetch and cache the JWKS keys from Auth0."""
+def _fetch_jwks() -> dict[str, Any]:
+    """Fetch JWKS keys from Auth0."""
     response = httpx.get(settings.auth0_jwks_url, timeout=5)
     response.raise_for_status()
     return response.json()
+
+
+@lru_cache(maxsize=1)
+def get_jwks() -> dict[str, Any]:
+    """Fetch and cache the JWKS keys from Auth0."""
+    try:
+        return _fetch_jwks()
+    except httpx.HTTPError as exc:
+        logger.warning(
+            "auth0_jwks_fetch_failed",
+            extra={"jwks_url": settings.auth0_jwks_url},
+        )
+        raise Auth0Error(
+            "Auth provider unavailable", status_code=status.HTTP_503_SERVICE_UNAVAILABLE
+        ) from exc
 
 
 def decode_auth0_token(token: str) -> dict[str, Any]:
@@ -50,7 +67,15 @@ def decode_auth0_token(token: str) -> dict[str, Any]:
             break
 
     if key is None:
-        raise Auth0Error("Signing key not found")
+        if hasattr(get_jwks, "cache_clear"):
+            get_jwks.cache_clear()
+        jwks = get_jwks()
+        for jwk in jwks.get("keys", []):
+            if jwk.get("kid") == kid:
+                key = jwk
+                break
+        if key is None:
+            raise Auth0Error("Signing key not found")
 
     try:
         payload = jwt.decode(
@@ -60,7 +85,10 @@ def decode_auth0_token(token: str) -> dict[str, Any]:
             audience=settings.auth0_audience,
             issuer=settings.auth0_issuer,
             options={"verify_at_hash": False},
+            leeway=settings.auth.AUTH0_LEEWAY_SECONDS,
         )
+    except ExpiredSignatureError as exc:
+        raise Auth0Error("Token expired") from exc
     except JWTError as exc:
         raise Auth0Error("Invalid token") from exc
 

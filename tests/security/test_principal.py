@@ -9,8 +9,8 @@ def test_extract_principal_missing_email_claim():
     claims = {"sub": "auth0|123", "permissions": ["candidate:access"]}
     with pytest.raises(HTTPException) as excinfo:
         principal._extract_principal(claims)  # type: ignore[attr-defined]
-    assert excinfo.value.status_code == 400
-    assert "Email claim missing" in excinfo.value.detail
+    assert excinfo.value.status_code == 401
+    assert "Invalid token" in excinfo.value.detail
 
 
 def test_extract_principal_missing_email_claim_config(monkeypatch):
