@@ -41,13 +41,6 @@ class CandidateSession(Base):
         String(255), unique=True, index=True, nullable=False
     )
 
-    access_token: Mapped[str | None] = mapped_column(
-        String(255), unique=True, index=True, nullable=True
-    )
-    access_token_expires_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-
     status: Mapped[str] = mapped_column(String(50), nullable=False)
 
     started_at: Mapped[datetime | None] = mapped_column(
@@ -67,41 +60,6 @@ class CandidateSession(Base):
         DateTime(timezone=True), nullable=True
     )
     invite_email_sent_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    invite_email_verified_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    candidate_access_token_hash: Mapped[str | None] = mapped_column(
-        String(128), nullable=True, index=True
-    )
-    candidate_access_token_expires_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    candidate_access_token_issued_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-
-    verification_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    verification_code_attempts: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0
-    )
-    verification_code_send_count: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0
-    )
-    verification_code_sent_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    verification_code_expires_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    verification_email_status: Mapped[str | None] = mapped_column(
-        String(50), nullable=True
-    )
-    verification_email_error: Mapped[str | None] = mapped_column(
-        String(500), nullable=True
-    )
-    verification_email_last_attempt_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 

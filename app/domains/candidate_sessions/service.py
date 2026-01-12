@@ -76,22 +76,6 @@ def _ensure_sub_match(
     candidate_session: CandidateSession, principal: Principal
 ) -> None:
     """Block access when a different Auth0 subject attempts to reuse an invite."""
-    if principal.claims.get("typ") == "candidate":
-        claim_id = principal.claims.get("candidate_session_id") or principal.claims.get(
-            "sub"
-        )
-        try:
-            if int(claim_id) != candidate_session.id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Not authorized for this invite",
-                )
-        except (TypeError, ValueError) as exc:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized for this invite",
-            ) from exc
-        return
     stored_sub = getattr(candidate_session, "candidate_auth0_sub", None)
     if stored_sub and stored_sub != principal.sub:
         raise HTTPException(
