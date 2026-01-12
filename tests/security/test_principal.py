@@ -1,7 +1,10 @@
 import pytest
 from fastapi import HTTPException
+from fastapi.security import HTTPAuthorizationCredentials
+from starlette.requests import Request
 
 from app.infra.config import settings
+from app.infra.security import auth0
 from app.infra.security import principal
 
 
@@ -73,3 +76,18 @@ def test_extract_principal_supports_url_claim_keys(monkeypatch):
     p = principal._extract_principal(claims)  # type: ignore[attr-defined]
     assert p.email == "x@y.com"
     assert "recruiter:access" in p.permissions
+
+
+@pytest.mark.asyncio
+async def test_get_principal_auth0_error_does_not_crash(monkeypatch):
+    def bad_decode(_token: str):
+        raise auth0.Auth0Error("Invalid token")
+
+    monkeypatch.setattr(auth0, "decode_auth0_token", bad_decode)
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="tok")
+    request = Request(
+        {"type": "http", "headers": [(b"x-request-id", b"req-1")]}
+    )
+
+    with pytest.raises(auth0.Auth0Error):
+        await principal.get_principal(credentials, request)

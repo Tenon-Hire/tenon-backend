@@ -124,7 +124,7 @@ def _extract_principal(claims: dict[str, Any]) -> Principal:
 
 async def get_principal(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
-    request: Request | None = None,
+    request: Request,
 ) -> Principal:
     """Decode Auth0 JWT and build a typed principal."""
     if credentials is None or credentials.scheme.lower() != "bearer":
@@ -133,20 +133,25 @@ async def get_principal(
             detail="Not authenticated",
         )
 
-    request_id = None
-    if request is not None:
-        request_id = (
-            request.headers.get("x-request-id")
-            or request.headers.get("x-correlation-id")
-            or ""
-        ).strip() or None
+    request_id = (
+        request.headers.get("x-request-id")
+        or request.headers.get("x-correlation-id")
+        or ""
+    ).strip() or None
 
     try:
         claims = auth0.decode_auth0_token(credentials.credentials)
     except auth0.Auth0Error as exc:
+        reason = "invalid_token"
+        if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
+            reason = "jwks_fetch_failed"
+        elif str(exc.detail).lower().startswith("token expired"):
+            reason = "expired"
+        elif str(exc.detail).lower().startswith("signing key not found"):
+            reason = "kid_not_found"
         logger.warning(
             "auth0_token_invalid",
-            extra={"request_id": request_id, "detail": exc.detail},
+            extra={"request_id": request_id, "detail": exc.detail, "reason": reason},
         )
         raise
 
@@ -155,7 +160,7 @@ async def get_principal(
     except HTTPException as exc:
         logger.warning(
             "auth0_claims_invalid",
-            extra={"request_id": request_id, "detail": exc.detail},
+            extra={"request_id": request_id, "detail": exc.detail, "reason": "claims_invalid"},
         )
         raise
 

@@ -117,7 +117,7 @@ async def get_current_user(
     if dev_user:
         return dev_user
 
-    principal = await get_principal(credentials)
+    principal = await get_principal(credentials, request)
     if "recruiter:access" not in principal.permissions:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

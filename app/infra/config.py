@@ -56,6 +56,7 @@ class AuthSettings(BaseSettings):
     AUTH0_API_AUDIENCE: str = ""
     AUTH0_ALGORITHMS: str = "RS256"
     AUTH0_LEEWAY_SECONDS: int = 60
+    AUTH0_JWKS_CACHE_TTL_SECONDS: int = 3600
     AUTH0_CLAIM_NAMESPACE: str = DEFAULT_CLAIM_NAMESPACE
     AUTH0_EMAIL_CLAIM: str = ""
     AUTH0_ROLES_CLAIM: str = ""
@@ -235,6 +236,7 @@ class Settings(BaseSettings):
             "AUTH0_JWKS_URL",
             "AUTH0_API_AUDIENCE",
             "AUTH0_ALGORITHMS",
+            "AUTH0_JWKS_CACHE_TTL_SECONDS",
             "AUTH0_CLAIM_NAMESPACE",
             "AUTH0_EMAIL_CLAIM",
             "AUTH0_ROLES_CLAIM",
