@@ -178,17 +178,54 @@ async def fetch_owned_session(
 ) -> CandidateSession:
     """Load a candidate session and enforce Auth0 ownership."""
     now = now or datetime.now(UTC)
-    cs = await cs_repo.get_by_id_for_update(db, session_id)
+    cs = await cs_repo.get_by_id(db, session_id)
     if cs is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Candidate session not found"
         )
 
     _ensure_not_expired(cs, now=now)
-    changed = _ensure_candidate_ownership(cs, principal, now=now)
-    if cs.status == "not_started":
-        _mark_in_progress(cs, now=now)
-        changed = True
+    stored_sub = getattr(cs, "candidate_auth0_sub", None)
+    if stored_sub:
+        if stored_sub != principal.sub:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Candidate session not found",
+            )
+        changed = False
+        email = _normalize_email(principal.email)
+        if email and getattr(cs, "candidate_auth0_email", None) is None:
+            cs.candidate_auth0_email = email
+            changed = True
+        if email and cs.candidate_email != email:
+            cs.candidate_email = email
+            changed = True
+        if cs.status == "not_started":
+            _mark_in_progress(cs, now=now)
+            changed = True
+        if changed:
+            await db.commit()
+            await db.refresh(cs)
+        return cs
+
+    changed = False
+    async with db.begin_nested():
+        cs = await cs_repo.get_by_id_for_update(db, session_id)
+        if cs is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Candidate session not found",
+            )
+        _ensure_not_expired(cs, now=now)
+        if cs.candidate_auth0_sub and cs.candidate_auth0_sub != principal.sub:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Candidate session not found",
+            )
+        changed = _ensure_candidate_ownership(cs, principal, now=now)
+        if cs.status == "not_started":
+            _mark_in_progress(cs, now=now)
+            changed = True
     if changed:
         await db.commit()
         await db.refresh(cs)

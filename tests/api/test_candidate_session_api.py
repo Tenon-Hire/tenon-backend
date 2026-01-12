@@ -81,9 +81,7 @@ async def test_current_task_marks_complete_when_all_tasks_done(
 async def test_invites_list_shows_candidates_for_email(async_client, async_session):
     recruiter = await create_recruiter(async_session, email="list@test.com")
     sim, _ = await create_simulation(async_session, created_by=recruiter)
-    cs_match = await create_candidate_session(
-        async_session, simulation=sim
-    )
+    cs_match = await create_candidate_session(async_session, simulation=sim)
     await create_candidate_session(
         async_session,
         simulation=sim,
@@ -106,7 +104,7 @@ async def test_claim_endpoint_forbidden_on_mismatch(async_client, async_session)
     recruiter = await create_recruiter(async_session, email="claimfail@test.com")
     sim, _ = await create_simulation(async_session, created_by=recruiter)
     cs = await create_candidate_session(async_session, simulation=sim)
-    other = await create_candidate_session(
+    await create_candidate_session(
         async_session,
         simulation=sim,
         invite_email="other@example.com",
@@ -178,7 +176,7 @@ async def test_current_task_token_mismatch(async_client, async_session):
     cs = await create_candidate_session(
         async_session, simulation=sim, status="in_progress"
     )
-    other = await create_candidate_session(
+    await create_candidate_session(
         async_session,
         simulation=sim,
         invite_email="other@example.com",

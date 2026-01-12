@@ -45,14 +45,6 @@ class StubSession:
 @pytest.mark.asyncio
 async def test_resolve_candidate_session_propagates_claim_error(monkeypatch):
     stub_db = StubSession()
-    cs = SimpleNamespace(
-        id=1,
-        status="not_started",
-        started_at=None,
-        completed_at=None,
-        candidate_name="Jane",
-        simulation=SimpleNamespace(id=10, title="Sim", role="Backend"),
-    )
 
     async def _claim(*_a, **_k):
         raise HTTPException(status_code=403, detail="Forbidden")

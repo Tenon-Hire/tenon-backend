@@ -403,7 +403,9 @@ async def test_code_submission_requires_workspace_without_preprovision(
     actions_stubber()
     recruiter = await create_recruiter(async_session, email="no-preprov@test.com")
     sim, tasks = await create_simulation_factory(async_session, created_by=recruiter)
-    cs = await create_candidate_session(async_session, simulation=sim, status="in_progress")
+    cs = await create_candidate_session(
+        async_session, simulation=sim, status="in_progress"
+    )
     await create_submission(
         async_session,
         candidate_session=cs,

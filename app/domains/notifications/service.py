@@ -68,8 +68,6 @@ def _invite_email_content(
     return subject, text, html
 
 
-
-
 async def send_invite_email(
     db: AsyncSession,
     *,
