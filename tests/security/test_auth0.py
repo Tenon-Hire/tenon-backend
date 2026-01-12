@@ -90,13 +90,12 @@ def test_decode_auth0_token_success(monkeypatch):
         return {"keys": [{"kid": "kid1"}]}
 
     monkeypatch.setattr(auth0, "_fetch_jwks", fake_fetch)
-    monkeypatch.setattr(
-        jwt,
-        "decode",
-        lambda token, key, algorithms, audience, issuer, options, leeway=0: {
-            "email": "ok@example.com"
-        },
-    )
+    def ok_decode(token, key, algorithms, audience, issuer, options, leeway=0):
+        assert isinstance(algorithms, list)
+        assert "RS256" in algorithms
+        return {"email": "ok@example.com"}
+
+    monkeypatch.setattr(jwt, "decode", ok_decode)
 
     claims = auth0.decode_auth0_token("tok")
     assert claims["email"] == "ok@example.com"

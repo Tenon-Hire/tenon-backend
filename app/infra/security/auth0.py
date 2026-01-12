@@ -1,4 +1,6 @@
+import atexit
 import logging
+import threading
 import time
 from typing import Any
 
@@ -12,6 +14,14 @@ from app.infra.config import settings
 logger = logging.getLogger(__name__)
 _http_client = httpx.Client(timeout=5)
 _jwks_cache: dict[str, Any] = {"fetched_at": 0.0, "jwks": None}
+_jwks_lock = threading.Lock()
+
+
+def _close_http_client() -> None:
+    _http_client.close()
+
+
+atexit.register(_close_http_client)
 
 
 class Auth0Error(HTTPException):
@@ -39,10 +49,16 @@ def get_jwks() -> dict[str, Any]:
     if cached is not None and now - fetched_at <= ttl:
         return cached
     try:
-        jwks = _fetch_jwks()
-        _jwks_cache["jwks"] = jwks
-        _jwks_cache["fetched_at"] = now
-        return jwks
+        with _jwks_lock:
+            now = time.time()
+            cached = _jwks_cache.get("jwks")
+            fetched_at = float(_jwks_cache.get("fetched_at") or 0.0)
+            if cached is not None and now - fetched_at <= ttl:
+                return cached
+            jwks = _fetch_jwks()
+            _jwks_cache["jwks"] = jwks
+            _jwks_cache["fetched_at"] = now
+            return jwks
     except httpx.HTTPError as exc:
         logger.warning(
             "auth0_jwks_fetch_failed",
@@ -54,8 +70,9 @@ def get_jwks() -> dict[str, Any]:
 
 
 def _clear_jwks_cache() -> None:
-    _jwks_cache["jwks"] = None
-    _jwks_cache["fetched_at"] = 0.0
+    with _jwks_lock:
+        _jwks_cache["jwks"] = None
+        _jwks_cache["fetched_at"] = 0.0
 
 
 get_jwks.cache_clear = _clear_jwks_cache  # type: ignore[attr-defined]
