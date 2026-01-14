@@ -73,6 +73,7 @@ async def async_client(db_session: AsyncSession):
                 "path: artifacts/tenon-test-results.json",
             ]
         )
+
         async def generate_repo_from_template(
             self,
             *,
@@ -108,7 +109,6 @@ async def async_client(db_session: AsyncSession):
 
         async def get_compare(self, repo_full_name: str, base: str, head: str):
             return {"ahead_by": 0, "behind_by": 0, "total_commits": 0, "files": []}
-
 
     async def override_get_session():
         yield db_session
@@ -238,7 +238,6 @@ def actions_stubber():
 
             async def get_compare(self, repo_full_name: str, base: str, head: str):
                 return {"ahead_by": 0, "behind_by": 0, "total_commits": 0, "files": []}
-
 
         runner = StubActionsRunner(result, error)
         app.dependency_overrides[candidate_submissions.get_actions_runner] = (

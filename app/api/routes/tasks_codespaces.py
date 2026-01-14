@@ -3,6 +3,7 @@ import logging
 import time
 from datetime import UTC, datetime
 from typing import Annotated
+from urllib.parse import parse_qs, urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -67,7 +68,11 @@ def _is_canonical_codespace_url(url: str | None) -> bool:
     """Return True if the URL matches the canonical Codespaces deep link."""
     if not url:
         return False
-    return url.startswith("https://codespaces.new/") and "quickstart=1" in url
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or parsed.netloc != "codespaces.new":
+        return False
+    query = parse_qs(parsed.query)
+    return query.get("quickstart") == ["1"]
 
 
 @router.post(

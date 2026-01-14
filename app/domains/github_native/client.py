@@ -33,8 +33,6 @@ class WorkflowRun:
     created_at: str | None = None
 
 
-
-
 class GithubClient:
     """Minimal GitHub REST client for template + Actions workflows."""
 
@@ -149,7 +147,6 @@ class GithubClient:
         path = f"/repos/{owner}/{repo}/compare/{base}...{head}"
         return await self._get_json(path)
 
-
     async def list_artifacts(
         self, repo_full_name: str, run_id: int
     ) -> list[dict[str, Any]]:
@@ -178,7 +175,6 @@ class GithubClient:
             event=payload.get("event"),
             created_at=payload.get("created_at"),
         )
-
 
     def _split_full_name(self, full_name: str) -> tuple[str, str]:
         if not full_name or "/" not in full_name:
