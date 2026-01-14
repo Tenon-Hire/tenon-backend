@@ -246,7 +246,7 @@ async def run_task_tests(
     )
     try:
         async with _concurrency_guard(
-            rate_limit.rate_limit_key("tasks", str(cs.id), "run"),
+            rate_limit.rate_limit_key("tasks", str(cs.id), "dispatch"),
             _RUN_CONCURRENCY_LIMIT,
         ):
             result = await submission_service.run_actions_tests(
@@ -335,7 +335,7 @@ async def get_run_result(
 
     try:
         async with _concurrency_guard(
-            rate_limit.rate_limit_key("tasks", str(cs.id), "run"),
+            rate_limit.rate_limit_key("tasks", str(cs.id), "fetch"),
             _RUN_CONCURRENCY_LIMIT,
         ):
             result = await actions_runner.fetch_run_result(

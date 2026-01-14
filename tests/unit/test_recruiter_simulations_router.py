@@ -8,6 +8,10 @@ import pytest
 from app.api.routes import simulations as recruiter_sims
 
 
+def _request(host: str = "127.0.0.1"):
+    return SimpleNamespace(headers={}, client=SimpleNamespace(host=host))
+
+
 @pytest.mark.asyncio
 async def test_create_candidate_invite_happy_path(monkeypatch):
     user = SimpleNamespace(id=1)
@@ -64,6 +68,7 @@ async def test_create_candidate_invite_happy_path(monkeypatch):
     resp = await recruiter_sims.create_candidate_invite(
         simulation_id=5,
         payload=payload,
+        request=_request(),
         db=None,
         user=user,
         email_service=email_service,

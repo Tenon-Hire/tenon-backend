@@ -18,6 +18,7 @@ from app.infra.config import settings
 from app.infra.db import init_db_if_needed
 from app.infra.env import env_name
 from app.infra.logging import configure_logging
+from app.infra.proxy_headers import TrustedProxyHeadersMiddleware, trusted_proxy_cidrs
 from app.infra.request_limits import RequestSizeLimitMiddleware
 
 
@@ -60,14 +61,11 @@ def create_app() -> FastAPI:
 
 
 def _configure_proxy_headers(app: FastAPI) -> None:
-    """Add proxy headers middleware if available (e.g., behind a load balancer)."""
-    try:
-        from starlette.middleware.proxy_headers import ProxyHeadersMiddleware
-
-        app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
-    except Exception:
-        # Optional dependency; skip if unavailable.
-        pass
+    """Add proxy headers middleware when trusted proxies are configured."""
+    cidrs = trusted_proxy_cidrs()
+    if not cidrs:
+        return
+    app.add_middleware(TrustedProxyHeadersMiddleware, trusted_proxy_cidrs=cidrs)
 
 
 def _cors_config() -> tuple[list[str], str | None]:

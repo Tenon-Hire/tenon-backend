@@ -67,10 +67,8 @@ def test_create_app_guard(monkeypatch):
 def test_create_app_adds_proxy_headers(monkeypatch):
     monkeypatch.delenv("DEV_AUTH_BYPASS", raising=False)
     monkeypatch.setattr(settings, "ENV", "local")
+    monkeypatch.setattr(settings, "TRUSTED_PROXY_CIDRS", ["127.0.0.1/32"])
     calls: list[str] = []
-
-    import sys
-    import types
 
     from fastapi import FastAPI
 
@@ -82,17 +80,8 @@ def test_create_app_adds_proxy_headers(monkeypatch):
 
     monkeypatch.setattr(FastAPI, "add_middleware", record)
 
-    class ProxyHeadersMiddleware:
-        """Stub middleware with matching name for coverage."""
-
-    monkeypatch.setitem(
-        sys.modules,
-        "starlette.middleware.proxy_headers",
-        types.SimpleNamespace(ProxyHeadersMiddleware=ProxyHeadersMiddleware),
-    )
-
     create_app()
-    assert "ProxyHeadersMiddleware" in calls
+    assert "TrustedProxyHeadersMiddleware" in calls
 
 
 @pytest.mark.asyncio

@@ -21,8 +21,8 @@ _SENSITIVE_KEYS = {
 }
 
 _REDACT_PATTERNS = [
-    (re.compile(r"(?i)bearer\\s+\\S+"), "Bearer [redacted]"),
-    (re.compile(r"(?i)(api[-_]?key|token|secret)[:=]\\s*[^\\s]+"), r"\\1=[redacted]"),
+    (re.compile(r"(?i)bearer\s+\S+"), "Bearer [redacted]"),
+    (re.compile(r"(?i)(api[-_]?key|token|secret)[:=]\s*[^\s]+"), r"\1=[redacted]"),
 ]
 
 
@@ -81,9 +81,36 @@ class RedactionFilter(logging.Filter):
         return True
 
 
-def configure_logging() -> None:
-    """Attach redaction filter to root logger once."""
+_REDACTOR = RedactionFilter()
+
+
+def _attach_filter_to_handlers() -> None:
     root = logging.getLogger()
-    if any(isinstance(f, RedactionFilter) for f in root.filters):
+    for handler in root.handlers:
+        if not any(isinstance(f, RedactionFilter) for f in handler.filters):
+            handler.addFilter(_REDACTOR)
+
+
+def configure_logging() -> None:
+    """Attach redaction filter to all log records once."""
+    _attach_filter_to_handlers()
+    if getattr(configure_logging, "_configured", False):
         return
-    root.addFilter(RedactionFilter())
+    original_factory = logging.getLogRecordFactory()
+
+    def record_factory(*args, **kwargs):
+        record = original_factory(*args, **kwargs)
+        _REDACTOR.filter(record)
+        return record
+
+    logging.setLogRecordFactory(record_factory)
+
+    original_add_handler = logging.Logger.addHandler
+
+    def add_handler(self, hdlr, *, _orig=original_add_handler):
+        if not any(isinstance(f, RedactionFilter) for f in hdlr.filters):
+            hdlr.addFilter(_REDACTOR)
+        return _orig(self, hdlr)
+
+    logging.Logger.addHandler = add_handler
+    configure_logging._configured = True

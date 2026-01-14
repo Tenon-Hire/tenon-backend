@@ -192,6 +192,7 @@ class Settings(BaseSettings):
     API_PREFIX: str = "/api"
     RATE_LIMIT_ENABLED: bool | None = None
     MAX_REQUEST_BODY_BYTES: int = 1_048_576
+    TRUSTED_PROXY_CIDRS: list[str] | str = Field(default_factory=list)
 
     # Flat env hooks (loaded from .env and merged into nested models)
     DATABASE_URL: str | None = None
@@ -222,6 +223,26 @@ class Settings(BaseSettings):
 
     CANDIDATE_PORTAL_BASE_URL: str = ""
     ADMIN_API_KEY: str = ""
+
+    @field_validator("TRUSTED_PROXY_CIDRS", mode="before")
+    @classmethod
+    def _coerce_trusted_proxy_cidrs(cls, value):
+        """Allow empty string, JSON array, or comma-separated CIDR values."""
+        if value in (None, "", [], (), "[]", "null", "None"):
+            return []
+        if isinstance(value, list):
+            return value
+        if isinstance(value, str):
+            text = value.strip()
+            if text.startswith("["):
+                try:
+                    parsed = json.loads(text)
+                    if isinstance(parsed, list):
+                        return parsed
+                except json.JSONDecodeError:
+                    pass
+            return [p.strip() for p in text.split(",") if p.strip()]
+        return value
 
     @model_validator(mode="before")
     def _merge_legacy(cls, values: dict) -> dict:
