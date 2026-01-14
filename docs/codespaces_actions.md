@@ -36,6 +36,8 @@ CLI:
    - Fetches an existing run result (polling helper) and returns the same normalized payload.
 4) `POST /api/tasks/{taskId}/submit`
    - Triggers run (if needed) and stores commit/workflow ids, test output, and `diff_summary_json` from `base_template_sha...head_sha`.
+5) `GET /api/tasks/{taskId}/codespace/status`
+   - Returns repo metadata, last test summary, and `codespaceUrl` (creates Codespace when enabled).
 
 Recruiter endpoints include repo/commit/workflow/diff URLs for detail and list views.
 

@@ -413,6 +413,7 @@ async def test_codespace_status_returns_summary(
     data = resp.json()
     assert data["repoFullName"] == "org/status-repo"
     assert data["lastTestSummary"] is None
+    assert data["codespaceUrl"] == "https://github.com/codespaces/org/status-repo"
 
 
 @pytest.mark.asyncio

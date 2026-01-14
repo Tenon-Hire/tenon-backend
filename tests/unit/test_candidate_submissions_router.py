@@ -53,6 +53,9 @@ def _stub_workspace():
         last_workflow_run_id=None,
         last_workflow_conclusion=None,
         last_test_summary=None,
+        codespace_name=None,
+        codespace_url=None,
+        codespace_state=None,
     )
 
 
@@ -191,6 +194,19 @@ async def test_codespace_status_invalid_summary(monkeypatch, async_session):
     task = _stub_task()
     workspace = _stub_workspace()
     workspace.last_test_summary_json = "{not-json"
+    workspace.codespace_url = "https://github.com/codespaces/org/repo"
+    class StubGithubClient:
+        async def list_codespaces_for_repo(self, repo_full_name: str):
+            return []
+
+        async def create_codespace(self, repo_full_name: str, *, ref: str | None = None):
+            class _Codespace:
+                def __init__(self):
+                    self.name = "stub"
+                    self.web_url = f"https://github.com/codespaces/{repo_full_name}"
+                    self.state = "available"
+
+            return _Codespace()
 
     async def _return_task(*_a, **_k):
         return task
@@ -213,9 +229,11 @@ async def test_codespace_status_invalid_summary(monkeypatch, async_session):
         task_id=task.id,
         candidate_session=cs,
         db=async_session,
+        github_client=StubGithubClient(),
     )
     assert resp.lastTestSummary is None
     assert resp.repoFullName == workspace.repo_full_name
+    assert resp.codespaceUrl == "https://github.com/codespaces/org/repo"
 
 
 @pytest.mark.asyncio
@@ -512,6 +530,18 @@ async def test_codespace_status_raises_when_workspace_missing(
 ):
     cs = _stub_cs()
     task = _stub_task()
+    class StubGithubClient:
+        async def list_codespaces_for_repo(self, repo_full_name: str):
+            return []
+
+        async def create_codespace(self, repo_full_name: str, *, ref: str | None = None):
+            class _Codespace:
+                def __init__(self):
+                    self.name = "stub"
+                    self.web_url = f"https://github.com/codespaces/{repo_full_name}"
+                    self.state = "available"
+
+            return _Codespace()
     monkeypatch.setattr(
         candidate_submissions.submission_service,
         "load_task_or_404",
@@ -527,6 +557,7 @@ async def test_codespace_status_raises_when_workspace_missing(
             task_id=task.id,
             candidate_session=cs,
             db=async_session,
+            github_client=StubGithubClient(),
         )
     assert excinfo.value.status_code == 404
 
