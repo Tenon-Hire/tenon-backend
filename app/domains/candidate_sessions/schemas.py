@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import EmailStr, Field
 
@@ -20,6 +21,21 @@ class CandidateInviteResponse(APIModel):
     candidateSessionId: int
     token: str
     inviteUrl: str
+    outcome: Literal["created", "resent"]
+
+
+class CandidateInviteError(APIModel):
+    """Schema for rejected invite errors."""
+
+    code: str
+    message: str
+    outcome: Literal["rejected"]
+
+
+class CandidateInviteErrorResponse(APIModel):
+    """Schema for invite error responses."""
+
+    error: CandidateInviteError
 
 
 class CandidateSimulationSummary(APIModel):

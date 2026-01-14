@@ -104,6 +104,24 @@ async def get_by_simulation_and_email(
     return res.scalar_one_or_none()
 
 
+async def get_by_simulation_and_email_for_update(
+    db: AsyncSession, *, simulation_id: int, invite_email: str
+) -> CandidateSession | None:
+    """Return candidate session for a simulation + invite email with row lock."""
+    stmt = (
+        select(CandidateSession)
+        .where(
+            CandidateSession.simulation_id == simulation_id,
+            func.lower(CandidateSession.invite_email) == func.lower(invite_email),
+        )
+        .with_for_update()
+        .order_by(CandidateSession.id.desc())
+        .limit(1)
+    )
+    res = await db.execute(stmt)
+    return res.scalar_one_or_none()
+
+
 async def last_submission_at(
     db: AsyncSession, candidate_session_id: int
 ) -> datetime | None:

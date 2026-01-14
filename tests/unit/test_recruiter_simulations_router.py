@@ -26,9 +26,9 @@ async def test_create_candidate_invite_happy_path(monkeypatch):
             [task_day2, task_day3],
         )
 
-    async def _create_invite(db, simulation_id, payload, now):
+    async def _create_or_resend_invite(db, simulation_id, payload, now):
         assert payload.candidateName == "Name"
-        return cs
+        return cs, "created"
 
     async def _send_invite_email(*_args, **_kwargs):
         return SimpleNamespace(status="sent")
@@ -42,7 +42,9 @@ async def test_create_candidate_invite_happy_path(monkeypatch):
         "require_owned_simulation_with_tasks",
         _require_owned_with_tasks,
     )
-    monkeypatch.setattr(recruiter_sims.sim_service, "create_invite", _create_invite)
+    monkeypatch.setattr(
+        recruiter_sims.sim_service, "create_or_resend_invite", _create_or_resend_invite
+    )
     monkeypatch.setattr(
         recruiter_sims.notification_service, "send_invite_email", _send_invite_email
     )
@@ -69,6 +71,7 @@ async def test_create_candidate_invite_happy_path(monkeypatch):
     )
     assert resp.inviteUrl.endswith("/tok")
     assert resp.candidateSessionId == cs.id
+    assert resp.outcome == "created"
 
 
 @pytest.mark.asyncio
