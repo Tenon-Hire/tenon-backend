@@ -48,5 +48,9 @@ class Workspace(Base):
         String, nullable=True
     )  # JSON string with counts/output
 
+    codespace_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    codespace_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    codespace_state: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
     candidate_session = relationship("CandidateSession", back_populates="workspaces")
     task = relationship("Task", back_populates="workspaces")

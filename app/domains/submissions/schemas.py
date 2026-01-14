@@ -61,6 +61,7 @@ class CodespaceStatusResponse(APIModel):
 
     repoFullName: str
     repoUrl: str
+    codespaceUrl: str | None = None
     defaultBranch: str | None = None
     latestCommitSha: str | None = None
     lastWorkflowRunId: str | None = None

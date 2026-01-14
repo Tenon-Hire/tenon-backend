@@ -3,6 +3,7 @@ import logging
 import time
 from datetime import UTC, datetime
 from typing import Annotated
+from urllib.parse import parse_qs, urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -63,6 +64,17 @@ async def _compute_current_task(db: AsyncSession, cs: CandidateSession) -> Task 
     return current
 
 
+def _is_canonical_codespace_url(url: str | None) -> bool:
+    """Return True if the URL matches the canonical Codespaces deep link."""
+    if not url:
+        return False
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or parsed.netloc != "codespaces.new":
+        return False
+    query = parse_qs(parsed.query)
+    return query.get("quickstart") == ["1"]
+
+
 @router.post(
     "/{task_id}/codespace/init",
     response_model=CodespaceInitResponse,
@@ -113,7 +125,20 @@ async def init_codespace(
             detail="GitHub unavailable. Please try again.",
         ) from exc
 
-    codespace_url = submission_service.build_codespace_url(workspace.repo_full_name)
+    if not workspace.repo_full_name:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Workspace repo not provisioned yet. Please try again.",
+        )
+
+    canonical_url = submission_service.build_codespace_url(workspace.repo_full_name)
+    codespace_url = workspace.codespace_url
+    if not _is_canonical_codespace_url(codespace_url):
+        if codespace_url != canonical_url:
+            workspace.codespace_url = canonical_url
+            await db.commit()
+            await db.refresh(workspace)
+        codespace_url = canonical_url
     return CodespaceInitResponse(
         repoFullName=workspace.repo_full_name,
         repoUrl=f"https://github.com/{workspace.repo_full_name}",
@@ -155,9 +180,25 @@ async def codespace_status(
         except ValueError:
             last_test_summary = None
 
+    if not workspace.repo_full_name:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Workspace repo not provisioned yet. Please try again.",
+        )
+
+    canonical_url = submission_service.build_codespace_url(workspace.repo_full_name)
+    codespace_url = workspace.codespace_url
+    if not _is_canonical_codespace_url(codespace_url):
+        if codespace_url != canonical_url:
+            workspace.codespace_url = canonical_url
+            await db.commit()
+            await db.refresh(workspace)
+        codespace_url = canonical_url
+
     return CodespaceStatusResponse(
         repoFullName=workspace.repo_full_name,
         repoUrl=f"https://github.com/{workspace.repo_full_name}",
+        codespaceUrl=codespace_url,
         defaultBranch=workspace.default_branch,
         latestCommitSha=workspace.latest_commit_sha,
         lastWorkflowRunId=workspace.last_workflow_run_id,
