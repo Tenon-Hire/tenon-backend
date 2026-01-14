@@ -125,7 +125,7 @@ async def create_invite(
     payload: CandidateInviteRequest,
     *,
     now: datetime | None = None,
-) -> CandidateSession:
+) -> tuple[CandidateSession, bool]:
     """Create a candidate session with random token, handling rare collisions."""
     now = now or datetime.now(UTC)
     invite_email = str(payload.inviteEmail).lower()
@@ -145,19 +145,98 @@ async def create_invite(
         try:
             await db.commit()
             await db.refresh(cs)
-            return cs
+            return cs, True
         except IntegrityError:
             await db.rollback()
             existing = await cs_repo.get_by_simulation_and_email(
                 db, simulation_id=simulation_id, invite_email=invite_email
             )
             if existing:
-                return existing
+                return existing, False
 
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail="Failed to generate invite token",
     )
+
+
+def _invite_is_expired(candidate_session: CandidateSession, *, now: datetime) -> bool:
+    expires_at = candidate_session.expires_at
+    if expires_at is None:
+        return False
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=UTC)
+    return expires_at < now
+
+
+async def _refresh_invite_token(
+    db: AsyncSession, candidate_session: CandidateSession, *, now: datetime
+) -> CandidateSession:
+    expires_at = now + timedelta(days=INVITE_TOKEN_TTL_DAYS)
+    for _ in range(3):
+        candidate_session.token = secrets.token_urlsafe(32)
+        candidate_session.expires_at = expires_at
+        try:
+            await db.flush()
+            return candidate_session
+        except IntegrityError:
+            await db.rollback()
+
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Failed to generate invite token",
+    )
+
+
+async def create_or_resend_invite(
+    db: AsyncSession,
+    simulation_id: int,
+    payload: CandidateInviteRequest,
+    *,
+    now: datetime | None = None,
+) -> tuple[CandidateSession, str]:
+    """Create, refresh, or resend a candidate invite based on existing state."""
+    now = now or datetime.now(UTC)
+    invite_email = str(payload.inviteEmail).lower()
+
+    existing = await cs_repo.get_by_simulation_and_email_for_update(
+        db, simulation_id=simulation_id, invite_email=invite_email
+    )
+    if existing:
+        if existing.status == "completed":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "message": "Candidate already completed simulation",
+                    "outcome": "rejected",
+                },
+            )
+        if _invite_is_expired(existing, now=now):
+            refreshed = await _refresh_invite_token(db, existing, now=now)
+            await db.commit()
+            await db.refresh(refreshed)
+            return refreshed, "created"
+        return existing, "resent"
+
+    created, was_created = await create_invite(
+        db, simulation_id=simulation_id, payload=payload, now=now
+    )
+    if was_created:
+        return created, "created"
+    if created.status == "completed":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": "Candidate already completed simulation",
+                "outcome": "rejected",
+            },
+        )
+    if _invite_is_expired(created, now=now):
+        refreshed = await _refresh_invite_token(db, created, now=now)
+        await db.commit()
+        await db.refresh(refreshed)
+        return refreshed, "created"
+    return created, "resent"
 
 
 async def list_candidates_with_profile(

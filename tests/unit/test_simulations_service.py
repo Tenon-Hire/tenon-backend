@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy.exc import IntegrityError
@@ -106,7 +106,7 @@ async def test_create_invite_integrity_error_returns_existing(monkeypatch):
     monkeypatch.setattr(
         sim_service.cs_repo, "get_by_simulation_and_email", _get_existing
     )
-    cs = await sim_service.create_invite(
+    cs, created = await sim_service.create_invite(
         StubSession(),
         simulation_id=1,
         payload=type(
@@ -115,6 +115,7 @@ async def test_create_invite_integrity_error_returns_existing(monkeypatch):
         now=datetime.now(UTC),
     )
     assert cs.id == existing.id
+    assert created is False
 
 
 @pytest.mark.asyncio
@@ -146,11 +147,12 @@ async def test_create_invite_success(async_session):
     payload = type(
         "P", (), {"candidateName": "Jane", "inviteEmail": "jane@example.com"}
     )
-    cs = await sim_service.create_invite(
+    cs, created = await sim_service.create_invite(
         async_session, simulation_id=1, payload=payload, now=datetime.now(UTC)
     )
     assert cs.token
     assert cs.status == "not_started"
+    assert created is True
 
 
 @pytest.mark.asyncio
@@ -160,9 +162,10 @@ async def test_create_invite_reuses_existing(async_session, monkeypatch):
     payload = type(
         "P", (), {"candidateName": "Jane", "inviteEmail": "jane@example.com"}
     )
-    first = await sim_service.create_invite(
+    first, created = await sim_service.create_invite(
         async_session, simulation_id=sim.id, payload=payload, now=datetime.now(UTC)
     )
+    assert created is True
     first_id = first.id
     fail_once = True
     original_commit = async_session.commit
@@ -181,10 +184,76 @@ async def test_create_invite_reuses_existing(async_session, monkeypatch):
     monkeypatch.setattr(
         sim_service.cs_repo, "get_by_simulation_and_email", _get_existing
     )
-    second = await sim_service.create_invite(
+    second, created = await sim_service.create_invite(
         async_session, simulation_id=sim.id, payload=payload, now=datetime.now(UTC)
     )
     assert second.id == first_id
+    assert created is False
+
+
+@pytest.mark.asyncio
+async def test_create_or_resend_invite_resends_active(async_session):
+    recruiter = await create_recruiter(async_session, email="resend@test.com")
+    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    payload = type(
+        "P", (), {"candidateName": "Jane", "inviteEmail": "jane@example.com"}
+    )
+    first, _created = await sim_service.create_invite(
+        async_session, simulation_id=sim.id, payload=payload, now=datetime.now(UTC)
+    )
+
+    second, outcome = await sim_service.create_or_resend_invite(
+        async_session, simulation_id=sim.id, payload=payload, now=datetime.now(UTC)
+    )
+
+    assert second.id == first.id
+    assert outcome == "resent"
+
+
+@pytest.mark.asyncio
+async def test_create_or_resend_invite_refreshes_expired(async_session):
+    recruiter = await create_recruiter(async_session, email="expired@test.com")
+    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    payload = type(
+        "P", (), {"candidateName": "Jane", "inviteEmail": "jane@example.com"}
+    )
+    now = datetime.now(UTC)
+    cs, _created = await sim_service.create_invite(
+        async_session, simulation_id=sim.id, payload=payload, now=now
+    )
+    old_token = cs.token
+    cs.expires_at = now - timedelta(days=1)
+    await async_session.commit()
+
+    refreshed, outcome = await sim_service.create_or_resend_invite(
+        async_session, simulation_id=sim.id, payload=payload, now=now
+    )
+
+    assert refreshed.id == cs.id
+    assert refreshed.token != old_token
+    assert outcome == "created"
+
+
+@pytest.mark.asyncio
+async def test_create_or_resend_invite_rejects_completed(async_session):
+    recruiter = await create_recruiter(async_session, email="completed@test.com")
+    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    payload = type(
+        "P", (), {"candidateName": "Jane", "inviteEmail": "jane@example.com"}
+    )
+    cs, _created = await sim_service.create_invite(
+        async_session, simulation_id=sim.id, payload=payload, now=datetime.now(UTC)
+    )
+    cs.status = "completed"
+    cs.completed_at = datetime.now(UTC)
+    await async_session.commit()
+
+    with pytest.raises(Exception) as excinfo:
+        await sim_service.create_or_resend_invite(
+            async_session, simulation_id=sim.id, payload=payload, now=datetime.now(UTC)
+        )
+    assert excinfo.value.status_code == 409
+    assert excinfo.value.detail["outcome"] == "rejected"
 
 
 @pytest.mark.asyncio
@@ -209,7 +278,7 @@ async def test_list_with_candidate_counts(async_session):
 async def test_list_candidates_with_profile(async_session):
     recruiter = await create_recruiter(async_session, email="list@test.com")
     sim, _ = await create_simulation(async_session, created_by=recruiter)
-    cs = await sim_service.create_invite(
+    cs, _created = await sim_service.create_invite(
         async_session,
         simulation_id=sim.id,
         payload=type("P", (), {"candidateName": "a", "inviteEmail": "b@example.com"}),

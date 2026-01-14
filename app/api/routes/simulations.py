@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.github_native import get_github_client
@@ -145,6 +145,7 @@ async def create_candidate_invite(
     user: Annotated[Any, Depends(get_current_user)],
     email_service: Annotated[EmailService, Depends(get_email_service)],
     github_client: Annotated[GithubClient, Depends(get_github_client)],
+    response: Response,
 ):
     """Create a candidate_session invite token for a simulation (recruiter-only)."""
     ensure_recruiter_or_none(user)
@@ -163,7 +164,9 @@ async def create_candidate_invite(
         for task in tasks
     ]
     now = datetime.now(UTC)
-    cs = await sim_service.create_invite(db, simulation_id, payload, now=now)
+    cs, outcome = await sim_service.create_or_resend_invite(
+        db, simulation_id, payload, now=now
+    )
 
     repo_prefix = settings.github.GITHUB_REPO_PREFIX
     template_owner = settings.github.GITHUB_TEMPLATE_OWNER or settings.github.GITHUB_ORG
@@ -214,10 +217,13 @@ async def create_candidate_invite(
         email_service=email_service,
         now=now,
     )
+    if outcome == "resent":
+        response.status_code = status.HTTP_200_OK
     return CandidateInviteResponse(
         candidateSessionId=cs.id,
         token=cs.token,
         inviteUrl=sim_service.invite_url(cs.token),
+        outcome=outcome,
     )
 
 

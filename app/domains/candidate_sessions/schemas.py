@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import EmailStr, Field
 
@@ -20,6 +21,7 @@ class CandidateInviteResponse(APIModel):
     candidateSessionId: int
     token: str
     inviteUrl: str
+    outcome: Literal["created", "resent"]
 
 
 class CandidateSimulationSummary(APIModel):

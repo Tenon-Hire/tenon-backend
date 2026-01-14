@@ -1,3 +1,5 @@
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -74,6 +76,7 @@ async def test_invite_creates_candidate_session(
 
     assert isinstance(body["inviteUrl"], str)
     assert body["inviteUrl"].endswith(f"/candidate/session/{body['token']}")
+    assert body["outcome"] == "created"
 
     # Verify DB row
     stmt = select(CandidateSession).where(
@@ -88,6 +91,156 @@ async def test_invite_creates_candidate_session(
 
     # candidateName -> candidate_name
     assert cs.candidate_name == "Jane Doe"
+
+
+@pytest.mark.asyncio
+async def test_invite_resends_existing_active(
+    async_client, async_session: AsyncSession, monkeypatch
+):
+    monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
+
+    await seed_recruiter(
+        async_session,
+        email="recruiterA@tenon.com",
+        company_name="Recruiter A Co",
+    )
+
+    create_sim = await async_client.post(
+        "/api/simulations",
+        headers={"x-dev-user-email": "recruiterA@tenon.com"},
+        json={
+            "title": "Backend Node Simulation",
+            "role": "Backend Engineer",
+            "techStack": "Node.js, PostgreSQL",
+            "seniority": "Mid",
+            "focus": "Build new API feature and debug an issue",
+        },
+    )
+    sim_id = create_sim.json()["id"]
+
+    first = await async_client.post(
+        f"/api/simulations/{sim_id}/invite",
+        headers={"x-dev-user-email": "recruiterA@tenon.com"},
+        json={"candidateName": "Jane Doe", "inviteEmail": "jane@example.com"},
+    )
+    assert first.status_code == 201
+    first_body = first.json()
+
+    second = await async_client.post(
+        f"/api/simulations/{sim_id}/invite",
+        headers={"x-dev-user-email": "recruiterA@tenon.com"},
+        json={"candidateName": "Jane Doe", "inviteEmail": "jane@example.com"},
+    )
+    assert second.status_code == 200
+    second_body = second.json()
+    assert second_body["candidateSessionId"] == first_body["candidateSessionId"]
+    assert second_body["outcome"] == "resent"
+
+    stmt = select(CandidateSession).where(CandidateSession.simulation_id == sim_id)
+    rows = (await async_session.execute(stmt)).scalars().all()
+    assert len(rows) == 1
+
+
+@pytest.mark.asyncio
+async def test_invite_expired_refreshes_token(
+    async_client, async_session: AsyncSession, monkeypatch
+):
+    monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
+
+    await seed_recruiter(
+        async_session,
+        email="recruiterA@tenon.com",
+        company_name="Recruiter A Co",
+    )
+
+    create_sim = await async_client.post(
+        "/api/simulations",
+        headers={"x-dev-user-email": "recruiterA@tenon.com"},
+        json={
+            "title": "Backend Node Simulation",
+            "role": "Backend Engineer",
+            "techStack": "Node.js, PostgreSQL",
+            "seniority": "Mid",
+            "focus": "Build new API feature and debug an issue",
+        },
+    )
+    sim_id = create_sim.json()["id"]
+
+    first = await async_client.post(
+        f"/api/simulations/{sim_id}/invite",
+        headers={"x-dev-user-email": "recruiterA@tenon.com"},
+        json={"candidateName": "Jane Doe", "inviteEmail": "jane@example.com"},
+    )
+    assert first.status_code == 201
+    first_body = first.json()
+
+    stmt = select(CandidateSession).where(
+        CandidateSession.id == first_body["candidateSessionId"]
+    )
+    cs = (await async_session.execute(stmt)).scalar_one()
+    cs.expires_at = datetime.now(UTC) - timedelta(days=1)
+    await async_session.commit()
+
+    second = await async_client.post(
+        f"/api/simulations/{sim_id}/invite",
+        headers={"x-dev-user-email": "recruiterA@tenon.com"},
+        json={"candidateName": "Jane Doe", "inviteEmail": "jane@example.com"},
+    )
+    assert second.status_code == 201
+    second_body = second.json()
+    assert second_body["candidateSessionId"] == first_body["candidateSessionId"]
+    assert second_body["token"] != first_body["token"]
+    assert second_body["outcome"] == "created"
+
+
+@pytest.mark.asyncio
+async def test_invite_completed_rejected(
+    async_client, async_session: AsyncSession, monkeypatch
+):
+    monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
+
+    await seed_recruiter(
+        async_session,
+        email="recruiterA@tenon.com",
+        company_name="Recruiter A Co",
+    )
+
+    create_sim = await async_client.post(
+        "/api/simulations",
+        headers={"x-dev-user-email": "recruiterA@tenon.com"},
+        json={
+            "title": "Backend Node Simulation",
+            "role": "Backend Engineer",
+            "techStack": "Node.js, PostgreSQL",
+            "seniority": "Mid",
+            "focus": "Build new API feature and debug an issue",
+        },
+    )
+    sim_id = create_sim.json()["id"]
+
+    first = await async_client.post(
+        f"/api/simulations/{sim_id}/invite",
+        headers={"x-dev-user-email": "recruiterA@tenon.com"},
+        json={"candidateName": "Jane Doe", "inviteEmail": "jane@example.com"},
+    )
+    assert first.status_code == 201
+    first_body = first.json()
+
+    stmt = select(CandidateSession).where(
+        CandidateSession.id == first_body["candidateSessionId"]
+    )
+    cs = (await async_session.execute(stmt)).scalar_one()
+    cs.status = "completed"
+    cs.completed_at = datetime.now(UTC)
+    await async_session.commit()
+
+    second = await async_client.post(
+        f"/api/simulations/{sim_id}/invite",
+        headers={"x-dev-user-email": "recruiterA@tenon.com"},
+        json={"candidateName": "Jane Doe", "inviteEmail": "jane@example.com"},
+    )
+    assert second.status_code == 409
+    assert second.json()["detail"]["outcome"] == "rejected"
 
 
 @pytest.mark.asyncio
