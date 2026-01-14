@@ -4,8 +4,10 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.routes import simulations as sim_routes
 from app.domains import CandidateSession, Company, User
 from app.domains.common.types import CANDIDATE_SESSION_STATUS_COMPLETED
+from app.infra.config import settings
 
 
 async def seed_recruiter(
@@ -290,6 +292,55 @@ async def test_invite_duplicate_requests_idempotent(
     stmt = select(CandidateSession).where(CandidateSession.simulation_id == sim_id)
     rows = (await async_session.execute(stmt)).scalars().all()
     assert len(rows) == 1
+
+
+@pytest.mark.asyncio
+async def test_invite_rate_limited_in_prod(
+    async_client, async_session: AsyncSession, monkeypatch
+):
+    monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
+    monkeypatch.setattr(settings, "ENV", "prod")
+    sim_routes.rate_limit.limiter.reset()
+    original_rule = sim_routes.INVITE_CREATE_RATE_LIMIT
+    sim_routes.INVITE_CREATE_RATE_LIMIT = sim_routes.rate_limit.RateLimitRule(
+        limit=1, window_seconds=60.0
+    )
+
+    await seed_recruiter(
+        async_session,
+        email="recruiter-rate@tenon.com",
+        company_name="Recruiter Rate Co",
+    )
+
+    create_sim = await async_client.post(
+        "/api/simulations",
+        headers={"x-dev-user-email": "recruiter-rate@tenon.com"},
+        json={
+            "title": "Backend Node Simulation",
+            "role": "Backend Engineer",
+            "techStack": "Node.js, PostgreSQL",
+            "seniority": "Mid",
+            "focus": "Build new API feature and debug an issue",
+        },
+    )
+    sim_id = create_sim.json()["id"]
+
+    first = await async_client.post(
+        f"/api/simulations/{sim_id}/invite",
+        headers={"x-dev-user-email": "recruiter-rate@tenon.com"},
+        json={"candidateName": "Jane Doe", "inviteEmail": "jane@example.com"},
+    )
+    assert first.status_code == 200, first.text
+
+    second = await async_client.post(
+        f"/api/simulations/{sim_id}/invite",
+        headers={"x-dev-user-email": "recruiter-rate@tenon.com"},
+        json={"candidateName": "Jane Doe", "inviteEmail": "jane@example.com"},
+    )
+    assert second.status_code == 429
+
+    sim_routes.INVITE_CREATE_RATE_LIMIT = original_rule
+    sim_routes.rate_limit.limiter.reset()
 
 
 @pytest.mark.asyncio

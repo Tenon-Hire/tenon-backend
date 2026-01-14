@@ -90,6 +90,14 @@ FastAPI + Postgres backend for Tenon. Recruiters create 5-day simulations, invit
 - Admin: `TENON_ADMIN_API_KEY` (required for admin endpoints).
 - Dev bypass: `DEV_AUTH_BYPASS=1` (local only; app aborts otherwise).
 
+## Security Hardening
+
+- Rate limits: enforced for auth, invite, candidate session, and run/poll endpoints (per IP/session), enabled outside local/test by default. Override with `TENON_RATE_LIMIT_ENABLED`.
+- Polling throttles: `/api/tasks/{taskId}/run/{runId}` enforces a minimum poll interval and caps in-flight run/poll requests per candidate session.
+- Request size limits: POST/PUT/PATCH bodies are capped (default 1 MB). Configure via `TENON_MAX_REQUEST_BODY_BYTES`.
+- Log redaction: Authorization/token-like fields are redacted in logs; avoid logging raw credentials in custom code.
+- Recommended checks: `poetry export -f requirements.txt --without-hashes | pip-audit -r /dev/stdin`, `bandit -r app`, and Dependabot for dependency updates.
+
 ## Roadmap (not implemented yet)
 
 - Pre-provision repos at invite/simulation creation.

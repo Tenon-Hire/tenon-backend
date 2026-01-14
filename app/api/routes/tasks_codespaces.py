@@ -1,6 +1,6 @@
 import json
 import logging
-import time
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Annotated
 from urllib.parse import parse_qs, urlparse
@@ -28,35 +28,38 @@ from app.domains.submissions.schemas import (
 )
 from app.infra.config import settings
 from app.infra.db import get_session
-from app.infra.env import is_prod
+from app.infra.security import rate_limit
 
 router = APIRouter()
 
 logger = logging.getLogger(__name__)
 
-_RATE_LIMIT_STORE: dict[tuple[int, str], list[float]] = {}
 _RATE_LIMIT_RULE = {
-    "init": (20, 30.0),  # minimal in-memory limit for YC demo
-    "run": (20, 30.0),
-    "submit": (10, 30.0),
+    "init": rate_limit.RateLimitRule(limit=20, window_seconds=30.0),
+    "run": rate_limit.RateLimitRule(limit=20, window_seconds=30.0),
+    "poll": rate_limit.RateLimitRule(limit=15, window_seconds=30.0),
+    "submit": rate_limit.RateLimitRule(limit=10, window_seconds=30.0),
 }
+_POLL_MIN_INTERVAL_SECONDS = 2.0
+_RUN_CONCURRENCY_LIMIT = 1
 
 
 def _rate_limit_or_429(candidate_session_id: int, action: str) -> None:
     """Apply a single rate-limit bucket for the given action."""
-    if not is_prod():
+    if not rate_limit.rate_limit_enabled():
         return
-    limit, window = _RATE_LIMIT_RULE.get(action, (5, 30.0))
-    now = time.monotonic()
-    key = (candidate_session_id, action)
-    entries = [t for t in _RATE_LIMIT_STORE.get(key, []) if now - t <= window]
-    if len(entries) >= limit:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many requests. Please slow down.",
-        )
-    entries.append(now)
-    _RATE_LIMIT_STORE[key] = entries
+    rule = _RATE_LIMIT_RULE.get(action, rate_limit.RateLimitRule(5, 30.0))
+    key = rate_limit.rate_limit_key("tasks", str(candidate_session_id), action)
+    rate_limit.limiter.allow(key, rule)
+
+
+@asynccontextmanager
+async def _concurrency_guard(key: str, limit: int):
+    if not rate_limit.rate_limit_enabled():
+        yield
+        return
+    async with rate_limit.limiter.concurrency_guard(key, limit):
+        yield
 
 
 async def _compute_current_task(db: AsyncSession, cs: CandidateSession) -> Task | None:
@@ -242,12 +245,16 @@ async def run_task_tests(
         payload.branch or workspace.default_branch or "main"
     )
     try:
-        result = await submission_service.run_actions_tests(
-            runner=actions_runner,
-            workspace=workspace,
-            branch=branch,
-            workflow_inputs=payload.workflowInputs,
-        )
+        async with _concurrency_guard(
+            rate_limit.rate_limit_key("tasks", str(cs.id), "run"),
+            _RUN_CONCURRENCY_LIMIT,
+        ):
+            result = await submission_service.run_actions_tests(
+                runner=actions_runner,
+                workspace=workspace,
+                branch=branch,
+                workflow_inputs=payload.workflowInputs,
+            )
     except GithubError as exc:
         logger.error(
             f"github_run_failed {exc}",
@@ -307,7 +314,12 @@ async def get_run_result(
 ) -> RunTestsResponse:
     """Fetch a previously-dispatched workflow run result for polling."""
     cs = candidate_session
-    _rate_limit_or_429(cs.id, "run")
+    _rate_limit_or_429(cs.id, "poll")
+    if rate_limit.rate_limit_enabled():
+        rate_limit.limiter.throttle(
+            rate_limit.rate_limit_key("tasks", str(cs.id), "poll", str(run_id)),
+            _POLL_MIN_INTERVAL_SECONDS,
+        )
     task = await submission_service.load_task_or_404(db, task_id)
     submission_service.ensure_task_belongs(task, cs)
     submission_service.validate_run_allowed(task)
@@ -322,9 +334,13 @@ async def get_run_result(
         )
 
     try:
-        result = await actions_runner.fetch_run_result(
-            repo_full_name=workspace.repo_full_name, run_id=run_id
-        )
+        async with _concurrency_guard(
+            rate_limit.rate_limit_key("tasks", str(cs.id), "run"),
+            _RUN_CONCURRENCY_LIMIT,
+        ):
+            result = await actions_runner.fetch_run_result(
+                repo_full_name=workspace.repo_full_name, run_id=run_id
+            )
     except GithubError as exc:
         logger.error(
             "github_run_fetch_failed",

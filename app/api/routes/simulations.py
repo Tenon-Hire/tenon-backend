@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,10 +33,14 @@ from app.infra.config import settings
 from app.infra.db import get_session
 from app.infra.security.current_user import get_current_user
 from app.infra.security.roles import ensure_recruiter_or_none
+from app.infra.security import rate_limit
 from app.services.email import EmailService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+INVITE_CREATE_RATE_LIMIT = rate_limit.RateLimitRule(limit=20, window_seconds=60.0)
+INVITE_RESEND_RATE_LIMIT = rate_limit.RateLimitRule(limit=10, window_seconds=60.0)
 
 
 @router.get("", response_model=list[SimulationListItem], status_code=status.HTTP_200_OK)
@@ -144,6 +148,7 @@ async def get_simulation_detail(
 async def create_candidate_invite(
     simulation_id: int,
     payload: CandidateInviteRequest,
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[Any, Depends(get_current_user)],
     email_service: Annotated[EmailService, Depends(get_email_service)],
@@ -151,6 +156,14 @@ async def create_candidate_invite(
 ):
     """Create a candidate_session invite token for a simulation (recruiter-only)."""
     ensure_recruiter_or_none(user)
+    if rate_limit.rate_limit_enabled():
+        key = rate_limit.rate_limit_key(
+            "invite_create",
+            str(user.id),
+            rate_limit.client_id(request),
+            rate_limit.hash_value(str(payload.inviteEmail)),
+        )
+        rate_limit.limiter.allow(key, INVITE_CREATE_RATE_LIMIT)
 
     sim, tasks = await sim_service.require_owned_simulation_with_tasks(
         db, simulation_id, user.id
@@ -279,12 +292,21 @@ async def list_simulation_candidates(
 async def resend_candidate_invite(
     simulation_id: int,
     candidate_session_id: int,
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[Any, Depends(get_current_user)],
     email_service: Annotated[EmailService, Depends(get_email_service)],
 ):
     """Resend an invite email for a candidate session (recruiter-only)."""
     ensure_recruiter_or_none(user)
+    if rate_limit.rate_limit_enabled():
+        key = rate_limit.rate_limit_key(
+            "invite_resend",
+            str(user.id),
+            str(candidate_session_id),
+            rate_limit.client_id(request),
+        )
+        rate_limit.limiter.allow(key, INVITE_RESEND_RATE_LIMIT)
     sim: Simulation = await sim_service.require_owned_simulation(
         db, simulation_id, user.id
     )

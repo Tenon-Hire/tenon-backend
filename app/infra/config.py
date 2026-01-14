@@ -190,6 +190,8 @@ class Settings(BaseSettings):
 
     ENV: str = "local"
     API_PREFIX: str = "/api"
+    RATE_LIMIT_ENABLED: bool | None = None
+    MAX_REQUEST_BODY_BYTES: int = 1_048_576
 
     # Flat env hooks (loaded from .env and merged into nested models)
     DATABASE_URL: str | None = None
