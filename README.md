@@ -95,8 +95,8 @@ FastAPI + Postgres backend for Tenon. Recruiters create 5-day simulations, invit
 
 - Rate limits: enforced for auth, invite, candidate session, and run/poll endpoints (per IP/session), enabled outside local/test by default. Override with `TENON_RATE_LIMIT_ENABLED`. In-memory limiter is per-process only; for multi-worker/instance deployments use a shared store (not implemented).
 - Polling throttles: `/api/tasks/{taskId}/run/{runId}` enforces a minimum poll interval and caps in-flight run/poll requests per candidate session.
-- Client IP: derived from `request.client.host`. `X-Forwarded-For` is only trusted when the immediate peer is in `TENON_TRUSTED_PROXY_CIDRS` (set this when running behind a load balancer).
 - Request size limits: POST/PUT/PATCH bodies are capped (default 1 MB) without buffering full bodies. Configure via `TENON_MAX_REQUEST_BODY_BYTES`.
+- Client IP: always taken from `request.client.host`. `TrustedProxyHeadersMiddleware` may rewrite it from `X-Forwarded-For` only when the immediate peer is within `TENON_TRUSTED_PROXY_CIDRS` (configure this behind a load balancer).
 - Log redaction: Authorization/token-like fields are redacted in logs; avoid logging raw credentials in custom code.
 - Recommended checks: `poetry export -f requirements.txt --without-hashes | pip-audit -r /dev/stdin`, `bandit -r app`, and Dependabot for dependency updates.
 

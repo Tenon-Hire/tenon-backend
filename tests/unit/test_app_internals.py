@@ -82,6 +82,28 @@ def test_create_app_adds_proxy_headers(monkeypatch):
 
     create_app()
     assert "TrustedProxyHeadersMiddleware" in calls
+    assert "ProxyHeadersMiddleware" not in calls
+
+
+def test_create_app_skips_proxy_headers_without_trusted_cidrs(monkeypatch):
+    monkeypatch.delenv("DEV_AUTH_BYPASS", raising=False)
+    monkeypatch.setattr(settings, "ENV", "local")
+    monkeypatch.setattr(settings, "TRUSTED_PROXY_CIDRS", [])
+    calls: list[str] = []
+
+    from fastapi import FastAPI
+
+    original_add = FastAPI.add_middleware
+
+    def record(self, middleware, *args, **kwargs):
+        calls.append(getattr(middleware, "__name__", str(middleware)))
+        return original_add(self, middleware, *args, **kwargs)
+
+    monkeypatch.setattr(FastAPI, "add_middleware", record)
+
+    create_app()
+    assert "TrustedProxyHeadersMiddleware" not in calls
+    assert "ProxyHeadersMiddleware" not in calls
 
 
 @pytest.mark.asyncio

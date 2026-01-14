@@ -4,7 +4,6 @@ import logging
 import re
 from typing import Any
 
-
 _SENSITIVE_KEYS = {
     "authorization",
     "proxy-authorization",
@@ -64,6 +63,7 @@ class RedactionFilter(logging.Filter):
     """Redact sensitive tokens/headers from log records."""
 
     def filter(self, record: logging.LogRecord) -> bool:
+        """Scrub sensitive values from the log record."""
         if isinstance(record.args, dict):
             record.args = _redact_mapping(record.args)
         elif isinstance(record.args, tuple):

@@ -16,7 +16,7 @@ AUTH_ME_RATE_LIMIT = rate_limit.RateLimitRule(limit=60, window_seconds=60.0)
 async def read_me(
     request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
-) -> User:  # noqa: B008
+) -> User:
     """Return the currently authenticated user."""
     if rate_limit.rate_limit_enabled():
         key = rate_limit.rate_limit_key("auth_me", rate_limit.client_id(request))

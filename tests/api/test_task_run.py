@@ -261,9 +261,9 @@ async def test_run_tests_rate_limited_when_prod_env(
     monkeypatch.setattr(candidate_submissions.settings, "ENV", "prod")
     candidate_submissions.rate_limit.limiter.reset()
     original_rule = dict(candidate_submissions._RATE_LIMIT_RULE)
-    candidate_submissions._RATE_LIMIT_RULE["run"] = candidate_submissions.rate_limit.RateLimitRule(
-        limit=1, window_seconds=60.0
-    )
+    candidate_submissions._RATE_LIMIT_RULE[
+        "run"
+    ] = candidate_submissions.rate_limit.RateLimitRule(limit=1, window_seconds=60.0)
 
     recruiter = await create_recruiter(async_session, email="rate@sim.com")
     sim, tasks = await create_simulation(async_session, created_by=recruiter)
@@ -464,9 +464,9 @@ async def test_get_run_result_throttled_when_polling_too_fast(
     monkeypatch.setattr(candidate_submissions.settings, "ENV", "prod")
     candidate_submissions.rate_limit.limiter.reset()
     original_rule = dict(candidate_submissions._RATE_LIMIT_RULE)
-    candidate_submissions._RATE_LIMIT_RULE["poll"] = candidate_submissions.rate_limit.RateLimitRule(
-        limit=5, window_seconds=60.0
-    )
+    candidate_submissions._RATE_LIMIT_RULE[
+        "poll"
+    ] = candidate_submissions.rate_limit.RateLimitRule(limit=5, window_seconds=60.0)
 
     actions_stubber()
     recruiter = await create_recruiter(async_session, email="poll-throttle@sim.com")

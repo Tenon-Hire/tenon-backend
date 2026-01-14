@@ -14,9 +14,9 @@ from app.domains.candidate_sessions.schemas import (
 )
 from app.domains.tasks.schemas_public import TaskPublic
 from app.infra.db import get_session
+from app.infra.security import rate_limit
 from app.infra.security.candidate_access import require_candidate_principal
 from app.infra.security.principal import Principal
-from app.infra.security import rate_limit
 
 router = APIRouter()
 

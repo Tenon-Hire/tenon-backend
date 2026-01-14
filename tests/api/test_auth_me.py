@@ -3,8 +3,8 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.api.routes import auth as auth_routes
-from app.infra.db import get_session
 from app.infra.config import settings
+from app.infra.db import get_session
 from app.infra.security import auth0, current_user
 from app.main import app
 

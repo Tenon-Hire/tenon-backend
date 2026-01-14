@@ -18,6 +18,7 @@ class RequestSizeLimitMiddleware:
         self.max_body_bytes = max_body_bytes or settings.MAX_REQUEST_BODY_BYTES
 
     async def __call__(self, scope, receive, send):
+        """Reject requests exceeding the configured body size limit."""
         if scope.get("type") != "http":
             await self.app(scope, receive, send)
             return

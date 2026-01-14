@@ -17,6 +17,8 @@ DEFAULT_RATE_LIMIT_DETAIL = "Too many requests. Please slow down."
 
 @dataclass(frozen=True)
 class RateLimitRule:
+    """Defines a fixed window rate limit rule."""
+
     limit: int
     window_seconds: float
 
@@ -68,7 +70,9 @@ class RateLimiter:
     def allow(self, key: str, rule: RateLimitRule) -> None:
         """Track usage for key and raise 429 when exceeded."""
         now = time.monotonic()
-        entries = [t for t in self._store.get(key, []) if now - t <= rule.window_seconds]
+        entries = [
+            t for t in self._store.get(key, []) if now - t <= rule.window_seconds
+        ]
         if len(entries) >= rule.limit:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,

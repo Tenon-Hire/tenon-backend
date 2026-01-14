@@ -16,6 +16,7 @@ class TrustedProxyHeadersMiddleware:
         ]
 
     async def __call__(self, scope, receive, send):
+        """Rewrite client address from X-Forwarded-For when trusted."""
         if scope.get("type") != "http" or not self._trusted_networks:
             await self.app(scope, receive, send)
             return

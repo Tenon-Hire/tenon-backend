@@ -31,9 +31,9 @@ from app.domains.simulations.simulation import Simulation
 from app.domains.submissions import service_candidate as submission_service
 from app.infra.config import settings
 from app.infra.db import get_session
+from app.infra.security import rate_limit
 from app.infra.security.current_user import get_current_user
 from app.infra.security.roles import ensure_recruiter_or_none
-from app.infra.security import rate_limit
 from app.services.email import EmailService
 
 router = APIRouter()
