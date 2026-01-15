@@ -97,4 +97,6 @@ async def test_auth_logout_is_stateless(async_client):
 
     assert res.status_code == 204
     assert res.headers.get("cache-control") == "no-store"
+    assert res.headers.get("pragma") == "no-cache"
     assert "set-cookie" not in res.headers
+    assert res.headers.get("location") is None

@@ -24,7 +24,10 @@ async def read_me(
     return current_user
 
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-async def logout(response: Response) -> None:
+@router.post("/logout")
+async def logout() -> Response:
     """Stateless logout endpoint; backend does not manage sessions or redirects."""
-    response.headers["Cache-Control"] = "no-store"
+    return Response(
+        status_code=status.HTTP_204_NO_CONTENT,
+        headers={"Cache-Control": "no-store", "Pragma": "no-cache"},
+    )
