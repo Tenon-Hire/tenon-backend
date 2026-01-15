@@ -64,7 +64,7 @@ FastAPI + Postgres backend for Tenon. Recruiters create 5-day simulations, invit
 ## Local Development
 
 - Prereqs: Python 3.11+, Poetry, Postgres (or SQLite fallback).
-- Install: `poetry install`; configure `.env` (sample included—rotate secrets).
+- Install: `poetry install`; configure `.env` from `.env.example` (do not commit `.env`; use Render env vars in prod).
 - Seed dev recruiters: `ENV=local DEV_AUTH_BYPASS=1 poetry run python scripts/seed_local_recruiters.py`.
 - Run: `poetry run uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000` or `./runBackend.sh`.
 - Migrations: `poetry run alembic upgrade head` (uses `DATABASE_URL_SYNC`).

@@ -27,7 +27,7 @@ def test_decode_auth0_token_missing_kid(monkeypatch):
 
 
 def test_decode_auth0_token_key_not_found(monkeypatch):
-    auth0.get_jwks.cache_clear()
+    auth0.clear_jwks_cache()
     monkeypatch.setattr(
         jwt, "get_unverified_header", lambda _t: {"kid": "missing", "alg": "RS256"}
     )
@@ -43,7 +43,7 @@ def test_decode_auth0_token_key_not_found(monkeypatch):
 
 
 def test_decode_auth0_token_invalid_signature(monkeypatch):
-    auth0.get_jwks.cache_clear()
+    auth0.clear_jwks_cache()
     monkeypatch.setattr(
         jwt, "get_unverified_header", lambda _t: {"kid": "k1", "alg": "RS256"}
     )
@@ -64,7 +64,7 @@ def test_decode_auth0_token_invalid_signature(monkeypatch):
 
 
 def test_get_jwks_fetches_and_caches(monkeypatch):
-    auth0.get_jwks.cache_clear()
+    auth0.clear_jwks_cache()
 
     calls = []
 
@@ -84,7 +84,7 @@ def test_get_jwks_fetches_and_caches(monkeypatch):
 
 
 def test_decode_auth0_token_success(monkeypatch):
-    auth0.get_jwks.cache_clear()
+    auth0.clear_jwks_cache()
     monkeypatch.setattr(
         jwt, "get_unverified_header", lambda _t: {"kid": "kid1", "alg": "RS256"}
     )
@@ -107,7 +107,7 @@ def test_decode_auth0_token_success(monkeypatch):
 
 
 def test_decode_auth0_token_invalid_issuer(monkeypatch):
-    auth0.get_jwks.cache_clear()
+    auth0.clear_jwks_cache()
     monkeypatch.setattr(
         jwt, "get_unverified_header", lambda _t: {"kid": "kid1", "alg": "RS256"}
     )
@@ -128,7 +128,7 @@ def test_decode_auth0_token_invalid_issuer(monkeypatch):
 
 
 def test_decode_auth0_token_invalid_audience(monkeypatch):
-    auth0.get_jwks.cache_clear()
+    auth0.clear_jwks_cache()
     monkeypatch.setattr(
         jwt, "get_unverified_header", lambda _t: {"kid": "kid1", "alg": "RS256"}
     )
@@ -149,7 +149,7 @@ def test_decode_auth0_token_invalid_audience(monkeypatch):
 
 
 def test_decode_auth0_token_rejects_unapproved_alg(monkeypatch):
-    auth0.get_jwks.cache_clear()
+    auth0.clear_jwks_cache()
     monkeypatch.setattr(
         jwt, "get_unverified_header", lambda _t: {"kid": "kid1", "alg": "HS256"}
     )
@@ -159,7 +159,7 @@ def test_decode_auth0_token_rejects_unapproved_alg(monkeypatch):
 
 
 def test_decode_auth0_token_expired(monkeypatch):
-    auth0.get_jwks.cache_clear()
+    auth0.clear_jwks_cache()
     monkeypatch.setattr(
         jwt, "get_unverified_header", lambda _t: {"kid": "kid1", "alg": "RS256"}
     )
@@ -180,7 +180,7 @@ def test_decode_auth0_token_expired(monkeypatch):
 
 
 def test_get_jwks_fetch_failure(monkeypatch):
-    auth0.get_jwks.cache_clear()
+    auth0.clear_jwks_cache()
 
     def bad_fetch():
         raise auth0.httpx.ConnectError("down")
@@ -193,7 +193,7 @@ def test_get_jwks_fetch_failure(monkeypatch):
 
 
 def test_decode_auth0_token_refreshes_jwks_on_kid_miss(monkeypatch):
-    auth0.get_jwks.cache_clear()
+    auth0.clear_jwks_cache()
     monkeypatch.setattr(
         jwt, "get_unverified_header", lambda _t: {"kid": "kid2", "alg": "RS256"}
     )
@@ -215,7 +215,7 @@ def test_decode_auth0_token_refreshes_jwks_on_kid_miss(monkeypatch):
 
 
 def test_decode_auth0_token_refreshes_once_and_still_missing(monkeypatch):
-    auth0.get_jwks.cache_clear()
+    auth0.clear_jwks_cache()
     monkeypatch.setattr(
         jwt, "get_unverified_header", lambda _t: {"kid": "missing", "alg": "RS256"}
     )
@@ -235,7 +235,7 @@ def test_decode_auth0_token_refreshes_once_and_still_missing(monkeypatch):
 
 
 def test_decode_auth0_token_accepts_audience_list(monkeypatch):
-    auth0.get_jwks.cache_clear()
+    auth0.clear_jwks_cache()
     monkeypatch.setattr(
         jwt, "get_unverified_header", lambda _t: {"kid": "kid1", "alg": "RS256"}
     )
@@ -256,7 +256,7 @@ def test_decode_auth0_token_accepts_audience_list(monkeypatch):
 
 
 def test_decode_auth0_token_leeway_allows_recent_expiry(monkeypatch):
-    auth0.get_jwks.cache_clear()
+    auth0.clear_jwks_cache()
     secret = "test-secret"
     kid = "hs1"
     leeway_seconds = 30
@@ -297,7 +297,7 @@ def test_decode_auth0_token_leeway_allows_recent_expiry(monkeypatch):
 
 
 def test_decode_auth0_token_leeway_rejects_too_old(monkeypatch):
-    auth0.get_jwks.cache_clear()
+    auth0.clear_jwks_cache()
     secret = "test-secret"
     kid = "hs1"
     leeway_seconds = 30
@@ -339,7 +339,7 @@ def test_decode_auth0_token_leeway_rejects_too_old(monkeypatch):
 
 
 def test_issuer_normalization_used_for_decode(monkeypatch):
-    auth0.get_jwks.cache_clear()
+    auth0.clear_jwks_cache()
     monkeypatch.setattr(auth0.settings.auth, "AUTH0_ISSUER", "https://issuer.test")
     monkeypatch.setattr(
         jwt, "get_unverified_header", lambda _t: {"kid": "kid1", "alg": "RS256"}
@@ -361,7 +361,7 @@ def test_issuer_normalization_used_for_decode(monkeypatch):
 
 
 def test_decode_auth0_token_does_not_pass_leeway_kwarg(monkeypatch):
-    auth0.get_jwks.cache_clear()
+    auth0.clear_jwks_cache()
     monkeypatch.setattr(
         jwt, "get_unverified_header", lambda _t: {"kid": "kid1", "alg": "RS256"}
     )
