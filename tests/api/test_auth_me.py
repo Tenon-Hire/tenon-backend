@@ -2,6 +2,8 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from app.api.routes import auth as auth_routes
+from app.infra.config import settings
 from app.infra.db import get_session
 from app.infra.security import auth0, current_user
 from app.main import app
@@ -41,3 +43,49 @@ async def test_auth_me_creates_and_returns_user(
     body = response.json()
     assert body["email"] == "recruiter@example.com"
     assert body["role"] == "recruiter"
+
+
+@pytest.mark.asyncio
+async def test_auth_me_rate_limited_in_prod(
+    async_session, monkeypatch, override_dependencies
+):
+    def fake_decode_auth0_token(_token: str) -> dict[str, str]:
+        return {
+            "email": "recruiter@example.com",
+            "name": "Recruiter One",
+            "sub": "auth0|test",
+            "permissions": ["recruiter:access"],
+        }
+
+    session_maker = async_sessionmaker(
+        bind=async_session.bind, expire_on_commit=False, autoflush=False
+    )
+
+    async def override_get_session():
+        yield async_session
+
+    monkeypatch.setattr(auth0, "decode_auth0_token", fake_decode_auth0_token)
+    monkeypatch.setattr(current_user, "async_session_maker", session_maker)
+    monkeypatch.setattr(settings, "ENV", "prod")
+    auth_routes.rate_limit.limiter.reset()
+    original_rule = auth_routes.AUTH_ME_RATE_LIMIT
+    auth_routes.AUTH_ME_RATE_LIMIT = auth_routes.rate_limit.RateLimitRule(
+        limit=1, window_seconds=60.0
+    )
+
+    with override_dependencies({get_session: override_get_session}):
+        async with AsyncClient(app=app, base_url="http://testserver") as client:
+            first = await client.get(
+                "/api/auth/me",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+            second = await client.get(
+                "/api/auth/me",
+                headers={"Authorization": "Bearer fake-token"},
+            )
+
+    assert first.status_code == 200, first.text
+    assert second.status_code == 429
+
+    auth_routes.AUTH_ME_RATE_LIMIT = original_rule
+    auth_routes.rate_limit.limiter.reset()

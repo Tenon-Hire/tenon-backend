@@ -42,6 +42,10 @@ class StubSession:
         self.refreshed = True
 
 
+def _request(host: str = "127.0.0.1"):
+    return SimpleNamespace(headers={}, client=SimpleNamespace(host=host))
+
+
 @pytest.mark.asyncio
 async def test_resolve_candidate_session_propagates_claim_error(monkeypatch):
     stub_db = StubSession()
@@ -54,7 +58,10 @@ async def test_resolve_candidate_session_propagates_claim_error(monkeypatch):
     )
     with pytest.raises(HTTPException) as excinfo:
         await candidate_sessions.resolve_candidate_session(
-            token="t" * 24, db=stub_db, principal=_principal("test@example.com")
+            token="t" * 24,
+            request=_request(),
+            db=stub_db,
+            principal=_principal("test@example.com"),
         )
     assert excinfo.value.status_code == 403
 
@@ -95,6 +102,7 @@ async def test_get_current_task_marks_completed(monkeypatch):
 
     resp = await candidate_sessions.get_current_task(
         candidate_session_id=cs.id,
+        request=_request(),
         db=stub_db,
         principal=_principal("user@example.com"),
     )
@@ -131,6 +139,7 @@ async def test_claim_route_uses_claim_service(monkeypatch):
     handler = candidate_sessions.claim_candidate_session
     resp = await handler(
         token="t" * 24,
+        request=_request(),
         db=stub_db,
         principal=_principal("test@example.com"),
     )

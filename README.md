@@ -85,10 +85,20 @@ FastAPI + Postgres backend for Tenon. Recruiters create 5-day simulations, invit
 - Auth0: `TENON_AUTH0_DOMAIN`, `TENON_AUTH0_ISSUER`, `TENON_AUTH0_JWKS_URL`, `TENON_AUTH0_API_AUDIENCE`, `TENON_AUTH0_ALGORITHMS`, `TENON_AUTH0_CLAIM_NAMESPACE`, `TENON_AUTH0_EMAIL_CLAIM`, `TENON_AUTH0_ROLES_CLAIM`, `TENON_AUTH0_PERMISSIONS_CLAIM`.
 - Auth0 Post Login Action must set `https://tenon.ai/permissions` (and `permissions`) on both access and ID tokens so first-login candidates receive `candidate:access`.
 - CORS: `TENON_CORS_ALLOW_ORIGINS` (JSON array or comma list), `TENON_CORS_ALLOW_ORIGIN_REGEX`.
+- Security: `TENON_RATE_LIMIT_ENABLED`, `TENON_MAX_REQUEST_BODY_BYTES`, `TENON_TRUSTED_PROXY_CIDRS`.
 - Candidate portal: `TENON_CANDIDATE_PORTAL_BASE_URL` (used for invite links).
 - GitHub: `TENON_GITHUB_API_BASE`, `TENON_GITHUB_ORG`, `TENON_GITHUB_TEMPLATE_OWNER`, `TENON_GITHUB_REPO_PREFIX`, `TENON_GITHUB_ACTIONS_WORKFLOW_FILE`, `TENON_GITHUB_TOKEN`, `TENON_GITHUB_CLEANUP_ENABLED` (future).
 - Admin: `TENON_ADMIN_API_KEY` (required for admin endpoints).
 - Dev bypass: `DEV_AUTH_BYPASS=1` (local only; app aborts otherwise).
+
+## Security Hardening
+
+- Rate limits: enforced for auth, invite, candidate session, and run/poll endpoints (per IP/session), enabled outside local/test by default. Override with `TENON_RATE_LIMIT_ENABLED`. In-memory limiter is per-process only; for multi-worker/instance deployments use a shared store (not implemented).
+- Polling throttles: `/api/tasks/{taskId}/run/{runId}` enforces a minimum poll interval and caps in-flight run/poll requests per candidate session.
+- Request size limits: POST/PUT/PATCH bodies are capped (default 1 MB) without buffering full bodies. Configure via `TENON_MAX_REQUEST_BODY_BYTES`.
+- Client IP: always taken from `request.client.host`. `TrustedProxyHeadersMiddleware` may rewrite it from `X-Forwarded-For` only when the immediate peer is within `TENON_TRUSTED_PROXY_CIDRS` (configure this behind a load balancer).
+- Log redaction: Authorization/token-like fields are redacted in logs; avoid logging raw credentials in custom code.
+- Recommended checks: `poetry export -f requirements.txt --without-hashes | pip-audit -r /dev/stdin`, `bandit -r app`, and Dependabot for dependency updates.
 
 ## Roadmap (not implemented yet)
 

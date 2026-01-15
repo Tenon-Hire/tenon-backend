@@ -17,6 +17,9 @@ from app.core.brand import APP_NAME
 from app.infra.config import settings
 from app.infra.db import init_db_if_needed
 from app.infra.env import env_name
+from app.infra.logging import configure_logging
+from app.infra.proxy_headers import TrustedProxyHeadersMiddleware, trusted_proxy_cidrs
+from app.infra.request_limits import RequestSizeLimitMiddleware
 
 
 def _parse_csv(value: str | None) -> list[str]:
@@ -38,6 +41,7 @@ async def lifespan(_app: FastAPI):
 
 def create_app() -> FastAPI:
     """Instantiate and configure the FastAPI application."""
+    configure_logging()
     dev_bypass_flag = getattr(settings, "DEV_AUTH_BYPASS", None) or os.getenv(
         "DEV_AUTH_BYPASS"
     )
@@ -49,6 +53,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title=f"{APP_NAME} Backend", version="0.1.0", lifespan=lifespan)
 
     _configure_proxy_headers(app)
+    _configure_request_limits(app)
     _configure_cors(app)
     _register_routers(app)
 
@@ -56,14 +61,11 @@ def create_app() -> FastAPI:
 
 
 def _configure_proxy_headers(app: FastAPI) -> None:
-    """Add proxy headers middleware if available (e.g., behind a load balancer)."""
-    try:
-        from starlette.middleware.proxy_headers import ProxyHeadersMiddleware
-
-        app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
-    except Exception:
-        # Optional dependency; skip if unavailable.
-        pass
+    """Add proxy headers middleware when trusted proxies are configured."""
+    cidrs = trusted_proxy_cidrs()
+    if not cidrs:
+        return
+    app.add_middleware(TrustedProxyHeadersMiddleware, trusted_proxy_cidrs=cidrs)
 
 
 def _cors_config() -> tuple[list[str], str | None]:
@@ -89,6 +91,14 @@ def _configure_cors(app: FastAPI) -> None:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+    )
+
+
+def _configure_request_limits(app: FastAPI) -> None:
+    """Add request size limits to guard against abuse."""
+    app.add_middleware(
+        RequestSizeLimitMiddleware,
+        max_body_bytes=settings.MAX_REQUEST_BODY_BYTES,
     )
 
 
