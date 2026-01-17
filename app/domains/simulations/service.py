@@ -82,8 +82,8 @@ async def create_simulation_with_tasks(
         )
     except TemplateKeyError as exc:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid templateKey",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
         ) from exc
 
     sim = Simulation(

@@ -9,6 +9,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.error_utils import ApiError
 from app.domains import CandidateSession, Submission, Task
 from app.domains.candidate_sessions import service as cs_service
 from app.domains.github_native.actions_runner import (
@@ -113,18 +114,20 @@ def build_repo_name(
 def validate_github_username(username: str) -> None:
     """Ensure GitHub username follows GitHub rules."""
     if not username or len(username) > 39 or not _GITHUB_USERNAME_RE.match(username):
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid GitHub username",
+            error_code="INVALID_GITHUB_USERNAME",
         )
 
 
 def validate_repo_full_name(name: str) -> None:
     """Validate owner/repo format to avoid SSRF/path traversal."""
     if not _REPO_FULL_NAME_RE.match(name or ""):
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid repository name",
+            error_code="INVALID_REPOSITORY_NAME",
         )
 
 
@@ -133,9 +136,10 @@ def validate_branch(branch: str | None) -> str | None:
     if branch is None:
         return None
     if not isinstance(branch, str):
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid branch name",
+            error_code="INVALID_BRANCH_NAME",
         )
     if (
         ".." in branch
@@ -143,14 +147,16 @@ def validate_branch(branch: str | None) -> str | None:
         or branch.startswith("/")
         or branch.endswith("/")
     ):
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid branch name",
+            error_code="INVALID_BRANCH_NAME",
         )
     if not _BRANCH_RE.match(branch):
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid branch name",
+            error_code="INVALID_BRANCH_NAME",
         )
     return branch
 

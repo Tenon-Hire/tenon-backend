@@ -92,6 +92,10 @@ async def test_recruiter_cannot_access_other_recruiters_submission(
     )
     # prefer 404 to avoid leaking existence
     assert resp.status_code == 404
+    body = resp.json()
+    assert body["detail"] == "Submission not found"
+    combined = json.dumps(body)
+    assert "Other Candidate" not in combined
 
 
 @pytest.mark.asyncio

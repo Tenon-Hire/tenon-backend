@@ -221,7 +221,7 @@ async def create_candidate_invite(
             prefix=repo_prefix, candidate_session=cs, task=task
         )
         logger.error(
-            f"github_workspace_preprovision_failed {exc}",
+            "github_workspace_preprovision_failed",
             extra={
                 "simulation_id": simulation_id,
                 "candidate_session_id": cs.id,
@@ -229,7 +229,7 @@ async def create_candidate_invite(
                 "day_index": task.day_index,
                 "template_repo": template_repo,
                 "repo_name": repo_name,
-                "error": str(exc),
+                "status_code": getattr(exc, "status_code", None),
             },
         )
         raise map_github_error(exc) from exc

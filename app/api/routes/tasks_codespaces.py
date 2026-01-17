@@ -5,18 +5,19 @@ from datetime import UTC, datetime
 from typing import Annotated
 from urllib.parse import parse_qs, urlparse
 
-from fastapi import APIRouter, Depends, HTTPException, Path, status
+from fastapi import APIRouter, Depends, Path, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.candidate_sessions import candidate_session_from_headers
 from app.api.dependencies.github_native import get_actions_runner, get_github_client
-from app.api.error_utils import map_github_error
+from app.api.error_utils import ApiError, map_github_error
 from app.domains import CandidateSession, Task
 from app.domains.candidate_sessions import service as cs_service
 from app.domains.github_native import GithubClient, GithubError
 from app.domains.github_native.actions_runner import GithubActionsRunner
 from app.domains.github_native.workspaces import repository as workspace_repo
 from app.domains.submissions import service_candidate as submission_service
+from app.domains.submissions.exceptions import WorkspaceMissing
 from app.domains.submissions.schemas import (
     CodespaceInitRequest,
     CodespaceInitResponse,
@@ -117,19 +118,21 @@ async def init_codespace(
         )
     except GithubError as exc:
         logger.error(
-            f"github_workspace_create_failed {exc}",
+            "github_workspace_create_failed",
             extra={
                 "task_id": task.id,
                 "candidate_session_id": cs.id,
-                "error": str(exc),
+                "status_code": getattr(exc, "status_code", None),
             },
         )
         raise map_github_error(exc) from exc
 
     if not workspace.repo_full_name:
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_409_CONFLICT,
             detail="Workspace repo not provisioned yet. Please try again.",
+            error_code="WORKSPACE_NOT_READY",
+            retryable=True,
         )
 
     canonical_url = submission_service.build_codespace_url(workspace.repo_full_name)
@@ -170,8 +173,8 @@ async def codespace_status(
         db, candidate_session_id=cs.id, task_id=task.id
     )
     if workspace is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Workspace not initialized"
+        raise WorkspaceMissing(
+            detail="Workspace not initialized", status_code=status.HTTP_404_NOT_FOUND
         )
 
     last_test_summary = None
@@ -182,9 +185,11 @@ async def codespace_status(
             last_test_summary = None
 
     if not workspace.repo_full_name:
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_409_CONFLICT,
             detail="Workspace repo not provisioned yet. Please try again.",
+            error_code="WORKSPACE_NOT_READY",
+            retryable=True,
         )
 
     canonical_url = submission_service.build_codespace_url(workspace.repo_full_name)
@@ -234,10 +239,7 @@ async def run_task_tests(
         db, candidate_session_id=cs.id, task_id=task.id
     )
     if workspace is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Workspace not initialized. Call /codespace/init first.",
-        )
+        raise WorkspaceMissing()
 
     branch = submission_service.validate_branch(
         payload.branch or workspace.default_branch or "main"
@@ -255,11 +257,11 @@ async def run_task_tests(
             )
     except GithubError as exc:
         logger.error(
-            f"github_run_failed {exc}",
+            "github_run_failed",
             extra={
                 "task_id": task.id,
                 "candidate_session_id": cs.id,
-                "error": str(exc),
+                "status_code": getattr(exc, "status_code", None),
             },
         )
         raise map_github_error(exc) from exc
@@ -271,9 +273,11 @@ async def run_task_tests(
                 "candidate_session_id": cs.id,
             },
         )
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="GitHub unavailable. Please try again.",
+            error_code="GITHUB_UNAVAILABLE",
+            retryable=True,
         ) from exc
 
     await submission_service.record_run_result(db, workspace, result)
@@ -323,10 +327,7 @@ async def get_run_result(
         db, candidate_session_id=cs.id, task_id=task.id
     )
     if workspace is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Workspace not initialized. Call /codespace/init first.",
-        )
+        raise WorkspaceMissing()
 
     try:
         async with _concurrency_guard(
@@ -342,7 +343,7 @@ async def get_run_result(
             extra={
                 "task_id": task.id,
                 "candidate_session_id": cs.id,
-                "error": str(exc),
+                "status_code": getattr(exc, "status_code", None),
             },
         )
         raise map_github_error(exc) from exc
@@ -401,10 +402,7 @@ async def submit_task(
             db, candidate_session_id=cs.id, task_id=task.id
         )
         if workspace is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Workspace not initialized. Call /codespace/init first.",
-            )
+            raise WorkspaceMissing()
         branch = submission_service.validate_branch(
             getattr(payload, "branch", None) or workspace.default_branch or "main"
         )
@@ -433,7 +431,7 @@ async def submit_task(
                 extra={
                     "task_id": task.id,
                     "candidate_session_id": cs.id,
-                    "error": str(exc),
+                    "status_code": getattr(exc, "status_code", None),
                 },
             )
             raise map_github_error(exc) from exc
@@ -445,9 +443,11 @@ async def submit_task(
                     "candidate_session_id": cs.id,
                 },
             )
-            raise HTTPException(
+            raise ApiError(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="GitHub unavailable. Please try again.",
+                error_code="GITHUB_UNAVAILABLE",
+                retryable=True,
             ) from exc
 
     sub = await submission_service.create_submission(

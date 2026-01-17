@@ -3,9 +3,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.error_utils import ApiError
 from app.domains import CandidateSession
 from app.domains.candidate_sessions import service as cs_service
 from app.infra.db import get_session
@@ -22,9 +23,10 @@ async def candidate_session_from_headers(
 ) -> CandidateSession:
     """Load a candidate session for the authenticated candidate."""
     if x_candidate_session_id is None:
-        raise HTTPException(
+        raise ApiError(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing candidate session headers",
+            error_code="CANDIDATE_SESSION_HEADER_REQUIRED",
         )
     now = datetime.now(UTC)
     return await cs_service.fetch_owned_session(
