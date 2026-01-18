@@ -24,6 +24,7 @@ async def codespace_status_route(
     ],
     db: Annotated[AsyncSession, Depends(get_session)],
 ) -> CodespaceStatusResponse:
+    """Return Codespace details and last known test status for a task."""
     workspace, last_test_summary, codespace_url, _ = await codespace_status(
         db, candidate_session=candidate_session, task_id=task_id
     )

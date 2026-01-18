@@ -19,7 +19,12 @@ def validate_branch(branch: str | None) -> str | None:
             detail="Invalid branch name",
             error_code="INVALID_BRANCH_NAME",
         )
-    if ".." in branch or "//" in branch or branch.startswith("/") or branch.endswith("/"):
+    if (
+        ".." in branch
+        or "//" in branch
+        or branch.startswith("/")
+        or branch.endswith("/")
+    ):
         raise ApiError(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid branch name",

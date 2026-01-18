@@ -32,6 +32,7 @@ async def get_run_result_route(
         CandidateSession, Depends(candidate_session_from_headers)
     ],
 ) -> RunTestsResponse:
+    """Poll a previously-triggered workflow run."""
     try:
         task, workspace, result = await fetch_run_result(
             db,

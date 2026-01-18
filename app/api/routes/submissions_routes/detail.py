@@ -11,7 +11,7 @@ from app.infra.db import get_session
 from app.infra.security.current_user import get_current_user
 from app.infra.security.roles import ensure_recruiter
 
-router = APIRouter()
+router = APIRouter(prefix="/submissions", tags=["submissions"])
 
 
 @router.get("/{submission_id}", response_model=RecruiterSubmissionDetailOut)
@@ -20,7 +20,10 @@ async def get_submission_detail_route(
     db: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[User, Depends(get_current_user)],
 ) -> RecruiterSubmissionDetailOut:
+    """Return recruiter-facing detail for a submission."""
     ensure_recruiter(user)
-    sub, task, cs, sim = await recruiter_sub_service.fetch_detail(db, submission_id, user.id)
+    sub, task, cs, sim = await recruiter_sub_service.fetch_detail(
+        db, submission_id, user.id
+    )
     payload = present_detail(sub, task, cs, sim)
     return RecruiterSubmissionDetailOut(**payload)

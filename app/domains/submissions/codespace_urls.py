@@ -6,10 +6,12 @@ from app.domains.submissions.services.workspace_records import build_codespace_u
 
 
 def canonical_codespace_url(repo_full_name: str) -> str:
+    """Return the normalized Codespaces quickstart URL for a repo."""
     return build_codespace_url(repo_full_name)
 
 
 def is_canonical_codespace_url(url: str | None) -> bool:
+    """Check whether a URL matches the canonical quickstart format."""
     if not url:
         return False
     parsed = urlparse(url)
@@ -20,6 +22,7 @@ def is_canonical_codespace_url(url: str | None) -> bool:
 
 
 async def ensure_canonical_workspace_url(db, workspace) -> str:
+    """Persist and return the canonical codespace URL for a workspace."""
     canonical = canonical_codespace_url(workspace.repo_full_name)
     url = workspace.codespace_url
     if is_canonical_codespace_url(url):

@@ -13,12 +13,11 @@ from app.domains.submissions.exceptions import WorkspaceMissing
 async def codespace_status(
     db: AsyncSession, *, candidate_session: CandidateSession, task_id: int
 ):
+    """Return Codespace/workflow status for a candidate task."""
     task = await submission_service.load_task_or_404(db, task_id)
     submission_service.ensure_task_belongs(task, candidate_session)
 
-    from app.api.routes import tasks_codespaces as legacy
-
-    workspace = await legacy.workspace_repo.get_by_session_and_task(
+    workspace = await submission_service.workspace_repo.get_by_session_and_task(
         db, candidate_session_id=candidate_session.id, task_id=task.id
     )
     if workspace is None:

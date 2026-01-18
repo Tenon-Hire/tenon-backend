@@ -21,20 +21,23 @@ async def fetch_run_result(
     run_id: int,
     runner: GithubActionsRunner,
 ):
+    """Fetch a specific workflow run result for polling."""
     apply_rate_limit(candidate_session.id, "poll")
     throttle_poll(candidate_session.id, run_id)
     task = await submission_service.load_task_or_404(db, task_id)
     submission_service.ensure_task_belongs(task, candidate_session)
     submission_service.validate_run_allowed(task)
 
-    from app.api.routes import tasks_codespaces as legacy
-
-    workspace = await legacy.workspace_repo.get_by_session_and_task(
+    workspace = await submission_service.workspace_repo.get_by_session_and_task(
         db, candidate_session_id=candidate_session.id, task_id=task.id
     )
     if workspace is None:
         raise WorkspaceMissing()
     async with concurrency_guard(candidate_session.id, "fetch"):
-        return task, workspace, await runner.fetch_run_result(
-            repo_full_name=workspace.repo_full_name, run_id=run_id
+        return (
+            task,
+            workspace,
+            await runner.fetch_run_result(
+                repo_full_name=workspace.repo_full_name, run_id=run_id
+            ),
         )

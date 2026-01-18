@@ -20,7 +20,11 @@ from app.infra.db import get_session
 router = APIRouter()
 
 
-@router.post("/{task_id}/submit", response_model=SubmissionCreateResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{task_id}/submit",
+    response_model=SubmissionCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def submit_task_route(
     task_id: Annotated[int, Path(..., ge=1)],
     payload: SubmissionCreateRequest,
@@ -31,6 +35,7 @@ async def submit_task_route(
     github_client: Annotated[GithubClient, Depends(get_github_client)],
     actions_runner: Annotated[GithubActionsRunner, Depends(get_actions_runner)],
 ) -> SubmissionCreateResponse:
+    """Submit a task, optionally running GitHub tests for code/debug types."""
     try:
         task, submission, completed, total, is_complete = await submit_task(
             db,

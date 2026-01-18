@@ -149,7 +149,7 @@ def _register_routers(app: FastAPI) -> None:
     )
     app.include_router(
         submissions.router,
-        prefix=f"{prefix}/submissions",
+        prefix=f"{prefix}",
     )
 
 

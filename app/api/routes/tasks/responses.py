@@ -3,6 +3,7 @@ from app.domains.submissions.schemas import RunTestsResponse
 
 
 def build_run_response(result: ActionsRunResult) -> RunTestsResponse:
+    """Render a workflow run result into API response shape."""
     return RunTestsResponse(
         status=result.status,
         passed=result.passed,

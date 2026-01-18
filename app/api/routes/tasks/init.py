@@ -17,7 +17,11 @@ from app.infra.db import get_session
 router = APIRouter()
 
 
-@router.post("/{task_id}/codespace/init", response_model=CodespaceInitResponse, status_code=status.HTTP_200_OK)
+@router.post(
+    "/{task_id}/codespace/init",
+    response_model=CodespaceInitResponse,
+    status_code=status.HTTP_200_OK,
+)
 async def init_codespace_route(
     task_id: Annotated[int, Path(..., ge=1)],
     payload: CodespaceInitRequest,
@@ -27,6 +31,7 @@ async def init_codespace_route(
     db: Annotated[AsyncSession, Depends(get_session)],
     github_client: Annotated[GithubClient, Depends(get_github_client)],
 ) -> CodespaceInitResponse:
+    """Provision or return a GitHub Codespace workspace for a task."""
     try:
         workspace, _, codespace_url, _ = await init_codespace(
             db,

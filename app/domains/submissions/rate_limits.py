@@ -16,6 +16,7 @@ RUN_CONCURRENCY_LIMIT = 1
 
 
 def apply_rate_limit(candidate_session_id: int, action: str) -> None:
+    """Enforce rate limits per candidate action bucket."""
     if not rate_limit.rate_limit_enabled():
         return
     rule = RATE_LIMIT_RULES.get(action, rate_limit.RateLimitRule(5, 30.0))
@@ -24,16 +25,20 @@ def apply_rate_limit(candidate_session_id: int, action: str) -> None:
 
 
 def throttle_poll(candidate_session_id: int, run_id: int) -> None:
+    """Throttle polling frequency for a specific workflow run."""
     if not rate_limit.rate_limit_enabled():
         return
     rate_limit.limiter.throttle(
-        rate_limit.rate_limit_key("tasks", str(candidate_session_id), "poll", str(run_id)),
+        rate_limit.rate_limit_key(
+            "tasks", str(candidate_session_id), "poll", str(run_id)
+        ),
         POLL_MIN_INTERVAL_SECONDS,
     )
 
 
 @asynccontextmanager
 async def concurrency_guard(candidate_session_id: int, action: str):
+    """Limit concurrent operations for a candidate/action pair."""
     if not rate_limit.rate_limit_enabled():
         yield
         return

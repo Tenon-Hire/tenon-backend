@@ -34,18 +34,24 @@ _OUTPUT_WHITELIST_KEYS = {
 
 
 def redact_text(text: str | None) -> str | None:
+    """Redact potential secrets from text outputs."""
     if text is None:
         return None
     redacted = text
     for pattern in _TOKEN_REDACT_PATTERNS:
         if pattern.groups:
-            redacted = pattern.sub(lambda match: f"{match.group(1)} [redacted]", redacted)
+            redacted = pattern.sub(
+                lambda match: f"{match.group(1)} [redacted]", redacted
+            )
         else:
             redacted = pattern.sub("[redacted]", redacted)
     return redacted
 
 
-def truncate_output(text: str | None, *, max_chars: int) -> tuple[str | None, bool | None]:
+def truncate_output(
+    text: str | None, *, max_chars: int
+) -> tuple[str | None, bool | None]:
+    """Truncate long output strings while flagging truncation."""
     if text is None:
         return None, None
     if len(text) <= max_chars:
@@ -54,6 +60,7 @@ def truncate_output(text: str | None, *, max_chars: int) -> tuple[str | None, bo
 
 
 def parse_diff_summary(raw: str | None):
+    """Parse stored diff summary JSON safely."""
     if not raw:
         return None
     try:
@@ -63,7 +70,12 @@ def parse_diff_summary(raw: str | None):
 
 
 def build_links(repo_full_name: str | None, commit_sha: str | None, workflow_run_id):
-    commit_url = f"https://github.com/{repo_full_name}/commit/{commit_sha}" if repo_full_name and commit_sha else None
+    """Construct commit and workflow URLs when possible."""
+    commit_url = (
+        f"https://github.com/{repo_full_name}/commit/{commit_sha}"
+        if repo_full_name and commit_sha
+        else None
+    )
     workflow_url = (
         f"https://github.com/{repo_full_name}/actions/runs/{workflow_run_id}"
         if repo_full_name and workflow_run_id
@@ -73,6 +85,7 @@ def build_links(repo_full_name: str | None, commit_sha: str | None, workflow_run
 
 
 def build_diff_url(repo_full_name: str | None, diff_summary):
+    """Build a GitHub compare URL from diff summary data."""
     if not repo_full_name or not isinstance(diff_summary, dict):
         return None
     base = diff_summary.get("base")
@@ -91,6 +104,7 @@ def build_test_results(
     include_output: bool,
     max_output_chars: int,
 ):
+    """Present test results with redaction, truncation, and links."""
     passed_val = _safe_int(getattr(sub, "tests_passed", None))
     failed_val = _safe_int(getattr(sub, "tests_failed", None))
     workflow_run_id = getattr(sub, "workflow_run_id", None)
@@ -101,6 +115,10 @@ def build_test_results(
     stdout_truncated = stderr_truncated = None
     sanitized_output = parsed_output if parsed_output else None
 
+    if isinstance(parsed_output, dict) and not parsed_output:
+        parsed_output = None
+        sanitized_output = None
+
     if isinstance(parsed_output, dict):
         if passed_val is None:
             passed_val = _safe_int(parsed_output.get("passed"))
@@ -109,8 +127,12 @@ def build_test_results(
         total_val = _safe_int(parsed_output.get("total"))
         run_id = parsed_output.get("runId") or parsed_output.get("run_id")
         conclusion_raw = parsed_output.get("conclusion")
-        conclusion = conclusion or (str(conclusion_raw).lower() if conclusion_raw else None)
-        timeout = timeout or (parsed_output.get("timeout") is True or conclusion == "timed_out")
+        conclusion = conclusion or (
+            str(conclusion_raw).lower() if conclusion_raw else None
+        )
+        timeout = timeout or (
+            parsed_output.get("timeout") is True or conclusion == "timed_out"
+        )
         summary_val = parsed_output.get("summary")
         summary = summary_val if isinstance(summary_val, dict) else None
 
@@ -118,10 +140,14 @@ def build_test_results(
         stderr_raw = parsed_output.get("stderr")
         if isinstance(stdout_raw, str):
             stdout_clean = redact_text(stdout_raw)
-            stdout, stdout_truncated = truncate_output(stdout_clean, max_chars=max_output_chars)
+            stdout, stdout_truncated = truncate_output(
+                stdout_clean, max_chars=max_output_chars
+            )
         if isinstance(stderr_raw, str):
             stderr_clean = redact_text(stderr_raw)
-            stderr, stderr_truncated = truncate_output(stderr_clean, max_chars=max_output_chars)
+            stderr, stderr_truncated = truncate_output(
+                stderr_clean, max_chars=max_output_chars
+            )
 
         whitelisted_output = {}
         for key in _OUTPUT_WHITELIST_KEYS:
@@ -142,7 +168,9 @@ def build_test_results(
     if total_val is None and (passed_val is not None or failed_val is not None):
         total_val = (passed_val or 0) + (failed_val or 0)
 
-    status_str = recruiter_sub_service.derive_test_status(passed_val, failed_val, parsed_output)
+    status_str = recruiter_sub_service.derive_test_status(
+        passed_val, failed_val, parsed_output
+    )
     if run_id is None and workflow_run_id:
         run_id = _safe_int(workflow_run_id) or workflow_run_id
 
@@ -156,12 +184,28 @@ def build_test_results(
         timeout = True
     workflow_run_id_str = str(workflow_run_id) if workflow_run_id is not None else None
 
-    artifact_present = parsed_output is not None or any(v is not None for v in (passed_val, failed_val, total_val))
+    artifact_present = parsed_output is not None or any(
+        v is not None for v in (passed_val, failed_val, total_val)
+    )
     artifact_error = None
     if isinstance(parsed_output, dict):
-        artifact_error = parsed_output.get("artifactErrorCode") or parsed_output.get("artifact_error_code")
+        artifact_error = parsed_output.get("artifactErrorCode") or parsed_output.get(
+            "artifact_error_code"
+        )
         if isinstance(artifact_error, str):
             artifact_error = artifact_error.lower()
+
+    if (
+        status_str is None
+        and passed_val is None
+        and failed_val is None
+        and total_val is None
+        and sanitized_output is None
+        and workflow_run_id is None
+        and commit_sha is None
+        and last_run_at is None
+    ):
+        return None
 
     result = {
         "status": status_str,
@@ -192,6 +236,7 @@ def build_test_results(
 
 
 def _safe_int(val) -> int | None:
+    """Coerce value to int when possible."""
     try:
         return int(val)
     except (TypeError, ValueError):
@@ -199,14 +244,20 @@ def _safe_int(val) -> int | None:
 
 
 def max_output_chars(include_output: bool) -> int:
+    """Return appropriate output truncation length."""
     return _MAX_OUTPUT_CHARS_DETAIL if include_output else _MAX_OUTPUT_CHARS_LIST
 
 
 def present_list_item(sub, task):
-    parsed_output = recruiter_sub_service.parse_test_output(getattr(sub, "test_output", None))
+    """Render a submission list item payload."""
+    parsed_output = recruiter_sub_service.parse_test_output(
+        getattr(sub, "test_output", None)
+    )
     diff_summary = parse_diff_summary(sub.diff_summary_json)
     repo_full_name = sub.code_repo_path
-    commit_url, workflow_url = build_links(repo_full_name, sub.commit_sha, sub.workflow_run_id)
+    commit_url, workflow_url = build_links(
+        repo_full_name, sub.commit_sha, sub.workflow_run_id
+    )
     diff_url = build_diff_url(repo_full_name, diff_summary)
     test_results = build_test_results(
         sub,
@@ -236,10 +287,16 @@ def present_list_item(sub, task):
 
 
 def present_detail(sub, task, cs, sim):
-    parsed_output = recruiter_sub_service.parse_test_output(getattr(sub, "test_output", None))
+    """Render a recruiter submission detail payload."""
+    _ = sim  # kept for signature parity; not used directly
+    parsed_output = recruiter_sub_service.parse_test_output(
+        getattr(sub, "test_output", None)
+    )
     diff_summary = parse_diff_summary(sub.diff_summary_json)
     repo_full_name = sub.code_repo_path
-    commit_url, workflow_url = build_links(repo_full_name, sub.commit_sha, sub.workflow_run_id)
+    commit_url, workflow_url = build_links(
+        repo_full_name, sub.commit_sha, sub.workflow_run_id
+    )
     diff_url = build_diff_url(repo_full_name, diff_summary)
     test_results = build_test_results(
         sub,
@@ -264,7 +321,9 @@ def present_detail(sub, task, cs, sim):
             {
                 "repoPath": sub.code_repo_path,
                 "repoFullName": sub.code_repo_path,
-                "repoUrl": f"https://github.com/{sub.code_repo_path}" if sub.code_repo_path else None,
+                "repoUrl": f"https://github.com/{sub.code_repo_path}"
+                if sub.code_repo_path
+                else None,
             }
             if sub.code_repo_path is not None
             else None

@@ -15,11 +15,11 @@ from app.infra.db import get_session
 from app.infra.security.current_user import get_current_user
 from app.infra.security.roles import ensure_recruiter
 
-router = APIRouter()
+router = APIRouter(prefix="/submissions", tags=["submissions"])
 
 
 @router.get(
-    "/",
+    "",
     response_model=RecruiterSubmissionListOut,
     response_model_exclude={"items": {"__all__": {"testResults": {"output"}}}},
 )
@@ -31,6 +31,7 @@ async def list_submissions_route(
     limit: int | None = Query(default=None, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> RecruiterSubmissionListOut:
+    """List submissions visible to the recruiter with optional filters."""
     ensure_recruiter(user)
     rows = await recruiter_sub_service.list_submissions(
         db, user.id, candidateSessionId, taskId, limit, offset

@@ -1,6 +1,7 @@
 """Thin facade that re-exports submission service helpers."""
 
 from app.domains.github_native.workspaces import repository as workspace_repo
+from app.domains.submissions import repository as submissions_repo
 from app.domains.submissions.services import (
     CODE_TASK_TYPES,
     TEXT_TASK_TYPES,
@@ -23,6 +24,7 @@ from app.domains.submissions.services import (
     validate_run_allowed,
     validate_submission_payload,
 )
+from app.domains.tasks import repository as tasks_repo
 
 __all__ = [
     "CODE_TASK_TYPES",
@@ -46,4 +48,6 @@ __all__ = [
     "validate_run_allowed",
     "validate_submission_payload",
     "workspace_repo",
+    "submissions_repo",
+    "tasks_repo",
 ]

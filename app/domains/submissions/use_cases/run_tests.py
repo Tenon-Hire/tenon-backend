@@ -18,23 +18,28 @@ async def run_task_tests(
     branch: str | None,
     workflow_inputs: dict | None,
 ):
+    """Dispatch workflow run for the task and return result."""
     apply_rate_limit(candidate_session.id, "run")
     task = await submission_service.load_task_or_404(db, task_id)
     submission_service.ensure_task_belongs(task, candidate_session)
     submission_service.validate_run_allowed(task)
 
-    from app.api.routes import tasks_codespaces as legacy
-
-    workspace = await legacy.workspace_repo.get_by_session_and_task(
+    workspace = await submission_service.workspace_repo.get_by_session_and_task(
         db, candidate_session_id=candidate_session.id, task_id=task.id
     )
     if workspace is None:
         raise WorkspaceMissing()
-    branch_to_use = submission_service.validate_branch(branch or workspace.default_branch or "main")
+    branch_to_use = submission_service.validate_branch(
+        branch or workspace.default_branch or "main"
+    )
     async with concurrency_guard(candidate_session.id, "dispatch"):
-        return task, workspace, await submission_service.run_actions_tests(
-            runner=runner,
-            workspace=workspace,
-            branch=branch_to_use or "main",
-            workflow_inputs=workflow_inputs,
+        return (
+            task,
+            workspace,
+            await submission_service.run_actions_tests(
+                runner=runner,
+                workspace=workspace,
+                branch=branch_to_use or "main",
+                workflow_inputs=workflow_inputs,
+            ),
         )
