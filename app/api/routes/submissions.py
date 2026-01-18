@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from contextlib import suppress
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
@@ -362,6 +363,8 @@ async def list_submissions(
     user: Annotated[User, Depends(get_current_user)],
     candidateSessionId: int | None = Query(default=None),
     taskId: int | None = Query(default=None),
+    limit: int | None = Query(default=None, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
 ) -> RecruiterSubmissionListOut:
     """List submissions for recruiter-owned simulations.
 
@@ -370,11 +373,15 @@ async def list_submissions(
     ensure_recruiter(user)
 
     rows = await recruiter_sub_service.list_submissions(
-        db, user.id, candidateSessionId, taskId
+        db, user.id, candidateSessionId, taskId, limit, offset
     )
 
     items: list[RecruiterSubmissionListItemOut] = []
-    for sub, task, _cs, _sim in rows:
+    for row in rows:
+        sub = row
+        task = None
+        with suppress(TypeError, ValueError):
+            sub, task, *_ = row
         parsed_output = recruiter_sub_service.parse_test_output(
             getattr(sub, "test_output", None)
         )

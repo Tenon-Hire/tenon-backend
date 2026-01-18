@@ -48,6 +48,12 @@ class GithubClient:
         self.token = token
         self.default_org = default_org
         self.transport = transport
+        self._headers = {
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {self.token}",
+            "User-Agent": DEFAULT_USER_AGENT,
+        }
+        self._client: httpx.AsyncClient | None = None
 
     async def generate_repo_from_template(
         self,
@@ -164,6 +170,12 @@ class GithubClient:
         path = f"/repos/{owner}/{repo}/actions/artifacts/{artifact_id}/zip"
         return await self._get_bytes(path)
 
+    async def aclose(self) -> None:
+        """Close the underlying HTTP client."""
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
     def _parse_run(self, payload: dict[str, Any]) -> WorkflowRun:
         return WorkflowRun(
             id=int(payload.get("id") or 0),
@@ -183,6 +195,17 @@ class GithubClient:
         if not owner or not repo:
             raise GithubError("Invalid repository name")
         return owner, repo
+
+    def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                base_url=self.base_url,
+                headers=self._headers,
+                timeout=httpx.Timeout(connect=10.0, read=30.0, write=30.0, pool=10.0),
+                limits=httpx.Limits(max_keepalive_connections=20, max_connections=100),
+                transport=self.transport,
+            )
+        return self._client
 
     async def _get_json(self, path: str, params: dict[str, Any] | None = None) -> dict:
         return await self._request("GET", path, params=params)
@@ -210,25 +233,23 @@ class GithubClient:
         json: dict[str, Any] | None = None,
         expect_body: bool = True,
     ) -> dict[str, Any]:
-        url = f"{self.base_url}{path}"
-        headers = {
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {self.token}",
-            "User-Agent": DEFAULT_USER_AGENT,
-        }
-        async with httpx.AsyncClient(transport=self.transport) as client:
-            try:
-                resp = await client.request(
-                    method, url, params=params, json=json, timeout=30.0, headers=headers
-                )
-            except httpx.HTTPError as exc:  # pragma: no cover - network
-                logger.error(
-                    f"github_request_failed {exc}",
-                    extra={"url": url, "error": str(exc)},
-                )
-                raise GithubError("GitHub request failed") from exc
+        request_url = f"{self.base_url}{path}"
+        try:
+            client = self._get_client()
+            resp = await client.request(
+                method,
+                path,
+                params=params,
+                json=json,
+            )
+        except httpx.HTTPError as exc:  # pragma: no cover - network
+            logger.error(
+                f"github_request_failed {exc}",
+                extra={"url": request_url, "error": str(exc)},
+            )
+            raise GithubError("GitHub request failed") from exc
 
-        _raise_for_status(url, resp)
+        _raise_for_status(str(resp.url), resp)
 
         if not expect_body:
             return {}
@@ -244,29 +265,21 @@ class GithubClient:
     async def _get_bytes(
         self, path: str, params: dict[str, Any] | None = None
     ) -> bytes:
-        url = f"{self.base_url}{path}"
-        headers = {
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {self.token}",
-            "User-Agent": DEFAULT_USER_AGENT,
-        }
-        async with httpx.AsyncClient(transport=self.transport) as client:
-            try:
-                resp = await client.get(
-                    url,
-                    params=params,
-                    timeout=30.0,
-                    headers=headers,
-                    follow_redirects=True,
-                )
-            except httpx.HTTPError as exc:  # pragma: no cover - network
-                logger.error(
-                    f"github_request_failed {exc}",
-                    extra={"url": url, "error": str(exc)},
-                )
-                raise GithubError("GitHub request failed") from exc
+        try:
+            client = self._get_client()
+            resp = await client.get(
+                path,
+                params=params,
+                follow_redirects=True,
+            )
+        except httpx.HTTPError as exc:  # pragma: no cover - network
+            logger.error(
+                f"github_request_failed {exc}",
+                extra={"url": f"{self.base_url}{path}", "error": str(exc)},
+            )
+            raise GithubError("GitHub request failed") from exc
 
-        _raise_for_status(url, resp)
+        _raise_for_status(str(resp.url), resp)
         return resp.content
 
 

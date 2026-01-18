@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import io
+import json
+import zipfile
 from datetime import UTC, datetime
 
 import pytest
@@ -386,3 +389,151 @@ def test_is_dispatched_run_defaults_false():
         created_at=None,
     )
     assert runner._is_dispatched_run(run, datetime.now(UTC)) is False
+
+
+@pytest.mark.asyncio
+async def test_parse_artifacts_uses_cache():
+    class CacheClient(GithubClient):
+        def __init__(self):
+            super().__init__(base_url="https://api.github.com", token="x")
+            self.downloads = 0
+            self.list_calls = 0
+
+        async def list_artifacts(self, *_a, **_k):
+            self.list_calls += 1
+            return [{"id": 123, "name": "tenon-test-results"}]
+
+        async def download_artifact_zip(self, *_a, **_k):
+            self.downloads += 1
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w") as zf:
+                zf.writestr(
+                    "tenon-test-results.json",
+                    json.dumps({"passed": 1, "failed": 0, "total": 1}),
+                )
+            return buf.getvalue()
+
+    client = CacheClient()
+    runner = GithubActionsRunner(client, workflow_file="ci.yml")
+
+    parsed_first, err_first = await runner._parse_artifacts("org/repo", 9)
+    parsed_second, err_second = await runner._parse_artifacts("org/repo", 9)
+
+    assert client.list_calls == 1
+    assert client.downloads == 1
+    assert err_first is None and err_second is None
+    assert parsed_first and parsed_first.total == 1
+    assert parsed_second and parsed_second.total == 1
+    await client.aclose()
+
+
+def test_backoff_recommendations():
+    runner = GithubActionsRunner(
+        GithubClient(base_url="x", token="y"),
+        workflow_file="wf",
+        poll_interval_seconds=1.0,
+    )
+    key = ("org/repo", 55)
+    running = ActionsRunResult(
+        status="running",
+        run_id=55,
+        conclusion=None,
+        passed=None,
+        failed=None,
+        total=None,
+        stdout=None,
+        stderr=None,
+        head_sha=None,
+        html_url=None,
+    )
+    runner._apply_backoff(key, running)
+    assert running.poll_after_ms == 1000
+
+    running_again = ActionsRunResult(
+        status="running",
+        run_id=55,
+        conclusion=None,
+        passed=None,
+        failed=None,
+        total=None,
+        stdout=None,
+        stderr=None,
+        head_sha=None,
+        html_url=None,
+    )
+    runner._apply_backoff(key, running_again)
+    assert running_again.poll_after_ms == 2000
+
+    finished = ActionsRunResult(
+        status="passed",
+        run_id=55,
+        conclusion="success",
+        passed=1,
+        failed=0,
+        total=1,
+        stdout=None,
+        stderr=None,
+        head_sha=None,
+        html_url=None,
+    )
+    runner._apply_backoff(key, finished)
+    assert finished.poll_after_ms is None
+    assert key not in runner._poll_attempts
+    errored = ActionsRunResult(
+        status="error",
+        run_id=56,
+        conclusion=None,
+        passed=None,
+        failed=None,
+        total=None,
+        stdout=None,
+        stderr=None,
+        head_sha=None,
+        html_url=None,
+    )
+    runner._apply_backoff(("org/repo", 56), errored)
+    assert errored.poll_after_ms is None
+
+
+@pytest.mark.asyncio
+async def test_run_cache_keys_use_run_id(monkeypatch):
+    class CountingClient(GithubClient):
+        def __init__(self):
+            super().__init__(base_url="https://api.github.com", token="x")
+            self.calls = 0
+
+        async def get_workflow_run(self, repo_full_name, run_id):
+            self.calls += 1
+            return WorkflowRun(
+                id=run_id,
+                status="completed",
+                conclusion="success",
+                html_url=None,
+                head_sha="sha",
+                artifact_count=0,
+                event="workflow_dispatch",
+                created_at=datetime.now(UTC).isoformat(),
+            )
+
+        async def list_artifacts(self, *_a, **_k):
+            return []
+
+    client = CountingClient()
+    runner = GithubActionsRunner(client, workflow_file="ci.yml")
+
+    async def _no_artifacts(repo, run_id):
+        return None, None
+
+    monkeypatch.setattr(runner, "_parse_artifacts", _no_artifacts)
+
+    first = await runner.fetch_run_result(repo_full_name="org/repo", run_id=1)
+    repeat_first = await runner.fetch_run_result(repo_full_name="org/repo", run_id=1)
+    second = await runner.fetch_run_result(repo_full_name="org/repo", run_id=2)
+    repeat_second = await runner.fetch_run_result(repo_full_name="org/repo", run_id=2)
+
+    assert first.status == "passed"
+    assert repeat_first.status == "passed"
+    assert second.status == "passed"
+    assert repeat_second.status == "passed"
+    assert client.calls == 2
+    await client.aclose()
