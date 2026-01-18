@@ -218,6 +218,13 @@ def test_trusted_proxy_coercion_variants(monkeypatch):
     assert Settings._coerce_trusted_proxy_cidrs('["10.0.0.0/8"]') == ["10.0.0.0/8"]
     assert Settings._coerce_trusted_proxy_cidrs("[invalid") == ["[invalid"]
 
+
+def test_trusted_proxy_coercion_passthrough_other_types():
+    sentinel = object()
+    assert Settings._coerce_trusted_proxy_cidrs(sentinel) is sentinel
+
+
+def test_merge_legacy_prefers_env(monkeypatch):
     monkeypatch.setenv("TENON_GITHUB_TOKEN", "t0k3n")
     monkeypatch.setenv("TENON_GITHUB_ACTIONS_WORKFLOW_FILE", "ci.yml")
     monkeypatch.setenv("SMTP_PASSWORD", "supers3cret")

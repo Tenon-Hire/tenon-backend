@@ -198,3 +198,26 @@ def test_build_test_results_uses_db_conclusion_for_timeout():
         max_output_chars=5,
     )
     assert result["timeout"] is True
+
+
+def test_build_test_results_infers_timeout_from_conclusion_only():
+    sub = SimpleNamespace(
+        tests_passed=None,
+        tests_failed=None,
+        test_output=None,
+        workflow_run_id="77",
+        commit_sha=None,
+        last_run_at=None,
+        workflow_run_conclusion="timed_out",
+    )
+    result = submissions._build_test_results(
+        sub,
+        parsed_output=None,
+        workflow_url=None,
+        commit_url=None,
+        include_output=False,
+        max_output_chars=5,
+    )
+
+    assert result["timeout"] is True
+    assert result["conclusion"] == "timed_out"

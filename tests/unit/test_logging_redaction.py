@@ -31,6 +31,18 @@ def test_attach_filter_to_handlers():
     assert any("RedactionFilter" in str(f.__class__) for f in handler.filters)
 
 
+def test_root_handlers_receive_filter():
+    root = logging.getLogger()
+    handler = logging.StreamHandler()
+    root.addHandler(handler)
+    try:
+        handler.filters.clear()
+        configure_logging()
+        assert any(isinstance(f, logging_mod.RedactionFilter) for f in handler.filters)
+    finally:
+        root.removeHandler(handler)
+
+
 def test_redaction_handles_nested_values_and_messages(caplog):
     configure_logging()
     # Directly exercise helper paths for list/tuple and message redaction.

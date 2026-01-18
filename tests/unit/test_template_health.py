@@ -186,6 +186,27 @@ async def test_template_health_workflow_file_rate_limited():
 
 
 @pytest.mark.asyncio
+async def test_template_health_workflow_file_unreadable_other_error():
+    class StubGithubClient:
+        async def get_repo(self, repo_full_name: str):
+            return {"default_branch": "main"}
+
+        async def get_branch(self, repo_full_name: str, branch: str):
+            return {"commit": {"sha": "abc"}}
+
+        async def get_file_contents(self, *_args, **_kwargs):
+            raise GithubError("boom", status_code=500)
+
+    response = await check_template_health(
+        StubGithubClient(),
+        workflow_file="tenon-ci.yml",
+        mode="static",
+        template_keys=[next(iter(TEMPLATE_CATALOG))],
+    )
+    assert "workflow_file_unreadable" in response.templates[0].errors
+
+
+@pytest.mark.asyncio
 async def test_run_live_check_artifact_error_and_expired(monkeypatch):
     now_iso = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     completed_run = WorkflowRun(

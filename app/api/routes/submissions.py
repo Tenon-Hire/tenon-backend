@@ -199,8 +199,6 @@ def _build_test_results(
 
     if run_id is None and workflow_run_id:
         run_id = _safe_int(workflow_run_id) or workflow_run_id
-    if timeout is None and conclusion == "timed_out":
-        timeout = True
 
     if (
         status_str is None
