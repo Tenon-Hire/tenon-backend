@@ -113,11 +113,24 @@ class RecruiterTestResultsOut(APIModel):
     passed: int | None = None
     failed: int | None = None
     total: int | None = None
+    runId: int | str | None = None
+    runStatus: str | None = None
+    conclusion: str | None = None
+    timeout: bool | None = None
+    stdout: str | None = None
+    stderr: str | None = None
+    summary: dict[str, object] | None = None
+    stdoutTruncated: bool | None = None
+    stderrTruncated: bool | None = None
+    artifactName: str | None = None
+    artifactPresent: bool | None = None
+    artifactErrorCode: str | None = None
     output: dict[str, object] | str | None = None
     lastRunAt: datetime | None = None
     workflowRunId: str | None = None
     commitSha: str | None = None
     workflowUrl: str | None = None
+    commitUrl: str | None = None
 
 
 class RecruiterSubmissionDetailOut(APIModel):
@@ -153,6 +166,7 @@ class RecruiterSubmissionListItemOut(APIModel):
     commitUrl: str | None = None
     diffUrl: str | None = None
     diffSummary: dict[str, object] | str | None = None
+    testResults: RecruiterTestResultsOut | None = None
 
 
 class RecruiterSubmissionListOut(APIModel):
