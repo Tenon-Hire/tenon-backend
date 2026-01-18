@@ -228,3 +228,106 @@ async def test_recruiter_list_scoped_to_owner(
     assert resp.status_code == 200, resp.text
     items = resp.json()["items"]
     assert {item["submissionId"] for item in items} == {sub1.id}
+
+
+@pytest.mark.asyncio
+async def test_recruiter_submission_detail_includes_artifact_metadata(
+    async_client, async_session: AsyncSession
+):
+    recruiter = await create_recruiter(async_session, email="detail@test.com")
+    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    cs = await create_candidate_session(async_session, simulation=sim, status="started")
+
+    long_stdout = "log-" * 1500
+    output = {
+        "status": "failed",
+        "passed": 2,
+        "failed": 1,
+        "total": 3,
+        "stdout": long_stdout,
+        "stderr": "short error",
+        "runId": 777,
+        "conclusion": "failure",
+        "summary": {"note": "check"},
+    }
+    sub = await create_submission(
+        async_session,
+        candidate_session=cs,
+        task=tasks[0],
+        code_repo_path="acme/repo1",
+        commit_sha="deadbeef",
+        workflow_run_id="42",
+        diff_summary_json=json.dumps({"base": "base-branch", "head": "feature"}),
+        test_output=json.dumps(output),
+        last_run_at=datetime.now(UTC),
+    )
+
+    resp = await async_client.get(
+        f"/api/submissions/{sub.id}",
+        headers={"x-dev-user-email": recruiter.email},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+
+    assert body["workflowUrl"].endswith("/actions/runs/42")
+    assert body["commitUrl"].endswith("/commit/deadbeef")
+    assert body["diffUrl"].endswith("/compare/base-branch...feature")
+    assert body["code"]["repoFullName"] == "acme/repo1"
+
+    test_results = body["testResults"]
+    assert test_results["status"] == "failed"
+    assert test_results["total"] == 3
+    assert test_results["runId"] == 777
+    assert test_results["workflowRunId"] == "42"
+    assert test_results["conclusion"] == "failure"
+    assert test_results["summary"] == {"note": "check"}
+    assert test_results["stdout"].endswith("(truncated)")
+    assert len(test_results["stdout"]) < len(long_stdout)
+    assert test_results["output"]["stdout"].endswith("(truncated)")
+    assert test_results["stderr"] == "short error"
+
+
+@pytest.mark.asyncio
+async def test_recruiter_submission_list_includes_test_results(
+    async_client, async_session: AsyncSession
+):
+    recruiter = await create_recruiter(async_session, email="listmeta@test.com")
+    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    cs = await create_candidate_session(async_session, simulation=sim, status="started")
+
+    output = {
+        "status": "passed",
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "stdout": "great",
+        "stderr": "",
+        "runId": 991,
+        "conclusion": "success",
+    }
+    sub = await create_submission(
+        async_session,
+        candidate_session=cs,
+        task=tasks[0],
+        code_repo_path="acme/repo2",
+        commit_sha="cafebabe",
+        workflow_run_id="321",
+        diff_summary_json=json.dumps({"base": "main", "head": "feature2"}),
+        test_output=json.dumps(output),
+        last_run_at=datetime.now(UTC),
+    )
+
+    resp = await async_client.get(
+        "/api/submissions",
+        headers={"x-dev-user-email": recruiter.email},
+    )
+    assert resp.status_code == 200, resp.text
+    item = next(i for i in resp.json()["items"] if i["submissionId"] == sub.id)
+    test_results = item["testResults"]
+    assert test_results["status"] == "passed"
+    assert test_results["passed"] == 4
+    assert test_results["failed"] == 0
+    assert test_results["total"] == 4
+    assert test_results["workflowUrl"].endswith("/actions/runs/321")
+    assert test_results["commitUrl"].endswith("/commit/cafebabe")
+    assert item["diffUrl"].endswith("/compare/main...feature2")
