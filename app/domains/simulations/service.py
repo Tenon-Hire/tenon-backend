@@ -16,11 +16,14 @@ from app.domains.common.types import CANDIDATE_SESSION_STATUS_COMPLETED
 from app.domains.simulations import repository as sim_repo
 from app.domains.simulations.blueprints import DEFAULT_5_DAY_BLUEPRINT
 from app.domains.tasks.template_catalog import (
+    ALLOWED_TEMPLATE_KEYS,
     DEFAULT_TEMPLATE_KEY,
+    TemplateKeyError,
     resolve_template_repo_full_name,
     validate_template_key,
 )
 from app.infra.config import settings
+from app.infra.errors import ApiError
 
 INVITE_TOKEN_TTL_DAYS = 14
 
@@ -74,9 +77,19 @@ async def create_simulation_with_tasks(
     db: AsyncSession, payload, user: Any
 ) -> tuple[Simulation, list[Task]]:
     """Create simulation and seed default tasks."""
-    template_key = validate_template_key(
-        getattr(payload, "templateKey", DEFAULT_TEMPLATE_KEY) or DEFAULT_TEMPLATE_KEY
-    )
+    try:
+        template_key = validate_template_key(
+            getattr(payload, "templateKey", DEFAULT_TEMPLATE_KEY)
+            or DEFAULT_TEMPLATE_KEY
+        )
+    except TemplateKeyError as exc:
+        allowed = sorted(ALLOWED_TEMPLATE_KEYS)
+        raise ApiError(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid templateKey. Allowed: " + ", ".join(allowed),
+            error_code="INVALID_TEMPLATE_KEY",
+            details={"allowed": allowed},
+        ) from exc
 
     sim = Simulation(
         title=payload.title,

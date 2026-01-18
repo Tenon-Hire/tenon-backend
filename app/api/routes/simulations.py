@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.github_native import get_github_client
 from app.api.dependencies.notifications import get_email_service
+from app.api.error_utils import map_github_error
 from app.domains import CandidateSession
 from app.domains.candidate_sessions.schemas import (
     CandidateInviteErrorResponse,
@@ -220,7 +221,7 @@ async def create_candidate_invite(
             prefix=repo_prefix, candidate_session=cs, task=task
         )
         logger.error(
-            f"github_workspace_preprovision_failed {exc}",
+            "github_workspace_preprovision_failed",
             extra={
                 "simulation_id": simulation_id,
                 "candidate_session_id": cs.id,
@@ -228,13 +229,10 @@ async def create_candidate_invite(
                 "day_index": task.day_index,
                 "template_repo": template_repo,
                 "repo_name": repo_name,
-                "error": str(exc),
+                "status_code": getattr(exc, "status_code", None),
             },
         )
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="GitHub unavailable. Please try again.",
-        ) from exc
+        raise map_github_error(exc) from exc
 
     await notification_service.send_invite_email(
         db,

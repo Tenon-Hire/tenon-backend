@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.error_utils import register_error_handlers
 from app.api.routes import (
     admin_templates,
     auth,
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
     _configure_request_limits(app)
     _configure_cors(app)
     _register_routers(app)
+    register_error_handlers(app)
 
     return app
 
