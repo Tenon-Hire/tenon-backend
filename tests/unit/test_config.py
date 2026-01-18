@@ -182,3 +182,18 @@ def test_merge_legacy_validator_uses_env(monkeypatch):
 
 def test_cors_coerce_fallback_returns_value():
     assert CorsSettings._coerce_origins(123) == 123
+
+
+def test_settings_coerce_trusted_proxies_and_dev_bypass(monkeypatch):
+    monkeypatch.setenv("TENON_DEV_AUTH_BYPASS", "1")
+    s = Settings(
+        DATABASE_URL="sqlite:///x",
+        AUTH0_DOMAIN="example.auth0.com",
+        AUTH0_API_AUDIENCE="aud",
+        TRUSTED_PROXY_CIDRS="10.0.0.0/8",
+        ENV="test",
+    )
+    assert s._coerce_trusted_proxy_cidrs("10.0.0.0/8") == ["10.0.0.0/8"]
+    assert s.dev_auth_bypass_enabled is True
+    with pytest.raises(ValueError):
+        Settings(ENV="prod")

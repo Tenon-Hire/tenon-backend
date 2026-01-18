@@ -378,3 +378,13 @@ def test_decode_auth0_token_does_not_pass_leeway_kwarg(monkeypatch):
 
     claims = auth0.decode_auth0_token("tok")
     assert claims["email"] == "ok@example.com"
+
+
+def test_auth_settings_properties_and_algorithms():
+    obj = auth0.settings.auth
+    obj.AUTH0_DOMAIN = "tenant.auth0.com"
+    obj.AUTH0_API_AUDIENCE = "api://aud"
+    obj.AUTH0_ALGORITHMS = "RS256,HS256"
+    assert obj.issuer.endswith("/")
+    assert obj.jwks_url.endswith(".well-known/jwks.json")
+    assert obj.algorithms == ["RS256", "HS256"]

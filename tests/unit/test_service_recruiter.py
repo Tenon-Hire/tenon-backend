@@ -75,3 +75,25 @@ async def test_list_submissions_applies_filters():
     rows = await svc.list_submissions(session, 1, candidate_session_id=2, task_id=3)
     assert rows == [("row",)]
     assert session.received is not None
+
+
+@pytest.mark.asyncio
+async def test_list_submissions_with_limit_offset():
+    class DummyResult:
+        def all(self):
+            return []
+
+    class DummySession:
+        def __init__(self):
+            self.received = None
+
+        async def execute(self, stmt):
+            self.received = stmt
+            return DummyResult()
+
+    session = DummySession()
+    rows = await svc.list_submissions(
+        session, 1, candidate_session_id=None, task_id=None, limit=1, offset=1
+    )
+    assert rows == []
+    assert session.received is not None

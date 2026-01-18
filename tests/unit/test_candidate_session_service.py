@@ -179,6 +179,40 @@ def test_normalize_email_non_string():
     assert cs_service._normalize_email(123) == ""
 
 
+def test_ensure_candidate_ownership_variants():
+    principal = _principal("owner@example.com")
+    cs = type(
+        "CS",
+        (),
+        {
+            "invite_email": "owner@example.com",
+            "candidate_auth0_sub": "auth0|owner@example.com",
+            "candidate_email": None,
+            "candidate_auth0_email": None,
+            "status": "in_progress",
+        },
+    )()
+    changed = cs_service._ensure_candidate_ownership(
+        cs, principal, now=datetime.now(UTC)
+    )
+    assert changed is True
+    assert cs.candidate_email == "owner@example.com"
+
+    cs_different = type(
+        "CS",
+        (),
+        {
+            "invite_email": "owner@example.com",
+            "candidate_auth0_sub": "other",
+            "status": "in_progress",
+        },
+    )()
+    with pytest.raises(HTTPException):
+        cs_service._ensure_candidate_ownership(
+            cs_different, principal, now=datetime.now(UTC)
+        )
+
+
 @pytest.mark.asyncio
 async def test_invite_list_for_principal_includes_progress(async_session):
     recruiter = await create_recruiter(async_session, email="list@sim.com")

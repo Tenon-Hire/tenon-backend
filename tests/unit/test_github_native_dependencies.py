@@ -12,7 +12,10 @@ def test_actions_runner_singleton_reused_and_custom_client_gets_new_runner():
 
     assert runner1 is runner2
     assert runner1.client is default_client
-    assert runner1.workflow_file == github_native.settings.github.GITHUB_ACTIONS_WORKFLOW_FILE
+    assert (
+        runner1.workflow_file
+        == github_native.settings.github.GITHUB_ACTIONS_WORKFLOW_FILE
+    )
 
     custom_client = GithubClient(
         base_url="https://api.github.com", token="custom-token", default_org="org"

@@ -16,3 +16,9 @@ async def test_get_by_token_for_update(async_session):
     found = await cs_repo.get_by_token_for_update(async_session, cs.token)
     assert found is not None
     assert found.id == cs.id
+
+
+@pytest.mark.asyncio
+async def test_last_submission_helpers(async_session):
+    assert await cs_repo.last_submission_at(async_session, 1) is None
+    assert await cs_repo.last_submission_at_bulk(async_session, []) == {}

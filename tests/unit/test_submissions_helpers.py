@@ -80,3 +80,14 @@ def test_build_test_results_redacts_tokens_and_marks_timeout():
     assert result["stderrTruncated"] is True
     assert "[redacted" in (result["output"]["stdout"] or "")
     assert "[redacted" in (result["output"]["stderr"] or "")
+
+
+def test_submissions_helper_redaction_and_truncate():
+    assert submissions._redact_text(None) is None
+    redacted = submissions._redact_text("Authorization: Bearer secret-token")
+    assert "redacted" in redacted
+    text, truncated = submissions._truncate_output("short", max_chars=10)
+    assert text == "short" and truncated is False
+    text, truncated = submissions._truncate_output("longertext", max_chars=3)
+    assert text.endswith("... (truncated)") and truncated is True
+    assert submissions._parse_diff_summary("{bad") is None

@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import pytest
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
@@ -75,6 +77,23 @@ def test_extract_principal_supports_url_claim_keys(monkeypatch):
     p = principal._extract_principal(claims)  # type: ignore[attr-defined]
     assert p.email == "x@y.com"
     assert "recruiter:access" in p.permissions
+
+
+@pytest.mark.asyncio
+async def test_require_permissions_blocks_missing():
+    dep = principal.require_permissions(["needed"])
+
+    class DummyPrincipal:
+        permissions: ClassVar[list[str]] = []
+
+    with pytest.raises(HTTPException):
+        await dep(DummyPrincipal())  # type: ignore[arg-type]
+
+    class HasPerms:
+        permissions: ClassVar[list[str]] = ["needed"]
+
+    result = await dep(HasPerms())  # type: ignore[arg-type]
+    assert result.permissions == ["needed"]
 
 
 @pytest.mark.asyncio

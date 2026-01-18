@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy.exc import IntegrityError
@@ -307,3 +308,23 @@ async def test_list_candidates_with_profile(async_session):
     )
     rows = await sim_service.list_candidates_with_profile(async_session, sim.id)
     assert rows and rows[0][0].id == cs.id
+
+
+@pytest.mark.asyncio
+async def test_create_simulation_with_tasks_invalid_template():
+    payload = type(
+        "Payload",
+        (),
+        {
+            "title": "t",
+            "role": "r",
+            "techStack": "ts",
+            "seniority": "s",
+            "focus": "f",
+            "templateKey": "invalid-key",
+        },
+    )()
+    with pytest.raises(sim_service.ApiError):
+        await sim_service.create_simulation_with_tasks(
+            None, payload, SimpleNamespace(id=1, company_id=1)
+        )

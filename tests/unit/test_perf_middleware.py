@@ -77,3 +77,17 @@ async def test_attach_sqlalchemy_listeners_guard(monkeypatch):
         await engine.dispose()
     # Reset for other tests that may rely on defaults.
     perf._listeners_attached = False
+
+
+def test_clear_request_stats_error_path(monkeypatch):
+    class BrokenCtx:
+        def reset(self, token):
+            raise RuntimeError("boom")
+
+        def set(self, value):
+            self.value = value
+            return value
+
+    token = perf._start_request_stats()
+    monkeypatch.setattr(perf, "_perf_ctx", BrokenCtx())
+    perf._clear_request_stats(token)

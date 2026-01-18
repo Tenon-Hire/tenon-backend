@@ -5,8 +5,8 @@ from app.infra.notifications.email_provider import (
     ConsoleEmailProvider,
     EmailSendError,
     ResendEmailProvider,
-    SMTPEmailProvider,
     SendGridEmailProvider,
+    SMTPEmailProvider,
 )
 from app.services.email import EmailService
 
@@ -18,13 +18,17 @@ def _reset_email_cache():
 
 
 def test_build_provider_variants(monkeypatch):
-    monkeypatch.setattr(notifications.settings.email, "TENON_EMAIL_FROM", "noreply@test")
+    monkeypatch.setattr(
+        notifications.settings.email, "TENON_EMAIL_FROM", "noreply@test"
+    )
 
     monkeypatch.setattr(notifications.settings.email, "TENON_EMAIL_PROVIDER", "resend")
     monkeypatch.setattr(notifications.settings.email, "TENON_RESEND_API_KEY", "key")
     assert isinstance(notifications._build_provider(), ResendEmailProvider)
 
-    monkeypatch.setattr(notifications.settings.email, "TENON_EMAIL_PROVIDER", "sendgrid")
+    monkeypatch.setattr(
+        notifications.settings.email, "TENON_EMAIL_PROVIDER", "sendgrid"
+    )
     monkeypatch.setattr(notifications.settings.email, "SENDGRID_API_KEY", "sg-key")
     assert isinstance(notifications._build_provider(), SendGridEmailProvider)
 

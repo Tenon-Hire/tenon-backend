@@ -57,3 +57,11 @@ async def test_send_invite_email_tracks_status_and_rate_limit(async_session):
     assert cs.invite_email_status == "rate_limited"
     assert cs.invite_email_error == "Rate limited"
     assert len(provider.sent) == 1  # no extra send
+
+
+def test_invite_email_content_and_rate_limit_helpers():
+    now = datetime.now(UTC)
+    # _rate_limited returns False when last attempt None
+    assert notification_service._rate_limited(None, now, 30) is False
+    # _sanitize_error trims length
+    assert notification_service._sanitize_error("a" * 300).endswith("a")

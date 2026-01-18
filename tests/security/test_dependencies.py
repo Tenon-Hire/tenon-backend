@@ -130,3 +130,14 @@ async def test_dev_bypass_returns_none_for_prod_env(monkeypatch):
     req = _make_request({"x-dev-user-email": "prod@local.test"})
     monkeypatch.setattr(dependencies, "_env_name", lambda: "prod")
     assert await dependencies._dev_bypass_user(req, None) is None
+
+
+@pytest.mark.asyncio
+async def test_user_from_principal_creates_user(monkeypatch, async_session):
+    principal = type(
+        "P",
+        (),
+        {"email": "newuser@example.com", "name": "New User"},
+    )()
+    user = await dependencies._user_from_principal(principal, async_session)
+    assert user.email == principal.email

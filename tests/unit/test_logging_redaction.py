@@ -20,3 +20,11 @@ def test_log_redaction_masks_bearer_token(caplog):
 
     record = caplog.records[0]
     assert record.headers["authorization"] == "[redacted]"
+
+
+def test_attach_filter_to_handlers():
+    handler = logging.StreamHandler()
+    root = logging.getLogger("attach")
+    root.addHandler(handler)
+    configure_logging()
+    assert any("RedactionFilter" in str(f.__class__) for f in handler.filters)

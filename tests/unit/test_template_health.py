@@ -5,7 +5,12 @@ from datetime import UTC, datetime
 
 import pytest
 
-from app.domains.github_native import GithubError, WorkflowRun
+from app.domains.github_native import (
+    GithubClient,
+    GithubError,
+    WorkflowRun,
+    template_health,
+)
 from app.domains.github_native.template_health import (
     _decode_contents,
     check_template_health,
@@ -27,6 +32,110 @@ def test_workflow_contract_errors_ok():
     assert checks["workflowHasUploadArtifact"] is True
     assert checks["workflowHasArtifactName"] is True
     assert checks["workflowHasTestResultsJson"] is True
+
+
+def test_validate_and_decode_helpers():
+    assert template_health._validate_test_results_schema(
+        {"passed": 1, "failed": 0, "total": 1, "stdout": "", "stderr": ""}
+    )
+    assert template_health._validate_test_results_schema({"passed": True}) is False
+    assert (
+        template_health._decode_contents({"content": "bad", "encoding": "base64"})
+        is None
+    )
+    assert template_health._decode_contents({"content": "plain"}) == "plain"
+    assert template_health._extract_test_results_json(b"badzip") is None
+    errors, _ = template_health.workflow_contract_errors("missing")
+    assert "workflow_missing_upload_artifact" in errors
+    assert (
+        template_health._classify_github_error(GithubError("x", status_code=403))
+        == "github_forbidden"
+    )
+
+
+class _LiveStubClient(GithubClient):
+    def __init__(self, responses):
+        super().__init__(base_url="https://api.github.com", token="x")
+        self.responses = responses
+
+    async def trigger_workflow_dispatch(self, *a, **k):
+        if self.responses.get("dispatch_error"):
+            raise self.responses["dispatch_error"]
+
+    async def list_workflow_runs(self, *a, **k):
+        if "list_error" in self.responses:
+            raise self.responses["list_error"]
+        return self.responses.get("runs", [])
+
+    async def list_artifacts(self, *a, **k):
+        if "artifact_error" in self.responses:
+            raise self.responses["artifact_error"]
+        return self.responses.get("artifacts", [])
+
+    async def download_artifact_zip(self, *a, **k):
+        if "download_error" in self.responses:
+            raise self.responses["download_error"]
+        return self.responses.get("zip", b"")
+
+
+@pytest.mark.asyncio
+async def test_run_live_check_error_paths():
+    now_iso = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    completed_run = WorkflowRun(
+        id=1,
+        status="completed",
+        conclusion="failure",
+        html_url="",
+        head_sha="",
+        event="workflow_dispatch",
+        created_at=now_iso,
+    )
+    client = _LiveStubClient({"dispatch_error": GithubError("deny", status_code=403)})
+    result = await template_health._run_live_check(
+        client,
+        repo_full_name="org/repo",
+        workflow_file="wf",
+        default_branch="main",
+        timeout_seconds=1,
+    )
+    assert "github_forbidden" in result.errors
+
+    client = _LiveStubClient({"list_error": GithubError("rate", status_code=429)})
+    result = await template_health._run_live_check(
+        client,
+        repo_full_name="org/repo",
+        workflow_file="wf",
+        default_branch="main",
+        timeout_seconds=1,
+    )
+    assert "github_rate_limited" in result.errors
+
+    client = _LiveStubClient({"runs": []})
+    result = await template_health._run_live_check(
+        client,
+        repo_full_name="org/repo",
+        workflow_file="wf",
+        default_branch="main",
+        timeout_seconds=0,
+    )
+    assert "workflow_run_timeout" in result.errors
+
+    client = _LiveStubClient(
+        {
+            "runs": [completed_run],
+            "artifacts": [
+                {"name": template_health.LEGACY_ARTIFACT_NAME, "expired": False}
+            ],
+        }
+    )
+    result = await template_health._run_live_check(
+        client,
+        repo_full_name="org/repo",
+        workflow_file="wf",
+        default_branch="main",
+        timeout_seconds=1,
+    )
+    assert "artifact_legacy_name_simuhire" in result.errors
 
 
 def test_workflow_contract_errors_missing_json():

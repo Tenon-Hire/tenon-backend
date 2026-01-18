@@ -157,3 +157,12 @@ async def test_smtp_provider_send(monkeypatch):
     assert calls["starttls"] == 1
     assert calls["login"] == 1
     assert calls["send"] == 1
+
+
+def test_provider_validation_errors():
+    with pytest.raises(ValueError):
+        ResendEmailProvider("", sender="s")
+    with pytest.raises(ValueError):
+        SendGridEmailProvider("", sender="s")
+    with pytest.raises(ValueError):
+        SMTPEmailProvider("", sender="s")

@@ -2,6 +2,7 @@ import pytest
 from fastapi import FastAPI, Request
 from httpx import ASGITransport, AsyncClient
 
+from app.infra import proxy_headers
 from app.infra.proxy_headers import TrustedProxyHeadersMiddleware
 
 
@@ -34,3 +35,9 @@ async def test_untrusted_proxy_ignores_x_forwarded_for():
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         resp = await client.get("/ip", headers={"X-Forwarded-For": "203.0.113.5"})
     assert resp.json()["host"] == "127.0.0.1"
+
+
+def test_proxy_header_helper_validation():
+    assert proxy_headers._is_valid_ip("invalid") is False
+    assert proxy_headers._is_valid_cidr("bad") is False
+    assert proxy_headers._ip_in_trusted("127.0.0.1", []) is False
