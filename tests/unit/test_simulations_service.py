@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 
 from app.domains import CandidateSession
@@ -307,3 +309,293 @@ async def test_list_candidates_with_profile(async_session):
     )
     rows = await sim_service.list_candidates_with_profile(async_session, sim.id)
     assert rows and rows[0][0].id == cs.id
+
+
+@pytest.mark.asyncio
+async def test_create_simulation_with_tasks_invalid_template():
+    payload = type(
+        "Payload",
+        (),
+        {
+            "title": "t",
+            "role": "r",
+            "techStack": "ts",
+            "seniority": "s",
+            "focus": "f",
+            "templateKey": "invalid-key",
+        },
+    )()
+    with pytest.raises(sim_service.ApiError):
+        await sim_service.create_simulation_with_tasks(
+            None, payload, SimpleNamespace(id=1, company_id=1)
+        )
+
+
+@pytest.mark.asyncio
+async def test_require_owned_simulation_with_tasks_raises(monkeypatch):
+    async def _return_none(*_a, **_k):
+        return None, []
+
+    monkeypatch.setattr(sim_service.sim_repo, "get_owned_with_tasks", _return_none)
+    with pytest.raises(Exception) as excinfo:
+        await sim_service.require_owned_simulation_with_tasks(None, 1, 2)
+    assert excinfo.value.status_code == 404
+
+
+def test_invite_is_expired_with_none():
+    cs = SimpleNamespace(expires_at=None)
+    assert sim_service._invite_is_expired(cs, now=datetime.now(UTC)) is False
+
+
+@pytest.mark.asyncio
+async def test_refresh_invite_token_retries_on_integrity(monkeypatch):
+    class DummyDB:
+        def __init__(self):
+            self.calls = 0
+
+        def begin_nested(self):
+            return self
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def flush(self):
+            self.calls += 1
+            if self.calls == 1:
+                raise IntegrityError("", "", "")
+
+    cs = CandidateSession(
+        simulation_id=1,
+        candidate_name="Retry",
+        invite_email="retry@test.com",
+        token="tok",
+        status="not_started",
+    )
+    db = DummyDB()
+    refreshed = await sim_service._refresh_invite_token(db, cs, now=datetime.now(UTC))
+    assert refreshed.token != "tok"
+    assert db.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_create_or_resend_invite_rejects_completed_when_created(monkeypatch):
+    cs = CandidateSession(
+        simulation_id=1,
+        candidate_name="Done",
+        invite_email="done@test.com",
+        token="tok",
+        status=CANDIDATE_SESSION_STATUS_COMPLETED,
+    )
+
+    async def fake_get_for_update(db, simulation_id, invite_email):
+        return None
+
+    async def fake_create_invite(db, simulation_id, payload, now=None):
+        return cs, False
+
+    monkeypatch.setattr(
+        sim_service.cs_repo,
+        "get_by_simulation_and_email_for_update",
+        fake_get_for_update,
+    )
+    monkeypatch.setattr(sim_service, "create_invite", fake_create_invite)
+
+    with pytest.raises(sim_service.InviteRejectedError):
+        await sim_service.create_or_resend_invite(
+            db=None,
+            simulation_id=1,
+            payload=SimpleNamespace(inviteEmail="done@test.com"),
+            now=datetime.now(UTC),
+        )
+
+
+@pytest.mark.asyncio
+async def test_require_owned_simulation_with_tasks_success(async_session):
+    recruiter = await create_recruiter(async_session, email="owned@test.com")
+    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    found_sim, found_tasks = await sim_service.require_owned_simulation_with_tasks(
+        async_session, sim.id, recruiter.id
+    )
+    assert found_sim.id == sim.id
+    assert [t.id for t in found_tasks] == [t.id for t in tasks]
+
+
+@pytest.mark.asyncio
+async def test_refresh_invite_token_exhausts_retries(monkeypatch):
+    class DummyDB:
+        def begin_nested(self):
+            return self
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def flush(self):
+            raise IntegrityError("", "", "")
+
+    cs = CandidateSession(
+        simulation_id=1,
+        candidate_name="Retry",
+        invite_email="retry@test.com",
+        token="tok",
+        status="not_started",
+    )
+    with pytest.raises(HTTPException):
+        await sim_service._refresh_invite_token(DummyDB(), cs, now=datetime.now(UTC))
+
+
+@pytest.mark.asyncio
+async def test_create_or_resend_invite_existing_completed(monkeypatch):
+    existing = CandidateSession(
+        simulation_id=1,
+        candidate_name="Done",
+        invite_email="done@test.com",
+        token="tok",
+        status=CANDIDATE_SESSION_STATUS_COMPLETED,
+    )
+
+    async def fake_get_for_update(db, simulation_id, invite_email):
+        return existing
+
+    monkeypatch.setattr(
+        sim_service.cs_repo,
+        "get_by_simulation_and_email_for_update",
+        fake_get_for_update,
+    )
+    with pytest.raises(sim_service.InviteRejectedError):
+        await sim_service.create_or_resend_invite(
+            db=None,
+            simulation_id=1,
+            payload=SimpleNamespace(inviteEmail="done@test.com"),
+            now=datetime.now(UTC),
+        )
+
+
+@pytest.mark.asyncio
+async def test_create_or_resend_invite_refreshes_new_expired(monkeypatch):
+    cs = CandidateSession(
+        simulation_id=1,
+        candidate_name="Soon",
+        invite_email="soon@test.com",
+        token="tok",
+        status="not_started",
+        expires_at=datetime.now(UTC) - timedelta(days=1),
+    )
+
+    async def fake_get_for_update(db, simulation_id, invite_email):
+        return None
+
+    async def fake_create_invite(db, simulation_id, payload, now=None):
+        return cs, False
+
+    class DummyDB:
+        def __init__(self):
+            self.commits = 0
+
+        def begin_nested(self):
+            return self
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def commit(self):
+            self.commits += 1
+
+        async def refresh(self, obj):
+            self.refreshed = obj
+
+        async def flush(self):
+            return None
+
+    db = DummyDB()
+    monkeypatch.setattr(
+        sim_service.cs_repo,
+        "get_by_simulation_and_email_for_update",
+        fake_get_for_update,
+    )
+    monkeypatch.setattr(sim_service, "create_invite", fake_create_invite)
+
+    refreshed, outcome = await sim_service.create_or_resend_invite(
+        db=db,
+        simulation_id=1,
+        payload=SimpleNamespace(inviteEmail="soon@test.com"),
+        now=datetime.now(UTC),
+    )
+    assert outcome == "created"
+    assert db.commits == 1
+
+
+@pytest.mark.asyncio
+async def test_create_or_resend_invite_returns_created_when_new(monkeypatch):
+    cs = CandidateSession(
+        simulation_id=1,
+        candidate_name="Fresh",
+        invite_email="fresh@test.com",
+        token="tok",
+        status="not_started",
+        expires_at=datetime.now(UTC) + timedelta(days=1),
+    )
+
+    async def fake_get_for_update(db, simulation_id, invite_email):
+        return None
+
+    async def fake_create_invite(db, simulation_id, payload, now=None):
+        return cs, True
+
+    monkeypatch.setattr(
+        sim_service.cs_repo,
+        "get_by_simulation_and_email_for_update",
+        fake_get_for_update,
+    )
+    monkeypatch.setattr(sim_service, "create_invite", fake_create_invite)
+
+    created, outcome = await sim_service.create_or_resend_invite(
+        db=None,
+        simulation_id=1,
+        payload=SimpleNamespace(inviteEmail="fresh@test.com"),
+        now=datetime.now(UTC),
+    )
+    assert outcome == "created"
+    assert created is cs
+
+
+@pytest.mark.asyncio
+async def test_create_or_resend_invite_returns_resent_for_new_active(monkeypatch):
+    cs = CandidateSession(
+        simulation_id=1,
+        candidate_name="Active",
+        invite_email="active@test.com",
+        token="tok",
+        status="not_started",
+        expires_at=datetime.now(UTC) + timedelta(days=1),
+    )
+
+    async def fake_get_for_update(db, simulation_id, invite_email):
+        return None
+
+    async def fake_create_invite(db, simulation_id, payload, now=None):
+        return cs, False
+
+    monkeypatch.setattr(
+        sim_service.cs_repo,
+        "get_by_simulation_and_email_for_update",
+        fake_get_for_update,
+    )
+    monkeypatch.setattr(sim_service, "create_invite", fake_create_invite)
+
+    created, outcome = await sim_service.create_or_resend_invite(
+        db=None,
+        simulation_id=1,
+        payload=SimpleNamespace(inviteEmail="active@test.com"),
+        now=datetime.now(UTC),
+    )
+    assert outcome == "resent"
+    assert created is cs

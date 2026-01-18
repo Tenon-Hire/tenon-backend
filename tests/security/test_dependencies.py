@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 import pytest
 from fastapi import Request
+from sqlalchemy.exc import IntegrityError
 
 from app.infra.security import dependencies
 from tests.factories import create_recruiter
@@ -130,3 +131,68 @@ async def test_dev_bypass_returns_none_for_prod_env(monkeypatch):
     req = _make_request({"x-dev-user-email": "prod@local.test"})
     monkeypatch.setattr(dependencies, "_env_name", lambda: "prod")
     assert await dependencies._dev_bypass_user(req, None) is None
+
+
+@pytest.mark.asyncio
+async def test_user_from_principal_creates_user(monkeypatch, async_session):
+    principal = type(
+        "P",
+        (),
+        {"email": "newuser@example.com", "name": "New User"},
+    )()
+    user = await dependencies._user_from_principal(principal, async_session)
+    assert user.email == principal.email
+
+
+@pytest.mark.asyncio
+async def test_user_from_principal_uses_session_maker(monkeypatch):
+    principal = type("P", (), {"email": "maker@test.com", "name": "Maker"})()
+
+    async def fake_lookup(db, email):
+        return f"looked-{email}"
+
+    monkeypatch.setattr(dependencies, "_lookup_user", fake_lookup)
+    monkeypatch.setitem(
+        dependencies.sys.modules,
+        "app.infra.security.current_user",
+        type("mod", (), {"async_session_maker": _ctx_maker(object())}),
+    )
+    user = await dependencies._user_from_principal(principal, db=None)
+    assert user == "looked-maker@test.com"
+
+
+@pytest.mark.asyncio
+async def test_user_from_principal_handles_integrity_error(monkeypatch):
+    principal = type("P", (), {"email": "retry@test.com", "name": "Retry"})()
+    lookup_calls = []
+
+    async def fake_lookup(db, email):
+        lookup_calls.append(email)
+        if len(lookup_calls) == 1:
+            return None
+        return f"existing-{email}"
+
+    class DummyDB:
+        def __init__(self):
+            self.rollbacks = 0
+            self.commits = 0
+            self.added = None
+
+        def add(self, obj):
+            self.added = obj
+
+        async def commit(self):
+            self.commits += 1
+            raise IntegrityError("", "", "")
+
+        async def rollback(self):
+            self.rollbacks += 1
+
+        async def refresh(self, obj):
+            self.refreshed = obj
+
+    db = DummyDB()
+    monkeypatch.setattr(dependencies, "_lookup_user", fake_lookup)
+    user = await dependencies._user_from_principal(principal, db)
+    assert user == "existing-retry@test.com"
+    assert db.rollbacks == 1

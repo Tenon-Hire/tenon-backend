@@ -172,3 +172,40 @@ async def test_admin_template_health_run_live_invalid_keys(async_client, monkeyp
         headers={"X-Admin-Key": "test-admin-key"},
     )
     assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_admin_template_health_live_mode_rejected(async_client, monkeypatch):
+    monkeypatch.setattr(settings, "ADMIN_API_KEY", "test-admin-key")
+    resp = await async_client.get(
+        "/api/admin/templates/health?mode=live",
+        headers={"X-Admin-Key": "test-admin-key"},
+    )
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_admin_template_health_run_live_unknown_key(async_client, monkeypatch):
+    monkeypatch.setattr(settings, "ADMIN_API_KEY", "test-admin-key")
+    payload = {"templateKeys": ["does-not-exist"], "mode": "live"}
+    resp = await async_client.post(
+        "/api/admin/templates/health/run",
+        json=payload,
+        headers={"X-Admin-Key": "test-admin-key"},
+    )
+    assert resp.status_code == 422
+    assert "Invalid templateKeys" in resp.json().get("detail", "")
+
+
+@pytest.mark.asyncio
+async def test_admin_template_health_run_rejects_too_many_keys(
+    async_client, monkeypatch
+):
+    monkeypatch.setattr(settings, "ADMIN_API_KEY", "test-admin-key")
+    payload = {"templateKeys": ["a", "b", "c", "d", "e", "f"], "mode": "live"}
+    resp = await async_client.post(
+        "/api/admin/templates/health/run",
+        json=payload,
+        headers={"X-Admin-Key": "test-admin-key"},
+    )
+    assert resp.status_code == 422

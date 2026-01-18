@@ -182,3 +182,70 @@ def test_merge_legacy_validator_uses_env(monkeypatch):
 
 def test_cors_coerce_fallback_returns_value():
     assert CorsSettings._coerce_origins(123) == 123
+
+
+def test_settings_coerce_trusted_proxies_and_dev_bypass(monkeypatch):
+    monkeypatch.setenv("TENON_DEV_AUTH_BYPASS", "1")
+    s = Settings(
+        DATABASE_URL="sqlite:///x",
+        AUTH0_DOMAIN="example.auth0.com",
+        AUTH0_API_AUDIENCE="aud",
+        TRUSTED_PROXY_CIDRS="10.0.0.0/8",
+        ENV="test",
+    )
+    assert s._coerce_trusted_proxy_cidrs("10.0.0.0/8") == ["10.0.0.0/8"]
+    assert s.dev_auth_bypass_enabled is True
+    prod_settings = Settings(
+        DATABASE_URL="sqlite:///x",
+        AUTH0_DOMAIN="example.auth0.com",
+        AUTH0_API_AUDIENCE="aud",
+        ENV="prod",
+    )
+    assert prod_settings.dev_auth_bypass_enabled is True
+
+
+def test_to_async_url_passthrough_branch():
+    assert (
+        _to_async_url("mysql://user:pass@localhost/db")
+        == "mysql://user:pass@localhost/db"
+    )
+
+
+def test_trusted_proxy_coercion_variants(monkeypatch):
+    # list input is passed through
+    assert Settings._coerce_trusted_proxy_cidrs(["10.0.0.0/8"]) == ["10.0.0.0/8"]
+    # JSON array text parses correctly
+    assert Settings._coerce_trusted_proxy_cidrs('["10.0.0.0/8"]') == ["10.0.0.0/8"]
+    assert Settings._coerce_trusted_proxy_cidrs("[invalid") == ["[invalid"]
+
+
+def test_trusted_proxy_coercion_passthrough_other_types():
+    sentinel = object()
+    assert Settings._coerce_trusted_proxy_cidrs(sentinel) is sentinel
+
+
+def test_merge_legacy_prefers_env(monkeypatch):
+    monkeypatch.setenv("TENON_GITHUB_TOKEN", "t0k3n")
+    monkeypatch.setenv("TENON_GITHUB_ACTIONS_WORKFLOW_FILE", "ci.yml")
+    monkeypatch.setenv("SMTP_PASSWORD", "supers3cret")
+    merged = Settings._merge_legacy(
+        {
+            "database_url": "postgresql://db",
+            "auth0_domain": "auth.example.com",
+            "cors_allow_origin_regex": "^https://allowed",
+            "github_api_base": "https://api.github.com",
+            "email_provider": "smtp",
+        }
+    )
+    assert merged["database"]["DATABASE_URL"] == "postgresql://db"
+    assert merged["auth"]["AUTH0_DOMAIN"] == "auth.example.com"
+    assert merged["cors"]["CORS_ALLOW_ORIGIN_REGEX"] == "^https://allowed"
+    assert merged["github"]["GITHUB_API_BASE"] == "https://api.github.com"
+    assert merged["github"]["GITHUB_TOKEN"] == "t0k3n"
+    assert merged["github"]["GITHUB_ACTIONS_WORKFLOW_FILE"] == "ci.yml"
+    assert merged["email"]["SMTP_PASSWORD"] == "supers3cret"
+
+
+def test_merge_legacy_email_keys_uppercase():
+    merged = Settings._merge_legacy({"SMTP_HOST": "smtp.test"})
+    assert merged["email"]["SMTP_HOST"] == "smtp.test"

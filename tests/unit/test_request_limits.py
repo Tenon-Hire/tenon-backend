@@ -46,3 +46,15 @@ async def test_request_size_limit_blocks_streaming_body_without_content_length()
         resp = await client.post("/upload", content=stream)
     assert resp.status_code == 413
     assert resp.json()["detail"] == "Request body too large"
+
+
+@pytest.mark.asyncio
+async def test_request_size_limit_passes_through_non_http(monkeypatch):
+    called = {"ran": False}
+
+    async def app(scope, receive, send):
+        called["ran"] = True
+
+    middleware = RequestSizeLimitMiddleware(app, max_body_bytes=1)
+    await middleware({"type": "lifespan"}, lambda: None, lambda _m: None)
+    assert called["ran"] is True

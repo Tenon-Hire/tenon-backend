@@ -32,6 +32,13 @@ def test_throttle_includes_retry_after_header():
     assert excinfo.value.headers["Retry-After"].isdigit()
 
 
+def test_rate_limit_enabled_respects_setting(monkeypatch):
+    monkeypatch.setattr(rate_limit.settings, "RATE_LIMIT_ENABLED", True)
+    assert rate_limit.rate_limit_enabled() is True
+    monkeypatch.setattr(rate_limit.settings, "RATE_LIMIT_ENABLED", False)
+    assert rate_limit.rate_limit_enabled() is False
+
+
 @pytest.mark.asyncio
 async def test_concurrency_guard_limits_in_flight():
     limiter = rate_limit.RateLimiter()

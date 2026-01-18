@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import pytest
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
@@ -78,6 +80,23 @@ def test_extract_principal_supports_url_claim_keys(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_require_permissions_blocks_missing():
+    dep = principal.require_permissions(["needed"])
+
+    class DummyPrincipal:
+        permissions: ClassVar[list[str]] = []
+
+    with pytest.raises(HTTPException):
+        await dep(DummyPrincipal())  # type: ignore[arg-type]
+
+    class HasPerms:
+        permissions: ClassVar[list[str]] = ["needed"]
+
+    result = await dep(HasPerms())  # type: ignore[arg-type]
+    assert result.permissions == ["needed"]
+
+
+@pytest.mark.asyncio
 async def test_get_principal_auth0_error_does_not_crash(monkeypatch):
     def bad_decode(_token: str):
         raise auth0.Auth0Error("Invalid token")
@@ -86,5 +105,29 @@ async def test_get_principal_auth0_error_does_not_crash(monkeypatch):
     credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="tok")
     request = Request({"type": "http", "headers": [(b"x-request-id", b"req-1")]})
 
+    with pytest.raises(auth0.Auth0Error):
+        await principal.get_principal(credentials, request)
+
+
+@pytest.mark.asyncio
+async def test_get_principal_maps_jwks_failure(monkeypatch):
+    def bad_decode(_token: str):
+        raise auth0.Auth0Error("Auth provider unavailable", status_code=503)
+
+    monkeypatch.setattr(auth0, "decode_auth0_token", bad_decode)
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="tok")
+    request = Request({"type": "http", "headers": []})
+    with pytest.raises(auth0.Auth0Error):
+        await principal.get_principal(credentials, request)
+
+
+@pytest.mark.asyncio
+async def test_get_principal_maps_kid_not_found(monkeypatch):
+    def bad_decode(_token: str):
+        raise auth0.Auth0Error("Signing key not found")
+
+    monkeypatch.setattr(auth0, "decode_auth0_token", bad_decode)
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="tok")
+    request = Request({"type": "http", "headers": []})
     with pytest.raises(auth0.Auth0Error):
         await principal.get_principal(credentials, request)
