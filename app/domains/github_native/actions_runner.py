@@ -76,6 +76,9 @@ class GithubActionsRunner:
         self._artifact_cache: OrderedDict[
             tuple[str, int, int], tuple[ParsedTestResults | None, str | None]
         ] = OrderedDict()
+        self._artifact_list_cache: OrderedDict[tuple[str, int], list[dict[str, Any]]] = (
+            OrderedDict()
+        )
         self._poll_attempts: dict[tuple[str, int], int] = {}
         self._max_cache_entries = 128
         # Try preferred workflow file first, then Tenon defaults.
@@ -120,15 +123,17 @@ class GithubActionsRunner:
                     else None
                 )
                 if conclusion or status == "completed":
+                    cache_key = self._run_cache_key(repo_full_name, candidate.id)
                     result = await self._build_result(repo_full_name, candidate)
-                    self._cache_run_result((repo_full_name, candidate.id), result)
+                    self._cache_run_result(cache_key, result)
                     return result
             await asyncio.sleep(self.poll_interval_seconds)
 
         if candidate:
+            cache_key = self._run_cache_key(repo_full_name, candidate.id)
             result = self._normalize_run(candidate, running=True)
-            self._apply_backoff((repo_full_name, candidate.id), result)
-            self._cache_run_result((repo_full_name, candidate.id), result)
+            self._apply_backoff(cache_key, result)
+            self._cache_run_result(cache_key, result)
             return result
         raise GithubError("No workflow run found after dispatch")
 
@@ -170,9 +175,9 @@ class GithubActionsRunner:
         self, *, repo_full_name: str, run_id: int
     ) -> ActionsRunResult:
         """Fetch an existing workflow run and normalize."""
-        cache_key = (repo_full_name, run_id)
+        cache_key = self._run_cache_key(repo_full_name, run_id)
         cached = self._run_cache.get(cache_key)
-        if cached and cached.status != "running":
+        if cached and self._is_terminal_result(cached):
             return cached
 
         run = await self.client.get_workflow_run(repo_full_name, run_id)
@@ -248,14 +253,18 @@ class GithubActionsRunner:
                 base.stderr
                 or "Test results artifact missing or unreadable. Please re-run tests."
             )
-        cache_key = (repo_full_name, run.id)
+        cache_key = self._run_cache_key(repo_full_name, run.id)
         self._apply_backoff(cache_key, base)
         return base
 
     async def _parse_artifacts(
         self, repo_full_name: str, run_id: int
     ) -> tuple[ParsedTestResults | None, str | None]:
-        artifacts = await self.client.list_artifacts(repo_full_name, run_id)
+        list_key = self._run_cache_key(repo_full_name, run_id)
+        artifacts = self._artifact_list_cache.get(list_key)
+        if artifacts is None:
+            artifacts = await self.client.list_artifacts(repo_full_name, run_id)
+            self._cache_artifact_list(list_key, artifacts)
         preferred: list[dict[str, Any]] = []
         others: list[dict[str, Any]] = []
         for artifact in artifacts:
@@ -314,8 +323,9 @@ class GithubActionsRunner:
         self._run_cache[key] = result
         self._run_cache.move_to_end(key)
         if len(self._run_cache) > self._max_cache_entries:
-            self._run_cache.popitem(last=False)
-        if result.status != "running":
+            evicted_key, _ = self._run_cache.popitem(last=False)
+            self._poll_attempts.pop(evicted_key, None)
+        if self._is_terminal_result(result):
             self._poll_attempts.pop(key, None)
 
     def _cache_artifact_result(
@@ -329,10 +339,18 @@ class GithubActionsRunner:
         if len(self._artifact_cache) > self._max_cache_entries:
             self._artifact_cache.popitem(last=False)
 
+    def _cache_artifact_list(
+        self, key: tuple[str, int], artifacts: list[dict[str, Any]]
+    ) -> None:
+        self._artifact_list_cache[key] = artifacts
+        self._artifact_list_cache.move_to_end(key)
+        if len(self._artifact_list_cache) > self._max_cache_entries:
+            self._artifact_list_cache.popitem(last=False)
+
     def _apply_backoff(
         self, key: tuple[str, int], result: ActionsRunResult
     ) -> None:
-        if result.status == "running":
+        if not self._is_terminal_result(result) and result.status == "running":
             attempt = self._poll_attempts.get(key, 0) + 1
             self._poll_attempts[key] = attempt
             base_ms = int(self.poll_interval_seconds * 1000)
@@ -340,3 +358,13 @@ class GithubActionsRunner:
         else:
             self._poll_attempts.pop(key, None)
             result.poll_after_ms = None
+
+    @staticmethod
+    def _run_cache_key(repo_full_name: str, run_id: int) -> tuple[str, int]:
+        return (repo_full_name, int(run_id))
+
+    @staticmethod
+    def _is_terminal_result(result: ActionsRunResult) -> bool:
+        if result.conclusion:
+            return True
+        return result.status in {"passed", "failed", "cancelled", "timed_out", "error"}

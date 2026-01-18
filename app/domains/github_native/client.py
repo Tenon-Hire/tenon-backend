@@ -53,13 +53,7 @@ class GithubClient:
             "Authorization": f"Bearer {self.token}",
             "User-Agent": DEFAULT_USER_AGENT,
         }
-        self._client = httpx.AsyncClient(
-            base_url=self.base_url,
-            headers=self._headers,
-            timeout=httpx.Timeout(connect=10.0, read=30.0, write=30.0, pool=10.0),
-            limits=httpx.Limits(max_keepalive_connections=20, max_connections=100),
-            transport=self.transport,
-        )
+        self._client: httpx.AsyncClient | None = None
 
     async def generate_repo_from_template(
         self,
@@ -178,7 +172,9 @@ class GithubClient:
 
     async def aclose(self) -> None:
         """Close the underlying HTTP client."""
-        await self._client.aclose()
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
 
     def _parse_run(self, payload: dict[str, Any]) -> WorkflowRun:
         return WorkflowRun(
@@ -199,6 +195,19 @@ class GithubClient:
         if not owner or not repo:
             raise GithubError("Invalid repository name")
         return owner, repo
+
+    def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                base_url=self.base_url,
+                headers=self._headers,
+                timeout=httpx.Timeout(
+                    connect=10.0, read=30.0, write=30.0, pool=10.0
+                ),
+                limits=httpx.Limits(max_keepalive_connections=20, max_connections=100),
+                transport=self.transport,
+            )
+        return self._client
 
     async def _get_json(self, path: str, params: dict[str, Any] | None = None) -> dict:
         return await self._request("GET", path, params=params)
@@ -228,7 +237,8 @@ class GithubClient:
     ) -> dict[str, Any]:
         request_url = f"{self.base_url}{path}"
         try:
-            resp = await self._client.request(
+            client = self._get_client()
+            resp = await client.request(
                 method,
                 path,
                 params=params,
@@ -258,7 +268,8 @@ class GithubClient:
         self, path: str, params: dict[str, Any] | None = None
     ) -> bytes:
         try:
-            resp = await self._client.get(
+            client = self._get_client()
+            resp = await client.get(
                 path,
                 params=params,
                 follow_redirects=True,

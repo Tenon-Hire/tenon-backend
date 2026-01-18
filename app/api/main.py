@@ -116,6 +116,10 @@ def _configure_perf_logging(app: FastAPI) -> None:
     """Attach perf middleware when enabled."""
     if not perf_logging_enabled():
         return
+    from app.infra.db import engine
+    from app.infra.perf import attach_sqlalchemy_listeners
+
+    attach_sqlalchemy_listeners(engine)
     app.add_middleware(RequestPerfMiddleware)
 
 

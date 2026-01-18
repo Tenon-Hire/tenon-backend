@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import logging
 import time
+import uuid
 from contextvars import ContextVar, Token
 from dataclasses import dataclass
 
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncEngine
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-from starlette.responses import Response
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.infra.config import settings
 
@@ -85,42 +84,70 @@ def attach_sqlalchemy_listeners(engine: AsyncEngine) -> None:
     _listeners_attached = True
 
 
-class RequestPerfMiddleware(BaseHTTPMiddleware):
+class RequestPerfMiddleware:
     """Middleware to log per-request timing + DB stats."""
 
-    async def dispatch(self, request: Request, call_next) -> Response:
-        if not perf_logging_enabled():
-            return await call_next(request)
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope.get("type") != "http" or not perf_logging_enabled():
+            await self.app(scope, receive, send)
+            return
 
         started = time.perf_counter()
         token = _start_request_stats()
+        request_id = _request_id_from_scope(scope)
         status_code = 500
-        response: Response | None = None
+
+        async def send_wrapper(message):
+            nonlocal status_code
+            if message["type"] == "http.response.start":
+                status_code = message.get("status", status_code)
+                headers = list(message.get("headers", []))
+                header_name = b"x-request-id"
+                headers = [
+                    (k, v) for (k, v) in headers if k.lower() != header_name
+                ]
+                headers.append((header_name, request_id.encode()))
+                message["headers"] = headers
+            await send(message)
 
         try:
-            response = await call_next(request)
-            status_code = getattr(response, "status_code", status_code)
-            return response
+            await self.app(scope, receive, send_wrapper)
         finally:
             duration_ms = (time.perf_counter() - started) * 1000
             stats = _get_request_stats()
-            route = request.scope.get("route")
+            route = scope.get("route")
             path_template = None
             if route is not None:
                 path_template = getattr(route, "path", None) or getattr(
                     route, "path_format", None
                 )
-            path_template = path_template or request.url.path
+            path_template = path_template or scope.get("path")
 
             logger.info(
                 "perf_request",
                 extra={
-                    "method": request.method,
+                    "method": scope.get("method"),
                     "path_template": path_template,
                     "status_code": status_code,
                     "duration_ms": round(duration_ms, 3),
                     "db_count": stats.db_count,
                     "db_time_ms": round(stats.db_time_ms, 3),
+                    "request_id": request_id,
                 },
             )
             _clear_request_stats(token)
+
+
+def _request_id_from_scope(scope: Scope) -> str:
+    """Return existing X-Request-Id header or generate one."""
+    headers = scope.get("headers") or []
+    for key, value in headers:
+        if key.lower() == b"x-request-id":
+            try:
+                return value.decode()
+            except Exception:
+                break
+    return str(uuid.uuid4())

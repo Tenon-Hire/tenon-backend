@@ -419,6 +419,7 @@ async def test_parse_artifacts_uses_cache():
     parsed_first, err_first = await runner._parse_artifacts("org/repo", 9)
     parsed_second, err_second = await runner._parse_artifacts("org/repo", 9)
 
+    assert client.list_calls == 1
     assert client.downloads == 1
     assert err_first is None and err_second is None
     assert parsed_first and parsed_first.total == 1
@@ -478,3 +479,60 @@ def test_backoff_recommendations():
     runner._apply_backoff(key, finished)
     assert finished.poll_after_ms is None
     assert key not in runner._poll_attempts
+    errored = ActionsRunResult(
+        status="error",
+        run_id=56,
+        conclusion=None,
+        passed=None,
+        failed=None,
+        total=None,
+        stdout=None,
+        stderr=None,
+        head_sha=None,
+        html_url=None,
+    )
+    runner._apply_backoff(("org/repo", 56), errored)
+    assert errored.poll_after_ms is None
+
+
+@pytest.mark.asyncio
+async def test_run_cache_keys_use_run_id(monkeypatch):
+    class CountingClient(GithubClient):
+        def __init__(self):
+            super().__init__(base_url="https://api.github.com", token="x")
+            self.calls = 0
+
+        async def get_workflow_run(self, repo_full_name, run_id):
+            self.calls += 1
+            return WorkflowRun(
+                id=run_id,
+                status="completed",
+                conclusion="success",
+                html_url=None,
+                head_sha="sha",
+                artifact_count=0,
+                event="workflow_dispatch",
+                created_at=datetime.now(UTC).isoformat(),
+            )
+
+        async def list_artifacts(self, *_a, **_k):
+            return []
+
+    client = CountingClient()
+    runner = GithubActionsRunner(client, workflow_file="ci.yml")
+    async def _no_artifacts(repo, run_id):
+        return None, None
+
+    monkeypatch.setattr(runner, "_parse_artifacts", _no_artifacts)
+
+    first = await runner.fetch_run_result(repo_full_name="org/repo", run_id=1)
+    repeat_first = await runner.fetch_run_result(repo_full_name="org/repo", run_id=1)
+    second = await runner.fetch_run_result(repo_full_name="org/repo", run_id=2)
+    repeat_second = await runner.fetch_run_result(repo_full_name="org/repo", run_id=2)
+
+    assert first.status == "passed"
+    assert repeat_first.status == "passed"
+    assert second.status == "passed"
+    assert repeat_second.status == "passed"
+    assert client.calls == 2
+    await client.aclose()
