@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# NOTE: Actions dispatch/polling and artifact normalization remain together here;
+# split into smaller adapters once the workflow contract is isolated.
 import asyncio
 import logging
 import time

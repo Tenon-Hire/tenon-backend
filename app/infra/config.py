@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# NOTE: Config remains centralized here to keep env parsing and defaults in one place;
+# consider splitting once settings are refactored into feature-scoped modules.
 import json
 import os
 

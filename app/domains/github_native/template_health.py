@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# NOTE: Workflow contract validation and live run checks stay in one module for now;
+# splitting into adapters is pending once the GitHub template contract stabilizes.
 import asyncio
 import base64
 import io
