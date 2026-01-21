@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# NOTE: Email providers remain in one module to avoid behavior drift; can be split by transport (smtp/http/memory) later.
+
 import asyncio
 import logging
 import smtplib
