@@ -1,8 +1,4 @@
-"""Aggregated tasks router (codespaces, runs, submissions).
-
-This file stays lean by re-exporting helpers for legacy tests while routing lives in
-app.api.routes.tasks.* modules.
-"""
+"""Aggregated tasks router (codespaces, runs, submissions)."""
 
 from fastapi import APIRouter
 

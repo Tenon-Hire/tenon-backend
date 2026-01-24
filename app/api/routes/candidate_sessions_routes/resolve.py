@@ -17,6 +17,15 @@ from app.infra.security.principal import Principal
 router = APIRouter()
 
 
+async def _claim_token(
+    token: str, request: Request, principal: Principal, db: AsyncSession
+):
+    rate_limit_claim(request, token)
+    return await cs_service.claim_invite_with_principal(
+        db, token, principal, now=utcnow()
+    )
+
+
 @router.get("/session/{token}", response_model=CandidateSessionResolveResponse)
 async def resolve_candidate_session(
     token: Annotated[str, Path(..., min_length=20, max_length=255)],
@@ -25,11 +34,7 @@ async def resolve_candidate_session(
     db: Annotated[AsyncSession, Depends(get_session)],
 ) -> CandidateSessionResolveResponse:
     """Claim an invite token for the authenticated candidate."""
-    rate_limit_claim(request, token)
-    cs = await cs_service.claim_invite_with_principal(
-        db, token, principal, now=utcnow()
-    )
-    return render_claim_response(cs)
+    return render_claim_response(await _claim_token(token, request, principal, db))
 
 
 @router.post(
@@ -44,8 +49,4 @@ async def claim_candidate_session(
     principal: Annotated[Principal, Depends(require_candidate_principal)],
 ) -> CandidateSessionResolveResponse:
     """Idempotent claim endpoint for authenticated candidates (no email body required)."""
-    rate_limit_claim(request, token)
-    cs = await cs_service.claim_invite_with_principal(
-        db, token, principal, now=utcnow()
-    )
-    return render_claim_response(cs)
+    return render_claim_response(await _claim_token(token, request, principal, db))
