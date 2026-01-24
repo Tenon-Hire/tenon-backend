@@ -15,7 +15,10 @@ async def load_tasks(db: AsyncSession, simulation_id: int) -> list[Task]:
     if not tasks:
         from fastapi import HTTPException, status
 
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Simulation has no tasks")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Simulation has no tasks",
+        )
     return tasks
 
 

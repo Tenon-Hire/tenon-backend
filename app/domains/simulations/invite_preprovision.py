@@ -8,6 +8,7 @@ from app.infra.config import settings
 
 logger = logging.getLogger(__name__)
 
+
 async def preprovision_workspaces(
     db,
     candidate_session,

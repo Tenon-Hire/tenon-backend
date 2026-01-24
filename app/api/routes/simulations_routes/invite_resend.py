@@ -37,7 +37,9 @@ async def resend_candidate_invite(
     sim = await sim_service.require_owned_simulation(db, simulation_id, user.id)
     cs: CandidateSession | None = await db.get(CandidateSession, candidate_session_id)
     if cs is None or cs.simulation_id != sim.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidate session not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Candidate session not found"
+        )
 
     await notification_service.send_invite_email(
         db,

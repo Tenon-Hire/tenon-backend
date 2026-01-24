@@ -27,5 +27,7 @@ async def get_simulation_detail(
 ):
     """Return a simulation detail view for recruiters."""
     ensure_recruiter_or_none(user)
-    sim, tasks = await sim_service.require_owned_simulation_with_tasks(db, simulation_id, user.id)
+    sim, tasks = await sim_service.require_owned_simulation_with_tasks(
+        db, simulation_id, user.id
+    )
     return render_simulation_detail(sim, tasks)

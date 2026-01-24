@@ -136,7 +136,7 @@ def _register_routers(app: FastAPI) -> None:
     )
     app.include_router(
         simulations.router,
-        prefix=f"{prefix}/simulations",
+        prefix=f"{prefix}",
         tags=["simulations"],
     )
     app.include_router(

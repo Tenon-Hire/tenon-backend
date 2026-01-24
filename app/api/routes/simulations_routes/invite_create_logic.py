@@ -26,7 +26,12 @@ async def create_invite_response(
 ):
     enforce_invite_create_limit(request, user_id, payload.inviteEmail)
     try:
-        cs, sim, outcome, invite_url = await invite_workflow.create_candidate_invite_workflow(
+        (
+            cs,
+            sim,
+            outcome,
+            invite_url,
+        ) = await invite_workflow.create_candidate_invite_workflow(
             db,
             simulation_id=simulation_id,
             payload=payload,
@@ -40,4 +45,3 @@ async def create_invite_response(
         raise map_github_error(exc) from exc
 
     return render_invite_response(cs, invite_url, outcome)
-

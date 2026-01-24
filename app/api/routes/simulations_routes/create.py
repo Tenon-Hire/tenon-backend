@@ -15,10 +15,12 @@ from app.infra.db import get_session
 from app.infra.security.current_user import get_current_user
 from app.infra.security.roles import ensure_recruiter_or_none
 
-router = APIRouter()
+router = APIRouter(prefix="/simulations")
 
 
-@router.post("/", response_model=SimulationCreateResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "", response_model=SimulationCreateResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_simulation(
     payload: SimulationCreate,
     db: Annotated[AsyncSession, Depends(get_session)],
@@ -26,7 +28,9 @@ async def create_simulation(
 ):
     """Create a simulation and seed default tasks."""
     ensure_recruiter_or_none(user)
-    sim, created_tasks = await sim_service.create_simulation_with_tasks(db, payload, user)
+    sim, created_tasks = await sim_service.create_simulation_with_tasks(
+        db, payload, user
+    )
     return SimulationCreateResponse(
         id=sim.id,
         title=sim.title,

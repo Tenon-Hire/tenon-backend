@@ -14,7 +14,8 @@ from app.infra.errors import ApiError
 def resolve_template_key(payload) -> str:
     try:
         return validate_template_key(
-            getattr(payload, "templateKey", DEFAULT_TEMPLATE_KEY) or DEFAULT_TEMPLATE_KEY
+            getattr(payload, "templateKey", DEFAULT_TEMPLATE_KEY)
+            or DEFAULT_TEMPLATE_KEY
         )
     except TemplateKeyError as exc:
         allowed = sorted(ALLOWED_TEMPLATE_KEYS)
@@ -24,4 +25,3 @@ def resolve_template_key(payload) -> str:
             error_code="INVALID_TEMPLATE_KEY",
             details={"allowed": allowed},
         ) from exc
-

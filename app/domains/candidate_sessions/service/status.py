@@ -7,7 +7,9 @@ from fastapi import HTTPException, status
 from app.domains import CandidateSession
 
 
-def require_not_expired(candidate_session: CandidateSession, *, now: datetime | None = None) -> None:
+def require_not_expired(
+    candidate_session: CandidateSession, *, now: datetime | None = None
+) -> None:
     now = now or datetime.now(UTC)
     expires_at = candidate_session.expires_at
     if expires_at is not None and expires_at.tzinfo is None:

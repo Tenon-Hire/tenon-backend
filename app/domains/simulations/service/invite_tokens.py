@@ -38,4 +38,3 @@ async def _refresh_invite_token(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail="Failed to generate invite token",
     )
-

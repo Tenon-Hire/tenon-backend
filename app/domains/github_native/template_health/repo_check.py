@@ -25,7 +25,9 @@ async def check_template_repo(
 ) -> TemplateHealthItem:
     errors: list[str] = []
     checks = TemplateHealthChecks()
-    default_branch = await fetch_repo_and_branch(github_client, repo_full_name, checks, errors)
+    default_branch = await fetch_repo_and_branch(
+        github_client, repo_full_name, checks, errors
+    )
     workflow_run_id = workflow_conclusion = artifact_name_found = None
     if default_branch:
         workflow_path = f"{WORKFLOW_DIR}/{workflow_file}"

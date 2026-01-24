@@ -11,7 +11,15 @@ class CompatOperations:
     def _split_full_name(self, full_name: str):
         return split_full_name(full_name)
 
-    async def _request(self, method: str, path: str, *, params=None, json=None, expect_body: bool = True):
+    async def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params=None,
+        json=None,
+        expect_body: bool = True,
+    ):
         return await request_json(
             self.transport,
             method,

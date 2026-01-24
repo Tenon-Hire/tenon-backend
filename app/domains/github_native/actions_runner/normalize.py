@@ -4,7 +4,9 @@ from app.domains.github_native.actions_runner.models import ActionsRunResult, Ru
 from app.domains.github_native.client import WorkflowRun
 
 
-def normalize_run(run: WorkflowRun, *, timed_out: bool = False, running: bool = False) -> ActionsRunResult:
+def normalize_run(
+    run: WorkflowRun, *, timed_out: bool = False, running: bool = False
+) -> ActionsRunResult:
     status = (run.status or "").lower()
     conclusion = (run.conclusion or "").lower() if run.conclusion else None
     if running or timed_out:
@@ -28,5 +30,9 @@ def normalize_run(run: WorkflowRun, *, timed_out: bool = False, running: bool = 
         stderr=None,
         head_sha=run.head_sha,
         html_url=run.html_url,
-        raw={"status": run.status, "conclusion": run.conclusion, "artifact_count": run.artifact_count},
+        raw={
+            "status": run.status,
+            "conclusion": run.conclusion,
+            "artifact_count": run.artifact_count,
+        },
     )

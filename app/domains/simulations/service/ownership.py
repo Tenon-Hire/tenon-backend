@@ -27,4 +27,3 @@ async def require_owned_simulation_with_tasks(
             status_code=status.HTTP_404_NOT_FOUND, detail="Simulation not found"
         )
     return sim, tasks
-

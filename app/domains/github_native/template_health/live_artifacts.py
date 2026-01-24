@@ -17,7 +17,8 @@ async def collect_artifact_status(
     repo_full_name: str,
     workflow_run_id: int,
 ) -> tuple[list[str], str | None]:
-    errors: list[str] = []; artifact_name_found = None
+    errors: list[str] = []
+    artifact_name_found = None
     try:
         artifacts = await github_client.list_artifacts(repo_full_name, workflow_run_id)
     except GithubError as exc:
@@ -37,7 +38,9 @@ async def collect_artifact_status(
             artifact_name_found = name
 
     if tenon_artifact is None:
-        errors.append("artifact_legacy_name_simuhire" if legacy_artifact else "artifact_missing")
+        errors.append(
+            "artifact_legacy_name_simuhire" if legacy_artifact else "artifact_missing"
+        )
         return errors, artifact_name_found
 
     artifact_id = tenon_artifact.get("id")
@@ -46,7 +49,9 @@ async def collect_artifact_status(
         return errors, artifact_name_found
 
     try:
-        zip_content = await github_client.download_artifact_zip(repo_full_name, int(artifact_id))
+        zip_content = await github_client.download_artifact_zip(
+            repo_full_name, int(artifact_id)
+        )
     except GithubError as exc:
         errors.append(_classify_github_error(exc) or "artifact_missing")
         return errors, artifact_name_found

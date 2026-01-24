@@ -9,7 +9,9 @@ def _resolver():
         from app.domains.simulations import service as sim_service
 
         return getattr(
-            sim_service, "resolve_template_repo_full_name", template_catalog.resolve_template_repo_full_name
+            sim_service,
+            "resolve_template_repo_full_name",
+            template_catalog.resolve_template_repo_full_name,
         )
     except Exception:
         return template_catalog.resolve_template_repo_full_name

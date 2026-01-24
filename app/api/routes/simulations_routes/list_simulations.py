@@ -11,10 +11,10 @@ from app.infra.db import get_session
 from app.infra.security.current_user import get_current_user
 from app.infra.security.roles import ensure_recruiter_or_none
 
-router = APIRouter()
+router = APIRouter(prefix="/simulations")
 
 
-@router.get("/", response_model=list[SimulationListItem], status_code=status.HTTP_200_OK)
+@router.get("", response_model=list[SimulationListItem], status_code=status.HTTP_200_OK)
 async def list_simulations(
     db: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[Any, Depends(get_current_user)],

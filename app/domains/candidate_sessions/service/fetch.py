@@ -18,15 +18,21 @@ from app.infra.security.principal import Principal
 async def fetch_by_token(db: AsyncSession, token: str, *, now=None) -> CandidateSession:
     cs = await cs_repo.get_by_token(db, token, with_simulation=True)
     if cs is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite token")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite token"
+        )
     require_not_expired(cs, now=now)
     return cs
 
 
-async def fetch_by_token_for_update(db: AsyncSession, token: str, *, now=None) -> CandidateSession:
+async def fetch_by_token_for_update(
+    db: AsyncSession, token: str, *, now=None
+) -> CandidateSession:
     cs = await cs_repo.get_by_token_for_update(db, token)
     if cs is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite token")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite token"
+        )
     require_not_expired(cs, now=now)
     return cs
 
@@ -41,12 +47,17 @@ async def fetch_owned_session(
     now = now or datetime.now(UTC)
     cs = await cs_repo.get_by_id(db, session_id)
     if cs is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidate session not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Candidate session not found"
+        )
     require_not_expired(cs, now=now)
     stored_sub = getattr(cs, "candidate_auth0_sub", None)
     if stored_sub:
         if stored_sub != principal.sub:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidate session not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Candidate session not found",
+            )
         changed = False
         from app.domains.candidate_sessions.service.email import normalize_email
 
@@ -69,10 +80,16 @@ async def fetch_owned_session(
     async with db.begin_nested():
         cs = await cs_repo.get_by_id_for_update(db, session_id)
         if cs is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidate session not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Candidate session not found",
+            )
         require_not_expired(cs, now=now)
         if cs.candidate_auth0_sub and cs.candidate_auth0_sub != principal.sub:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidate session not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Candidate session not found",
+            )
         changed = ensure_candidate_ownership(cs, principal, now=now)
         if cs.status == "not_started":
             mark_in_progress(cs, now=now)

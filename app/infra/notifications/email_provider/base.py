@@ -26,5 +26,7 @@ class EmailSendError(Exception):
 class EmailProvider(Protocol):
     """Protocol implemented by email providers."""
 
-    async def send(self, message: EmailMessage) -> str | None:  # pragma: no cover - protocol
+    async def send(
+        self, message: EmailMessage
+    ) -> str | None:  # pragma: no cover - protocol
         ...

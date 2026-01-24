@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Depends, Path, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.routes.candidate_sessions_routes.rate_limits import (
@@ -20,10 +20,12 @@ from app.infra.security.principal import Principal
 router = APIRouter()
 
 
-@router.get("/session/{candidate_session_id}/current_task", response_model=CurrentTaskResponse)
+@router.get(
+    "/session/{candidate_session_id}/current_task", response_model=CurrentTaskResponse
+)
 async def get_current_task(
     candidate_session_id: Annotated[int, Path(..., ge=1)],
-    request,
+    request: Request,
     principal: Annotated[Principal, Depends(require_candidate_principal)],
     db: Annotated[AsyncSession, Depends(get_session)],
 ) -> CurrentTaskResponse:
@@ -36,14 +38,23 @@ async def get_current_task(
         )
         rate_limit.limiter.allow(key, CANDIDATE_CURRENT_TASK_RATE_LIMIT)
     now = utcnow()
-    cs = await cs_service.fetch_owned_session(db, candidate_session_id, principal, now=now)
-    tasks, completed_ids, current_task, completed, total, is_complete = await cs_service.progress_snapshot(
-        db, cs
+    cs = await cs_service.fetch_owned_session(
+        db, candidate_session_id, principal, now=now
     )
+    (
+        tasks,
+        completed_ids,
+        current_task,
+        completed,
+        total,
+        is_complete,
+    ) = await cs_service.progress_snapshot(db, cs)
     if is_complete and cs.status != "completed":
         cs.status = "completed"
         if cs.completed_at is None:
             cs.completed_at = now
         await db.commit()
         await db.refresh(cs)
-    return build_current_task_response(cs, current_task, completed_ids, completed, total, is_complete)
+    return build_current_task_response(
+        cs, current_task, completed_ids, completed, total, is_complete
+    )

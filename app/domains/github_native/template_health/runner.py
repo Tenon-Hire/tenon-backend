@@ -34,7 +34,9 @@ async def check_template_health(
             timeout_seconds=timeout_seconds,
         ),
     )
-    return TemplateHealthResponse(ok=all(item.ok for item in items), templates=items, mode=mode)
+    return TemplateHealthResponse(
+        ok=all(item.ok for item in items), templates=items, mode=mode
+    )
 
 
 async def _run_with_concurrency(
@@ -47,5 +49,7 @@ async def _run_with_concurrency(
         async with semaphore:
             results[index] = await worker(key)
 
-    await asyncio.gather(*[_run_one(index, key) for index, key in enumerate(template_keys)])
+    await asyncio.gather(
+        *[_run_one(index, key) for index, key in enumerate(template_keys)]
+    )
     return results

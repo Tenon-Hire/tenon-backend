@@ -9,11 +9,14 @@ from .model import Principal
 from .permissions import build_permissions
 from .selectors import first_claim, normalize_email
 
+_extract_principal = build_principal
+
 __all__ = [
     "Principal",
     "bearer_scheme",
     "build_permissions",
     "build_principal",
+    "_extract_principal",
     "extract_identity",
     "get_principal",
     "first_claim",

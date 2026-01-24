@@ -15,7 +15,10 @@ async def fetch_repo_and_branch(
         repo = await github_client.get_repo(repo_full_name)
         checks.repoReachable = True
     except GithubError as exc:
-        errors.append(_classify_github_error(exc) or ("repo_not_found" if exc.status_code == 404 else "repo_unreachable"))
+        errors.append(
+            _classify_github_error(exc)
+            or ("repo_not_found" if exc.status_code == 404 else "repo_unreachable")
+        )
         return None
 
     default_branch = (repo.get("default_branch") or "").strip() or None

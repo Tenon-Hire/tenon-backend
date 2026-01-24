@@ -37,7 +37,9 @@ async def parse_artifacts(
             if parsed_cached or cached_error:
                 return parsed_cached, cached_error
         try:
-            content = await client.download_artifact_zip(repo_full_name, int(artifact_id))
+            content = await client.download_artifact_zip(
+                repo_full_name, int(artifact_id)
+            )
         except GithubError:
             last_error = "artifact_download_failed"
             continue
@@ -52,7 +54,9 @@ async def parse_artifacts(
     return None, "artifact_missing"
 
 
-def _partition_artifacts(artifacts: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def _partition_artifacts(
+    artifacts: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     preferred: list[dict[str, Any]] = []
     others: list[dict[str, Any]] = []
     for artifact in artifacts:

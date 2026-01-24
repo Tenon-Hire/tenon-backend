@@ -15,6 +15,8 @@ from app.api.routes.tasks.helpers import (
     _concurrency_guard,
     _rate_limit_or_429,
 )
+from app.domains.candidate_sessions import service as cs_service
+from app.domains.submissions import rate_limits as submissions_rate_limits
 from app.domains.submissions import service_candidate as submission_service
 from app.infra.config import settings
 from app.infra.security import rate_limit
@@ -29,6 +31,7 @@ run_task_tests = run.run_task_tests_route
 get_run_result = poll.get_run_result_route
 submit_task = submit.submit_task_route
 workspace_repo = submission_service.workspace_repo
+_RATE_LIMIT_RULE = submissions_rate_limits._DEFAULT_RATE_LIMIT_RULES
 
 __all__ = [
     "router",
@@ -41,9 +44,11 @@ __all__ = [
     "submit_task",
     "submission_service",
     "workspace_repo",
+    "cs_service",
     "_rate_limit_or_429",
     "_concurrency_guard",
     "_compute_current_task",
     "settings",
     "rate_limit",
+    "_RATE_LIMIT_RULE",
 ]

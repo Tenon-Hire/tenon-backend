@@ -7,9 +7,7 @@ from .transport import GithubTransport
 class ArtifactOperations:
     transport: GithubTransport
 
-    async def list_artifacts(
-        self, repo_full_name: str, run_id: int
-    ) -> list[dict]:
+    async def list_artifacts(self, repo_full_name: str, run_id: int) -> list[dict]:
         owner, repo = split_full_name(repo_full_name)
         path = f"/repos/{owner}/{repo}/actions/runs/{run_id}/artifacts"
         data = await self._get_json(path)

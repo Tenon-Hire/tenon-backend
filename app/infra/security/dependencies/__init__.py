@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 
 from app.infra.config import settings
+from app.infra.security.principal import get_principal
 
 from .current_user import get_current_user
 from .db import lookup_user as _lookup_user
@@ -20,6 +21,7 @@ __all__ = [
     "_env_name_base",
     "_lookup_user",
     "_user_from_principal",
+    "get_principal",
     "dev_bypass_user",
     "env_name",
     "get_current_user",

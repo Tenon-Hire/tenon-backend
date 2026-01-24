@@ -34,9 +34,15 @@ class GithubActionsRunner:
         self.poll_interval_seconds = poll_interval_seconds
         self.max_poll_seconds = max_poll_seconds
         self.cache = ActionsCache()
-        self._workflow_fallbacks = list(dict.fromkeys([workflow_file, "tenon-ci.yml", ".github/workflows/tenon-ci.yml"]))
+        self._workflow_fallbacks = list(
+            dict.fromkeys(
+                [workflow_file, "tenon-ci.yml", ".github/workflows/tenon-ci.yml"]
+            )
+        )
 
-    async def dispatch_and_wait(self, *, repo_full_name: str, ref: str, inputs: dict[str, Any] | None = None) -> ActionsRunResult:
+    async def dispatch_and_wait(
+        self, *, repo_full_name: str, ref: str, inputs: dict[str, Any] | None = None
+    ) -> ActionsRunResult:
         dispatch_started_at = datetime.now(UTC)
         workflow_file = await self._dispatch_with_fallbacks(
             repo_full_name,
@@ -46,11 +52,20 @@ class GithubActionsRunner:
         deadline = asyncio.get_event_loop().time() + self.max_poll_seconds
         candidate_run = None
         while asyncio.get_event_loop().time() < deadline:
-            runs = await self.client.list_workflow_runs(repo_full_name, workflow_file, branch=ref, per_page=5)
-            candidate_run = next((run for run in runs if is_dispatched_run(run, dispatch_started_at)), None)
+            runs = await self.client.list_workflow_runs(
+                repo_full_name, workflow_file, branch=ref, per_page=5
+            )
+            candidate_run = next(
+                (run for run in runs if is_dispatched_run(run, dispatch_started_at)),
+                None,
+            )
             if candidate_run:
                 status = (candidate_run.status or "").lower()
-                conclusion = (candidate_run.conclusion or "").lower() if candidate_run.conclusion else None
+                conclusion = (
+                    (candidate_run.conclusion or "").lower()
+                    if candidate_run.conclusion
+                    else None
+                )
                 if conclusion or status == "completed":
                     run_id = candidate_run.id
                     cache_key = run_cache_key(repo_full_name, run_id)
@@ -68,7 +83,9 @@ class GithubActionsRunner:
             return result
         raise GithubError("No workflow run found after dispatch")
 
-    async def fetch_run_result(self, *, repo_full_name: str, run_id: int) -> ActionsRunResult:
+    async def fetch_run_result(
+        self, *, repo_full_name: str, run_id: int
+    ) -> ActionsRunResult:
         cache_key = run_cache_key(repo_full_name, run_id)
         cached = self.cache.run_cache.get(cache_key)
         if cached and self.cache.is_terminal(cached):
@@ -93,12 +110,17 @@ class GithubActionsRunner:
             base.status = "error"
             base.raw = base.raw or {}
             base.raw.setdefault("artifact_error", artifact_error)
-            base.stderr = base.stderr or "Test results artifact missing or unreadable. Please re-run tests."
+            base.stderr = (
+                base.stderr
+                or "Test results artifact missing or unreadable. Please re-run tests."
+            )
         cache_key = run_cache_key(repo_full_name, run.id)
         apply_backoff(self.cache, cache_key, base, self.poll_interval_seconds)
         return base
 
-    async def _dispatch_with_fallbacks(self, repo_full_name: str, *, ref: str, inputs: dict[str, Any] | None):
+    async def _dispatch_with_fallbacks(
+        self, repo_full_name: str, *, ref: str, inputs: dict[str, Any] | None
+    ):
         return await dispatch_with_fallbacks(
             self.client,
             self._workflow_fallbacks,
@@ -109,7 +131,9 @@ class GithubActionsRunner:
         )
 
     # Legacy helper methods preserved for tests/compatibility
-    def _normalize_run(self, run, *, timed_out: bool = False, running: bool = False) -> ActionsRunResult:
+    def _normalize_run(
+        self, run, *, timed_out: bool = False, running: bool = False
+    ) -> ActionsRunResult:
         return normalize_run(run, timed_out=timed_out, running=running)
 
     def _is_dispatched_run(self, run, dispatch_started_at):

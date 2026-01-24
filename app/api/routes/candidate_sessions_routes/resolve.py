@@ -26,7 +26,9 @@ async def resolve_candidate_session(
 ) -> CandidateSessionResolveResponse:
     """Claim an invite token for the authenticated candidate."""
     rate_limit_claim(request, token)
-    cs = await cs_service.claim_invite_with_principal(db, token, principal, now=utcnow())
+    cs = await cs_service.claim_invite_with_principal(
+        db, token, principal, now=utcnow()
+    )
     return render_claim_response(cs)
 
 
@@ -43,5 +45,7 @@ async def claim_candidate_session(
 ) -> CandidateSessionResolveResponse:
     """Idempotent claim endpoint for authenticated candidates (no email body required)."""
     rate_limit_claim(request, token)
-    cs = await cs_service.claim_invite_with_principal(db, token, principal, now=utcnow())
+    cs = await cs_service.claim_invite_with_principal(
+        db, token, principal, now=utcnow()
+    )
     return render_claim_response(cs)

@@ -17,11 +17,15 @@ def render_claim_response(cs) -> CandidateSessionResolveResponse:
         startedAt=cs.started_at,
         completedAt=cs.completed_at,
         candidateName=cs.candidate_name,
-        simulation=CandidateSimulationSummary(id=sim.id, title=sim.title, role=sim.role),
+        simulation=CandidateSimulationSummary(
+            id=sim.id, title=sim.title, role=sim.role
+        ),
     )
 
 
-def build_current_task_response(cs, current_task, completed_ids, completed, total, is_complete):
+def build_current_task_response(
+    cs, current_task, completed_ids, completed, total, is_complete
+):
     return CurrentTaskResponse(
         candidateSessionId=cs.id,
         status=cs.status,

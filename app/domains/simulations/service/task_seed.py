@@ -6,9 +6,7 @@ from app.domains.simulations.blueprints import DEFAULT_5_DAY_BLUEPRINT
 from .task_templates import _template_repo_for_task
 
 
-async def seed_default_tasks(
-    db, simulation_id: int, template_key: str
-) -> list[Task]:
+async def seed_default_tasks(db, simulation_id: int, template_key: str) -> list[Task]:
     created_tasks: list[Task] = []
     for blueprint in DEFAULT_5_DAY_BLUEPRINT:
         task = Task(
@@ -24,4 +22,3 @@ async def seed_default_tasks(
         db.add(task)
         created_tasks.append(task)
     return created_tasks
-

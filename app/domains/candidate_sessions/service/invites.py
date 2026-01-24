@@ -14,7 +14,9 @@ from app.domains.candidate_sessions.service.progress import progress_snapshot
 from app.infra.security.principal import Principal
 
 
-async def invite_list_for_principal(db: AsyncSession, principal: Principal) -> list[CandidateInviteListItem]:
+async def invite_list_for_principal(
+    db: AsyncSession, principal: Principal
+) -> list[CandidateInviteListItem]:
     email = (principal.email or "").strip().lower()
     sessions = await cs_repo.list_for_email(db, email)
     items: list[CandidateInviteListItem] = []
@@ -25,18 +27,31 @@ async def invite_list_for_principal(db: AsyncSession, principal: Principal) -> l
 
     async def _tasks_for_simulation(simulation_id: int) -> list[Task]:
         if simulation_id not in tasks_cache:
-            tasks_cache[simulation_id] = await cs_repo.tasks_for_simulation(db, simulation_id)
+            tasks_cache[simulation_id] = await cs_repo.tasks_for_simulation(
+                db, simulation_id
+            )
         return tasks_cache[simulation_id]
 
     for cs in sessions:
         expires_at = cs.expires_at
         is_expired = False
         if expires_at is not None:
-            exp = expires_at.replace(tzinfo=UTC) if expires_at.tzinfo is None else expires_at
+            exp = (
+                expires_at.replace(tzinfo=UTC)
+                if expires_at.tzinfo is None
+                else expires_at
+            )
             is_expired = exp < now
         task_list = await _tasks_for_simulation(cs.simulation_id)
         progress_tasks = await progress_snapshot(db, cs, tasks=task_list)
-        (_tasks, completed_ids, _current, completed, total, _is_complete) = progress_tasks
+        (
+            _tasks,
+            completed_ids,
+            _current,
+            completed,
+            total,
+            _is_complete,
+        ) = progress_tasks
         last_submitted_at = last_submitted_map.get(cs.id)
         last_activity = last_submitted_at or cs.completed_at or cs.started_at
         sim = cs.simulation

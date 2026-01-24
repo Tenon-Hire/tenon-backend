@@ -33,7 +33,9 @@ class AuthSettings(BaseSettings):
 
     @property
     def jwks_url(self) -> str:
-        return self.AUTH0_JWKS_URL or f"https://{self.AUTH0_DOMAIN}/.well-known/jwks.json"
+        return (
+            self.AUTH0_JWKS_URL or f"https://{self.AUTH0_DOMAIN}/.well-known/jwks.json"
+        )
 
     @property
     def audience(self) -> str:
@@ -41,7 +43,9 @@ class AuthSettings(BaseSettings):
 
     @property
     def algorithms(self) -> list[str]:
-        parts = [part.strip() for part in self.AUTH0_ALGORITHMS.split(",") if part.strip()]
+        parts = [
+            part.strip() for part in self.AUTH0_ALGORITHMS.split(",") if part.strip()
+        ]
         return parts or ["RS256"]
 
     @model_validator(mode="after")

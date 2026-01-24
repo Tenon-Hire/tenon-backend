@@ -17,6 +17,7 @@ def build_test_results(
     include_output: bool,
     max_output_chars: int,
 ):
+    parsed_payload = parsed_output or None
     (
         passed_val,
         failed_val,
@@ -31,7 +32,18 @@ def build_test_results(
         stderr_truncated,
         sanitized_output,
         artifact_error,
-    ) = process_parsed_output(parsed_output, include_output=include_output, max_output_chars=max_output_chars)
+    ) = process_parsed_output(
+        parsed_payload,
+        include_output=include_output,
+        max_output_chars=max_output_chars,
+    )
+
+    if passed_val is None:
+        passed_val = _safe_int(getattr(sub, "tests_passed", None))
+    if failed_val is None:
+        failed_val = _safe_int(getattr(sub, "tests_failed", None))
+    if total_val is None:
+        total_val = _safe_int(getattr(sub, "tests_total", None))
 
     workflow_run_id = getattr(sub, "workflow_run_id", None)
     commit_sha = getattr(sub, "commit_sha", None)
@@ -39,15 +51,14 @@ def build_test_results(
     if total_val is None and (passed_val is not None or failed_val is not None):
         total_val = (passed_val or 0) + (failed_val or 0)
 
-    status_str = recruiter_sub_service.derive_test_status(passed_val, failed_val, parsed_output)
+    status_str = recruiter_sub_service.derive_test_status(
+        passed_val, failed_val, parsed_payload
+    )
     if run_id is None and workflow_run_id:
         run_id = _safe_int(workflow_run_id) or workflow_run_id
 
     db_status = getattr(sub, "workflow_run_status", None)
-    if isinstance(db_status, str):
-        run_status = db_status.lower()
-    else:
-        run_status = None
+    run_status = db_status.lower() if isinstance(db_status, str) else None
     db_conclusion = getattr(sub, "workflow_run_conclusion", None)
     if isinstance(db_conclusion, str):
         conclusion = db_conclusion.lower()
@@ -55,8 +66,19 @@ def build_test_results(
         timeout = True
     workflow_run_id_str = str(workflow_run_id) if workflow_run_id is not None else None
 
-    artifact_present = parsed_output is not None or any(v is not None for v in (passed_val, failed_val, total_val))
-    if status_str is None and passed_val is None and failed_val is None and total_val is None and sanitized_output is None and workflow_run_id is None and commit_sha is None and last_run_at is None:
+    artifact_present = parsed_payload is not None or any(
+        v is not None for v in (passed_val, failed_val, total_val)
+    )
+    if (
+        status_str is None
+        and passed_val is None
+        and failed_val is None
+        and total_val is None
+        and sanitized_output is None
+        and workflow_run_id is None
+        and commit_sha is None
+        and last_run_at is None
+    ):
         return None
 
     result = {

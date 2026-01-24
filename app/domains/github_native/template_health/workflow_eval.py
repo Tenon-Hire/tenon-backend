@@ -30,7 +30,9 @@ async def validate_workflow(
         contract_errors, contract_checks = workflow_contract_errors(decoded)
         checks.workflowHasUploadArtifact = contract_checks["workflowHasUploadArtifact"]
         checks.workflowHasArtifactName = contract_checks["workflowHasArtifactName"]
-        checks.workflowHasTestResultsJson = contract_checks["workflowHasTestResultsJson"]
+        checks.workflowHasTestResultsJson = contract_checks[
+            "workflowHasTestResultsJson"
+        ]
         errors.extend(contract_errors)
     except GithubError as exc:
         errors.append(

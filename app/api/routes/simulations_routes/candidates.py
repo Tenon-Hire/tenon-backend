@@ -43,4 +43,3 @@ async def list_simulation_candidates(
         )
         for cs, profile_id in rows
     ]
-

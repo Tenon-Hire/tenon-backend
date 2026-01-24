@@ -17,7 +17,9 @@ class WorkflowOperations:
         inputs: dict | None = None,
     ) -> None:
         owner, repo = split_full_name(repo_full_name)
-        path = f"/repos/{owner}/{repo}/actions/workflows/{workflow_id_or_file}/dispatches"
+        path = (
+            f"/repos/{owner}/{repo}/actions/workflows/{workflow_id_or_file}/dispatches"
+        )
         await self._request(
             "POST",
             path,

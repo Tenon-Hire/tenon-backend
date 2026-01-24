@@ -25,9 +25,7 @@ class ContentOperations:
         params = {"ref": ref} if ref else None
         return await self._get_json(path, params=params)
 
-    async def get_compare(
-        self, repo_full_name: str, base: str, head: str
-    ) -> dict:
+    async def get_compare(self, repo_full_name: str, base: str, head: str) -> dict:
         owner, repo = split_full_name(repo_full_name)
         path = f"/repos/{owner}/{repo}/compare/{base}...{head}"
         return await self._get_json(path)

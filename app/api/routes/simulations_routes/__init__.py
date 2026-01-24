@@ -12,10 +12,9 @@ from app.api.routes.simulations_routes import (
 router = APIRouter()
 router.include_router(list_simulations.router)
 router.include_router(create.router)
-router.include_router(detail.router)
-router.include_router(invite_create.router)
-router.include_router(invite_resend.router)
-router.include_router(candidates.router)
+router.include_router(detail.router, prefix="/simulations")
+router.include_router(invite_create.router, prefix="/simulations")
+router.include_router(invite_resend.router, prefix="/simulations")
+router.include_router(candidates.router, prefix="/simulations")
 
 __all__ = ["router"]
-

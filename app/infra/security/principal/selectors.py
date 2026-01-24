@@ -4,7 +4,9 @@ from collections.abc import Iterable
 from typing import Any
 
 
-def first_claim(claims: dict[str, Any], keys: Iterable[str], *, default: Any | None = None):
+def first_claim(
+    claims: dict[str, Any], keys: Iterable[str], *, default: Any | None = None
+):
     for key in keys:
         if key and key in claims:
             return claims[key]

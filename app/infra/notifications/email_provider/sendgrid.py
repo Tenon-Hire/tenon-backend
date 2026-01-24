@@ -33,7 +33,10 @@ class SendGridEmailProvider:
         if message.html:
             payload["content"].append({"type": "text/html", "value": message.html})
 
-        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
         resp = await post_json(
             "https://api.sendgrid.com",
             "/v3/mail/send",

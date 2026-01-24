@@ -2,7 +2,11 @@ from __future__ import annotations
 
 
 def build_links(repo_full_name: str | None, commit_sha: str | None, workflow_run_id):
-    commit_url = f"https://github.com/{repo_full_name}/commit/{commit_sha}" if repo_full_name and commit_sha else None
+    commit_url = (
+        f"https://github.com/{repo_full_name}/commit/{commit_sha}"
+        if repo_full_name and commit_sha
+        else None
+    )
     workflow_url = (
         f"https://github.com/{repo_full_name}/actions/runs/{workflow_run_id}"
         if repo_full_name and workflow_run_id

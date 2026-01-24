@@ -15,4 +15,3 @@ class InviteRejectedError(Exception):
         self.message = message
         self.outcome = outcome
         super().__init__(message)
-

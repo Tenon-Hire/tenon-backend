@@ -24,10 +24,11 @@ def render_simulation_detail(sim, tasks) -> SimulationDetailResponse:
                 rubric=None,
                 maxScore=task.max_score,
                 templateRepoFullName=(
-                    task.template_repo if task.day_index in {2, 3} and task.template_repo else None
+                    task.template_repo
+                    if task.day_index in {2, 3} and task.template_repo
+                    else None
                 ),
             )
             for task in tasks
         ],
     )
-

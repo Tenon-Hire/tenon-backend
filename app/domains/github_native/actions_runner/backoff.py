@@ -4,7 +4,12 @@ from app.domains.github_native.actions_runner.cache import ActionsCache
 from app.domains.github_native.actions_runner.models import ActionsRunResult
 
 
-def apply_backoff(cache: ActionsCache, key: tuple[str, int], result: ActionsRunResult, base_interval_seconds: float) -> None:
+def apply_backoff(
+    cache: ActionsCache,
+    key: tuple[str, int],
+    result: ActionsRunResult,
+    base_interval_seconds: float,
+) -> None:
     if not cache.is_terminal(result) and result.status == "running":
         attempt = cache.poll_attempts.get(key, 0) + 1
         cache.poll_attempts[key] = attempt

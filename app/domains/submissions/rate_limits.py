@@ -15,10 +15,22 @@ POLL_MIN_INTERVAL_SECONDS = 2.0
 RUN_CONCURRENCY_LIMIT = 1
 
 
+def _rules() -> dict[str, rate_limit.RateLimitRule]:
+    # Allow tests to override via the aggregated tasks_codespaces module.
+    try:
+        from app.api.routes import tasks_codespaces
+
+        override = getattr(tasks_codespaces, "_RATE_LIMIT_RULE", None)
+        if isinstance(override, dict):
+            return override
+    except Exception:
+        pass
+    return _DEFAULT_RATE_LIMIT_RULES
+
+
 def _rule_for(action: str) -> rate_limit.RateLimitRule:
-    return _DEFAULT_RATE_LIMIT_RULES.get(
-        action, rate_limit.RateLimitRule(limit=5, window_seconds=30.0)
-    )
+    rules = _rules()
+    return rules.get(action, rate_limit.RateLimitRule(limit=5, window_seconds=30.0))
 
 
 def apply_rate_limit(candidate_session_id: int, action: str) -> None:

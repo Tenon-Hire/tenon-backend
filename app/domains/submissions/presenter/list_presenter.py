@@ -10,10 +10,14 @@ from app.domains.submissions.presenter.test_results import build_test_results
 
 
 def present_list_item(sub, task):
-    parsed_output = recruiter_sub_service.parse_test_output(getattr(sub, "test_output", None))
+    parsed_output = recruiter_sub_service.parse_test_output(
+        getattr(sub, "test_output", None)
+    )
     diff_summary = parse_diff_summary(sub.diff_summary_json)
     repo_full_name = sub.code_repo_path
-    commit_url, workflow_url = build_links(repo_full_name, sub.commit_sha, sub.workflow_run_id)
+    commit_url, workflow_url = build_links(
+        repo_full_name, sub.commit_sha, sub.workflow_run_id
+    )
     diff_url = build_diff_url(repo_full_name, diff_summary)
     test_results = build_test_results(
         sub,

@@ -24,11 +24,17 @@ async def dispatch_with_fallbacks(
             continue
         tried.append(wf)
         try:
-            await client.trigger_workflow_dispatch(repo_full_name, wf, ref=ref, inputs=inputs)
+            await client.trigger_workflow_dispatch(
+                repo_full_name, wf, ref=ref, inputs=inputs
+            )
             if wf != preferred_workflow:
                 logger.warning(
                     "github_workflow_dispatch_fallback",
-                    extra={"repo": repo_full_name, "preferred_workflow": preferred_workflow, "fallback_used": wf},
+                    extra={
+                        "repo": repo_full_name,
+                        "preferred_workflow": preferred_workflow,
+                        "fallback_used": wf,
+                    },
                 )
             return wf
         except GithubError as exc:

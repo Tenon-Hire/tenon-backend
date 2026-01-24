@@ -15,8 +15,6 @@ from app.infra.security.principal import Principal
 
 router = APIRouter()
 
-CANDIDATE_INVITES_RATE_LIMIT = rate_limit.RateLimitRule(limit=30, window_seconds=60.0)
-
 
 @router.get("/invites", response_model=list[CandidateInviteListItem])
 async def list_candidate_invites(

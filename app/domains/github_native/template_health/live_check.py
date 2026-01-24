@@ -34,7 +34,12 @@ async def _run_live_check(
         timeout_seconds=timeout_seconds,
     )
     if errors or workflow_run_id is None:
-        return _LiveCheckResult(errors or ["workflow_run_timeout"], workflow_run_id, workflow_conclusion, None)
+        return _LiveCheckResult(
+            errors or ["workflow_run_timeout"],
+            workflow_run_id,
+            workflow_conclusion,
+            None,
+        )
 
     artifact_errors, artifact_name_found = await collect_artifact_status(
         github_client,

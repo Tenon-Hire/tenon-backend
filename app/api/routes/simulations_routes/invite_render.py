@@ -9,7 +9,9 @@ from app.domains.candidate_sessions.schemas import (
 )
 
 
-def render_invite_response(candidate_session, invite_url: str, outcome: str) -> CandidateInviteResponse:
+def render_invite_response(
+    candidate_session, invite_url: str, outcome: str
+) -> CandidateInviteResponse:
     return CandidateInviteResponse(
         candidateSessionId=candidate_session.id,
         token=candidate_session.token,
@@ -21,7 +23,9 @@ def render_invite_response(candidate_session, invite_url: str, outcome: str) -> 
 def render_invite_error(exc) -> CandidateInviteErrorResponse:
     return JSONResponse(
         status_code=status.HTTP_409_CONFLICT,
-        content={"error": {"code": exc.code, "message": exc.message, "outcome": exc.outcome}},
+        content={
+            "error": {"code": exc.code, "message": exc.message, "outcome": exc.outcome}
+        },
     )
 
 
@@ -31,4 +35,3 @@ def render_invite_status(candidate_session) -> dict:
         "inviteEmailSentAt": getattr(candidate_session, "invite_email_sent_at", None),
         "inviteEmailError": getattr(candidate_session, "invite_email_error", None),
     }
-

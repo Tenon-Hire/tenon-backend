@@ -39,4 +39,3 @@ async def list_candidates_with_profile(
         .order_by(CandidateSession.id.desc())
     )
     return (await db.execute(stmt)).all()
-
