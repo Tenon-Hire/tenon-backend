@@ -8,6 +8,7 @@ from app.domains import CandidateSession
 from app.domains.candidate_sessions import repository as cs_repo
 from app.domains.candidate_sessions.schemas import CandidateInviteRequest
 from app.domains.common.types import CANDIDATE_SESSION_STATUS_COMPLETED
+
 from .invite_errors import InviteRejectedError
 from .invite_tokens import _invite_is_expired, _refresh_invite_token
 

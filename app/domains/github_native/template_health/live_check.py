@@ -4,8 +4,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.domains.github_native import GithubClient
-from app.domains.github_native.template_health.classify import _classify_github_error
-from app.domains.github_native.template_health.live_artifacts import collect_artifact_status
+from app.domains.github_native.template_health.live_artifacts import (
+    collect_artifact_status,
+)
 from app.domains.github_native.template_health.live_dispatch import dispatch_and_poll
 
 

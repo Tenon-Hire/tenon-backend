@@ -1,8 +1,11 @@
 from __future__ import annotations
-# NOTE: Exceeds 50 LOC to keep test result assembly cohesive and avoid behavior drift.
 
+# NOTE: Exceeds 50 LOC to keep test result assembly cohesive and avoid behavior drift.
 from app.domains.submissions import service_recruiter as recruiter_sub_service
-from app.domains.submissions.presenter.parsed_output import process_parsed_output, _safe_int
+from app.domains.submissions.presenter.parsed_output import (
+    _safe_int,
+    process_parsed_output,
+)
 
 
 def build_test_results(

@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from fastapi import HTTPException, status
 
-from app.domains.tasks.template_catalog import ALLOWED_TEMPLATE_KEYS, validate_template_key
+from app.domains.tasks.template_catalog import (
+    ALLOWED_TEMPLATE_KEYS,
+    validate_template_key,
+)
 
 MAX_LIVE_TEMPLATE_KEYS = 5
 

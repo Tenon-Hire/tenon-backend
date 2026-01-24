@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import UTC, datetime
 
 from app.domains import CandidateSession
 from app.domains.candidate_sessions import repository as cs_repo
 from app.domains.candidate_sessions.service.ownership import ensure_candidate_ownership
-from app.domains.candidate_sessions.service.status import mark_in_progress, require_not_expired
+from app.domains.candidate_sessions.service.status import (
+    mark_in_progress,
+    require_not_expired,
+)
 from app.infra.security.principal import Principal
 
 

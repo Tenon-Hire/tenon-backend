@@ -1,9 +1,12 @@
 from __future__ import annotations
-# NOTE: Exceeds 50 LOC to keep artifact selection and validation together without changing behavior.
 
+# NOTE: Exceeds 50 LOC to keep artifact selection and validation together without changing behavior.
 from app.core.brand import TEST_ARTIFACT_NAMESPACE
 from app.domains.github_native import GithubClient, GithubError
-from app.domains.github_native.template_health.artifacts import _extract_test_results_json, _validate_test_results_schema
+from app.domains.github_native.template_health.artifacts import (
+    _extract_test_results_json,
+    _validate_test_results_schema,
+)
 from app.domains.github_native.template_health.classify import _classify_github_error
 from app.domains.github_native.template_health.schemas import LEGACY_ARTIFACT_NAME
 

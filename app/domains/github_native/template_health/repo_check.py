@@ -1,11 +1,16 @@
 from __future__ import annotations
-# NOTE: Exceeds 50 LOC to keep repo + workflow validation cohesive without altering behavior.
 
+# NOTE: Exceeds 50 LOC to keep repo + workflow validation cohesive without altering behavior.
 from app.domains.github_native import GithubClient
 from app.domains.github_native.template_health.item_builder import build_item
 from app.domains.github_native.template_health.live_check import _run_live_check
 from app.domains.github_native.template_health.repo_fetch import fetch_repo_and_branch
-from app.domains.github_native.template_health.schemas import RunMode, TemplateHealthChecks, TemplateHealthItem, WORKFLOW_DIR
+from app.domains.github_native.template_health.schemas import (
+    WORKFLOW_DIR,
+    RunMode,
+    TemplateHealthChecks,
+    TemplateHealthItem,
+)
 from app.domains.github_native.template_health.workflow_eval import validate_workflow
 
 

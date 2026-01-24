@@ -4,7 +4,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains import CandidateSession, Task
 from app.domains.candidate_sessions import repository as cs_repo
-from app.domains.candidate_sessions.progress import compute_current_task, summarize_progress
+from app.domains.candidate_sessions.progress import (
+    compute_current_task,
+    summarize_progress,
+)
 
 
 async def load_tasks(db: AsyncSession, simulation_id: int) -> list[Task]:

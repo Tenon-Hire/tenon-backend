@@ -5,16 +5,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.candidate_sessions import candidate_session_from_headers
 from app.api.dependencies.github_native import get_actions_runner, get_github_client
-from app.api.error_utils import map_github_error
+from app.api.routes.tasks.handlers import handle_submit_task
 from app.domains import CandidateSession
-from app.domains.github_native import GithubClient, GithubError
+from app.domains.github_native import GithubClient
 from app.domains.github_native.actions_runner import GithubActionsRunner
 from app.domains.submissions.schemas import (
-    ProgressSummary,
     SubmissionCreateRequest,
     SubmissionCreateResponse,
 )
-from app.domains.submissions.use_cases.submit_task import submit_task
 from app.infra.db import get_session
 
 router = APIRouter()
@@ -36,23 +34,11 @@ async def submit_task_route(
     actions_runner: Annotated[GithubActionsRunner, Depends(get_actions_runner)],
 ) -> SubmissionCreateResponse:
     """Submit a task, optionally running GitHub tests for code/debug types."""
-    try:
-        task, submission, completed, total, is_complete = await submit_task(
-            db,
-            candidate_session=candidate_session,
-            task_id=task_id,
-            payload=payload,
-            github_client=github_client,
-            actions_runner=actions_runner,
-        )
-    except GithubError as exc:
-        raise map_github_error(exc) from exc
-
-    return SubmissionCreateResponse(
-        submissionId=submission.id,
-        taskId=task.id,
-        candidateSessionId=candidate_session.id,
-        submittedAt=submission.submitted_at,
-        progress=ProgressSummary(completed=completed, total=total),
-        isComplete=is_complete,
+    return await handle_submit_task(
+        task_id=task_id,
+        payload=payload,
+        candidate_session=candidate_session,
+        db=db,
+        github_client=github_client,
+        actions_runner=actions_runner,
     )

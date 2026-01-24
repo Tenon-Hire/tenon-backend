@@ -6,7 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.github_native import GithubClient
 from app.domains.notifications import service as notification_service
-from app.domains.simulations import invite_preprovision, service as sim_service
+from app.domains.simulations import invite_preprovision
+from app.domains.simulations import service as sim_service
 
 
 async def create_candidate_invite_workflow(

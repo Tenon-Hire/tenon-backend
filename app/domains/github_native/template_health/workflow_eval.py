@@ -3,7 +3,9 @@ from __future__ import annotations
 from app.domains.github_native import GithubClient, GithubError
 from app.domains.github_native.template_health.classify import _classify_github_error
 from app.domains.github_native.template_health.content_decode import _decode_contents
-from app.domains.github_native.template_health.contract_checks import workflow_contract_errors
+from app.domains.github_native.template_health.contract_checks import (
+    workflow_contract_errors,
+)
 from app.domains.github_native.template_health.schemas import TemplateHealthChecks
 
 

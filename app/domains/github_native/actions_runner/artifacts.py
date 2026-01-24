@@ -1,12 +1,16 @@
 from __future__ import annotations
-# NOTE: Exceeds 50 LOC to keep artifact fetching/parsing with cache coordination intact.
 
+# NOTE: Exceeds 50 LOC to keep artifact fetching/parsing with cache coordination intact.
 from typing import Any
 
-from app.domains.github_native.artifacts import PREFERRED_ARTIFACT_NAMES, ParsedTestResults, parse_test_results_zip
-from app.domains.github_native.client import GithubClient, GithubError
 from app.domains.github_native.actions_runner.cache import ActionsCache
 from app.domains.github_native.actions_runner.runs import run_cache_key
+from app.domains.github_native.artifacts import (
+    PREFERRED_ARTIFACT_NAMES,
+    ParsedTestResults,
+    parse_test_results_zip,
+)
+from app.domains.github_native.client import GithubClient, GithubError
 
 
 async def parse_artifacts(

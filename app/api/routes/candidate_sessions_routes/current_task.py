@@ -3,8 +3,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domains.candidate_sessions import service as cs_service
-from app.domains.candidate_sessions.schemas import CurrentTaskResponse
 from app.api.routes.candidate_sessions_routes.rate_limits import (
     CANDIDATE_CURRENT_TASK_RATE_LIMIT,
 )
@@ -12,6 +10,8 @@ from app.api.routes.candidate_sessions_routes.responses import (
     build_current_task_response,
     utcnow,
 )
+from app.domains.candidate_sessions import service as cs_service
+from app.domains.candidate_sessions.schemas import CurrentTaskResponse
 from app.infra.db import get_session
 from app.infra.security import rate_limit
 from app.infra.security.candidate_access import require_candidate_principal

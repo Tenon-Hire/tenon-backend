@@ -8,7 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies.github_native import get_github_client
 from app.api.dependencies.notifications import get_email_service
 from app.api.routes.simulations_routes.invite_create_logic import create_invite_response
-from app.domains.candidate_sessions.schemas import CandidateInviteErrorResponse, CandidateInviteRequest, CandidateInviteResponse
+from app.domains.candidate_sessions.schemas import (
+    CandidateInviteErrorResponse,
+    CandidateInviteRequest,
+    CandidateInviteResponse,
+)
 from app.domains.github_native import GithubClient
 from app.infra.db import get_session
 from app.infra.security.current_user import get_current_user

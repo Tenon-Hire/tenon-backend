@@ -3,11 +3,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domains.candidate_sessions import service as cs_service
-from app.domains.candidate_sessions.schemas import CandidateInviteListItem
 from app.api.routes.candidate_sessions_routes.rate_limits import (
     CANDIDATE_INVITES_RATE_LIMIT,
 )
+from app.domains.candidate_sessions import service as cs_service
+from app.domains.candidate_sessions.schemas import CandidateInviteListItem
 from app.infra.db import get_session
 from app.infra.security import rate_limit
 from app.infra.security.candidate_access import require_candidate_principal

@@ -10,15 +10,14 @@ from app.api.dependencies.github_native import get_actions_runner, get_github_cl
 from app.api.routes.tasks import init as init_route
 from app.api.routes.tasks import poll, run, status, submit
 from app.api.routes.tasks import router as tasks_router
-from app.domains.submissions import service_candidate as submission_service
-from app.infra.config import settings
-from app.infra.security import rate_limit
 from app.api.routes.tasks.helpers import (
     _compute_current_task,
     _concurrency_guard,
     _rate_limit_or_429,
 )
-
+from app.domains.submissions import service_candidate as submission_service
+from app.infra.config import settings
+from app.infra.security import rate_limit
 
 router = APIRouter()
 router.include_router(tasks_router)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.domains import Task
 from app.domains.simulations.blueprints import DEFAULT_5_DAY_BLUEPRINT
+
 from .task_templates import _template_repo_for_task
 
 

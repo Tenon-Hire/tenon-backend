@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from app.domains.github_native.client import WorkflowRun
 from app.domains.github_native.actions_runner.models import ActionsRunResult, RunStatus
+from app.domains.github_native.client import WorkflowRun
 
 
 def normalize_run(run: WorkflowRun, *, timed_out: bool = False, running: bool = False) -> ActionsRunResult:

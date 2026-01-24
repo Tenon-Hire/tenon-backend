@@ -11,7 +11,10 @@ from app.domains.github_native.actions_runner.cache import ActionsCache
 from app.domains.github_native.actions_runner.dispatch import dispatch_with_fallbacks
 from app.domains.github_native.actions_runner.models import ActionsRunResult
 from app.domains.github_native.actions_runner.normalize import normalize_run
-from app.domains.github_native.actions_runner.runs import is_dispatched_run, run_cache_key
+from app.domains.github_native.actions_runner.runs import (
+    is_dispatched_run,
+    run_cache_key,
+)
 from app.domains.github_native.client import GithubClient, GithubError
 
 

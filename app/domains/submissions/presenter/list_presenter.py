@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from app.domains.submissions import service_recruiter as recruiter_sub_service
 from app.domains.submissions.presenter.links import build_diff_url, build_links
-from app.domains.submissions.presenter.output import max_output_chars, parse_diff_summary
+from app.domains.submissions.presenter.output import (
+    max_output_chars,
+    parse_diff_summary,
+)
 from app.domains.submissions.presenter.test_results import build_test_results
 
 

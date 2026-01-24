@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 # NOTE: Exceeds 50 LOC to keep parsed-output normalization in one place without altering behavior.
 from app.domains.submissions.presenter.redaction import redact_text
 from app.domains.submissions.presenter.truncate import truncate_output

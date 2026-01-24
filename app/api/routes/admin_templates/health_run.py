@@ -8,7 +8,10 @@ from app.api.dependencies.github_native import get_github_client
 from app.api.routes.admin_templates.schemas import TemplateHealthRunRequest
 from app.api.routes.admin_templates.validation import validate_live_request
 from app.domains.github_native import GithubClient
-from app.domains.github_native.template_health import TemplateHealthResponse, check_template_health
+from app.domains.github_native.template_health import (
+    TemplateHealthResponse,
+    check_template_health,
+)
 from app.infra.config import settings
 from app.infra.security.admin_api_key import require_admin_key
 

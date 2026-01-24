@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Awaitable, Callable
+from collections.abc import Awaitable, Callable
 
 from app.domains.github_native import GithubClient
 from app.domains.github_native.template_health.repo_check import check_template_repo
-from app.domains.github_native.template_health.schemas import RunMode, TemplateHealthResponse
+from app.domains.github_native.template_health.schemas import (
+    RunMode,
+    TemplateHealthResponse,
+)
 from app.domains.tasks.template_catalog import TEMPLATE_CATALOG
 
 

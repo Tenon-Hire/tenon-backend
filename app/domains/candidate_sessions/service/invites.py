@@ -6,10 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains import Task
 from app.domains.candidate_sessions import repository as cs_repo
-from app.domains.candidate_sessions.progress import compute_current_task, summarize_progress
-from app.domains.candidate_sessions.schemas import CandidateInviteListItem, ProgressSummary
+from app.domains.candidate_sessions.schemas import (
+    CandidateInviteListItem,
+    ProgressSummary,
+)
 from app.domains.candidate_sessions.service.progress import progress_snapshot
-from app.domains.candidate_sessions.service.status import mark_in_progress, require_not_expired
 from app.infra.security.principal import Principal
 
 

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from app.domains.simulations.schemas import SimulationDetailResponse, SimulationDetailTask
+from app.domains.simulations.schemas import (
+    SimulationDetailResponse,
+    SimulationDetailTask,
+)
 
 
 def render_simulation_detail(sim, tasks) -> SimulationDetailResponse:

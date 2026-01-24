@@ -5,6 +5,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains import Simulation, Task
+
 from .task_seed import seed_default_tasks
 from .template_keys import resolve_template_key
 
