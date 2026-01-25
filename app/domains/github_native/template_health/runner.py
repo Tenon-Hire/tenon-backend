@@ -34,4 +34,6 @@ async def check_template_health(
             timeout_seconds=timeout_seconds,
         ),
     )
-    return TemplateHealthResponse(ok=all(item.ok for item in items), templates=items, mode=mode)
+    return TemplateHealthResponse(
+        ok=all(item.ok for item in items), templates=items, mode=mode
+    )

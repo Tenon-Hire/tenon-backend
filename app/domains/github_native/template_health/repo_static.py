@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from app.domains.github_native import GithubClient
 from app.domains.github_native.template_health.repo_fetch import fetch_repo_and_branch
-from app.domains.github_native.template_health.schemas import WORKFLOW_DIR, TemplateHealthChecks
+from app.domains.github_native.template_health.schemas import (
+    WORKFLOW_DIR,
+    TemplateHealthChecks,
+)
 from app.domains.github_native.template_health.workflow_eval import validate_workflow
 
 

@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from app.domains.github_native.template_health.item_builder import build_item
 from app.domains.github_native.template_health.live_result import LiveCheckResult
-from app.domains.github_native.template_health.schemas import RunMode, TemplateHealthChecks
+from app.domains.github_native.template_health.schemas import (
+    RunMode,
+    TemplateHealthChecks,
+)
 
 
 def build_repo_result(

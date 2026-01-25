@@ -1,20 +1,12 @@
 from __future__ import annotations
-
-# NOTE: Kept together (>50 LOC) to keep the submit path readable across validation, Actions dispatch, and diff summarization.
-import json
 from datetime import UTC, datetime
-
-from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.domains import CandidateSession
-from app.domains.candidate_sessions import service as cs_service
-from app.domains.github_native.client import GithubClient, GithubError
+from app.domains.github_native.client import GithubClient
 from app.domains.submissions import service_candidate as submission_service
-from app.domains.submissions.exceptions import WorkspaceMissing
 from app.domains.submissions.rate_limits import apply_rate_limit
-from app.infra.errors import ApiError
-
+from app.domains.submissions.use_cases.submit_task_runner import run_code_submission
+from app.domains.submissions.use_cases.submit_validation import validate_submission_flow
 
 async def submit_task(
     db: AsyncSession,
@@ -25,58 +17,19 @@ async def submit_task(
     github_client: GithubClient,
     actions_runner,
 ):
-    """Handle submission creation, including optional GitHub Actions run."""
     apply_rate_limit(candidate_session.id, "submit")
-    task = await submission_service.load_task_or_404(db, task_id)
-    submission_service.ensure_task_belongs(task, candidate_session)
-    await submission_service.ensure_not_duplicate(db, candidate_session.id, task_id)
-
-    _, _, current_task, *_ = await cs_service.progress_snapshot(db, candidate_session)
-    submission_service.ensure_in_order(current_task, task_id)
-    submission_service.validate_submission_payload(task, payload)
-
+    task = await validate_submission_flow(db, candidate_session, task_id, payload)
     now = datetime.now(UTC)
-    actions_result = diff_summary_json = None
-    workspace = None
-
+    actions_result = diff_summary_json = workspace = None
     if submission_service.is_code_task(task):
-        workspace = await submission_service.workspace_repo.get_by_session_and_task(
-            db, candidate_session_id=candidate_session.id, task_id=task.id
+        actions_result, diff_summary_json, workspace = await run_code_submission(
+            db=db,
+            candidate_session_id=candidate_session.id,
+            task_id=task.id,
+            payload=payload,
+            github_client=github_client,
+            actions_runner=actions_runner,
         )
-        if workspace is None:
-            raise WorkspaceMissing()
-        branch = submission_service.validate_branch(
-            getattr(payload, "branch", None) or workspace.default_branch or "main"
-        )
-        try:
-            actions_result = await submission_service.run_actions_tests(
-                runner=actions_runner,
-                workspace=workspace,
-                branch=branch or "main",
-                workflow_inputs=getattr(payload, "workflowInputs", None),
-            )
-            await submission_service.record_run_result(db, workspace, actions_result)
-            if actions_result.head_sha:
-                base_sha = workspace.base_template_sha or branch
-                compare = await github_client.get_compare(
-                    workspace.repo_full_name, base_sha, actions_result.head_sha
-                )
-                diff_summary_json = json.dumps(
-                    submission_service.summarize_diff(
-                        compare, base=base_sha, head=actions_result.head_sha
-                    ),
-                    ensure_ascii=False,
-                )
-        except GithubError:
-            raise
-        except Exception as exc:  # pragma: no cover - safety net
-            raise ApiError(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="GitHub unavailable. Please try again.",
-                error_code="GITHUB_UNAVAILABLE",
-                retryable=True,
-            ) from exc
-
     submission = await submission_service.create_submission(
         db,
         candidate_session,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from app.domains.github_native.actions_runner.backoff import apply_backoff
 from app.domains.github_native.actions_runner.artifacts import parse_artifacts
+from app.domains.github_native.actions_runner.backoff import apply_backoff
 from app.domains.github_native.actions_runner.normalize import normalize_run
 from app.domains.github_native.actions_runner.result_builder import build_result
 from app.domains.github_native.actions_runner.runs import (

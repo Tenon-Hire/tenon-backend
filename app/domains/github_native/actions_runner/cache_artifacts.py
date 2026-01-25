@@ -21,9 +21,7 @@ class ArtifactCacheMixin:
         if len(self.artifact_cache) > self.max_entries:
             self.artifact_cache.popitem(last=False)
 
-    def cache_artifact_list(
-        self, key: tuple[str, int], artifacts: list[dict]
-    ) -> None:
+    def cache_artifact_list(self, key: tuple[str, int], artifacts: list[dict]) -> None:
         self.artifact_list_cache[key] = artifacts
         self.artifact_list_cache.move_to_end(key)
         if len(self.artifact_list_cache) > self.max_entries:

@@ -23,5 +23,7 @@ async def ensure_existing_workspace(
         return None
     if github_username:
         with contextlib.suppress(GithubError):
-            await github_client.add_collaborator(existing.repo_full_name, github_username)
+            await github_client.add_collaborator(
+                existing.repo_full_name, github_username
+            )
     return existing

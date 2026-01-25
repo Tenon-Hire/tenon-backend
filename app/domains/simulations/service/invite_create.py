@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import secrets
 from datetime import UTC, datetime, timedelta
 
@@ -9,7 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domains import CandidateSession
 from app.domains.candidate_sessions import repository as cs_repo
 from app.domains.candidate_sessions.schemas import CandidateInviteRequest
+
 from .invite_tokens import INVITE_TOKEN_TTL_DAYS
+
 
 async def create_invite(
     db: AsyncSession,

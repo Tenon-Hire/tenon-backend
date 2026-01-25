@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from app.domains.github_native.actions_runner.models import ActionsRunResult
 from app.domains.github_native.actions_runner.result_builder import build_result
 from app.domains.github_native.actions_runner.runner_types import RunnerContext
 from app.domains.github_native.actions_runner.runs import run_cache_key
-from app.domains.github_native.actions_runner.models import ActionsRunResult
 
 
 async def fetch_run_result(

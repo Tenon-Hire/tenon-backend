@@ -1,5 +1,7 @@
 from __future__ import annotations
+
 from typing import Annotated, Any
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +17,7 @@ from app.infra.security.roles import ensure_recruiter_or_none
 from app.services.email import EmailService
 
 router = APIRouter()
+
 
 @router.post(
     "/{simulation_id}/candidates/{candidate_session_id}/invite/resend",

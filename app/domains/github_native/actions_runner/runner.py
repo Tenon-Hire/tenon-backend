@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 from app.domains.github_native.actions_runner.cache import ActionsCache
 from app.domains.github_native.actions_runner.legacy_accessors import (
     RunnerCompatibilityMixin,

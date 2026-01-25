@@ -1,8 +1,11 @@
 from __future__ import annotations
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import load_only
+
 from app.domains import CandidateSession, Simulation, Submission, Task
+
 
 async def list_submissions(
     db: AsyncSession,

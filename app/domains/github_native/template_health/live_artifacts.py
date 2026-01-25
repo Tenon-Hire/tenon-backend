@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from app.domains.github_native import GithubClient, GithubError
-from app.domains.github_native.template_health.artifact_selection import select_artifacts
+from app.domains.github_native.template_health.artifact_selection import (
+    select_artifacts,
+)
 from app.domains.github_native.template_health.artifact_validation import (
     validate_artifact_payload,
 )

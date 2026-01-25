@@ -3,7 +3,10 @@ from __future__ import annotations
 import io
 import zipfile
 
-from app.domains.github_native.artifacts.json_parser import parse_any_json, parse_named_json
+from app.domains.github_native.artifacts.json_parser import (
+    parse_any_json,
+    parse_named_json,
+)
 from app.domains.github_native.artifacts.junit_parser import parse_junit
 from app.domains.github_native.artifacts.models import ParsedTestResults
 

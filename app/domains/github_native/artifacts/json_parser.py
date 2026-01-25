@@ -21,9 +21,12 @@ def parse_named_json(zf: ZipFile) -> ParsedTestResults | None:
                     total=int(data.get("total") or 0),
                     stdout=data.get("stdout"),
                     stderr=data.get("stderr"),
-                    summary=data.get("summary") if isinstance(data.get("summary"), dict) else None,
+                    summary=data.get("summary")
+                    if isinstance(data.get("summary"), dict)
+                    else None,
                 )
     return None
+
 
 def parse_any_json(zf: ZipFile) -> ParsedTestResults | None:
     for name in zf.namelist():
@@ -37,7 +40,9 @@ def parse_any_json(zf: ZipFile) -> ParsedTestResults | None:
                     total=int(data.get("total") or 0),
                     stdout=data.get("stdout"),
                     stderr=data.get("stderr"),
-                    summary=data.get("summary") if isinstance(data.get("summary"), dict) else None,
+                    summary=data.get("summary")
+                    if isinstance(data.get("summary"), dict)
+                    else None,
                 )
     return None
 

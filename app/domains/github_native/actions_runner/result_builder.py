@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from app.domains.github_native.actions_runner.backoff import apply_backoff
 from app.domains.github_native.actions_runner.artifacts import parse_artifacts
+from app.domains.github_native.actions_runner.backoff import apply_backoff
 from app.domains.github_native.actions_runner.models import ActionsRunResult
 from app.domains.github_native.actions_runner.normalize import normalize_run
-from app.domains.github_native.actions_runner.runs import run_cache_key
 from app.domains.github_native.actions_runner.runner_types import RunnerContext
+from app.domains.github_native.actions_runner.runs import run_cache_key
 
 
 async def build_result(

@@ -17,7 +17,7 @@ class ActionsCache(RunCacheMixin, ArtifactCacheMixin):
         self.artifact_cache: OrderedDict[
             tuple[str, int, int], tuple[ParsedTestResults | None, str | None]
         ] = OrderedDict()
-        self.artifact_list_cache: OrderedDict[tuple[str, int], list[dict]] = (
-            OrderedDict()
-        )
+        self.artifact_list_cache: OrderedDict[
+            tuple[str, int], list[dict]
+        ] = OrderedDict()
         self.poll_attempts: dict[tuple[str, int], int] = {}

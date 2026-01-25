@@ -9,7 +9,9 @@ from app.domains.github_native.client import GithubClient
 from app.domains.github_native.workspaces.workspace import Workspace
 from app.domains.submissions.services.github_user import validate_github_username
 from app.domains.submissions.services.workspace_creation import provision_workspace
-from app.domains.submissions.services.workspace_existing import ensure_existing_workspace
+from app.domains.submissions.services.workspace_existing import (
+    ensure_existing_workspace,
+)
 
 
 async def ensure_workspace(

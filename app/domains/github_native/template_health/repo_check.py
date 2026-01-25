@@ -4,7 +4,11 @@ from app.domains.github_native import GithubClient
 from app.domains.github_native.template_health.repo_live import run_live_checks
 from app.domains.github_native.template_health.repo_result import build_repo_result
 from app.domains.github_native.template_health.repo_static import run_static_checks
-from app.domains.github_native.template_health.schemas import RunMode, TemplateHealthChecks, TemplateHealthItem
+from app.domains.github_native.template_health.schemas import (
+    RunMode,
+    TemplateHealthChecks,
+    TemplateHealthItem,
+)
 
 
 async def check_template_repo(

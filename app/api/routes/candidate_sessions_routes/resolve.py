@@ -1,4 +1,5 @@
 from typing import Annotated
+
 from fastapi import APIRouter, Depends, Path, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +16,7 @@ from app.infra.security.principal import Principal
 
 router = APIRouter()
 
+
 async def _claim_token(
     token: str, request: Request, principal: Principal, db: AsyncSession
 ):
@@ -22,6 +24,7 @@ async def _claim_token(
     return await cs_service.claim_invite_with_principal(
         db, token, principal, now=utcnow()
     )
+
 
 @router.get("/session/{token}", response_model=CandidateSessionResolveResponse)
 async def resolve_candidate_session(

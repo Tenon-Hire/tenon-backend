@@ -17,10 +17,10 @@ class DispatchRunnerMixin:
             self, repo_full_name=repo_full_name, ref=ref, inputs=inputs
         )
 
-    async def fetch_run_result(
-        self, *, repo_full_name: str, run_id: int
-    ):
-        return await fetch_run_result(self, repo_full_name=repo_full_name, run_id=run_id)
+    async def fetch_run_result(self, *, repo_full_name: str, run_id: int):
+        return await fetch_run_result(
+            self, repo_full_name=repo_full_name, run_id=run_id
+        )
 
     async def _dispatch_with_fallbacks(
         self, repo_full_name: str, *, ref: str, inputs: dict[str, Any] | None

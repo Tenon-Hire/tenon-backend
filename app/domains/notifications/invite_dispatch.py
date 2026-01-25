@@ -3,7 +3,10 @@ from __future__ import annotations
 from datetime import datetime
 
 from app.domains import Simulation
-from app.domains.notifications.invite_content import invite_email_content, sanitize_error
+from app.domains.notifications.invite_content import (
+    invite_email_content,
+    sanitize_error,
+)
 from app.services.email import EmailSendResult, EmailService
 
 

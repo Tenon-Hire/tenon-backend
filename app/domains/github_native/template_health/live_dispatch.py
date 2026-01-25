@@ -4,7 +4,7 @@ import asyncio
 import time
 from datetime import UTC, datetime
 
-from app.domains.github_native import GithubClient, GithubError, WorkflowRun
+from app.domains.github_native import GithubClient, GithubError
 from app.domains.github_native.template_health.classify import _classify_github_error
 from app.domains.github_native.template_health.runs import _is_dispatched_run
 
@@ -16,11 +16,13 @@ async def dispatch_and_poll(
     workflow_file: str,
     default_branch: str,
     timeout_seconds: int,
-    ) -> tuple[list[str], int | None, str | None]:
+) -> tuple[list[str], int | None, str | None]:
     errors: list[str] = []
     dispatch_started_at = datetime.now(UTC)
     try:
-        await github_client.trigger_workflow_dispatch(repo_full_name, workflow_file, ref=default_branch)
+        await github_client.trigger_workflow_dispatch(
+            repo_full_name, workflow_file, ref=default_branch
+        )
     except GithubError as exc:
         errors.append(_classify_github_error(exc) or "workflow_dispatch_failed")
         return errors, None, None
@@ -29,12 +31,17 @@ async def dispatch_and_poll(
     poll_interval = 2.0
     while time.monotonic() < deadline:
         try:
-            runs = await github_client.list_workflow_runs(repo_full_name, workflow_file, branch=default_branch, per_page=5)
+            runs = await github_client.list_workflow_runs(
+                repo_full_name, workflow_file, branch=default_branch, per_page=5
+            )
         except GithubError as exc:
             errors.append(_classify_github_error(exc) or "workflow_dispatch_failed")
             return errors, None, None
 
-        run = next((item for item in runs if _is_dispatched_run(item, dispatch_started_at)), None)
+        run = next(
+            (item for item in runs if _is_dispatched_run(item, dispatch_started_at)),
+            None,
+        )
         if run:
             status = (run.status or "").lower()
             conclusion = (run.conclusion or "").lower() if run.conclusion else None
