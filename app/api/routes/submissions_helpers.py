@@ -7,21 +7,13 @@ from app.domains.submissions.schemas import (
     RecruiterSubmissionListItemOut,
     RecruiterSubmissionListOut,
 )
-from app.infra.security.roles import ensure_recruiter
-
-
-def _ensure_recruiter(user):
-    try:
-        from app.api.routes import submissions as submissions_routes
-    except Exception:
-        return ensure_recruiter(user)
-    return getattr(submissions_routes, "ensure_recruiter", ensure_recruiter)(user)
+from app.api.routes.submissions_helpers_guard import ensure_recruiter_guard
 
 
 async def get_submission_detail(
     submission_id: int, db, user
 ) -> RecruiterSubmissionDetailOut:
-    _ensure_recruiter(user)
+    ensure_recruiter_guard(user)
     sub, task, cs, sim = await recruiter_sub_service.fetch_detail(
         db, submission_id, user.id
     )
@@ -36,7 +28,7 @@ async def list_submissions(
     limit: int | None = None,
     offset: int = 0,
 ) -> RecruiterSubmissionListOut:
-    _ensure_recruiter(user)
+    ensure_recruiter_guard(user)
     rows = await recruiter_sub_service.list_submissions(
         db, user.id, candidateSessionId, taskId, limit, offset
     )

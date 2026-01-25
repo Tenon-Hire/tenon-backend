@@ -1,5 +1,3 @@
-from datetime import UTC, datetime
-
 from app.domains.candidate_sessions.schemas import (
     CandidateSessionResolveResponse,
     CandidateSimulationSummary,
@@ -7,6 +5,7 @@ from app.domains.candidate_sessions.schemas import (
     ProgressSummary,
 )
 from app.domains.tasks.schemas_public import TaskPublic
+from app.api.routes.candidate_sessions_routes.time_utils import utcnow
 
 
 def render_claim_response(cs) -> CandidateSessionResolveResponse:
@@ -45,7 +44,3 @@ def build_current_task_response(
         progress=ProgressSummary(completed=completed, total=total),
         isComplete=is_complete,
     )
-
-
-def utcnow():
-    return datetime.now(UTC)
