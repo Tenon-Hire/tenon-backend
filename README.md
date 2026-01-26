@@ -1,116 +1,65 @@
 # Tenon Backend
 
-FastAPI + Postgres backend for Tenon. Recruiters create 5-day simulations, invite candidates, and review GitHub-native task submissions. Candidates work entirely in GitHub (template repos + Codespaces + Actions) and authenticate via Auth0 access tokens tied to their invites.
+FastAPI + Postgres backend for Tenon’s 5-day async simulations. Recruiters create simulations and invites; candidates authenticate via Auth0, work in GitHub (template repos + Codespaces + Actions), and recruiters review submissions with repo/workflow/commit/diff/test metadata.
 
 ## GitHub-Native Execution
 
-- Template catalog source of truth: `app/domains/tasks/template_catalog.py` maps `templateKey` → template repo (`owner/name`). Code/debug tasks pull their template from the simulation’s `templateKey`.
-- Workflow expectations: `TENON_GITHUB_ACTIONS_WORKFLOW_FILE` must exist in each template repo and support `workflow_dispatch`. Artifact contract: preferred artifact name `tenon-test-results` (case-insensitive) containing `tenon-test-results.json` with `{passed, failed, total, stdout, stderr, summary?}`. Fallback: any JSON with those keys, else JUnit XML.
-- Flow: backend provisions a workspace repo from the template → returns Codespace URL → triggers/polls Actions runs → parses artifacts → stores run/test/diff metadata on `Workspace` and `Submission`. Diff summary computed via GitHub compare (base template SHA → head commit).
+- Template catalog source of truth: `app/services/tasks/template_catalog*.py` maps `templateKey` → template repo (`owner/name`) for day2/day3 code+debug tasks.
+- Workflow expectations: `TENON_GITHUB_ACTIONS_WORKFLOW_FILE` must exist and support `workflow_dispatch`. Artifact contract: preferred artifact `tenon-test-results` (case-insensitive) containing `tenon-test-results.json` with `{passed, failed, total, stdout, stderr, summary?}`; fallback to any JSON with those keys, else JUnit XML.
+- Flow: backend provisions a workspace repo from the template → returns Codespaces deep link → triggers/polls Actions runs → parses artifacts → stores run/test/diff metadata on `Workspace` and `Submission`. Diff summary uses GitHub compare from `base_template_sha` → run head SHA. Last run/test summary cached on `Workspace`.
 
-## Architecture
+## Architecture & Folders
 
-- FastAPI app factory `app/api/main.py` with CORS/proxy middleware; routers in `app/api/routes`.
-- Infra: settings `app/infra/config.py`, env helpers `app/infra/env.py`, DB `app/infra/db` (async SQLAlchemy + SQLite fallback), security `app/infra/security/*` (Auth0 JWT + local dev bypass).
-- Domains: `app/domains/*`
-  - Simulations (`simulations/*`): model, create/list, invite creation.
-  - Tasks (`tasks/*`): task model, template catalog, public schemas.
-  - Candidate Sessions (`candidate_sessions/*`): token-based invites, progress helpers.
-  - Submissions (`submissions/*`): submission model/services (candidate + recruiter), run/diff helpers, schemas, exceptions.
-  - GitHub Native (`github_native/*`): REST client, Actions runner, artifact parsing, workspace model/repo.
-  - Users/Companies (`users`, `companies`), Common types/schemas.
-- Data model highlights: `Simulation` → `Task` (5-day blueprint seeded on create); `Simulation` → `CandidateSession` (token, status, timestamps, expires_at); `CandidateSession` → `Submission` (one per task, stores code repo/run/diff/test info); `CandidateSession` → `Workspace` (GitHub repo metadata, last run info); `FitProfile` placeholder for future reports.
+- API app factory: `app/main.py`, `app/api/app_builder.py`; routers in `app/api/routers/*`; middleware in `app/api/middleware*.py`; error handlers in `app/api/errors/*`.
+- Core: settings/env `app/core/settings/*`, DB `app/core/db`, auth/JWT/rate limits `app/core/auth/*`, proxy/request-size/perf/logging middleware `app/core/proxy_headers.py`, `app/core/request_limits.py`, `app/core/perf/*`, `app/core/logging/*`.
+- Domains/Services: simulations/tasks `app/services/simulations/*`, `app/services/tasks/*`; candidate sessions `app/services/candidate_sessions/*`; submissions/workspaces/actions/diff `app/services/submissions/*`; presenters for recruiter views `app/domains/submissions/presenter/*`; notifications/email `app/services/notifications/*`.
+- GitHub integration: REST client `app/integrations/github/client/*`; Actions runner + artifact parsing `app/integrations/github/actions_runner/*`, `app/integrations/github/artifacts/*`; template health checks `app/integrations/github/template_health/*`.
+- Data models: SQLAlchemy models under `app/repositories/*` for `Simulation`, `Task`, `CandidateSession`, `Workspace`, `Submission`, `FitProfile`, `User`, `Company`; migrations in `alembic/versions`.
 
 ## Domain Glossary
 
 - Simulation: recruiter-owned scenario with role/techStack/focus/templateKey.
-- Task: daily assignment; type drives validation (`design`, `code`, `debug`, `handoff`, `documentation`).
-- Candidate Session: invite for a candidate; secured by invite token + Auth0 identity; tracks progress/expiry.
-- Workspace: GitHub repo generated from template for a candidate+task; stores last Actions results.
-- Submission: final turn-in for a task with optional test results and diff summary.
-- Fit Profile: planned evaluation/report entity (model exists; no generation).
+- Task: daily assignment; types drive validation (`design`, `code`, `debug`, `handoff`, `documentation`); code/debug tasks carry template_repo.
+- Candidate Session: invite with token, status, expiry, invite email, Auth0 bindings, invite email delivery metadata.
+- Workspace: GitHub repo generated per candidate+task; stores default branch, base_template_sha, last run/test summary, codespace URL.
+- Submission: final turn-in per task with contentText, repo path, commit/workflow ids, test counts/output, diff_summary_json, last_run_at.
+- FitProfile: placeholder model for future AI evaluation output (not generated today).
 
 ## API Overview
 
-- Health: `GET /health`
-- Auth: `GET /api/auth/me` (Auth0 or dev bypass)
-- Recruiter (Auth0/dev bypass; recruiter role):
-  - `GET /api/simulations` list owned (with candidate counts)
-  - `POST /api/simulations` create + seed 5 tasks (uses `templateKey`)
-  - `POST /api/simulations/{id}/invite` create candidate token/link
-  - `GET /api/simulations/{id}/candidates` list sessions (`hasFitProfile` if `fit_profiles` row)
-  - `GET /api/submissions` list submissions (filters `candidateSessionId`, `taskId`)
-  - `GET /api/submissions/{id}` detail with content/code/test results + repo/commit/workflow/diff URLs
-- Admin (X-Admin-Key):
-  - `GET /api/admin/templates/health` static validate template repos and workflow file
-  - `POST /api/admin/templates/health/run` live dispatch + artifact validation (opt-in)
-- Candidate (Auth0 access token + invite token):
-  - `POST /api/candidate/session/{token}/verify` (Auth0 `Authorization: Bearer <access_token>`) claims invite for the logged-in candidate and transitions to in-progress
-  - `GET /api/candidate/session/{token}` same as verify (idempotent claim/bootstrap with Auth0 identity)
-  - `GET /api/candidate/session/{id}/current_task` (Auth0 bearer + `x-candidate-session-id` optional) current task/progress; auto-completes when done
-  - `POST /api/tasks/{taskId}/codespace/init` (Auth0 bearer) create/return workspace repo + Codespace URL (code/debug tasks)
-  - `GET /api/tasks/{taskId}/codespace/status` (Auth0 bearer) workspace state (repo/default branch/latest run/test summary)
-  - `POST /api/tasks/{taskId}/run` (Auth0 bearer) trigger Actions tests; returns normalized run result
-  - `GET /api/tasks/{taskId}/run/{runId}` (Auth0 bearer) fetch prior run result
-  - `POST /api/tasks/{taskId}/submit` (Auth0 bearer) submit task (runs tests for code tasks, stores run/diff/test info)
-- Errors: 401 missing candidate headers; 400 invalid branch/non-code run/no workspace; 404/410 invalid/expired token; 409 duplicate submission or completed simulation; 429 prod rate limit; 502 GitHub failure.
+- Auth/Health: `GET /health`; `GET /api/auth/me`; `POST /api/auth/logout`.
+- Recruiter (recruiter:access): `GET/POST /api/simulations`; `GET /api/simulations/{id}`; `GET /api/simulations/{id}/candidates`; `POST /api/simulations/{id}/invite`; `POST /api/simulations/{id}/candidates/{csId}/invite/resend`; `GET /api/submissions`; `GET /api/submissions/{id}`.
+- Candidate (candidate:access + invite token): `GET /api/candidate/session/{token}` and `POST /claim`; `GET /api/candidate/session/{id}/current_task`; `GET /api/candidate/invites`.
+- GitHub-native tasks (candidate:access + `x-candidate-session-id`): `POST /api/tasks/{taskId}/codespace/init`; `GET /api/tasks/{taskId}/codespace/status`; `POST /api/tasks/{taskId}/run`; `GET /api/tasks/{taskId}/run/{runId}`; `POST /api/tasks/{taskId}/submit`.
+- Admin (X-Admin-Key): `GET /api/admin/templates/health?mode=static`; `POST /api/admin/templates/health/run`.
 
 ## Typical Flow
 
-1. Recruiter authenticates → `POST /api/simulations` → `POST /api/simulations/{id}/invite` to generate candidate link.
-2. Candidate opens invite while logged in via Auth0 → claims invite (email match required) → sees current task → for code/debug tasks calls `/codespace/init` → works in Codespace → `/run` to test → `/submit` to turn in.
-3. Recruiter views submissions list/detail with repo/workflow/commit/diff/test results.
-
-## Local Development
-
-- Prereqs: Python 3.11+, Poetry, Postgres (or SQLite fallback).
-- Install: `poetry install`; configure `.env` from `.env.example` (do not commit `.env`; use Render env vars in prod).
-- Seed dev recruiters: `ENV=local DEV_AUTH_BYPASS=1 poetry run python scripts/seed_local_recruiters.py`.
-- Run: `poetry run uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000` or `./runBackend.sh`.
-- Migrations: `poetry run alembic upgrade head` (uses `DATABASE_URL_SYNC`).
-- Tests: `poetry run pytest` (property tests under `tests/property`).
-- Dev auth: set `DEV_AUTH_BYPASS=1` and send header `x-dev-user-email: recruiter1@local.test` for recruiter endpoints; candidate endpoints require Auth0 bearer tokens (tests may still use `x-candidate-session-id` helper headers).
-
-## Template Health Checks
-
-- Admin API: `X-Admin-Key: <TENON_ADMIN_API_KEY>` required.
-- Static check: `GET /api/admin/templates/health?mode=static`
-- Live check: `POST /api/admin/templates/health/run` with `{ "templateKeys": [...], "mode": "live", "timeoutSeconds": 180 }`
-- CLI static all: `poetry run python scripts/template_health_check.py --mode static --all`
-- CLI live all: `poetry run python scripts/template_health_check.py --mode live --all --concurrency 2 --timeout-seconds 180`
+1) Recruiter authenticates → `POST /api/simulations` (seeds tasks) → `POST /api/simulations/{id}/invite` to generate token + pre-provision workspaces and send email.  
+2) Candidate opens invite with Auth0 login → claim via `/api/candidate/session/{token}` → fetch current task → for code/debug tasks call `/codespace/init`, work in Codespaces, `/run` to test, `/submit` to turn in.  
+3) Recruiter reviews via `/api/submissions` list and `/api/submissions/{id}` detail (repo/workflow/commit/diff/test results).
 
 ## Configuration
 
-- Core: `TENON_ENV`, `TENON_API_PREFIX`.
-- DB: `TENON_DATABASE_URL`, `TENON_DATABASE_URL_SYNC` (sync used by Alembic; async derived automatically; SQLite fallback `local.db` if unset).
-- Auth0: `TENON_AUTH0_DOMAIN`, `TENON_AUTH0_ISSUER`, `TENON_AUTH0_JWKS_URL`, `TENON_AUTH0_API_AUDIENCE`, `TENON_AUTH0_ALGORITHMS`, `TENON_AUTH0_JWKS_CACHE_TTL_SECONDS`, `TENON_AUTH0_LEEWAY_SECONDS`, `TENON_AUTH0_CLAIM_NAMESPACE`, `TENON_AUTH0_EMAIL_CLAIM`, `TENON_AUTH0_ROLES_CLAIM`, `TENON_AUTH0_PERMISSIONS_CLAIM`.
-- Auth0 alignment: `TENON_AUTH0_ISSUER` should match the frontend issuer (including trailing slash), and `TENON_AUTH0_API_AUDIENCE` should match the frontend API audience; the backend is stateless (no cookies/sessions) and does not generate Auth0 logout URLs.
-- Auth0 JWT validation: JWKS are cached for `TENON_AUTH0_JWKS_CACHE_TTL_SECONDS` (default 3600s) and refreshed on unknown `kid`; clock skew leeway is `TENON_AUTH0_LEEWAY_SECONDS` (default 60s).
-- Auth0 Post Login Action must set `https://tenon.ai/permissions` (and `permissions`) on both access and ID tokens so first-login candidates receive `candidate:access`.
-- CORS: `TENON_CORS_ALLOW_ORIGINS` (JSON array or comma list), `TENON_CORS_ALLOW_ORIGIN_REGEX`.
-- Security: `TENON_RATE_LIMIT_ENABLED`, `TENON_MAX_REQUEST_BODY_BYTES`, `TENON_TRUSTED_PROXY_CIDRS`.
-- Candidate portal: `TENON_CANDIDATE_PORTAL_BASE_URL` (used for invite links).
-- GitHub: `TENON_GITHUB_API_BASE`, `TENON_GITHUB_ORG`, `TENON_GITHUB_TEMPLATE_OWNER`, `TENON_GITHUB_REPO_PREFIX`, `TENON_GITHUB_ACTIONS_WORKFLOW_FILE`, `TENON_GITHUB_TOKEN`, `TENON_GITHUB_CLEANUP_ENABLED` (future).
-- Email: `TENON_EMAIL_PROVIDER`, `TENON_EMAIL_FROM`, `TENON_RESEND_API_KEY`.
-- Admin: `TENON_ADMIN_API_KEY` (required for admin endpoints).
-- Dev bypass: `DEV_AUTH_BYPASS=1` (local only; app aborts otherwise).
+- Database: `TENON_DATABASE_URL`, `TENON_DATABASE_URL_SYNC` (SQLite fallback for local if unset).
+- Auth0: `TENON_AUTH0_DOMAIN` or `TENON_AUTH0_ISSUER`, `TENON_AUTH0_JWKS_URL`, `TENON_AUTH0_API_AUDIENCE`, `TENON_AUTH0_ALGORITHMS`, claim namespace/claim keys, leeway/cache TTL. App fails fast on missing issuer/audience outside tests. Dev bypass: `DEV_AUTH_BYPASS=1` allowed only with `ENV=local`.
+- GitHub: `TENON_GITHUB_API_BASE`, `TENON_GITHUB_ORG`, `TENON_GITHUB_TEMPLATE_OWNER`, `TENON_GITHUB_REPO_PREFIX`, `TENON_GITHUB_ACTIONS_WORKFLOW_FILE`, `TENON_GITHUB_TOKEN`, `TENON_GITHUB_CLEANUP_ENABLED` (placeholder).
+- App: `TENON_ENV`, `TENON_API_PREFIX`, `TENON_CANDIDATE_PORTAL_BASE_URL`, `TENON_MAX_REQUEST_BODY_BYTES`, `TENON_RATE_LIMIT_ENABLED`, `TENON_TRUSTED_PROXY_CIDRS`, `DEBUG_PERF`.
+- Email: `TENON_EMAIL_PROVIDER` (console/resend/sendgrid/smtp), `TENON_EMAIL_FROM`, provider keys (`TENON_RESEND_API_KEY`, `SENDGRID_API_KEY`, `SMTP_*`).
+- Admin: `TENON_ADMIN_API_KEY`. Security: redact tokens in logs; never log GitHub/Auth0 secrets; rotate if leaked. Rate limiter is in-memory per process—use shared store before multi-instance deploys.
 
-## Security Hardening
+## Local Development
 
-- Rate limits: enforced for auth, invite, candidate session, and run/poll endpoints (per IP/session), enabled outside local/test by default. Override with `TENON_RATE_LIMIT_ENABLED`. In-memory limiter is per-process only; for multi-worker/instance deployments use a shared store (not implemented).
-- Polling throttles: `/api/tasks/{taskId}/run/{runId}` enforces a minimum poll interval and caps in-flight run/poll requests per candidate session.
-- Request size limits: POST/PUT/PATCH bodies are capped (default 1 MB) without buffering full bodies. Configure via `TENON_MAX_REQUEST_BODY_BYTES`.
-- Client IP: always taken from `request.client.host`. `TrustedProxyHeadersMiddleware` may rewrite it from `X-Forwarded-For` only when the immediate peer is within `TENON_TRUSTED_PROXY_CIDRS` (configure this behind a load balancer).
-- Log redaction: Authorization/token-like fields are redacted in logs; avoid logging raw credentials in custom code.
-- Recommended checks: `poetry export -f requirements.txt --without-hashes | pip-audit -r /dev/stdin`, `bandit -r app`, and Dependabot for dependency updates.
+- Install: `poetry install`; optionally `source ./setEnvVar.sh` to load defaults.
+- Run: `poetry run uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000` or `./runBackend.sh`.
+- Migrations: `poetry run alembic upgrade head`.
+- Seed dev recruiters: `ENV=local DEV_AUTH_BYPASS=1 poetry run python scripts/seed_local_recruiters.py`.
+- Tests: `poetry run pytest` (see `tests/README.md`).
+- Dev auth: recruiter bearer `recruiter:email@example.com` or `x-dev-user-email` when `DEV_AUTH_BYPASS=1`; candidate routes expect Auth0-style candidate bearer plus `x-candidate-session-id`.
 
-## Roadmap (not implemented yet)
+## Roadmap (planned/not shipped)
 
-- Pre-provision repos at invite/simulation creation.
-- Invite email notifications.
-- AI scenario generation/evaluation + repo tailoring commits; generate `FitProfile` reports.
-- Day4 media upload pipeline; Day5 structured documentation.
-- Background jobs system.
-- Repo cleanup post-eval.
-- Webhook ingestion + GitHub App auth migration.
-- Structured logging/monitoring/admin metrics; prod deploy plan and disabling dev bypass outside dev.
+- AI scenario/rubric generation and FitProfile reports.
+- Background jobs, webhook ingestion/GitHub App auth, repo cleanup.
+- Day4 media upload + transcription; Day5 structured documentation intake.
+- Structured logging/monitoring/analytics/admin metrics; production deploy hardening (disable dev bypass).
