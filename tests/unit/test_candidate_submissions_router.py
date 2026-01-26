@@ -8,8 +8,8 @@ from fastapi import HTTPException
 
 from app.api.dependencies.candidate_sessions import candidate_session_from_headers
 from app.api.routes import tasks_codespaces as candidate_submissions
-from app.domains.github_native.actions_runner import ActionsRunResult
-from app.domains.github_native.client import GithubError
+from app.integrations.github.actions_runner import ActionsRunResult
+from app.integrations.github.client import GithubError
 from app.domains.submissions.schemas import (
     CodespaceInitRequest,
     RunTestsRequest,

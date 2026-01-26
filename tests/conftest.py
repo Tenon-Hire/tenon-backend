@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.api.dependencies.github_native import get_github_client
 from app.api.routes import tasks_codespaces as candidate_submissions
 from app.domains import Base, User
-from app.domains.github_native.actions_runner import ActionsRunResult
+from app.integrations.github.actions_runner import ActionsRunResult
 from app.infra.config import settings
 from app.infra.db import get_session
 from app.infra.security.current_user import get_current_user

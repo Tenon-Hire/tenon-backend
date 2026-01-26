@@ -5,13 +5,13 @@ from datetime import UTC, datetime
 
 import pytest
 
-from app.domains.github_native import (
+from app.integrations.github import (
     GithubClient,
     GithubError,
     WorkflowRun,
     template_health,
 )
-from app.domains.github_native.template_health import (
+from app.integrations.github.template_health import (
     _decode_contents,
     check_template_health,
     workflow_contract_errors,

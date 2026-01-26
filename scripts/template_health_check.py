@@ -4,8 +4,8 @@ import argparse
 import asyncio
 import sys
 
-from app.domains.github_native import GithubClient
-from app.domains.github_native.template_health import check_template_health
+from app.integrations.github import GithubClient
+from app.integrations.github.template_health import check_template_health
 from app.domains.tasks.template_catalog import ALLOWED_TEMPLATE_KEYS
 from app.infra.config import settings
 

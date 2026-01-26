@@ -4,7 +4,7 @@ import pytest
 
 from app.api import error_utils
 from app.api.routes import simulations
-from app.domains.github_native.client import GithubError
+from app.integrations.github.client import GithubError
 from app.domains.simulations import service as sim_service
 from app.infra.security import rate_limit
 
