@@ -11,12 +11,45 @@ cd "$PROJECT_ROOT" || exit 1
 GREEN='\033[0;32m'
 NC='\033[0m'
 
-if command -v poetry &> /dev/null
-then
-    echo -e "${GREEN}Using Poetry environment...${NC}"
-    RUN="poetry run"
+POETRY_CMD="poetry"
+USE_POETRY=0
+
+if command -v "$POETRY_CMD" &> /dev/null; then
+    USE_POETRY=1
 else
-    echo -e "${GREEN}Poetry not found. Falling back to system Python/pip...${NC}"
+    echo -e "${GREEN}Poetry not found. Installing...${NC}"
+    install_status=0
+    if command -v pipx &> /dev/null; then
+        pipx install poetry || install_status=$?
+        export PATH="$HOME/.local/bin:$PATH"
+    elif command -v python3 &> /dev/null; then
+        VENV_DIR="${PROJECT_ROOT}/.venv-poetry"
+        python3 -m venv "$VENV_DIR" || install_status=$?
+        if [[ $install_status -eq 0 ]]; then
+            "$VENV_DIR/bin/pip" install poetry || install_status=$?
+        fi
+        POETRY_CMD="$VENV_DIR/bin/poetry"
+    else
+        install_status=1
+    fi
+
+    if [[ $install_status -eq 0 ]] && { command -v "$POETRY_CMD" &> /dev/null || [[ -x "$POETRY_CMD" ]]; }; then
+        USE_POETRY=1
+    else
+        if [[ -x "${PROJECT_ROOT}/.venv/bin/python" ]]; then
+            echo -e "${GREEN}Poetry install failed. Using existing .venv...${NC}"
+            export PATH="${PROJECT_ROOT}/.venv/bin:$PATH"
+        else
+            echo "ERROR: Poetry install failed and no .venv found."
+            exit 1
+        fi
+    fi
+fi
+
+if [[ $USE_POETRY -eq 1 ]]; then
+    echo -e "${GREEN}Using Poetry environment...${NC}"
+    RUN="$POETRY_CMD run"
+else
     RUN=""
 fi
 
@@ -35,9 +68,14 @@ fi
 echo "🌱 Seeding local recruiters..."
 export ENV=local
 export DEV_AUTH_BYPASS=1
+if [[ "${USE_SQLITE:-0}" == "1" ]]; then
+  export TENON_DATABASE_URL=""
+  export TENON_DATABASE_URL_SYNC=""
+  echo "ℹ️  USE_SQLITE=1: using sqlite fallback for local DB."
+fi
 source ./setEnvVar.sh
 
-poetry run python scripts/seed_local_recruiters.py
+$RUN python scripts/seed_local_recruiters.py
 
 echo "🔧 Starting FastAPI server..."
 
