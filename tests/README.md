@@ -8,5 +8,5 @@
 ## Running tests
 
 - Standard run: `poetry run pytest`
-- With coverage (CI default): `poetry run pytest --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=90`
+- With coverage (CI default): `poetry run pytest --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=99`
 - Property tests use Hypothesis; keep them in `tests/property` to toggle with `-k property` when needed.

@@ -210,3 +210,10 @@ __marimo__/
 .DS_Store
 local.db
 setEnvVar.sh
+
+# AI Flow
+.ai_flow/
+issue.md
+pr.md
+AI_FLOW.md
+installAIFlow.sh
