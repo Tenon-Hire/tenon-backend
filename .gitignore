@@ -213,7 +213,7 @@ setEnvVar.sh
 
 # AI Flow
 .ai_flow/
+.qa/
 issue.md
-pr.md
 AI_FLOW.md
 installAIFlow.sh
