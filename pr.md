@@ -123,6 +123,12 @@
 - `tests/integration/test_jobs_worker_integration.py::test_worker_run_once_retry_then_success_with_new_sessions` (integration worker resume/retry path)
 - `tests/unit/test_jobs_repository.py::test_mark_failed_and_reschedule_sanitizes_and_truncates_last_error`
 
+### Manual QA
+
+- Created jobs via internal repository APIs and exercised success, retry, and dead-letter paths with the worker runner.
+- Verified ownership behavior on `GET /api/jobs/{job_id}` for authorized and unauthorized principals.
+- Verified restart tolerance by stopping and restarting worker processing and confirming queued/stale jobs resumed.
+
 ## Demo / rollout checklist
 
 1. Apply migration and start API as usual.
