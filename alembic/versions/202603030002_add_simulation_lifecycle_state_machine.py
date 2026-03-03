@@ -17,6 +17,7 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 _SIMULATION_STATUS_CHECK_NAME = "ck_simulations_status_lifecycle"
+# Must match SIMULATION_STATUSES in app/repositories/simulations/simulation.py.
 _SIMULATION_STATUS_CHECK_EXPR = (
     "status IN ('draft','generating','ready_for_review','active_inviting','terminated')"
 )

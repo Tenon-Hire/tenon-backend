@@ -31,19 +31,6 @@ def _require_confirmation(payload: SimulationLifecycleRequest) -> None:
     )
 
 
-def _normalized_status_or_error(raw_status: str | None) -> str:
-    normalized = sim_service.normalize_simulation_status(raw_status)
-    if normalized is not None:
-        return normalized
-    raise ApiError(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail="Invalid simulation status.",
-        error_code="SIMULATION_STATUS_INVALID",
-        retryable=False,
-        details={"status": raw_status},
-    )
-
-
 @router.post(
     "/{simulation_id}/activate",
     response_model=SimulationActivateResponse,
@@ -60,7 +47,7 @@ async def activate_simulation(
     simulation = await sim_service.activate_simulation(
         db, simulation_id=simulation_id, actor_user_id=user.id
     )
-    status_value = _normalized_status_or_error(simulation.status)
+    status_value = sim_service.normalize_simulation_status_or_raise(simulation.status)
     return SimulationActivateResponse(
         simulationId=simulation.id,
         status=status_value,
@@ -84,7 +71,7 @@ async def terminate_simulation(
     simulation = await sim_service.terminate_simulation(
         db, simulation_id=simulation_id, actor_user_id=user.id
     )
-    status_value = _normalized_status_or_error(simulation.status)
+    status_value = sim_service.normalize_simulation_status_or_raise(simulation.status)
     return SimulationTerminateResponse(
         simulationId=simulation.id,
         status=status_value,

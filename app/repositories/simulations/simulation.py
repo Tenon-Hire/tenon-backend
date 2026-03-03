@@ -22,9 +22,11 @@ SIMULATION_STATUSES = (
 
 LEGACY_SIMULATION_STATUS_ACTIVE = "active"
 SIMULATION_STATUS_CHECK_CONSTRAINT_NAME = "ck_simulations_status_lifecycle"
-SIMULATION_STATUS_CHECK_CONSTRAINT_EXPR = (
-    "status IN ('draft','generating','ready_for_review','active_inviting','terminated')"
-)
+
+
+def _status_check_expr() -> str:
+    allowed = ",".join(f"'{status}'" for status in SIMULATION_STATUSES)
+    return f"status IN ({allowed})"
 
 
 class Simulation(Base, TimestampMixin):
@@ -33,7 +35,7 @@ class Simulation(Base, TimestampMixin):
     __tablename__ = "simulations"
     __table_args__ = (
         CheckConstraint(
-            SIMULATION_STATUS_CHECK_CONSTRAINT_EXPR,
+            _status_check_expr(),
             name=SIMULATION_STATUS_CHECK_CONSTRAINT_NAME,
         ),
     )

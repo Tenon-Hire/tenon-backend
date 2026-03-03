@@ -36,6 +36,21 @@ def test_normalize_simulation_status_strictness():
     assert sim_service.normalize_simulation_status(None) is None
 
 
+def test_normalize_simulation_status_or_raise_valid_value():
+    assert (
+        sim_service.normalize_simulation_status_or_raise("active")
+        == sim_service.SIMULATION_STATUS_ACTIVE_INVITING
+    )
+
+
+def test_normalize_simulation_status_or_raise_invalid_value():
+    with pytest.raises(ApiError) as excinfo:
+        sim_service.normalize_simulation_status_or_raise("unknown_status")
+    assert excinfo.value.status_code == 500
+    assert excinfo.value.error_code == "SIMULATION_STATUS_INVALID"
+    assert excinfo.value.details == {"status": "unknown_status"}
+
+
 def test_apply_status_transition_allows_happy_path():
     sim = _simulation(sim_service.SIMULATION_STATUS_DRAFT)
     at = datetime.now(UTC)

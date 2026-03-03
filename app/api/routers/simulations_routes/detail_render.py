@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from fastapi import status
-
-from app.core.errors import ApiError
 from app.domains.simulations import service as sim_service
 from app.domains.simulations.schemas import (
     ScenarioVersionSummary,
@@ -11,22 +8,9 @@ from app.domains.simulations.schemas import (
 )
 
 
-def _normalized_status_or_error(raw_status: str | None) -> str:
-    normalized = sim_service.normalize_simulation_status(raw_status)
-    if normalized is not None:
-        return normalized
-    raise ApiError(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail="Invalid simulation status.",
-        error_code="SIMULATION_STATUS_INVALID",
-        retryable=False,
-        details={"status": raw_status},
-    )
-
-
 def render_simulation_detail(sim, tasks) -> SimulationDetailResponse:
     raw_status = getattr(sim, "status", None)
-    status_value = _normalized_status_or_error(raw_status)
+    status_value = sim_service.normalize_simulation_status_or_raise(raw_status)
     return SimulationDetailResponse(
         id=sim.id,
         title=sim.title,

@@ -38,6 +38,19 @@ def normalize_simulation_status(raw_status: str | None) -> str | None:
     return None
 
 
+def normalize_simulation_status_or_raise(raw_status: str | None) -> str:
+    normalized = normalize_simulation_status(raw_status)
+    if normalized is not None:
+        return normalized
+    raise ApiError(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Invalid simulation status.",
+        error_code="SIMULATION_STATUS_INVALID",
+        retryable=False,
+        details={"status": raw_status},
+    )
+
+
 def _allowed_targets(current_status: str | None) -> list[str]:
     normalized = normalize_simulation_status(current_status)
     return sorted(_ALLOWED_TRANSITIONS.get(normalized or "", set()))
