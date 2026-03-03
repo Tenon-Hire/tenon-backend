@@ -54,13 +54,13 @@ def test_decode_auth0_token_invalid_signature(monkeypatch):
     monkeypatch.setattr(auth0, "_fetch_jwks", fake_fetch)
 
     def bad_decode(token, key, algorithms, audience, issuer, options):
-        raise JWTError("invalid")
+        raise JWTError("signature verification failed")
 
     monkeypatch.setattr(jwt, "decode", bad_decode)
 
     with pytest.raises(auth0.Auth0Error) as exc:
         auth0.decode_auth0_token("tok")
-    assert "Invalid token" in str(exc.value.detail)
+    assert "Invalid signature" in str(exc.value.detail)
 
 
 def test_get_jwks_fetches_and_caches(monkeypatch):
@@ -144,14 +144,26 @@ def test_decode_auth0_token_invalid_audience(monkeypatch):
 
     monkeypatch.setattr(jwt, "decode", bad_decode)
 
-    with pytest.raises(auth0.Auth0Error):
+    with pytest.raises(auth0.Auth0Error) as exc:
         auth0.decode_auth0_token("tok")
+    assert "audience" in str(exc.value.detail).lower()
 
 
 def test_decode_auth0_token_rejects_unapproved_alg(monkeypatch):
     auth0.clear_jwks_cache()
     monkeypatch.setattr(
         jwt, "get_unverified_header", lambda _t: {"kid": "kid1", "alg": "HS256"}
+    )
+    with pytest.raises(auth0.Auth0Error) as excinfo:
+        auth0.decode_auth0_token("tok")
+    assert "algorithm" in excinfo.value.detail
+
+
+def test_decode_auth0_token_rejects_none_algorithm_even_if_configured(monkeypatch):
+    auth0.clear_jwks_cache()
+    monkeypatch.setattr(auth0.settings.auth, "AUTH0_ALGORITHMS", "none,RS256")
+    monkeypatch.setattr(
+        jwt, "get_unverified_header", lambda _t: {"kid": "kid1", "alg": "none"}
     )
     with pytest.raises(auth0.Auth0Error) as excinfo:
         auth0.decode_auth0_token("tok")

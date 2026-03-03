@@ -6,9 +6,11 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
 
+from app.core.env import env_name
+
 from .bearer import bearer_scheme
 from .builder import build_principal
-from .dev_principal import build_dev_principal
+from .dev_principal import build_dev_principal, parse_dev_principal_token
 from .model import Principal
 from .token_decoder import decode_credentials
 
@@ -31,6 +33,23 @@ async def get_principal(
         or ""
     ).strip() or None
 
+    # Reject shorthand/dev bearer tokens outside test to prevent auth bypass.
+    if (
+        parse_dev_principal_token(credentials.credentials or "")
+        and env_name() != "test"
+    ):
+        logger.warning(
+            "auth_token_rejected",
+            extra={
+                "request_id": request_id,
+                "reason": "bypass_blocked",
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
+
     dev_principal = build_dev_principal(credentials)
     if dev_principal:
         return dev_principal
@@ -47,4 +66,9 @@ async def get_principal(
                 "reason": "claims_invalid",
             },
         )
+        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated",
+            ) from exc
         raise

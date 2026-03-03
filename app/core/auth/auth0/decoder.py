@@ -37,7 +37,11 @@ def decode_auth0_token(token: str) -> dict[str, Any]:
         _log_failure("kid_missing", kid=None, alg=unverified_header.get("alg"))
         raise Auth0Error("Token header missing kid")
     alg = unverified_header.get("alg")
-    allowed_algs = settings.auth.algorithms
+    if isinstance(alg, str) and alg.lower() == "none":
+        _log_failure("invalid_algorithm", kid=kid, alg=alg)
+        raise Auth0Error("Invalid token algorithm")
+
+    allowed_algs = [a for a in settings.auth.algorithms if a.lower() != "none"]
     if not alg or alg not in allowed_algs:
         _log_failure("invalid_algorithm", kid=kid, alg=alg)
         raise Auth0Error("Invalid token algorithm")
@@ -56,10 +60,16 @@ def decode_auth0_token(token: str) -> dict[str, Any]:
         return jwt.decode(
             token,
             key,
-            algorithms=settings.auth.algorithms,
+            algorithms=allowed_algs,
             audience=settings.auth.audience,
             issuer=settings.auth.issuer,
             options={
+                "verify_signature": True,
+                "verify_aud": True,
+                "verify_iss": True,
+                "verify_exp": True,
+                "verify_nbf": True,
+                "require_exp": True,
                 "verify_at_hash": False,
                 "leeway": settings.auth.AUTH0_LEEWAY_SECONDS,
             },
@@ -68,6 +78,19 @@ def decode_auth0_token(token: str) -> dict[str, Any]:
         _log_failure("expired", kid=kid, alg=alg)
         raise Auth0Error("Token expired") from exc
     except JWTError as exc:
+        detail = str(exc).lower()
+        if "audience" in detail:
+            _log_failure("wrong_audience", kid=kid, alg=alg)
+            raise Auth0Error("Invalid audience") from exc
+        if "issuer" in detail:
+            _log_failure("wrong_issuer", kid=kid, alg=alg)
+            raise Auth0Error("Invalid issuer") from exc
+        if "nbf" in detail:
+            _log_failure("not_before_invalid", kid=kid, alg=alg)
+            raise Auth0Error("Invalid not-before claim") from exc
+        if "signature" in detail:
+            _log_failure("invalid_signature", kid=kid, alg=alg)
+            raise Auth0Error("Invalid signature") from exc
         _log_failure("invalid_token", kid=kid, alg=alg)
         raise Auth0Error("Invalid token") from exc
 

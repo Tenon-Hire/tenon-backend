@@ -22,7 +22,8 @@ def create_app() -> FastAPI:
     configure_core_logging()
     if settings.dev_auth_bypass_enabled and _env_name() != "local":
         raise RuntimeError(
-            "Refusing to start: DEV_AUTH_BYPASS enabled outside ENV=local"
+            "Refusing to start: DEV_AUTH_BYPASS/TENON_DEV_AUTH_BYPASS enabled "
+            "outside TENON_ENV=local"
         )
 
     app = FastAPI(title=f"{APP_NAME} Backend", version="0.1.0", lifespan=lifespan)

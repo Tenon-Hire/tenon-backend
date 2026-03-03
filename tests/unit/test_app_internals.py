@@ -64,6 +64,14 @@ def test_create_app_guard(monkeypatch):
         create_app()
 
 
+def test_create_app_guard_rejects_tenon_dev_auth_bypass(monkeypatch):
+    monkeypatch.delenv("DEV_AUTH_BYPASS", raising=False)
+    monkeypatch.setenv("TENON_DEV_AUTH_BYPASS", "1")
+    monkeypatch.setattr(settings, "ENV", "staging")
+    with pytest.raises(RuntimeError):
+        create_app()
+
+
 def test_create_app_adds_proxy_headers(monkeypatch):
     monkeypatch.delenv("DEV_AUTH_BYPASS", raising=False)
     monkeypatch.setattr(settings, "ENV", "local")

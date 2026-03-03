@@ -105,8 +105,10 @@ async def test_get_principal_auth0_error_does_not_crash(monkeypatch):
     credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="tok")
     request = Request({"type": "http", "headers": [(b"x-request-id", b"req-1")]})
 
-    with pytest.raises(auth0.Auth0Error):
+    with pytest.raises(HTTPException) as excinfo:
         await principal.get_principal(credentials, request)
+    assert excinfo.value.status_code == 401
+    assert excinfo.value.detail == "Not authenticated"
 
 
 @pytest.mark.asyncio
@@ -117,8 +119,10 @@ async def test_get_principal_maps_jwks_failure(monkeypatch):
     monkeypatch.setattr(auth0, "decode_auth0_token", bad_decode)
     credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="tok")
     request = Request({"type": "http", "headers": []})
-    with pytest.raises(auth0.Auth0Error):
+    with pytest.raises(HTTPException) as excinfo:
         await principal.get_principal(credentials, request)
+    assert excinfo.value.status_code == 401
+    assert excinfo.value.detail == "Not authenticated"
 
 
 @pytest.mark.asyncio
@@ -129,5 +133,21 @@ async def test_get_principal_maps_kid_not_found(monkeypatch):
     monkeypatch.setattr(auth0, "decode_auth0_token", bad_decode)
     credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="tok")
     request = Request({"type": "http", "headers": []})
-    with pytest.raises(auth0.Auth0Error):
+    with pytest.raises(HTTPException) as excinfo:
         await principal.get_principal(credentials, request)
+    assert excinfo.value.status_code == 401
+    assert excinfo.value.detail == "Not authenticated"
+
+
+@pytest.mark.asyncio
+async def test_get_principal_blocks_dev_shorthand_outside_test(monkeypatch):
+    monkeypatch.setattr(settings, "ENV", "prod")
+    credentials = HTTPAuthorizationCredentials(
+        scheme="Bearer", credentials="candidate:blocked@example.com"
+    )
+    request = Request({"type": "http", "headers": []})
+
+    with pytest.raises(HTTPException) as excinfo:
+        await principal.get_principal(credentials, request)
+    assert excinfo.value.status_code == 401
+    assert excinfo.value.detail == "Not authenticated"

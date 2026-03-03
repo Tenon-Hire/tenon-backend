@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import status
+from fastapi import HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.core.auth import auth0
@@ -18,14 +18,29 @@ def decode_credentials(
     except auth0.Auth0Error as exc:
         reason = "invalid_token"
         detail_lower = str(exc.detail).lower()
-        if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
+        if detail_lower.startswith("invalid token header"):
+            reason = "invalid_header"
+        elif detail_lower.startswith("token header missing kid"):
+            reason = "kid_missing"
+        elif detail_lower.startswith("invalid token algorithm"):
+            reason = "invalid_algorithm"
+        elif exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
             reason = "jwks_fetch_failed"
         elif detail_lower.startswith("token expired"):
             reason = "expired"
         elif detail_lower.startswith("signing key not found"):
             reason = "kid_not_found"
+        elif "audience" in detail_lower:
+            reason = "wrong_audience"
+        elif "issuer" in detail_lower:
+            reason = "wrong_issuer"
+        elif "signature" in detail_lower:
+            reason = "invalid_signature"
         logger.warning(
             "auth0_token_invalid",
-            extra={"request_id": request_id, "detail": exc.detail, "reason": reason},
+            extra={"request_id": request_id, "reason": reason},
         )
-        raise
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        ) from exc
