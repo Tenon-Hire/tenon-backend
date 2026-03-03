@@ -1,0 +1,56 @@
+RESTART_BEFORE
+{"attempt": 1, "correlation_id": "corr-resume", "id": "b3d1c7c8-d952-4614-ad2c-52b81ec00656", "job_type": "qa_resume_retry", "last_error": "Exception: resume transient failure before restart", "locked_at": null, "locked_by": null, "max_attempts": 2, "next_run_at": "2026-03-03T16:36:37.241649", "status": "queued"}
+RESTART_AFTER
+{"attempt": 2, "correlation_id": "corr-resume", "id": "b3d1c7c8-d952-4614-ad2c-52b81ec00656", "job_type": "qa_resume_retry", "last_error": null, "locked_at": null, "locked_by": null, "max_attempts": 2, "next_run_at": null, "status": "succeeded"}
+FINAL_JOB_STATES
+{"attempt": 1, "id": "81fc53f4-f4c0-43be-9d70-c29bf4351e00", "job_type": "qa_success", "last_error": null, "locked_at": null, "locked_by": null, "max_attempts": 5, "next_run_at": null, "status": "succeeded", "updated_at": "2026-03-03T16:36:33.241649"}
+{"attempt": 2, "id": "ac2c04e8-c44d-4fc2-bd5b-2251400cb96b", "job_type": "qa_retry_once", "last_error": null, "locked_at": null, "locked_by": null, "max_attempts": 3, "next_run_at": null, "status": "succeeded", "updated_at": "2026-03-03T16:36:38.241649"}
+{"attempt": 2, "id": "02aee7c9-4f85-4b7c-9989-c496d9512998", "job_type": "qa_dead_always", "last_error": "Exception: always fail for dead-letter path", "locked_at": null, "locked_by": null, "max_attempts": 2, "next_run_at": null, "status": "dead_letter", "updated_at": "2026-03-03T16:36:39.241649"}
+{"attempt": 2, "id": "b3d1c7c8-d952-4614-ad2c-52b81ec00656", "job_type": "qa_resume_retry", "last_error": null, "locked_at": null, "locked_by": null, "max_attempts": 2, "next_run_at": null, "status": "succeeded", "updated_at": "2026-03-03T16:36:40.241649"}
+SCHEMA_AND_INDEXES
+0|id|VARCHAR(36)|1||1
+1|job_type|VARCHAR(100)|1||0
+2|status|VARCHAR(32)|1|'queued'|0
+3|attempt|INTEGER|1|0|0
+4|max_attempts|INTEGER|1|5|0
+5|idempotency_key|VARCHAR(255)|1||0
+6|payload_json|JSON|1||0
+7|result_json|JSON|0||0
+8|last_error|TEXT|0||0
+9|created_at|DATETIME|1|CURRENT_TIMESTAMP|0
+10|updated_at|DATETIME|1|CURRENT_TIMESTAMP|0
+11|next_run_at|DATETIME|0||0
+12|locked_at|DATETIME|0||0
+13|locked_by|VARCHAR(255)|0||0
+14|correlation_id|VARCHAR(255)|0||0
+15|company_id|INTEGER|1||0
+16|candidate_session_id|INTEGER|0||0
+0|uq_jobs_company_job_type_idempotency_key|1|c|0
+1|ix_jobs_candidate_session_id|0|c|0
+2|ix_jobs_company_id|0|c|0
+3|ix_jobs_status_next_run_created|0|c|0
+4|sqlite_autoindex_jobs_1|1|pk|0
+0|15|company_id
+1|1|job_type
+2|5|idempotency_key
+
+JOB_ROWS
+id                                    job_type         status       attempt  max_attempts  next_run_at  locked_at  locked_by  last_error_preview                           updated_at                
+------------------------------------  ---------------  -----------  -------  ------------  -----------  ---------  ---------  -------------------------------------------  --------------------------
+81fc53f4-f4c0-43be-9d70-c29bf4351e00  qa_success       succeeded    1        5                                                                                             2026-03-03 16:36:33.241649
+ac2c04e8-c44d-4fc2-bd5b-2251400cb96b  qa_retry_once    succeeded    2        3                                                                                             2026-03-03 16:36:38.241649
+02aee7c9-4f85-4b7c-9989-c496d9512998  qa_dead_always   dead_letter  2        2                                                Exception: always fail for dead-letter path  2026-03-03 16:36:39.241649
+b3d1c7c8-d952-4614-ad2c-52b81ec00656  qa_resume_retry  succeeded    2        2                                                                                             2026-03-03 16:36:40.241649
+
+LAST_ERROR_SANITIZATION
+id                                    last_error_len  newline_pos
+------------------------------------  --------------  -----------
+02aee7c9-4f85-4b7c-9989-c496d9512998  43              0          
+POST_PENDING_JOB_ROWS
+id                                    job_type         status       attempt  max_attempts  next_run_at                 locked_at  locked_by  last_error_preview                           updated_at                
+------------------------------------  ---------------  -----------  -------  ------------  --------------------------  ---------  ---------  -------------------------------------------  --------------------------
+81fc53f4-f4c0-43be-9d70-c29bf4351e00  qa_success       succeeded    1        5                                                                                                            2026-03-03 16:36:33.241649
+ac2c04e8-c44d-4fc2-bd5b-2251400cb96b  qa_retry_once    succeeded    2        3                                                                                                            2026-03-03 16:36:38.241649
+02aee7c9-4f85-4b7c-9989-c496d9512998  qa_dead_always   dead_letter  2        2                                                               Exception: always fail for dead-letter path  2026-03-03 16:36:39.241649
+b3d1c7c8-d952-4614-ad2c-52b81ec00656  qa_resume_retry  succeeded    2        2                                                                                                            2026-03-03 16:36:40.241649
+103d066e-2ac6-4898-8efe-4b1ba0f2e713  qa_pending       queued       0        3             2026-03-03 16:37:15.158327                                                                     2026-03-03 16:37:15       
