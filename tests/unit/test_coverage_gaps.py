@@ -163,6 +163,12 @@ async def test_simulation_routes_execute_service_calls(monkeypatch):
         seniority="Mid",
         focus="API",
         template_key="python-fastapi",
+        scenario_template="default-5day-node-postgres",
+        status="ready_for_review",
+        generating_at=datetime.now(UTC),
+        ready_for_review_at=datetime.now(UTC),
+        activated_at=None,
+        terminated_at=None,
         created_at=datetime.now(UTC),
     )
     task = SimpleNamespace(id=9, day_index=1, type="code", title="Task")

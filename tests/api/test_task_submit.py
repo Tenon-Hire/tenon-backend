@@ -47,7 +47,14 @@ async def create_simulation(async_client, recruiter_email: str) -> dict:
         },
     )
     assert resp.status_code == 201, resp.text
-    return resp.json()
+    simulation = resp.json()
+    activate = await async_client.post(
+        f"/api/simulations/{simulation['id']}/activate",
+        headers={"x-dev-user-email": recruiter_email},
+        json={"confirm": True},
+    )
+    assert activate.status_code == 200, activate.text
+    return simulation
 
 
 async def invite_candidate(

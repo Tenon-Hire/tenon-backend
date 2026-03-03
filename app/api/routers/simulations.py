@@ -6,6 +6,10 @@ from app.api.routers.simulations_routes.create import create_simulation
 from app.api.routers.simulations_routes.detail import get_simulation_detail
 from app.api.routers.simulations_routes.invite_create import create_candidate_invite
 from app.api.routers.simulations_routes.invite_resend import resend_candidate_invite
+from app.api.routers.simulations_routes.lifecycle import (
+    activate_simulation,
+    terminate_simulation,
+)
 from app.api.routers.simulations_routes.list_simulations import list_simulations
 from app.core.auth.roles import ensure_recruiter_or_none
 from app.domains.notifications import service as notification_service
@@ -22,6 +26,8 @@ __all__ = [
     "resend_candidate_invite",
     "create_simulation",
     "get_simulation_detail",
+    "activate_simulation",
+    "terminate_simulation",
     "list_simulation_candidates",
     "list_simulations",
     "notification_service",

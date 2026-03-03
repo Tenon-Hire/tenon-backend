@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from app.domains.simulations import service as sim_service
 from app.domains.simulations.schemas import (
+    ScenarioVersionSummary,
     SimulationDetailResponse,
     SimulationDetailTask,
 )
 
 
 def render_simulation_detail(sim, tasks) -> SimulationDetailResponse:
+    status = sim_service.normalize_simulation_status(getattr(sim, "status", None))
+    status = status or sim_service.SIMULATION_STATUS_READY_FOR_REVIEW
     return SimulationDetailResponse(
         id=sim.id,
         title=sim.title,
@@ -15,6 +19,15 @@ def render_simulation_detail(sim, tasks) -> SimulationDetailResponse:
         techStack=sim.tech_stack,
         focus=sim.focus,
         scenario=sim.scenario_template,
+        status=status,
+        generatingAt=getattr(sim, "generating_at", None),
+        readyForReviewAt=getattr(sim, "ready_for_review_at", None),
+        activatedAt=getattr(sim, "activated_at", None),
+        terminatedAt=getattr(sim, "terminated_at", None),
+        scenarioVersionSummary=ScenarioVersionSummary(
+            templateKey=getattr(sim, "template_key", None),
+            scenarioTemplate=getattr(sim, "scenario_template", None),
+        ),
         tasks=[
             SimulationDetailTask(
                 dayIndex=task.day_index,

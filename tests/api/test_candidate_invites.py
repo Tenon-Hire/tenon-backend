@@ -61,6 +61,13 @@ async def test_invite_creates_candidate_session(
     assert create_sim.status_code == 201
     sim_id = create_sim.json()["id"]
 
+    activate = await async_client.post(
+        f"/api/simulations/{sim_id}/activate",
+        headers={"x-dev-user-email": "recruiterA@tenon.com"},
+        json={"confirm": True},
+    )
+    assert activate.status_code == 200, activate.text
+
     # Invite candidate
     resp = await async_client.post(
         f"/api/simulations/{sim_id}/invite",
@@ -121,6 +128,13 @@ async def test_invite_resends_existing_active(
     )
     sim_id = create_sim.json()["id"]
 
+    activate = await async_client.post(
+        f"/api/simulations/{sim_id}/activate",
+        headers={"x-dev-user-email": "recruiterA@tenon.com"},
+        json={"confirm": True},
+    )
+    assert activate.status_code == 200, activate.text
+
     first = await async_client.post(
         f"/api/simulations/{sim_id}/invite",
         headers={"x-dev-user-email": "recruiterA@tenon.com"},
@@ -168,6 +182,13 @@ async def test_invite_expired_refreshes_token(
         },
     )
     sim_id = create_sim.json()["id"]
+
+    activate = await async_client.post(
+        f"/api/simulations/{sim_id}/activate",
+        headers={"x-dev-user-email": "recruiterA@tenon.com"},
+        json={"confirm": True},
+    )
+    assert activate.status_code == 200, activate.text
 
     first = await async_client.post(
         f"/api/simulations/{sim_id}/invite",
@@ -221,6 +242,13 @@ async def test_invite_completed_rejected(
     )
     sim_id = create_sim.json()["id"]
 
+    activate = await async_client.post(
+        f"/api/simulations/{sim_id}/activate",
+        headers={"x-dev-user-email": "recruiterA@tenon.com"},
+        json={"confirm": True},
+    )
+    assert activate.status_code == 200, activate.text
+
     first = await async_client.post(
         f"/api/simulations/{sim_id}/invite",
         headers={"x-dev-user-email": "recruiterA@tenon.com"},
@@ -273,6 +301,13 @@ async def test_invite_duplicate_requests_idempotent(
     )
     sim_id = create_sim.json()["id"]
 
+    activate = await async_client.post(
+        f"/api/simulations/{sim_id}/activate",
+        headers={"x-dev-user-email": "recruiterA@tenon.com"},
+        json={"confirm": True},
+    )
+    assert activate.status_code == 200, activate.text
+
     async def _invite():
         return await async_client.post(
             f"/api/simulations/{sim_id}/invite",
@@ -324,6 +359,13 @@ async def test_invite_rate_limited_in_prod(
         },
     )
     sim_id = create_sim.json()["id"]
+
+    activate = await async_client.post(
+        f"/api/simulations/{sim_id}/activate",
+        headers={"x-dev-user-email": "recruiter-rate@tenon.com"},
+        json={"confirm": True},
+    )
+    assert activate.status_code == 200, activate.text
 
     first = await async_client.post(
         f"/api/simulations/{sim_id}/invite",
@@ -392,6 +434,13 @@ async def test_invite_not_owned_simulation_returns_404(
     )
     assert create_sim.status_code == 201
     sim_id = create_sim.json()["id"]
+
+    activate = await async_client.post(
+        f"/api/simulations/{sim_id}/activate",
+        headers={"x-dev-user-email": "recruiterA@tenon.com"},
+        json={"confirm": True},
+    )
+    assert activate.status_code == 200, activate.text
 
     # Recruiter B attempts invite -> 404 (do not leak existence)
     resp = await async_client.post(

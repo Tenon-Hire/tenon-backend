@@ -26,7 +26,12 @@ async def test_create_candidate_invite_happy_path(monkeypatch):
     async def _require_owned_with_tasks(db, simulation_id, recruiter_id):
         assert recruiter_id == user.id
         return (
-            SimpleNamespace(id=simulation_id, title="Sim", role="Engineer"),
+            SimpleNamespace(
+                id=simulation_id,
+                title="Sim",
+                role="Engineer",
+                status="active_inviting",
+            ),
             [task_day2, task_day3],
         )
 

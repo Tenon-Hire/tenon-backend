@@ -18,7 +18,7 @@ async def test_simulation_template_returns_scenario(async_session: AsyncSession)
         focus="Focus string",
         scenario_template="scenario-key",
         created_by=0,
-        status="active",
+        status="active_inviting",
     )
     async_session.add(sim)
     await async_session.commit()
@@ -39,7 +39,7 @@ async def test_simulation_template_falls_back_to_focus(async_session: AsyncSessi
         focus="Focus string",
         scenario_template="",
         created_by=0,
-        status="active",
+        status="active_inviting",
     )
     async_session.add(sim)
     await async_session.commit()

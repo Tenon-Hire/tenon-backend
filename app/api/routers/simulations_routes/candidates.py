@@ -23,10 +23,16 @@ async def list_simulation_candidates(
     simulation_id: int,
     db: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[Any, Depends(get_current_user)],
+    includeTerminated: bool = False,
 ):
     """List candidate sessions for a simulation (recruiter-only)."""
     ensure_recruiter_or_none(user)
-    await sim_service.require_owned_simulation(db, simulation_id, user.id)
+    await sim_service.require_owned_simulation(
+        db,
+        simulation_id,
+        user.id,
+        include_terminated=includeTerminated,
+    )
     rows = await sim_service.list_candidates_with_profile(db, simulation_id)
     return [
         CandidateSessionListItem(

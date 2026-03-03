@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer
 
-from app.domains.common.types import TaskType
+from app.domains.common.types import SimulationStatus, TaskType
 from app.domains.tasks.schemas_public import TaskPublic
 from app.services.tasks.template_catalog import (
     DEFAULT_TEMPLATE_KEY,
@@ -19,6 +19,10 @@ __all__ = [
     "SimulationListItem",
     "SimulationDetailResponse",
     "SimulationDetailTask",
+    "SimulationLifecycleRequest",
+    "SimulationActivateResponse",
+    "SimulationTerminateResponse",
+    "ScenarioVersionSummary",
     "TaskPublic",
 ]
 
@@ -55,6 +59,13 @@ class TaskOut(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
 
 
+class ScenarioVersionSummary(BaseModel):
+    """Stable summary for scenario/version related metadata."""
+
+    templateKey: str | None = None
+    scenarioTemplate: str | None = None
+
+
 class SimulationCreateResponse(BaseModel):
     """Response returned after creating a simulation."""
 
@@ -67,6 +78,12 @@ class SimulationCreateResponse(BaseModel):
     seniority: str
     focus: str
     templateKey: str
+    status: SimulationStatus
+    generatingAt: datetime | None = None
+    readyForReviewAt: datetime | None = None
+    activatedAt: datetime | None = None
+    terminatedAt: datetime | None = None
+    scenarioVersionSummary: ScenarioVersionSummary | None = None
     tasks: list[TaskOut]
 
 
@@ -80,6 +97,10 @@ class SimulationListItem(BaseModel):
     role: str
     techStack: str
     templateKey: str
+    status: SimulationStatus
+    activatedAt: datetime | None = None
+    terminatedAt: datetime | None = None
+    scenarioVersionSummary: ScenarioVersionSummary | None = None
     createdAt: datetime
     numCandidates: int
 
@@ -128,4 +149,32 @@ class SimulationDetailResponse(BaseModel):
     techStack: str | list[str] | None = None
     focus: str | list[str] | None = None
     scenario: str | None = None
+    status: SimulationStatus
+    generatingAt: datetime | None = None
+    readyForReviewAt: datetime | None = None
+    activatedAt: datetime | None = None
+    terminatedAt: datetime | None = None
+    scenarioVersionSummary: ScenarioVersionSummary | None = None
     tasks: list[SimulationDetailTask]
+
+
+class SimulationLifecycleRequest(BaseModel):
+    """Confirmation payload for lifecycle transitions."""
+
+    confirm: bool
+
+
+class SimulationActivateResponse(BaseModel):
+    """Response payload for simulation activation."""
+
+    simulationId: int
+    status: SimulationStatus
+    activatedAt: datetime | None = None
+
+
+class SimulationTerminateResponse(BaseModel):
+    """Response payload for simulation termination."""
+
+    simulationId: int
+    status: SimulationStatus
+    terminatedAt: datetime | None = None

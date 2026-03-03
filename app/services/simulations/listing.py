@@ -8,9 +8,13 @@ from app.domains import CandidateSession, FitProfile
 from app.domains.simulations import repository as sim_repo
 
 
-async def list_simulations(db: AsyncSession, user_id: int):
+async def list_simulations(
+    db: AsyncSession, user_id: int, *, include_terminated: bool = False
+):
     """List simulations with candidate counts for a recruiter."""
-    return await sim_repo.list_with_candidate_counts(db, user_id)
+    return await sim_repo.list_with_candidate_counts(
+        db, user_id, include_terminated=include_terminated
+    )
 
 
 async def list_candidates_with_profile(
