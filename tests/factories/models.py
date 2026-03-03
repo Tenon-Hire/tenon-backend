@@ -71,7 +71,8 @@ async def create_simulation(
         focus=focus,
         scenario_template="default-5day-node-postgres",
         created_by=created_by.id,
-        status="active",
+        status="active_inviting",
+        activated_at=datetime.now(UTC),
         template_key=template_key,
     )
     session.add(sim)

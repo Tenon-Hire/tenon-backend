@@ -23,7 +23,10 @@ async def test_create_candidate_invite_rejected(monkeypatch):
     exc = sim_service.InviteRejectedError()
 
     async def fake_require(db, simulation_id, user_id):
-        return SimpleNamespace(id=1, title="t", role="r"), []
+        return (
+            SimpleNamespace(id=1, title="t", role="r", status="active_inviting"),
+            [],
+        )
 
     async def fake_create(db, simulation_id, payload, now):
         raise exc
@@ -53,7 +56,7 @@ async def test_create_candidate_invite_github_error(monkeypatch):
     task = SimpleNamespace(id=2, day_index=2, type="code", template_repo="owner/repo")
 
     async def fake_require(db, simulation_id, user_id):
-        sim = SimpleNamespace(id=1, title="t", role="r")
+        sim = SimpleNamespace(id=1, title="t", role="r", status="active_inviting")
         return sim, [task]
 
     async def fake_create(db, simulation_id, payload, now):
@@ -104,7 +107,7 @@ async def test_resend_candidate_invite_rate_limited(monkeypatch):
     monkeypatch.setattr(rate_limit, "limiter", DummyLimiter())
 
     async def fake_require(db, simulation_id, user_id):
-        return SimpleNamespace(id=1)
+        return SimpleNamespace(id=1, status="active_inviting")
 
     fake_cs = SimpleNamespace(
         id=2,
@@ -148,7 +151,7 @@ async def test_create_candidate_invite_skips_non_code_tasks(monkeypatch):
     calls = []
 
     async def fake_require(db, simulation_id, user_id):
-        sim = SimpleNamespace(id=1, title="t", role="r")
+        sim = SimpleNamespace(id=1, title="t", role="r", status="active_inviting")
         tasks = [
             SimpleNamespace(id=1, day_index=1, type="design", template_repo=None),
             SimpleNamespace(id=2, day_index=2, type="design", template_repo=None),
@@ -193,7 +196,7 @@ async def test_resend_candidate_invite_not_found(monkeypatch):
     monkeypatch.setattr(rate_limit, "rate_limit_enabled", lambda: False)
 
     async def fake_require(db, simulation_id, user_id):
-        return SimpleNamespace(id=1)
+        return SimpleNamespace(id=1, status="active_inviting")
 
     class FakeSession:
         async def get(self, model, id):

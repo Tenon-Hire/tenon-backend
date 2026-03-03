@@ -1,163 +1,111 @@
-# P0 Infra: Durable Jobs + Worker Runner + Job Status API (Issue #194)
+# P0 Recruiter Core: Simulation lifecycle state machine + invite gating
 
 ## TL;DR
 
-- Added a durable DB-backed `jobs` model and migration with required fields, scheduling metadata, locking metadata, tenancy links, and correlation support.
-- Added idempotent enqueue semantics via `create_or_get_idempotent` and a unique constraint on `(company_id, job_type, idempotency_key)`.
-- Added a lightweight worker runner (`python -m app.jobs.worker`) with optimistic claim, lease-based stale reclaim, exponential backoff retries, and dead-letter transitions.
-- Added authenticated polling API `GET /api/jobs/{job_id}` with stable response shape and `pollAfterMs` guidance.
-- This enables restart-tolerant long-running workflows without coupling execution to request lifetimes.
+- Added a persisted simulation lifecycle with enforced state transitions: `draft -> generating -> ready_for_review -> active_inviting`, plus `any -> terminated`.
+- Added owner-only lifecycle APIs for activation and termination, both confirmation-gated and idempotent, to support safe recruiter control in MVP1.1.
+- Added invite gating so candidate invites and invite resends are blocked unless the simulation is `active_inviting`.
+- Updated simulation and candidate list behavior to hide `terminated` by default, with explicit `includeTerminated=true` opt-in.
+- Expanded simulation API responses to include lifecycle status/timestamps and `scenarioVersionSummary`, enabling recruiter review and frontend lifecycle UI.
 
-## What changed
+## Detailed changes
 
-### DB schema
+### Database
 
-- Added `jobs` table in `alembic/versions/202603030001_add_durable_jobs_table.py`.
-- Required columns shipped:
-  - `job_type`
-  - `status`
-  - `attempt`
-  - `max_attempts`
-  - `idempotency_key`
-  - `payload_json`
-  - `result_json`
-  - `last_error`
-  - `created_at`
-  - `updated_at`
-  - `next_run_at`
-- Additional operational columns:
-  - `locked_at`
-  - `locked_by`
-  - `company_id`
-  - `candidate_session_id`
-  - `correlation_id`
-- Added indexes for runnable selection and ownership lookup:
-  - `ix_jobs_status_next_run_created`
-  - `ix_jobs_company_id`
-  - `ix_jobs_candidate_session_id`
-  - unique `uq_jobs_company_job_type_idempotency_key`
+- Added simulation lifecycle persistence in `simulations`:
+  - `status` (non-null, default `generating`)
+  - `generating_at`
+  - `ready_for_review_at`
+  - `activated_at`
+  - `terminated_at`
+- Backfilled existing `simulations` rows to `active_inviting` and set `activated_at` with `COALESCE(activated_at, created_at, CURRENT_TIMESTAMP)`.
+- Added DB CHECK constraint `ck_simulations_status_lifecycle` restricting `status` to:
+  - `draft`
+  - `generating`
+  - `ready_for_review`
+  - `active_inviting`
+  - `terminated`
 
-### Idempotency
+### Backend services
 
-- Implemented `create_or_get_idempotent(...)` in `app/repositories/jobs/repository.py`.
-- Behavior:
-  - validates `job_type`, `idempotency_key`, `max_attempts`
-  - validates payload size against `MAX_JOB_PAYLOAD_BYTES` before insert
-  - checks existing row first
-  - on race/`IntegrityError`, rolls back and fetches the existing row
-- Uniqueness boundary is company-scoped: `(company_id, job_type, idempotency_key)`.
+- Centralized lifecycle transition rules in simulation lifecycle service:
+  - Allowed transitions: `draft -> generating`, `generating -> ready_for_review`, `ready_for_review -> active_inviting`.
+  - Termination rule: `any valid status -> terminated`.
+- Implemented idempotent transition behavior for `activate` and `terminate`:
+  - Repeated requests return success and preserve original lifecycle timestamp.
+- Added `normalize_simulation_status` and `normalize_simulation_status_or_raise`:
+  - Maps legacy `active` to `active_inviting`.
+  - Strictly rejects unknown statuses with `SIMULATION_STATUS_INVALID`.
+- Added lifecycle transition logging for successful transitions and rejected attempts, including simulation and actor identifiers.
 
-### Worker runner
+### API
 
-- Added worker entrypoint: `python -m app.jobs.worker`.
-- `run_once()` flow:
-  - claims one runnable job using optimistic update on `(id, attempt)` + runnable predicate
-  - sets `status=running`, increments `attempt`, writes `locked_at/locked_by`
-  - dispatches to registered handler for `job_type`
-- Runnable/claim behavior:
-  - FIFO-ish order: `coalesce(next_run_at, created_at)`, then `created_at`
-  - stale running jobs are reclaimed when lease expires (`locked_at <= now - lease_seconds`)
-- Retry/dead-letter behavior:
-  - transient exception: reschedule to `queued` with exponential backoff (`1s, 2s, 4s...` capped at `60s`)
-  - when attempts exhausted: mark `dead_letter`
-  - missing handler or permanent handler error: immediate `dead_letter`
-- Logs include transition-safe metadata (`jobId`, `attempt`, `correlation_id`) and avoid payload logging.
+- New endpoints:
+  - `POST /api/simulations/{id}/activate`
+    - Requires `{ "confirm": true }`
+    - Recruiter owner-only
+    - Idempotent
+    - Returns `simulationId`, `status`, `activatedAt`
+  - `POST /api/simulations/{id}/terminate`
+    - Requires `{ "confirm": true }`
+    - Recruiter owner-only
+    - Idempotent
+    - Returns `simulationId`, `status`, `terminatedAt`
+- Invite gating:
+  - `POST /api/simulations/{id}/invite` now returns `409` with `SIMULATION_NOT_INVITABLE` unless status is `active_inviting`.
+  - Invite resend flow enforces the same invitable-state check.
+- Filtering behavior:
+  - Recruiter simulation list hides terminated simulations by default; `includeTerminated=true` opts in.
+  - Recruiter candidate list for a simulation also hides terminated simulations by default; `includeTerminated=true` opts in.
+  - Candidate inbox (`GET /api/candidate/invites`) hides terminated simulations by default; `includeTerminated=true` can include them.
+- Response schema updates:
+  - Simulation create/list/detail responses now include lifecycle status and timestamps.
+  - Simulation create/detail include `generatingAt`, `readyForReviewAt`, `activatedAt`, `terminatedAt`.
+  - Simulation create/list/detail include `scenarioVersionSummary`.
 
-### API: `GET /api/jobs/{job_id}`
+### Error contracts
 
-- Added route in `app/api/routers/jobs.py`, mounted under `/api/jobs/{job_id}`.
-- Response fields:
-  - `jobId`
-  - `jobType`
-  - `status`
-  - `attempt`
-  - `maxAttempts`
-  - `pollAfterMs`
-  - `result`
-  - `error`
-- `pollAfterMs` rules:
-  - `1500` for active states (`queued`, `running`)
-  - `0` for terminal states
-- Not found or not visible returns `404` with existing API error envelope (`detail`, `errorCode`, `retryable`, `details`) and `errorCode=JOB_NOT_FOUND`.
-
-### Security and ownership
-
-- No public create-job endpoint was introduced; job creation remains internal code path only.
-- Recruiter reads are company-scoped (`job.company_id == recruiter.company_id`).
-- Candidate reads require all of:
-  - job tied to a `candidate_session_id` (company-scoped jobs with no candidate session are not candidate-readable)
-  - `email_verified is True`
-  - normalized invite-email match between token email and `candidate_sessions.invite_email`
-  - sub mismatch protection: if `candidate_auth0_sub` is set and differs from principal `sub`, access is denied
-- For not found and not owned cases, API intentionally returns `404`.
-- Payload size validation is enforced before insert (`MAX_JOB_PAYLOAD_BYTES`).
-
-### Error hygiene
-
-- `last_error` is sanitized and bounded via repository helper:
-  - whitespace/newline normalization to a single-line message
-  - truncation to `MAX_JOB_ERROR_CHARS = 2048`
-
-## Acceptance criteria mapping
-
-1. Creating a job and restarting the API process does not lose it; worker can resume.
-   - Satisfied by DB persistence (`jobs` table), decoupled worker process, and lease-based claim/reclaim logic.
-2. Worker retries transient failures up to `max_attempts`, then marks dead-letter.
-   - Satisfied by `run_once()` + `mark_failed_and_reschedule()` + `mark_dead_letter()` with attempt tracking and capped exponential backoff.
-3. `GET /api/jobs/{id}` returns stable, documented JSON structure.
-   - Satisfied by `JobStatusResponse` schema and route implementation returning fixed keys plus deterministic `pollAfterMs`.
+- Non-owner lifecycle transitions return `403`.
+- Missing simulation returns `404`.
+- Invalid persisted status (defensive, should be unreachable with DB constraint) raises `500` with `errorCode: SIMULATION_STATUS_INVALID`.
 
 ## Testing
 
-### Commands run and results
+Commands run and results:
 
 - `poetry run ruff check .` -> pass
-- `poetry run ruff format .` -> pass (`731 files left unchanged`)
-- `poetry run pytest -q` -> pass (`846 passed in 13.39s`)
+- `poetry run ruff format .` -> pass (`736 files left unchanged`)
+- `poetry run pytest` -> pass (`864 passed in 13.87s`)
+- `./precommit.sh` -> pass (`864 passed in 14.07s`, all checks passed)
 
-### Key tests
+Additional note:
 
-- `tests/unit/test_jobs_repository.py::test_claim_next_runnable_prevents_double_claim_with_two_sessions`
-- `tests/unit/test_jobs_repository.py::test_claim_next_runnable_never_reclaims_terminal_state_jobs`
-- `tests/api/test_jobs_api.py::test_get_job_status_candidate_cannot_read_company_scoped_job`
-- `tests/integration/test_jobs_worker_integration.py::test_worker_run_once_retry_then_success_with_new_sessions` (integration worker resume/retry path)
-- `tests/unit/test_jobs_repository.py::test_mark_failed_and_reschedule_sanitizes_and_truncates_last_error`
+- `poetry run mypy --version` -> not available (`Command not found: mypy`), so mypy was not run.
 
-### Manual QA
+## Migration / rollout notes
 
-- Created jobs via internal repository APIs and exercised success, retry, and dead-letter paths with the worker runner.
-- Verified ownership behavior on `GET /api/jobs/{job_id}` for authorized and unauthorized principals.
-- Verified restart tolerance by stopping and restarting worker processing and confirming queued/stale jobs resumed.
+- Apply migration:
+  - `poetry run alembic upgrade head`
+- Migration behavior:
+  - Adds lifecycle timestamp columns (`generating_at`, `ready_for_review_at`, `activated_at`, `terminated_at`).
+  - Backfills existing simulations to `active_inviting` with `activated_at` populated.
+  - Enforces status validity via CHECK constraint.
 
-## Demo / rollout checklist
+### Demo rollout checklist
 
-1. Apply migration and start API as usual.
-2. Create a job through an internal code path (example harness snippet below).
-3. Start worker: `python -m app.jobs.worker`.
-4. Poll status: `GET /api/jobs/{id}` and honor `pollAfterMs`.
-5. Simulate restart: stop worker, start worker again, verify queued/stale-running work resumes.
+1. Create simulation -> status transitions through `generating` to `ready_for_review` (creation path is synchronous, so `generating` may be transient).
+2. Activate simulation -> status becomes `active_inviting`, `activatedAt` is set.
+3. Invite candidate -> succeeds only after activation.
+4. Terminate simulation -> invites become blocked; terminated simulation is excluded from default lists/inbox.
 
-```python
-job = await jobs_repo.create_or_get_idempotent(
-    db,
-    job_type="scenario_generation",
-    idempotency_key="demo-scenario-123",
-    payload_json={"simulationId": simulation_id},
-    company_id=company_id,
-    candidate_session_id=candidate_session_id,
-    correlation_id="req-demo-1",
-)
-print(job.id)
-```
+### Rollback
 
-- Environment notes:
-  - Migration is additive.
-  - Docker Postgres is not required for the shape of this change in code/tests; SQLite-backed test suite passes.
+- Use repo downgrade conventions (e.g., `poetry run alembic downgrade -1` for this migration).
+- Downgrade removes lifecycle CHECK constraint and drops lifecycle timestamp columns, and restores previous `status` column nullability/default behavior.
 
 ## Risks / follow-ups
 
-- Add optional worker `--once` flag for one-shot execution/cron style runs.
-- Tune retry jitter/backoff policy per job type as load profile emerges.
-- Expand handler registry with additional job types (scenario, transcript, evaluation) using same contract.
-- Add richer observability (job duration histograms, queue depth metrics, dead-letter dashboards).
-- Postgres runtime migration execution was not validated in this sandbox due to Docker restrictions; migration is additive and uses standard SQLAlchemy types/indexes.
+- #197: termination cleanup orchestration is a follow-up and not completed in this scope.
+- #205: deeper scenario version persistence/locking continues in follow-up work.
+- #196 and frontend lifecycle UX issues remain complementary tracks.
+- Scenario generation is still synchronous in create today, so `generating` can be short-lived/transient in practice.

@@ -31,7 +31,7 @@ async def test_create_simulation(async_session: AsyncSession):
         seniority="mid",
         scenario_template="backend_v1",
         created_by=user.id,
-        status="active",
+        status="active_inviting",
     )
 
     async_session.add(sim)

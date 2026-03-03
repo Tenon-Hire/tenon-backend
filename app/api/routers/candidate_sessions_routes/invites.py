@@ -21,6 +21,7 @@ async def list_candidate_invites(
     request: Request,
     principal: Annotated[Principal, Depends(require_candidate_principal)],
     db: Annotated[AsyncSession, Depends(get_session)],
+    includeTerminated: bool = False,
 ) -> list[CandidateInviteListItem]:
     """List all invites for the authenticated candidate email."""
     if rate_limit.rate_limit_enabled():
@@ -30,4 +31,8 @@ async def list_candidate_invites(
             rate_limit.client_id(request),
         )
         rate_limit.limiter.allow(key, CANDIDATE_INVITES_RATE_LIMIT)
+    if includeTerminated:
+        return await cs_service.invite_list_for_principal(
+            db, principal, include_terminated=True
+        )
     return await cs_service.invite_list_for_principal(db, principal)

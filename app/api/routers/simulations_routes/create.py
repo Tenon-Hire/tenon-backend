@@ -10,6 +10,7 @@ from app.core.auth.roles import ensure_recruiter_or_none
 from app.core.db import get_session
 from app.domains.simulations import service as sim_service
 from app.domains.simulations.schemas import (
+    ScenarioVersionSummary,
     SimulationCreate,
     SimulationCreateResponse,
     TaskOut,
@@ -31,6 +32,7 @@ async def create_simulation(
     sim, created_tasks = await sim_service.create_simulation_with_tasks(
         db, payload, user
     )
+    raw_status = getattr(sim, "status", None)
     return SimulationCreateResponse(
         id=sim.id,
         title=sim.title,
@@ -39,6 +41,15 @@ async def create_simulation(
         seniority=sim.seniority,
         focus=sim.focus,
         templateKey=sim.template_key,
+        status=sim_service.normalize_simulation_status_or_raise(raw_status),
+        generatingAt=getattr(sim, "generating_at", None),
+        readyForReviewAt=getattr(sim, "ready_for_review_at", None),
+        activatedAt=getattr(sim, "activated_at", None),
+        terminatedAt=getattr(sim, "terminated_at", None),
+        scenarioVersionSummary=ScenarioVersionSummary(
+            templateKey=getattr(sim, "template_key", None),
+            scenarioTemplate=getattr(sim, "scenario_template", None),
+        ),
         tasks=[
             TaskOut(id=t.id, day_index=t.day_index, type=t.type, title=t.title)
             for t in created_tasks

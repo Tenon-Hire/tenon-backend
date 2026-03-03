@@ -24,6 +24,7 @@ async def resend_invite(
     enforce_invite_resend_limit(request, user.id, candidate_session_id)
 
     sim = await sim_service.require_owned_simulation(db, simulation_id, user.id)
+    sim_service.require_simulation_invitable(sim)
     cs: CandidateSession | None = await db.get(CandidateSession, candidate_session_id)
     if cs is None or cs.simulation_id != sim.id:
         raise HTTPException(

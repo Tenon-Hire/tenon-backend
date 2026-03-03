@@ -29,6 +29,12 @@ async def test_full_flow_invite_through_first_submission(
     )
     assert sim_res.status_code == 201, sim_res.text
     sim_body = sim_res.json()
+    activate_res = await async_client.post(
+        f"/api/simulations/{sim_body['id']}/activate",
+        json={"confirm": True},
+        headers=auth_header_factory(recruiter),
+    )
+    assert activate_res.status_code == 200, activate_res.text
 
     invite_res = await async_client.post(
         f"/api/simulations/{sim_body['id']}/invite",

@@ -13,10 +13,12 @@ from app.services.candidate_sessions.invite_items import build_invite_item
 
 
 async def invite_list_for_principal(
-    db: AsyncSession, principal: Principal
+    db: AsyncSession, principal: Principal, *, include_terminated: bool = False
 ) -> list[CandidateInviteListItem]:
     email = (principal.email or "").strip().lower()
-    sessions = await cs_repo.list_for_email(db, email)
+    sessions = await cs_repo.list_for_email(
+        db, email, include_terminated=include_terminated
+    )
     items: list[CandidateInviteListItem] = []
     now = datetime.now(UTC)
     session_ids = [cs.id for cs in sessions]

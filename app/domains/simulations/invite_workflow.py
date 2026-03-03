@@ -23,6 +23,7 @@ async def create_candidate_invite_workflow(
     sim, tasks = await sim_service.require_owned_simulation_with_tasks(
         db, simulation_id, user_id
     )
+    sim_service.require_simulation_invitable(sim)
     now = now or datetime.now(UTC)
     cs, outcome = await sim_service.create_or_resend_invite(
         db, simulation_id, payload, now=now
