@@ -5,7 +5,15 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domains import CandidateSession, Company, Simulation, Submission, Task, User
+from app.domains import (
+    CandidateSession,
+    Company,
+    Job,
+    Simulation,
+    Submission,
+    Task,
+    User,
+)
 from app.domains.simulations.blueprints import DEFAULT_5_DAY_BLUEPRINT
 from app.services.tasks.template_catalog import (
     DEFAULT_TEMPLATE_KEY,
@@ -160,3 +168,38 @@ async def create_submission(
     session.add(submission)
     await session.flush()
     return submission
+
+
+async def create_job(
+    session: AsyncSession,
+    *,
+    company: Company,
+    job_type: str = "test_job",
+    status: str = "queued",
+    idempotency_key: str | None = None,
+    payload_json: dict | None = None,
+    result_json: dict | None = None,
+    last_error: str | None = None,
+    attempt: int = 0,
+    max_attempts: int = 5,
+    candidate_session: CandidateSession | None = None,
+    correlation_id: str | None = None,
+    next_run_at: datetime | None = None,
+) -> Job:
+    job = Job(
+        job_type=job_type,
+        status=status,
+        attempt=attempt,
+        max_attempts=max_attempts,
+        idempotency_key=idempotency_key or secrets.token_hex(12),
+        payload_json=payload_json or {"ok": True},
+        result_json=result_json,
+        last_error=last_error,
+        next_run_at=next_run_at,
+        company_id=company.id,
+        candidate_session_id=candidate_session.id if candidate_session else None,
+        correlation_id=correlation_id,
+    )
+    session.add(job)
+    await session.flush()
+    return job
