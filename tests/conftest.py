@@ -158,19 +158,22 @@ async def async_client(db_session: AsyncSession):
 
         email_claim = settings.auth.AUTH0_EMAIL_CLAIM
         permissions_claim = settings.auth.AUTH0_PERMISSIONS_CLAIM
+        claims = {
+            "sub": f"{kind}-{email}",
+            "email": email,
+            email_claim: email,
+            "permissions": perms,
+            permissions_claim: perms,
+        }
+        if kind == "candidate":
+            claims["email_verified"] = True
         return Principal(
             sub=f"{kind}-{email}",
             email=email,
             name=email.split("@")[0],
             roles=[],
             permissions=perms,
-            claims={
-                "sub": f"{kind}-{email}",
-                "email": email,
-                email_claim: email,
-                "permissions": perms,
-                permissions_claim: perms,
-            },
+            claims=claims,
         )
 
     app.dependency_overrides[get_session] = override_get_session

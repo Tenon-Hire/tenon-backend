@@ -16,7 +16,7 @@ from tests.factories import (
 )
 
 
-def _principal(email: str, *, email_verified: bool | None = None) -> Principal:
+def _principal(email: str, *, email_verified: bool | None = True) -> Principal:
     email_claim = settings.auth.AUTH0_EMAIL_CLAIM
     permissions_claim = settings.auth.AUTH0_PERMISSIONS_CLAIM
     claims = {
@@ -69,7 +69,10 @@ async def test_fetch_owned_session_mismatch(async_session):
     principal = _principal("other@example.com")
     with pytest.raises(HTTPException) as excinfo:
         await cs_service.fetch_owned_session(async_session, cs.id, principal)
-    assert excinfo.value.status_code == 404
+    assert excinfo.value.status_code == 403
+    assert (
+        getattr(excinfo.value, "error_code", None) == "CANDIDATE_INVITE_EMAIL_MISMATCH"
+    )
 
 
 @pytest.mark.asyncio
@@ -147,7 +150,11 @@ async def test_fetch_owned_session_stored_sub_mismatch(async_session):
     principal = _principal(cs.invite_email)
     with pytest.raises(HTTPException) as excinfo:
         await cs_service.fetch_owned_session(async_session, cs.id, principal)
-    assert excinfo.value.status_code == 404
+    assert excinfo.value.status_code == 403
+    assert (
+        getattr(excinfo.value, "error_code", None)
+        == "CANDIDATE_SESSION_ALREADY_CLAIMED"
+    )
 
 
 @pytest.mark.asyncio
@@ -267,7 +274,11 @@ async def test_fetch_owned_session_conflict_after_lock(monkeypatch):
         await cs_service.fetch_owned_session(
             dummy_db, 1, principal, now=datetime.now(UTC)
         )
-    assert excinfo.value.status_code == 404
+    assert excinfo.value.status_code == 403
+    assert (
+        getattr(excinfo.value, "error_code", None)
+        == "CANDIDATE_SESSION_ALREADY_CLAIMED"
+    )
 
 
 @pytest.mark.asyncio
@@ -297,7 +308,10 @@ async def test_claim_invite_email_mismatch(async_session):
     principal = _principal("wrong@example.com")
     with pytest.raises(HTTPException) as excinfo:
         await cs_service.claim_invite_with_principal(async_session, cs.token, principal)
-    assert excinfo.value.status_code == 404
+    assert excinfo.value.status_code == 403
+    assert (
+        getattr(excinfo.value, "error_code", None) == "CANDIDATE_INVITE_EMAIL_MISMATCH"
+    )
 
 
 @pytest.mark.asyncio
@@ -310,6 +324,20 @@ async def test_claim_invite_requires_verified_email(async_session):
     with pytest.raises(HTTPException) as excinfo:
         await cs_service.claim_invite_with_principal(async_session, cs.token, principal)
     assert excinfo.value.status_code == 403
+    assert getattr(excinfo.value, "error_code", None) == "CANDIDATE_EMAIL_NOT_VERIFIED"
+
+
+@pytest.mark.asyncio
+async def test_claim_invite_requires_email_verified_claim_present(async_session):
+    recruiter = await create_recruiter(async_session, email="verify-missing@sim.com")
+    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    cs = await create_candidate_session(async_session, simulation=sim)
+    principal = _principal(cs.invite_email, email_verified=None)
+
+    with pytest.raises(HTTPException) as excinfo:
+        await cs_service.claim_invite_with_principal(async_session, cs.token, principal)
+    assert excinfo.value.status_code == 403
+    assert getattr(excinfo.value, "error_code", None) == "CANDIDATE_EMAIL_NOT_VERIFIED"
 
 
 @pytest.mark.asyncio
@@ -322,10 +350,15 @@ async def test_claim_invite_missing_email_claim(async_session):
     with pytest.raises(HTTPException) as excinfo:
         await cs_service.claim_invite_with_principal(async_session, cs.token, principal)
     assert excinfo.value.status_code == 403
+    assert getattr(excinfo.value, "error_code", None) == "CANDIDATE_AUTH_EMAIL_MISSING"
 
 
 def test_normalize_email_non_string():
     assert cs_service._normalize_email(123) == ""
+
+
+def test_normalize_email_trims_and_lowercases():
+    assert cs_service._normalize_email("  USER@Example.COM  ") == "user@example.com"
 
 
 def test_ensure_candidate_ownership_variants():
@@ -356,10 +389,14 @@ def test_ensure_candidate_ownership_variants():
             "status": "in_progress",
         },
     )()
-    with pytest.raises(HTTPException):
+    with pytest.raises(HTTPException) as excinfo:
         cs_service._ensure_candidate_ownership(
             cs_different, principal, now=datetime.now(UTC)
         )
+    assert (
+        getattr(excinfo.value, "error_code", None)
+        == "CANDIDATE_SESSION_ALREADY_CLAIMED"
+    )
 
 
 @pytest.mark.asyncio

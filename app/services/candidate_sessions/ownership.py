@@ -1,50 +1,71 @@
 from __future__ import annotations
 
-from fastapi import HTTPException, status
+from fastapi import status
 
 from app.core.auth.principal import Principal
+from app.core.errors import (
+    CANDIDATE_AUTH_EMAIL_MISSING,
+    CANDIDATE_EMAIL_NOT_VERIFIED,
+    CANDIDATE_INVITE_EMAIL_MISMATCH,
+    CANDIDATE_SESSION_ALREADY_CLAIMED,
+    ApiError,
+)
 from app.domains import CandidateSession
 from app.domains.candidate_sessions.service.email import normalize_email
 
 
-def _fail(status_code: int, detail: str) -> None:
-    raise HTTPException(status_code=status_code, detail=detail)
+def _forbidden(detail: str, error_code: str) -> None:
+    raise ApiError(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=detail,
+        error_code=error_code,
+        retryable=False,
+    )
 
 
 def ensure_email_verified(principal: Principal) -> None:
-    if principal.claims.get("email_verified") is False:
-        _fail(status.HTTP_403_FORBIDDEN, "Email verification required")
+    if principal.claims.get("email_verified") is not True:
+        _forbidden(
+            "Authenticated email is not verified.",
+            CANDIDATE_EMAIL_NOT_VERIFIED,
+        )
 
 
 def ensure_candidate_ownership(
     candidate_session: CandidateSession, principal: Principal, *, now
 ) -> bool:
-    stored_sub = getattr(candidate_session, "candidate_auth0_sub", None)
-    if stored_sub:
-        if stored_sub != principal.sub:
-            _fail(status.HTTP_404_NOT_FOUND, "Candidate session not found")
-        changed = False
-        email = normalize_email(principal.email)
-        if email and getattr(candidate_session, "candidate_auth0_email", None) is None:
-            candidate_session.candidate_auth0_email = email
-            changed = True
-        if email and candidate_session.candidate_email != email:
-            candidate_session.candidate_email = email
-            changed = True
-        return changed
-
     ensure_email_verified(principal)
     email = normalize_email(principal.email)
     if not email:
-        _fail(status.HTTP_403_FORBIDDEN, "Email claim missing")
+        _forbidden(
+            "Authenticated email claim is missing.",
+            CANDIDATE_AUTH_EMAIL_MISSING,
+        )
 
     invite_email = normalize_email(candidate_session.invite_email)
     if invite_email != email:
-        _fail(status.HTTP_404_NOT_FOUND, "Candidate session not found")
+        _forbidden(
+            "Invite email does not match authenticated user.",
+            CANDIDATE_INVITE_EMAIL_MISMATCH,
+        )
 
-    candidate_session.candidate_auth0_sub = principal.sub
-    candidate_session.candidate_auth0_email = email
-    candidate_session.candidate_email = email
-    if getattr(candidate_session, "claimed_at", None) is None:
-        candidate_session.claimed_at = now
-    return True
+    stored_sub = getattr(candidate_session, "candidate_auth0_sub", None)
+    if stored_sub and stored_sub != principal.sub:
+        _forbidden(
+            "Candidate session is already claimed by another user.",
+            CANDIDATE_SESSION_ALREADY_CLAIMED,
+        )
+    changed = False
+    if not stored_sub:
+        candidate_session.candidate_auth0_sub = principal.sub
+        changed = True
+        if getattr(candidate_session, "claimed_at", None) is None:
+            candidate_session.claimed_at = now
+            changed = True
+    if getattr(candidate_session, "candidate_auth0_email", None) != email:
+        candidate_session.candidate_auth0_email = email
+        changed = True
+    if candidate_session.candidate_email != email:
+        candidate_session.candidate_email = email
+        changed = True
+    return changed

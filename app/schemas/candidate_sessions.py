@@ -52,6 +52,7 @@ class CandidateSessionResolveResponse(APIModel):
 
     candidateSessionId: int
     status: CandidateSessionStatus
+    claimedAt: datetime | None
     startedAt: datetime | None
     completedAt: datetime | None
     candidateName: str

@@ -232,7 +232,7 @@ async def test_out_of_order_submission_rejected_400(
 
 
 @pytest.mark.asyncio
-async def test_token_session_mismatch_rejected_404(
+async def test_token_session_mismatch_rejected_403(
     async_client, async_session: AsyncSession, monkeypatch
 ):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
@@ -269,7 +269,8 @@ async def test_token_session_mismatch_rejected_404(
         headers=candidate_headers(cs_id_b, token_a),
         json={"contentText": "nope"},
     )
-    assert r.status_code == 404, r.text
+    assert r.status_code == 403, r.text
+    assert r.json()["errorCode"] == "CANDIDATE_INVITE_EMAIL_MISMATCH"
 
     # sanity: A can still submit its own task
     current_a = await get_current_task(async_client, cs_id_a, token_a)

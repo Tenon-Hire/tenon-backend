@@ -120,6 +120,7 @@ async def test_claim_route_uses_claim_service(monkeypatch):
     cs = SimpleNamespace(
         id=3,
         status="in_progress",
+        claimed_at=expires_at,
         completed_at=None,
         started_at=expires_at,
         candidate_name="Jane",

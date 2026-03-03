@@ -18,15 +18,17 @@ _NOT_FOUND = HTTPException(
 
 
 def ensure_can_access(
-    cs: CandidateSession | None, principal: Principal, *, now=None, allow_missing=True
+    cs: CandidateSession | None,
+    _principal: Principal,
+    *,
+    now=None,
+    allow_missing=True,
 ) -> CandidateSession:
     if cs is None and allow_missing:
         raise _NOT_FOUND
     if cs is None:
         raise _NOT_FOUND
     require_not_expired(cs, now=now or datetime.now(UTC))
-    if cs.candidate_auth0_sub and cs.candidate_auth0_sub != principal.sub:
-        raise _NOT_FOUND
     return cs
 
 
