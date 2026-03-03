@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy import select
 
 from app.api.routers import candidate_sessions as candidate_routes
+from app.core.auth.principal import Principal, get_principal
 from app.core.settings import settings
 from app.domains import Task
 from tests.factories import (
@@ -12,6 +13,30 @@ from tests.factories import (
     create_simulation,
     create_submission,
 )
+
+
+def _principal(
+    email: str, *, sub: str | None = None, email_verified: bool | None = True
+) -> Principal:
+    email_claim = settings.auth.AUTH0_EMAIL_CLAIM
+    permissions_claim = settings.auth.AUTH0_PERMISSIONS_CLAIM
+    claims = {
+        "sub": sub or f"candidate-{email}",
+        "email": email,
+        email_claim: email,
+        "permissions": ["candidate:access"],
+        permissions_claim: ["candidate:access"],
+    }
+    if email_verified is not None:
+        claims["email_verified"] = email_verified
+    return Principal(
+        sub=sub or f"candidate-{email}",
+        email=email,
+        name=email.split("@")[0],
+        roles=[],
+        permissions=["candidate:access"],
+        claims=claims,
+    )
 
 
 @pytest.mark.asyncio
@@ -31,10 +56,12 @@ async def test_resolve_session_transitions_to_in_progress(async_client, async_se
     body = res.json()
     assert body["status"] == "in_progress"
     assert body["candidateSessionId"] == cs.id
+    assert body["claimedAt"] is not None
 
     await async_session.refresh(cs)
     assert cs.status == "in_progress"
     assert cs.started_at is not None
+    assert cs.candidate_auth0_sub == f"candidate-{cs.invite_email}"
 
 
 @pytest.mark.asyncio
@@ -116,7 +143,51 @@ async def test_claim_endpoint_forbidden_on_mismatch(async_client, async_session)
         f"/api/candidate/session/{cs.token}",
         headers={"Authorization": "Bearer candidate:other@example.com"},
     )
-    assert res.status_code == 404
+    assert res.status_code == 403
+    body = res.json()
+    assert body["errorCode"] == "CANDIDATE_INVITE_EMAIL_MISMATCH"
+    assert body["retryable"] is False
+    assert body["details"] == {}
+
+
+@pytest.mark.asyncio
+async def test_claim_endpoint_rejects_unverified_email(
+    async_client, async_session, override_dependencies
+):
+    recruiter = await create_recruiter(async_session, email="verifyfalse@test.com")
+    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    cs = await create_candidate_session(async_session, simulation=sim)
+
+    async def _override_get_principal():
+        return _principal(cs.invite_email, email_verified=False)
+
+    with override_dependencies({get_principal: _override_get_principal}):
+        res = await async_client.post(
+            f"/api/candidate/session/{cs.token}/claim",
+            headers={"Authorization": "Bearer ignored"},
+        )
+    assert res.status_code == 403
+    assert res.json()["errorCode"] == "CANDIDATE_EMAIL_NOT_VERIFIED"
+
+
+@pytest.mark.asyncio
+async def test_claim_endpoint_rejects_missing_email_verified_claim(
+    async_client, async_session, override_dependencies
+):
+    recruiter = await create_recruiter(async_session, email="verifymissing@test.com")
+    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    cs = await create_candidate_session(async_session, simulation=sim)
+
+    async def _override_get_principal():
+        return _principal(cs.invite_email, email_verified=None)
+
+    with override_dependencies({get_principal: _override_get_principal}):
+        res = await async_client.post(
+            f"/api/candidate/session/{cs.token}/claim",
+            headers={"Authorization": "Bearer ignored"},
+        )
+    assert res.status_code == 403
+    assert res.json()["errorCode"] == "CANDIDATE_EMAIL_NOT_VERIFIED"
 
 
 @pytest.mark.asyncio
@@ -209,11 +280,11 @@ async def test_current_task_token_mismatch(async_client, async_session):
     cs = await create_candidate_session(
         async_session, simulation=sim, status="in_progress"
     )
-    await create_candidate_session(
-        async_session,
-        simulation=sim,
-        invite_email="other@example.com",
+    claim = await async_client.post(
+        f"/api/candidate/session/{cs.token}/claim",
+        headers={"Authorization": f"Bearer candidate:{cs.invite_email}"},
     )
+    assert claim.status_code == 200, claim.text
 
     res = await async_client.get(
         f"/api/candidate/session/{cs.id}/current_task",
@@ -222,7 +293,38 @@ async def test_current_task_token_mismatch(async_client, async_session):
             "x-candidate-session-id": str(cs.id),
         },
     )
-    assert res.status_code == 404
+    assert res.status_code == 403
+    assert res.json()["errorCode"] == "CANDIDATE_INVITE_EMAIL_MISMATCH"
+
+
+@pytest.mark.asyncio
+async def test_current_task_revalidates_claimed_sub_each_request(
+    async_client, async_session, override_dependencies
+):
+    recruiter = await create_recruiter(async_session, email="claimed-sub@test.com")
+    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    cs = await create_candidate_session(async_session, simulation=sim)
+
+    claim = await async_client.post(
+        f"/api/candidate/session/{cs.token}/claim",
+        headers={"Authorization": f"Bearer candidate:{cs.invite_email}"},
+    )
+    assert claim.status_code == 200, claim.text
+
+    async def _override_get_principal():
+        return _principal(
+            cs.invite_email,
+            sub=f"candidate-alt-{cs.invite_email}",
+            email_verified=True,
+        )
+
+    with override_dependencies({get_principal: _override_get_principal}):
+        res = await async_client.get(
+            f"/api/candidate/session/{cs.id}/current_task",
+            headers={"x-candidate-session-id": str(cs.id)},
+        )
+    assert res.status_code == 403
+    assert res.json()["errorCode"] == "CANDIDATE_SESSION_ALREADY_CLAIMED"
 
 
 @pytest.mark.asyncio

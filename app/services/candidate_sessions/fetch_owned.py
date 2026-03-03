@@ -20,7 +20,9 @@ async def fetch_owned_session(
     now = now or datetime.now(UTC)
     cs = ensure_can_access(await cs_repo.get_by_id(db, session_id), principal, now=now)
     if cs.candidate_auth0_sub:
-        if apply_auth_updates(cs, principal, now=now):
+        changed = ensure_candidate_ownership(cs, principal, now=now)
+        changed = apply_auth_updates(cs, principal, now=now) or changed
+        if changed:
             await db.commit()
             await db.refresh(cs)
         return cs

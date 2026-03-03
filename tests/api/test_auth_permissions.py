@@ -24,13 +24,16 @@ def patch_auth0_decode(monkeypatch):
             perms = ["candidate:access"]
         email_claim = settings.auth.AUTH0_EMAIL_CLAIM
         permissions_claim = settings.auth.AUTH0_PERMISSIONS_CLAIM
-        return {
+        claims = {
             "sub": f"{kind}|{email}",
             "email": email,
             email_claim: email,
             "permissions": perms,
             permissions_claim: perms,
         }
+        if kind == "candidate":
+            claims["email_verified"] = True
+        return claims
 
     monkeypatch.setattr(auth0_module, "decode_auth0_token", fake_decode)
 
@@ -113,7 +116,8 @@ async def test_candidate_email_bypass_rejected(async_client, async_session):
             "x-candidate-session-id": str(cs.id),
         },
     )
-    assert res.status_code == 404
+    assert res.status_code == 403
+    assert res.json()["errorCode"] == "CANDIDATE_INVITE_EMAIL_MISMATCH"
 
 
 @pytest.mark.asyncio
@@ -186,7 +190,8 @@ async def test_candidate_mismatched_email_gets_403(async_client, async_session):
         f"/api/candidate/session/{cs.token}",
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert res.status_code == 404
+    assert res.status_code == 403
+    assert res.json()["errorCode"] == "CANDIDATE_INVITE_EMAIL_MISMATCH"
 
 
 @pytest.mark.asyncio
@@ -203,6 +208,7 @@ async def test_namespaced_permissions_only_candidate_access(
         return {
             "sub": "auth0|c-ns",
             email_claim: cs.invite_email,
+            "email_verified": True,
             permissions_claim: ["candidate:access"],
         }
 
@@ -253,6 +259,7 @@ async def test_roles_mapping_allows_candidate_route(
         return {
             "sub": "auth0|c1",
             email_claim: cs.invite_email,
+            "email_verified": True,
             roles_claim: ["candidate-basic"],
         }
 

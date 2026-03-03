@@ -8,11 +8,12 @@ from app.core.errors import ApiError
 
 
 def api_error_handler(_request, exc: ApiError) -> JSONResponse:
-    payload: dict[str, Any] = {"detail": exc.detail, "errorCode": exc.error_code}
-    if exc.retryable is not None:
-        payload["retryable"] = exc.retryable
-    if exc.details:
-        payload["details"] = exc.details
+    payload: dict[str, Any] = {
+        "detail": exc.detail,
+        "errorCode": exc.error_code,
+        "retryable": exc.retryable if exc.retryable is not None else False,
+        "details": exc.details or {},
+    }
     return JSONResponse(
         status_code=exc.status_code, content=payload, headers=exc.headers
     )

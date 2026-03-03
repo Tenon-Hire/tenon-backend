@@ -57,6 +57,7 @@ async def test_candidate_session_rate_limits(monkeypatch):
     cs_obj = SimpleNamespace(
         id=1,
         status="in_progress",
+        claimed_at=None,
         started_at=None,
         completed_at=None,
         candidate_name="Name",

@@ -12,6 +12,7 @@ def render_claim_response(cs) -> CandidateSessionResolveResponse:
     return CandidateSessionResolveResponse(
         candidateSessionId=cs.id,
         status=cs.status,
+        claimedAt=cs.claimed_at,
         startedAt=cs.started_at,
         completedAt=cs.completed_at,
         candidateName=cs.candidate_name,

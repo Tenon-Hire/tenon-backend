@@ -1,8 +1,13 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Final
 
 from fastapi import HTTPException
+
+CANDIDATE_EMAIL_NOT_VERIFIED: Final[str] = "CANDIDATE_EMAIL_NOT_VERIFIED"
+CANDIDATE_INVITE_EMAIL_MISMATCH: Final[str] = "CANDIDATE_INVITE_EMAIL_MISMATCH"
+CANDIDATE_AUTH_EMAIL_MISSING: Final[str] = "CANDIDATE_AUTH_EMAIL_MISSING"
+CANDIDATE_SESSION_ALREADY_CLAIMED: Final[str] = "CANDIDATE_SESSION_ALREADY_CLAIMED"
 
 
 class ApiError(HTTPException):
@@ -22,3 +27,12 @@ class ApiError(HTTPException):
         self.error_code = error_code
         self.retryable = retryable
         self.details = details or {}
+
+
+__all__ = [
+    "ApiError",
+    "CANDIDATE_EMAIL_NOT_VERIFIED",
+    "CANDIDATE_INVITE_EMAIL_MISMATCH",
+    "CANDIDATE_AUTH_EMAIL_MISSING",
+    "CANDIDATE_SESSION_ALREADY_CLAIMED",
+]
