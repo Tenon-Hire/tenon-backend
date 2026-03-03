@@ -33,7 +33,9 @@ _ALLOWED_TRANSITIONS: dict[str, set[str]] = {
 def normalize_simulation_status(raw_status: str | None) -> str | None:
     if raw_status == LEGACY_SIMULATION_STATUS_ACTIVE:
         return SIMULATION_STATUS_ACTIVE_INVITING
-    return raw_status
+    if raw_status in SIMULATION_STATUSES:
+        return raw_status
+    return None
 
 
 def _allowed_targets(current_status: str | None) -> list[str]:

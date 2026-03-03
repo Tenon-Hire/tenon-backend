@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db.base import Base, TimestampMixin
@@ -21,12 +21,22 @@ SIMULATION_STATUSES = (
 )
 
 LEGACY_SIMULATION_STATUS_ACTIVE = "active"
+SIMULATION_STATUS_CHECK_CONSTRAINT_NAME = "ck_simulations_status_lifecycle"
+SIMULATION_STATUS_CHECK_CONSTRAINT_EXPR = (
+    "status IN ('draft','generating','ready_for_review','active_inviting','terminated')"
+)
 
 
 class Simulation(Base, TimestampMixin):
     """Simulation configuration assigned to candidates."""
 
     __tablename__ = "simulations"
+    __table_args__ = (
+        CheckConstraint(
+            SIMULATION_STATUS_CHECK_CONSTRAINT_EXPR,
+            name=SIMULATION_STATUS_CHECK_CONSTRAINT_NAME,
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"))

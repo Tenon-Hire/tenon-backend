@@ -16,6 +16,11 @@ down_revision: str | Sequence[str] | None = "202603030001"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
+_SIMULATION_STATUS_CHECK_NAME = "ck_simulations_status_lifecycle"
+_SIMULATION_STATUS_CHECK_EXPR = (
+    "status IN ('draft','generating','ready_for_review','active_inviting','terminated')"
+)
+
 
 def upgrade() -> None:
     op.add_column(
@@ -53,9 +58,15 @@ def upgrade() -> None:
         nullable=False,
         server_default=sa.text("'generating'"),
     )
+    op.create_check_constraint(
+        _SIMULATION_STATUS_CHECK_NAME,
+        "simulations",
+        _SIMULATION_STATUS_CHECK_EXPR,
+    )
 
 
 def downgrade() -> None:
+    op.drop_constraint(_SIMULATION_STATUS_CHECK_NAME, "simulations", type_="check")
     op.alter_column(
         "simulations",
         "status",
