@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
@@ -18,6 +19,7 @@ from app.repositories.simulations.simulation import (
     SIMULATION_STATUS_TERMINATED,
     SIMULATION_STATUSES,
 )
+from app.services.simulations.cleanup_jobs import enqueue_simulation_cleanup_job
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +30,12 @@ _ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     SIMULATION_STATUS_ACTIVE_INVITING: set(),
     SIMULATION_STATUS_TERMINATED: set(),
 }
+
+
+@dataclass(slots=True)
+class TerminateSimulationResult:
+    simulation: Simulation
+    cleanup_job_ids: list[str]
 
 
 def normalize_simulation_status(raw_status: str | None) -> str | None:
@@ -127,6 +135,15 @@ def apply_status_transition(
 
 def require_simulation_invitable(simulation: Simulation) -> None:
     current_status = normalize_simulation_status(simulation.status)
+    if current_status == SIMULATION_STATUS_TERMINATED:
+        raise ApiError(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Simulation has been terminated.",
+            error_code="SIMULATION_TERMINATED",
+            retryable=False,
+            details={"status": current_status},
+        )
+
     if current_status == SIMULATION_STATUS_ACTIVE_INVITING:
         return
 
@@ -239,12 +256,76 @@ async def terminate_simulation(
     *,
     simulation_id: int,
     actor_user_id: int,
+    reason: str | None = None,
     now: datetime | None = None,
 ) -> Simulation:
-    return await _transition_owned_simulation(
+    return (
+        await terminate_simulation_with_cleanup(
+            db,
+            simulation_id=simulation_id,
+            actor_user_id=actor_user_id,
+            reason=reason,
+            now=now,
+        )
+    ).simulation
+
+
+async def terminate_simulation_with_cleanup(
+    db: AsyncSession,
+    *,
+    simulation_id: int,
+    actor_user_id: int,
+    reason: str | None = None,
+    now: datetime | None = None,
+) -> TerminateSimulationResult:
+    changed_at = now or datetime.now(UTC)
+    normalized_reason = (reason or "").strip() or None
+    simulation = await require_owner_for_lifecycle(
+        db, simulation_id, actor_user_id, for_update=True
+    )
+    from_status = normalize_simulation_status(simulation.status)
+
+    try:
+        changed = apply_status_transition(
+            simulation,
+            target_status=SIMULATION_STATUS_TERMINATED,
+            changed_at=changed_at,
+        )
+    except ApiError:
+        logger.warning(
+            "Rejected simulation termination simulationId=%s actorUserId=%s from=%s",
+            simulation_id,
+            actor_user_id,
+            from_status,
+        )
+        raise
+
+    if changed:
+        simulation.terminated_by_recruiter_id = actor_user_id
+        if normalized_reason is not None:
+            simulation.terminated_reason = normalized_reason
+
+    cleanup_job = await enqueue_simulation_cleanup_job(
         db,
-        simulation_id=simulation_id,
-        actor_user_id=actor_user_id,
-        target_status=SIMULATION_STATUS_TERMINATED,
-        now=now,
+        simulation=simulation,
+        terminated_by_user_id=actor_user_id,
+        reason=normalized_reason,
+        commit=False,
+    )
+
+    await db.commit()
+    await db.refresh(simulation)
+    cleanup_job_ids = [str(cleanup_job.id)]
+
+    logger.info(
+        "Simulation terminated simulationId=%s actorUserId=%s from=%s to=%s cleanupJobIds=%s",
+        simulation.id,
+        actor_user_id,
+        from_status,
+        normalize_simulation_status(simulation.status),
+        cleanup_job_ids,
+    )
+    return TerminateSimulationResult(
+        simulation=simulation,
+        cleanup_job_ids=cleanup_job_ids,
     )

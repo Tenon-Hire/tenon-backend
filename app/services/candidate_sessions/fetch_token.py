@@ -6,6 +6,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domains import CandidateSession
 from app.domains.candidate_sessions import repository as cs_repo
 from app.domains.candidate_sessions.service.status import require_not_expired
+from app.repositories.simulations.simulation import SIMULATION_STATUS_TERMINATED
+
+
+def _ensure_simulation_not_terminated(cs: CandidateSession) -> None:
+    simulation = getattr(cs, "simulation", None)
+    if getattr(simulation, "status", None) == SIMULATION_STATUS_TERMINATED:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invalid invite token",
+        )
 
 
 async def fetch_by_token(db: AsyncSession, token: str, *, now=None) -> CandidateSession:
@@ -14,6 +24,7 @@ async def fetch_by_token(db: AsyncSession, token: str, *, now=None) -> Candidate
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite token"
         )
+    _ensure_simulation_not_terminated(cs)
     require_not_expired(cs, now=now)
     return cs
 
@@ -26,6 +37,7 @@ async def fetch_by_token_for_update(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite token"
         )
+    _ensure_simulation_not_terminated(cs)
     require_not_expired(cs, now=now)
     return cs
 

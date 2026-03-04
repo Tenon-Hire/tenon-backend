@@ -85,6 +85,10 @@ class Simulation(Base, TimestampMixin):
     )
     activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     terminated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    terminated_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    terminated_by_recruiter_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True
+    )
 
     company = relationship("Company", back_populates="simulations")
     tasks = relationship("Task", back_populates="simulation")

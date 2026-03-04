@@ -18,6 +18,7 @@ from app.domains.candidate_sessions.schemas import (
     CandidateInviteRequest,
     CandidateInviteResponse,
 )
+from app.domains.simulations import service as sim_service
 from app.integrations.github import GithubClient
 from app.services.email import EmailService
 
@@ -41,6 +42,10 @@ async def create_candidate_invite(
 ):
     """Create a candidate_session invite token for a simulation (recruiter-only)."""
     ensure_recruiter_or_none(user)
+    simulation, _ = await sim_service.require_owned_simulation_with_tasks(
+        db, simulation_id, user.id
+    )
+    sim_service.require_simulation_invitable(simulation)
     return await create_invite_response(
         db,
         simulation_id=simulation_id,

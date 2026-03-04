@@ -357,6 +357,7 @@ class SimulationLifecycleRequest(BaseModel):
     """Confirmation payload for lifecycle transitions."""
 
     confirm: bool
+    reason: str | None = Field(default=None, min_length=1, max_length=500)
 
 
 class SimulationActivateResponse(BaseModel):
@@ -373,3 +374,4 @@ class SimulationTerminateResponse(BaseModel):
     simulationId: int
     status: SimulationStatus
     terminatedAt: datetime | None = None
+    cleanupJobIds: list[str] = Field(default_factory=list)

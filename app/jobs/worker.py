@@ -47,6 +47,18 @@ def clear_handlers() -> None:
     _HANDLERS.clear()
 
 
+def _register_builtin_handlers() -> None:
+    from app.jobs.handlers import (
+        SIMULATION_CLEANUP_JOB_TYPE,
+        handle_simulation_cleanup,
+    )
+
+    register_handler(SIMULATION_CLEANUP_JOB_TYPE, handle_simulation_cleanup)
+
+
+_register_builtin_handlers()
+
+
 def compute_backoff_seconds(
     attempt: int,
     *,

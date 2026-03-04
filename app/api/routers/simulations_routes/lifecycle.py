@@ -68,12 +68,17 @@ async def terminate_simulation(
 ):
     ensure_recruiter_or_none(user)
     _require_confirmation(payload)
-    simulation = await sim_service.terminate_simulation(
-        db, simulation_id=simulation_id, actor_user_id=user.id
+    terminated = await sim_service.terminate_simulation_with_cleanup(
+        db,
+        simulation_id=simulation_id,
+        actor_user_id=user.id,
+        reason=payload.reason,
     )
+    simulation = terminated.simulation
     status_value = sim_service.normalize_simulation_status_or_raise(simulation.status)
     return SimulationTerminateResponse(
         simulationId=simulation.id,
         status=status_value,
         terminatedAt=simulation.terminated_at,
+        cleanupJobIds=terminated.cleanup_job_ids,
     )

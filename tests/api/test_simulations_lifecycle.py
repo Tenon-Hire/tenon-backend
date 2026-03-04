@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import select
 
+from app.domains import Job
 from tests.factories import (
     create_candidate_session,
     create_recruiter,
@@ -115,12 +117,31 @@ async def test_terminate_is_owner_only_and_idempotent(
     first = await async_client.post(
         f"/api/simulations/{sim_id}/terminate",
         headers=auth_header_factory(owner),
-        json={"confirm": True},
+        json={"confirm": True, "reason": "regenerate"},
     )
     assert first.status_code == 200, first.text
     first_body = first.json()
     assert first_body["status"] == "terminated"
     assert first_body["terminatedAt"] is not None
+    assert len(first_body["cleanupJobIds"]) == 1
+    first_job_id = first_body["cleanupJobIds"][0]
+
+    jobs_after_first = (
+        await async_session.execute(
+            select(Job).where(Job.job_type == "simulation_cleanup")
+        )
+    ).scalars()
+    matching_first = [
+        job
+        for job in jobs_after_first
+        if isinstance(job.payload_json, dict)
+        and job.payload_json.get("simulationId") == sim_id
+    ]
+    assert len(matching_first) == 1
+    assert matching_first[0].id == first_job_id
+    assert matching_first[0].job_type == "simulation_cleanup"
+    assert matching_first[0].idempotency_key == f"simulation_cleanup:{sim_id}"
+    assert matching_first[0].payload_json["reason"] == "regenerate"
 
     second = await async_client.post(
         f"/api/simulations/{sim_id}/terminate",
@@ -131,6 +152,21 @@ async def test_terminate_is_owner_only_and_idempotent(
     second_body = second.json()
     assert second_body["status"] == "terminated"
     assert second_body["terminatedAt"] == first_body["terminatedAt"]
+    assert second_body["cleanupJobIds"] == first_body["cleanupJobIds"]
+
+    jobs_after_second = (
+        await async_session.execute(
+            select(Job).where(Job.job_type == "simulation_cleanup")
+        )
+    ).scalars()
+    matching_second = [
+        job
+        for job in jobs_after_second
+        if isinstance(job.payload_json, dict)
+        and job.payload_json.get("simulationId") == sim_id
+    ]
+    assert len(matching_second) == 1
+    assert matching_second[0].id == first_job_id
 
 
 @pytest.mark.asyncio
@@ -169,6 +205,79 @@ async def test_invite_requires_active_inviting(
         json={"candidateName": "Jane Doe", "inviteEmail": "jane@example.com"},
     )
     assert allowed.status_code == 200, allowed.text
+
+
+@pytest.mark.asyncio
+async def test_invite_create_blocked_after_termination(
+    async_client, async_session, auth_header_factory
+):
+    recruiter = await create_recruiter(async_session, email="invite-stop@test.com")
+    created = await _create_simulation_via_api(
+        async_client, auth_header_factory(recruiter)
+    )
+    sim_id = created["id"]
+
+    activate = await async_client.post(
+        f"/api/simulations/{sim_id}/activate",
+        headers=auth_header_factory(recruiter),
+        json={"confirm": True},
+    )
+    assert activate.status_code == 200, activate.text
+
+    terminate = await async_client.post(
+        f"/api/simulations/{sim_id}/terminate",
+        headers=auth_header_factory(recruiter),
+        json={"confirm": True},
+    )
+    assert terminate.status_code == 200, terminate.text
+
+    blocked = await async_client.post(
+        f"/api/simulations/{sim_id}/invite",
+        headers=auth_header_factory(recruiter),
+        json={"candidateName": "Jane Doe", "inviteEmail": "jane@example.com"},
+    )
+    assert blocked.status_code == 409, blocked.text
+    assert blocked.json()["errorCode"] == "SIMULATION_TERMINATED"
+
+
+@pytest.mark.asyncio
+async def test_invite_resend_blocked_after_termination(
+    async_client, async_session, auth_header_factory
+):
+    recruiter = await create_recruiter(async_session, email="resend-stop@test.com")
+    created = await _create_simulation_via_api(
+        async_client, auth_header_factory(recruiter)
+    )
+    sim_id = created["id"]
+
+    activate = await async_client.post(
+        f"/api/simulations/{sim_id}/activate",
+        headers=auth_header_factory(recruiter),
+        json={"confirm": True},
+    )
+    assert activate.status_code == 200, activate.text
+
+    invite = await async_client.post(
+        f"/api/simulations/{sim_id}/invite",
+        headers=auth_header_factory(recruiter),
+        json={"candidateName": "Jane Doe", "inviteEmail": "jane@example.com"},
+    )
+    assert invite.status_code == 200, invite.text
+    candidate_session_id = invite.json()["candidateSessionId"]
+
+    terminate = await async_client.post(
+        f"/api/simulations/{sim_id}/terminate",
+        headers=auth_header_factory(recruiter),
+        json={"confirm": True},
+    )
+    assert terminate.status_code == 200, terminate.text
+
+    resend = await async_client.post(
+        f"/api/simulations/{sim_id}/candidates/{candidate_session_id}/invite/resend",
+        headers=auth_header_factory(recruiter),
+    )
+    assert resend.status_code == 409, resend.text
+    assert resend.json()["errorCode"] == "SIMULATION_TERMINATED"
 
 
 @pytest.mark.asyncio
@@ -264,6 +373,53 @@ async def test_candidate_invites_hide_terminated_by_default(
     rows = include_terminated.json()
     assert len(rows) == 1
     assert rows[0]["candidateSessionId"] == candidate_session.id
+
+
+@pytest.mark.asyncio
+async def test_candidate_token_resolve_and_claim_hidden_after_termination(
+    async_client, async_session, auth_header_factory
+):
+    recruiter = await create_recruiter(async_session, email="token-hide@test.com")
+    created = await _create_simulation_via_api(
+        async_client, auth_header_factory(recruiter)
+    )
+    sim_id = created["id"]
+
+    activate = await async_client.post(
+        f"/api/simulations/{sim_id}/activate",
+        headers=auth_header_factory(recruiter),
+        json={"confirm": True},
+    )
+    assert activate.status_code == 200, activate.text
+
+    invite = await async_client.post(
+        f"/api/simulations/{sim_id}/invite",
+        headers=auth_header_factory(recruiter),
+        json={"candidateName": "Jane Doe", "inviteEmail": "hidden@example.com"},
+    )
+    assert invite.status_code == 200, invite.text
+    token = invite.json()["token"]
+
+    terminate = await async_client.post(
+        f"/api/simulations/{sim_id}/terminate",
+        headers=auth_header_factory(recruiter),
+        json={"confirm": True},
+    )
+    assert terminate.status_code == 200, terminate.text
+
+    resolve = await async_client.get(
+        f"/api/candidate/session/{token}",
+        headers={"Authorization": "Bearer candidate:hidden@example.com"},
+    )
+    assert resolve.status_code == 404, resolve.text
+    assert resolve.json()["detail"] == "Invalid invite token"
+
+    claim = await async_client.post(
+        f"/api/candidate/session/{token}/claim",
+        headers={"Authorization": "Bearer candidate:hidden@example.com"},
+    )
+    assert claim.status_code == 404, claim.text
+    assert claim.json()["detail"] == "Invalid invite token"
 
 
 @pytest.mark.asyncio
