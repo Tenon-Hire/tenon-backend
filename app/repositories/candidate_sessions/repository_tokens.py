@@ -3,6 +3,7 @@ from __future__ import annotations
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.sql import Select
 
 from app.domains import CandidateSession
 from app.domains.simulations.simulation import Simulation
@@ -16,8 +17,8 @@ def _not_terminated_simulation_clause():
     )
 
 
-async def get_by_token(db: AsyncSession, token: str) -> CandidateSession | None:
-    stmt = (
+def _build_get_by_token_stmt(token: str) -> Select:
+    return (
         select(CandidateSession)
         .join(Simulation, Simulation.id == CandidateSession.simulation_id)
         .where(
@@ -26,6 +27,14 @@ async def get_by_token(db: AsyncSession, token: str) -> CandidateSession | None:
         )
         .options(selectinload(CandidateSession.simulation))
     )
+
+
+def _build_get_by_token_for_update_stmt(token: str) -> Select:
+    return _build_get_by_token_stmt(token).with_for_update(of=CandidateSession)
+
+
+async def get_by_token(db: AsyncSession, token: str) -> CandidateSession | None:
+    stmt = _build_get_by_token_stmt(token)
     res = await db.execute(stmt)
     return res.scalar_one_or_none()
 
@@ -33,16 +42,7 @@ async def get_by_token(db: AsyncSession, token: str) -> CandidateSession | None:
 async def get_by_token_for_update(
     db: AsyncSession, token: str
 ) -> CandidateSession | None:
-    stmt = (
-        select(CandidateSession)
-        .join(Simulation, Simulation.id == CandidateSession.simulation_id)
-        .where(
-            CandidateSession.token == token,
-            _not_terminated_simulation_clause(),
-        )
-        .options(selectinload(CandidateSession.simulation))
-        .with_for_update()
-    )
+    stmt = _build_get_by_token_for_update_stmt(token)
     res = await db.execute(stmt)
     return res.scalar_one_or_none()
 
