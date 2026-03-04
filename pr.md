@@ -1,118 +1,122 @@
-# P0 Recruiter Core: Persist simulation recruiter context + AI toggles (Issue #196)
+# P0 Recruiter Core: Terminate Simulation (idempotent) + invite blocking + cleanup job orchestration
 
 ## TL;DR
 
-- Extended `POST /api/simulations` so recruiter context inputs are first-class API fields: `seniority`, `focus`, `companyContext`, and `ai` controls.
-- Persisted new simulation context columns (`company_context`, `ai_notice_version`, `ai_notice_text`, `ai_eval_enabled_by_day`) and continued persisting role/focus in existing `seniority`/`focus` columns.
-- Extended `GET /api/simulations/{id}` and `GET /api/simulations` responses to return these fields (list includes `seniority` and `ai.evalEnabledByDay`, and now also returns `companyContext` + `ai` summary).
-- Wired scenario generation job enqueue in create flow to use a structured recruiter-context payload builder, including normalized/allowlisted values.
-- Kept create flow atomic with a single outer transaction and deterministic idempotent job enqueue.
+- Added recruiter-only `POST /api/simulations/{simulation_id}/terminate` with explicit confirmation and optional reason.
+- Termination is idempotent: repeated calls return `200`, keep the original `terminatedAt`, and return stable `cleanupJobIds`.
+- Termination transitions simulation state to `terminated` and persists termination metadata (`terminated_at`, `terminated_reason`, `terminated_by_recruiter_id`).
+- Invite create and resend are both blocked after termination with `409` + `errorCode=SIMULATION_TERMINATED`.
+- Candidate-facing surfaces hide terminated simulations by default (invite lists, token resolve, claim, owned-session fetch).
+- Cleanup is orchestrated via durable jobs: `simulation_cleanup` jobs are enqueued with simulation-scoped payload and idempotency key.
+- Worker registration for cleanup is explicit at startup (`register_builtin_handlers()`), not via import-time side effects.
 
-## What changed (detailed)
+## API Contract
 
-### API contract
+- Endpoint: `POST /api/simulations/{simulation_id}/terminate`
+- Auth: recruiter bearer token + owner-only simulation access.
+- Request:
 
-- `POST /api/simulations` now accepts and validates:
-  - `seniority` (with aliases `roleLevel` / `role_level`)
-  - `focus` (with aliases `focusNotes` / `focus_notes`)
-  - `companyContext` object with allowlisted keys only: `domain`, `productArea`
-  - `ai` object with:
-    - `noticeVersion`
-    - `noticeText`
-    - `evalEnabledByDay`
-- `GET /api/simulations/{id}` returns the same persisted context fields:
-  - `seniority`, `focus`, `companyContext`, `ai`
-- `GET /api/simulations` includes summary fields (minimum required + more):
-  - `seniority`
-  - `ai.evalEnabledByDay` (via `ai`)
-  - also includes `companyContext` and `ai.noticeVersion/noticeText` when present
+```json
+{ "confirm": true, "reason": "regenerate" }
+```
 
-### DB changes
+- Response (example):
 
-- Added new nullable columns on `simulations`:
-  - `company_context` (`JSON`)
-  - `ai_notice_version` (`String(100)`)
-  - `ai_notice_text` (`Text`)
-  - `ai_eval_enabled_by_day` (`JSON`)
-- Migration file:
-  - `alembic/versions/202603040001_add_simulation_context_columns.py`
+```json
+{
+  "simulationId": 42,
+  "status": "terminated",
+  "terminatedAt": "2026-03-02T16:30:00Z",
+  "cleanupJobIds": ["0f3f2c1e-8f2d-4a6a-9c1a-2a3b4c5d6e7f"]
+}
+```
 
-### Scenario generation integration
+- Error cases:
+- `403` when requester is not the owner.
+- `404` when simulation does not exist.
+- `400` when `confirm` is missing/false (`SIMULATION_CONFIRMATION_REQUIRED`).
+- `409` on invite create/resend against a terminated simulation (`SIMULATION_TERMINATED`).
 
-- Added structured payload builder:
-  - `app/services/simulations/scenario_payload_builder.py::build_scenario_generation_payload`
-- Payload now includes `recruiterContext` with normalized fields:
-  - `seniority`
-  - `focus`
-  - `companyContext`
-  - `ai` (`noticeVersion`, `noticeText`, `evalEnabledByDay`)
-- Create flow enqueues a `scenario_generation` durable job using this payload:
-  - `app/services/simulations/creation.py::create_simulation_with_tasks`
-- Idempotency key format:
-  - `simulation:{simulation_id}:scenario_generation`
-- Why this idempotency key is safe:
-  - Jobs are deduplicated by `(company_id, job_type, idempotency_key)` unique constraint, so retries/races for the same simulation resolve to one logical queued job per company.
+## Behavior / Acceptance Criteria Mapping
 
-### Transactionality / invariants
+- AC: Cannot create or resend invites after termination (`SIMULATION_TERMINATED`).
+- Implemented via `require_simulation_invitable()` in both invite routes before invite side effects; verified by:
+- `tests/api/test_simulations_lifecycle.py::test_invite_create_blocked_after_termination`
+- `tests/api/test_simulations_lifecycle.py::test_invite_resend_blocked_after_termination`
 
-- `create_simulation_with_tasks` uses one outer transaction for:
-  - simulation insert
-  - task seeding
-  - status transition to `ready_for_review`
-  - scenario job enqueue
-- Explicit `flush` happens before payload/idempotency-key construction so `sim.id` is materialized before:
-  - building job payload (`simulationId`)
-  - constructing idempotency key (`simulation:{id}:scenario_generation`)
-- Job enqueue uses `commit=False` so the job insert participates in the same outer transaction and commits atomically with simulation creation.
+- AC: Candidate dashboard does not show terminated simulations.
+- Implemented with default `include_terminated=False` filtering in candidate invite listing and terminated-token hiding; verified by:
+- `tests/api/test_simulations_lifecycle.py::test_candidate_invites_hide_terminated_by_default`
+- `tests/api/test_simulations_lifecycle.py::test_candidate_token_resolve_and_claim_hidden_after_termination`
 
-## Validation + security notes
+- AC: Termination enqueues cleanup job(s) and returns job IDs.
+- `terminate_simulation_with_cleanup()` enqueues `simulation_cleanup` and response includes `cleanupJobIds`; verified by:
+- `tests/api/test_simulations_lifecycle.py::test_terminate_is_owner_only_and_idempotent`
+- `tests/unit/test_simulations_lifecycle_service.py::test_terminate_with_cleanup_sets_reason_and_enqueues_job`
 
-- `companyContext` validation is strict/allowlisted:
-  - only `domain` and `productArea`
-  - unknown keys rejected (`extra="forbid"`)
-- `ai.evalEnabledByDay` is strict:
-  - day keys must be `"1"`..`"5"` only
-  - values must be booleans (`StrictBool`)
-- Size limits are enforced via constants in `app/schemas/simulations.py`:
-  - `MAX_FOCUS_NOTES_CHARS = 1000`
-  - `MAX_COMPANY_CONTEXT_VALUE_CHARS = 120`
-  - `MAX_AI_NOTICE_VERSION_CHARS = 100`
-  - `MAX_AI_NOTICE_TEXT_CHARS = 2000`
-- Logging posture:
-  - no new logs were added in create/payload paths that emit raw `focus` or AI notice text
-  - full focus/notice contents are not logged by this change set
+- AC: Endpoint is idempotent.
+- Repeated terminate calls return `200` with `status=terminated`, same `terminatedAt`, and same `cleanupJobIds`; single persisted cleanup job is reused through idempotency key dedupe.
 
-## Testing
+## Implementation Details
 
-Commands run (all passed):
+- State transition:
+- `apply_status_transition(..., target_status="terminated")` sets `simulation.status -> terminated` and sets `terminated_at` once.
+- On first transition only, service persists `terminated_reason` and `terminated_by_recruiter_id`.
 
-- `poetry run ruff check .`
-- `poetry run ruff format --check .`
-- `poetry run pytest`
+- Invite guards (early, before side effects):
+- `invite_create.py` and `invite_resend.py` call `require_simulation_invitable(simulation)` before invite creation/resend logic, preventing downstream email/GitHub side effects when terminated.
 
-Key AC1-AC4 coverage (from Worker Report):
+- Candidate hiding strategy:
+- Token path returns `404` with `"Invalid invite token"` for terminated simulations (`fetch_token.py`).
+- Owned-session and token fetch paths filter terminated simulations at query level via joined simulation-status predicate (`repository_basic.py` and `repository_tokens.py`).
+- Defense-in-depth fail-closed guards reject access when simulation relationship is missing/unloaded (`fetch_owned_helpers.py`, `fetch_token.py`).
 
-- AC1 (create returns persisted fields):
-  - `tests/api/test_simulations_detail.py::test_simulation_context_round_trips_on_create_and_detail`
-- AC2 (detail returns same persisted fields):
-  - `tests/api/test_simulations_detail.py::test_simulation_context_round_trips_on_create_and_detail`
-- AC3 (list includes summary fields):
-  - `tests/api/test_simulations_list.py::test_list_simulations_includes_seniority_and_ai_eval_summary`
-- AC4 (scenario job payload consumes fields):
-  - `tests/unit/test_simulations_service.py::test_create_simulation_with_tasks_enqueues_scenario_generation_job`
-  - plus payload-builder unit coverage:
-    - `tests/unit/test_scenario_payload_builder.py::test_build_scenario_generation_payload_includes_recruiter_context_fields`
+- Cleanup job orchestration:
+- Job type: `simulation_cleanup`.
+- Idempotency key: `simulation_cleanup:{simulation_id}`.
+- Payload includes `simulationId` (plus `companyId`, `terminatedByUserId`, optional `reason`).
+- Job creation uses `create_or_get_idempotent(..., commit=False)` so enqueue participates in the same transaction as termination.
+- Handler registration is explicit at worker startup (`app/jobs/worker.py::register_builtin_handlers`), with no import-time registration side effects.
 
-## Risks / rollout
+- Concurrency note:
+- Candidate-session locking is scoped to candidate session rows only (`with_for_update(of=CandidateSession)`), not simulations.
+- Compiled SQL proof:
 
-- Risk level: low.
-  - Migration is additive and uses nullable columns, so it is backward-compatible for existing rows.
-- Transaction control note:
-  - Jobs repository supports `commit=False` for outer transaction control, which this create flow uses.
+```sql
+... FOR UPDATE OF candidate_sessions
+```
 
-Demo checklist:
+## Tests
 
-1. Create a simulation with `seniority`, `focus`, `companyContext`, and `ai.evalEnabledByDay`.
-2. Fetch simulation detail and verify fields round-trip unchanged.
-3. List simulations and verify `seniority` + `ai.evalEnabledByDay` summary presence.
-4. Confirm enqueued `scenario_generation` job payload contains `recruiterContext` fields.
+- Commands run:
+- `poetry run ruff check .` -> passed (no lint violations).
+- `poetry run ruff format .` -> passed (`745 files left unchanged`).
+- `poetry run pytest -q` -> passed (`900 passed in 16.01s`).
+
+- Key tests added/updated for this feature:
+- `tests/api/test_simulations_lifecycle.py::test_terminate_is_owner_only_and_idempotent`
+- `tests/api/test_simulations_lifecycle.py::test_invite_create_blocked_after_termination`
+- `tests/api/test_simulations_lifecycle.py::test_invite_resend_blocked_after_termination`
+- `tests/api/test_simulations_lifecycle.py::test_terminated_hidden_by_default_in_simulation_and_candidate_lists`
+- `tests/api/test_simulations_lifecycle.py::test_candidate_invites_hide_terminated_by_default`
+- `tests/api/test_simulations_lifecycle.py::test_candidate_token_resolve_and_claim_hidden_after_termination`
+- `tests/unit/test_simulations_lifecycle_service.py::test_terminate_with_cleanup_sets_reason_and_enqueues_job`
+- `tests/unit/test_candidate_sessions_repository.py::test_get_by_id_for_update_locks_only_candidate_sessions`
+- `tests/unit/test_candidate_sessions_repository.py::test_get_by_token_for_update_locks_only_candidate_sessions`
+- `tests/unit/test_job_handler_registration.py::test_register_builtin_handlers_is_explicit`
+
+## Risks / Rollout Notes
+
+- Cleanup is currently best-effort and safe: handler is a retry-safe noop skeleton scoped to simulation-owned resources, so external deletion coverage can be expanded incrementally.
+- Idempotent job creation (`simulation_cleanup:{simulation_id}`) prevents duplicate destructive work under retries/races.
+- Shared template repositories are protected by scope and current cleanup behavior (no destructive delete path in current handler).
+
+## Demo / Verification Checklist
+
+1. Create simulation -> activate -> invite candidate.
+2. Call `POST /api/simulations/{id}/terminate` with `{ "confirm": true }`.
+3. Verify invite create returns `409` with `errorCode=SIMULATION_TERMINATED`.
+4. Verify invite resend returns `409` with `errorCode=SIMULATION_TERMINATED`.
+5. Verify candidate token resolve/claim returns `404` with `"Invalid invite token"` and candidate invite list hides the terminated simulation by default.
+6. Verify cleanup job row exists with `job_type=simulation_cleanup`, payload `simulationId={id}`, and returned `cleanupJobIds` contains that job ID.
+7. Call terminate again and verify `200` idempotent response with unchanged `terminatedAt` and unchanged `cleanupJobIds`.
