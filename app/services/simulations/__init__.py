@@ -27,6 +27,7 @@ from .lifecycle import (
 )
 from .listing import list_candidates_with_profile, list_simulations
 from .ownership import require_owned_simulation, require_owned_simulation_with_tasks
+from .scenario_payload_builder import build_scenario_generation_payload
 from .task_templates import _template_repo_for_task
 from .template_keys import ApiError
 from .urls import invite_url
@@ -45,6 +46,7 @@ __all__ = [
     "_template_repo_for_task",
     "activate_simulation",
     "apply_status_transition",
+    "build_scenario_generation_payload",
     "create_invite",
     "create_or_resend_invite",
     "create_simulation_with_tasks",

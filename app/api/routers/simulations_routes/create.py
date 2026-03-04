@@ -14,6 +14,9 @@ from app.domains.simulations.schemas import (
     SimulationCreate,
     SimulationCreateResponse,
     TaskOut,
+    build_simulation_ai_config,
+    build_simulation_company_context,
+    normalize_role_level,
 )
 
 router = APIRouter(prefix="/simulations")
@@ -38,8 +41,16 @@ async def create_simulation(
         title=sim.title,
         role=sim.role,
         techStack=sim.tech_stack,
-        seniority=sim.seniority,
+        seniority=normalize_role_level(sim.seniority) or sim.seniority,
         focus=sim.focus,
+        companyContext=build_simulation_company_context(
+            getattr(sim, "company_context", None)
+        ),
+        ai=build_simulation_ai_config(
+            notice_version=getattr(sim, "ai_notice_version", None),
+            notice_text=getattr(sim, "ai_notice_text", None),
+            eval_enabled_by_day=getattr(sim, "ai_eval_enabled_by_day", None),
+        ),
         templateKey=sim.template_key,
         status=sim_service.normalize_simulation_status_or_raise(raw_status),
         generatingAt=getattr(sim, "generating_at", None),

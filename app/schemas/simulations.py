@@ -1,8 +1,19 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    ValidationError,
+    field_validator,
+    model_serializer,
+)
 
 from app.domains.common.types import SimulationStatus, TaskType
 from app.domains.tasks.schemas_public import TaskPublic
@@ -23,21 +34,197 @@ __all__ = [
     "SimulationActivateResponse",
     "SimulationTerminateResponse",
     "ScenarioVersionSummary",
+    "SimulationCompanyContext",
+    "SimulationAIConfig",
+    "normalize_role_level",
+    "normalize_eval_enabled_by_day",
+    "build_simulation_ai_config",
+    "build_simulation_company_context",
     "TaskPublic",
 ]
+
+MAX_FOCUS_NOTES_CHARS = 1000
+MAX_COMPANY_CONTEXT_VALUE_CHARS = 120
+MAX_AI_NOTICE_VERSION_CHARS = 100
+MAX_AI_NOTICE_TEXT_CHARS = 2000
+_ALLOWED_ROLE_LEVELS = frozenset({"junior", "mid", "senior", "staff", "principal"})
+_ALLOWED_AI_EVAL_DAY_KEYS = frozenset({"1", "2", "3", "4", "5"})
+
+
+def normalize_role_level(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if not normalized:
+        return None
+    return normalized if normalized in _ALLOWED_ROLE_LEVELS else None
+
+
+def normalize_eval_enabled_by_day(
+    value: Any, *, strict: bool
+) -> dict[str, bool] | None:
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        if strict:
+            raise ValueError("evalEnabledByDay must be an object mapping day to bool")
+        return None
+
+    normalized: dict[str, bool] = {}
+    for raw_key, raw_value in value.items():
+        day_key = str(raw_key).strip()
+        if day_key not in _ALLOWED_AI_EVAL_DAY_KEYS:
+            if strict:
+                allowed = ", ".join(sorted(_ALLOWED_AI_EVAL_DAY_KEYS))
+                raise ValueError(f"evalEnabledByDay day keys must be one of: {allowed}")
+            continue
+        if not isinstance(raw_value, bool):
+            if strict:
+                raise ValueError(
+                    f"evalEnabledByDay[{day_key}] must be a boolean true/false value"
+                )
+            continue
+        normalized[day_key] = raw_value
+    return normalized
+
+
+class SimulationCompanyContext(BaseModel):
+    """Allowlisted company context passed to scenario generation."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    domain: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=MAX_COMPANY_CONTEXT_VALUE_CHARS,
+    )
+    product_area: str | None = Field(
+        default=None,
+        alias="productArea",
+        min_length=1,
+        max_length=MAX_COMPANY_CONTEXT_VALUE_CHARS,
+    )
+
+    @model_serializer(mode="plain")
+    def _serialize(self):
+        data: dict[str, Any] = {}
+        if self.domain is not None:
+            data["domain"] = self.domain
+        if self.product_area is not None:
+            data["productArea"] = self.product_area
+        return data
+
+
+class SimulationAIConfig(BaseModel):
+    """AI notice/toggle controls for a simulation."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    notice_version: str | None = Field(
+        default=None,
+        alias="noticeVersion",
+        min_length=1,
+        max_length=MAX_AI_NOTICE_VERSION_CHARS,
+    )
+    notice_text: str | None = Field(
+        default=None,
+        alias="noticeText",
+        min_length=1,
+        max_length=MAX_AI_NOTICE_TEXT_CHARS,
+    )
+    eval_enabled_by_day: dict[str, StrictBool] | None = Field(
+        default=None,
+        alias="evalEnabledByDay",
+    )
+
+    @field_validator("eval_enabled_by_day", mode="before")
+    @classmethod
+    def _validate_eval_enabled_by_day(cls, value: Any):
+        return normalize_eval_enabled_by_day(value, strict=True)
+
+    @model_serializer(mode="plain")
+    def _serialize(self):
+        data: dict[str, Any] = {}
+        if self.notice_version is not None:
+            data["noticeVersion"] = self.notice_version
+        if self.notice_text is not None:
+            data["noticeText"] = self.notice_text
+        if self.eval_enabled_by_day is not None:
+            data["evalEnabledByDay"] = self.eval_enabled_by_day
+        return data
+
+
+def build_simulation_company_context(
+    value: Any,
+) -> SimulationCompanyContext | None:
+    if not isinstance(value, Mapping):
+        return None
+    try:
+        return SimulationCompanyContext.model_validate(dict(value))
+    except ValidationError:
+        return None
+
+
+def build_simulation_ai_config(
+    *,
+    notice_version: str | None,
+    notice_text: str | None,
+    eval_enabled_by_day: Any,
+) -> SimulationAIConfig | None:
+    normalized_eval = normalize_eval_enabled_by_day(eval_enabled_by_day, strict=False)
+    if notice_version is None and notice_text is None and normalized_eval is None:
+        return None
+
+    payload: dict[str, Any] = {}
+    if notice_version is not None:
+        payload["noticeVersion"] = notice_version
+    if notice_text is not None:
+        payload["noticeText"] = notice_text
+    if normalized_eval is not None:
+        payload["evalEnabledByDay"] = normalized_eval
+    try:
+        return SimulationAIConfig.model_validate(payload)
+    except ValidationError:
+        return None
 
 
 class SimulationCreate(BaseModel):
     """Payload for creating a simulation."""
 
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
     title: str = Field(..., min_length=1, max_length=200)
     role: str = Field(..., min_length=1, max_length=200)
     techStack: str = Field(..., min_length=1, max_length=500)
-    seniority: str = Field(..., min_length=1, max_length=100)
-    focus: str = Field(..., min_length=1, max_length=1000)
+    seniority: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        validation_alias=AliasChoices("seniority", "roleLevel", "role_level"),
+    )
+    focus: str = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_FOCUS_NOTES_CHARS,
+        validation_alias=AliasChoices("focus", "focusNotes", "focus_notes"),
+    )
+    company_context: SimulationCompanyContext | None = Field(
+        default=None,
+        alias="companyContext",
+    )
+    ai: SimulationAIConfig | None = None
     templateKey: str = Field(
         DEFAULT_TEMPLATE_KEY, min_length=1, max_length=255, description="Template key"
     )
+
+    @field_validator("seniority")
+    @classmethod
+    def _validate_seniority(cls, value: str) -> str:
+        normalized = normalize_role_level(value)
+        if normalized not in _ALLOWED_ROLE_LEVELS:
+            allowed = ", ".join(sorted(_ALLOWED_ROLE_LEVELS))
+            raise ValueError(f"seniority must be one of: {allowed}")
+        return normalized
 
     @field_validator("templateKey")
     @classmethod
@@ -77,6 +264,8 @@ class SimulationCreateResponse(BaseModel):
     techStack: str
     seniority: str
     focus: str
+    companyContext: SimulationCompanyContext | None = None
+    ai: SimulationAIConfig | None = None
     templateKey: str
     status: SimulationStatus
     generatingAt: datetime | None = None
@@ -96,6 +285,9 @@ class SimulationListItem(BaseModel):
     title: str
     role: str
     techStack: str
+    seniority: str | None = None
+    companyContext: SimulationCompanyContext | None = None
+    ai: SimulationAIConfig | None = None
     templateKey: str
     status: SimulationStatus
     activatedAt: datetime | None = None
@@ -146,8 +338,11 @@ class SimulationDetailResponse(BaseModel):
     title: str | None = None
     templateKey: str | None = None
     role: str | None = None
+    seniority: str | None = None
     techStack: str | list[str] | None = None
     focus: str | list[str] | None = None
+    companyContext: SimulationCompanyContext | None = None
+    ai: SimulationAIConfig | None = None
     scenario: str | None = None
     status: SimulationStatus
     generatingAt: datetime | None = None

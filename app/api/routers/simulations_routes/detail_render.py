@@ -5,6 +5,9 @@ from app.domains.simulations.schemas import (
     ScenarioVersionSummary,
     SimulationDetailResponse,
     SimulationDetailTask,
+    build_simulation_ai_config,
+    build_simulation_company_context,
+    normalize_role_level,
 )
 
 
@@ -16,8 +19,18 @@ def render_simulation_detail(sim, tasks) -> SimulationDetailResponse:
         title=sim.title,
         templateKey=sim.template_key,
         role=sim.role,
+        seniority=normalize_role_level(getattr(sim, "seniority", None))
+        or getattr(sim, "seniority", None),
         techStack=sim.tech_stack,
         focus=sim.focus,
+        companyContext=build_simulation_company_context(
+            getattr(sim, "company_context", None)
+        ),
+        ai=build_simulation_ai_config(
+            notice_version=getattr(sim, "ai_notice_version", None),
+            notice_text=getattr(sim, "ai_notice_text", None),
+            eval_enabled_by_day=getattr(sim, "ai_eval_enabled_by_day", None),
+        ),
         scenario=sim.scenario_template,
         status=status_value,
         generatingAt=getattr(sim, "generating_at", None),

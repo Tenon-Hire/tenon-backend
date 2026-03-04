@@ -124,6 +124,39 @@ async def test_list_simulations_candidate_counts(authed_client, async_session):
 
 
 @pytest.mark.asyncio
+async def test_list_simulations_includes_seniority_and_ai_eval_summary(authed_client):
+    payload = {
+        "title": "Sim With AI Settings",
+        "role": "Frontend Engineer",
+        "techStack": "react-nextjs",
+        "seniority": "mid",
+        "focus": "Prioritize API ergonomics.",
+        "companyContext": {"domain": "social", "productArea": "creator tools"},
+        "ai": {
+            "noticeVersion": "mvp1",
+            "evalEnabledByDay": {
+                "1": True,
+                "2": True,
+                "3": False,
+                "4": False,
+                "5": True,
+            },
+        },
+    }
+    create_res = await authed_client.post("/api/simulations", json=payload)
+    assert create_res.status_code == 201, create_res.text
+    sim_id = create_res.json()["id"]
+
+    list_res = await authed_client.get("/api/simulations")
+    assert list_res.status_code == 200, list_res.text
+    item = next(x for x in list_res.json() if x["id"] == sim_id)
+    assert item["seniority"] == "mid"
+    assert item["companyContext"] == payload["companyContext"]
+    assert item["ai"]["noticeVersion"] == "mvp1"
+    assert item["ai"]["evalEnabledByDay"] == payload["ai"]["evalEnabledByDay"]
+
+
+@pytest.mark.asyncio
 async def test_list_simulations_does_not_show_other_users(authed_client, async_session):
     other_company = Company(name="OtherCo")
     async_session.add(other_company)

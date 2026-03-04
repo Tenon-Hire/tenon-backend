@@ -129,6 +129,7 @@ async def create_or_get_idempotent(
     candidate_session_id: int | None = None,
     max_attempts: int = 5,
     correlation_id: str | None = None,
+    commit: bool = True,
 ) -> Job:
     normalized_type = job_type.strip()
     normalized_key = idempotency_key.strip()
@@ -169,11 +170,32 @@ async def create_or_get_idempotent(
         company_id=company_id,
         candidate_session_id=candidate_session_id,
     )
-    db.add(job)
+    if commit:
+        db.add(job)
+        try:
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()
+            existing = (
+                await db.execute(
+                    select(Job).where(
+                        Job.company_id == company_id,
+                        Job.job_type == normalized_type,
+                        Job.idempotency_key == normalized_key,
+                    )
+                )
+            ).scalar_one_or_none()
+            if existing is None:
+                raise
+            return existing
+        await db.refresh(job)
+        return job
+
     try:
-        await db.commit()
+        async with db.begin_nested():
+            db.add(job)
+            await db.flush()
     except IntegrityError:
-        await db.rollback()
         existing = (
             await db.execute(
                 select(Job).where(
@@ -186,7 +208,6 @@ async def create_or_get_idempotent(
         if existing is None:
             raise
         return existing
-    await db.refresh(job)
     return job
 
 

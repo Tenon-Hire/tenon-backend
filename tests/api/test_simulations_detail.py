@@ -43,6 +43,57 @@ async def test_get_simulation_detail_happy_path(
 
 
 @pytest.mark.asyncio
+async def test_simulation_context_round_trips_on_create_and_detail(
+    async_client, async_session, auth_header_factory
+):
+    recruiter = await create_recruiter(
+        async_session, email="context-detail@example.com"
+    )
+    payload = {
+        "title": "Frontend Simulation",
+        "role": "Frontend Engineer",
+        "techStack": "react-nextjs",
+        "seniority": "mid",
+        "focus": "Emphasize documentation and test discipline.",
+        "companyContext": {"domain": "social", "productArea": "creator tools"},
+        "ai": {
+            "noticeVersion": "mvp1",
+            "noticeText": "AI may assist with scenario generation.",
+            "evalEnabledByDay": {
+                "1": True,
+                "2": True,
+                "3": True,
+                "4": False,
+                "5": True,
+            },
+        },
+    }
+
+    create_res = await async_client.post(
+        "/api/simulations",
+        json=payload,
+        headers=auth_header_factory(recruiter),
+    )
+    assert create_res.status_code == 201, create_res.text
+    created = create_res.json()
+    assert created["seniority"] == "mid"
+    assert created["focus"] == payload["focus"]
+    assert created["companyContext"] == payload["companyContext"]
+    assert created["ai"] == payload["ai"]
+
+    detail_res = await async_client.get(
+        f"/api/simulations/{created['id']}",
+        headers=auth_header_factory(recruiter),
+    )
+    assert detail_res.status_code == 200, detail_res.text
+    detail = detail_res.json()
+    assert detail["seniority"] == "mid"
+    assert detail["focus"] == payload["focus"]
+    assert detail["companyContext"] == payload["companyContext"]
+    assert detail["ai"] == payload["ai"]
+
+
+@pytest.mark.asyncio
 async def test_get_simulation_detail_not_found(
     async_client, async_session, auth_header_factory
 ):

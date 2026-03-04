@@ -61,6 +61,10 @@ async def create_simulation(
     seniority: str = "Mid",
     focus: str = "Deliver a backend feature over 5 days",
     template_key: str = DEFAULT_TEMPLATE_KEY,
+    company_context: dict[str, str] | None = None,
+    ai_notice_version: str | None = None,
+    ai_notice_text: str | None = None,
+    ai_eval_enabled_by_day: dict[str, bool] | None = None,
 ) -> tuple[Simulation, list[Task]]:
     sim = Simulation(
         company_id=created_by.company_id,
@@ -74,6 +78,10 @@ async def create_simulation(
         status="active_inviting",
         activated_at=datetime.now(UTC),
         template_key=template_key,
+        company_context=company_context,
+        ai_notice_version=ai_notice_version,
+        ai_notice_text=ai_notice_text,
+        ai_eval_enabled_by_day=ai_eval_enabled_by_day,
     )
     session.add(sim)
     await session.flush()

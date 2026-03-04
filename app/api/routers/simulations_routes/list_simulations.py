@@ -9,7 +9,13 @@ from app.core.auth.current_user import get_current_user
 from app.core.auth.roles import ensure_recruiter_or_none
 from app.core.db import get_session
 from app.domains.simulations import service as sim_service
-from app.domains.simulations.schemas import ScenarioVersionSummary, SimulationListItem
+from app.domains.simulations.schemas import (
+    ScenarioVersionSummary,
+    SimulationListItem,
+    build_simulation_ai_config,
+    build_simulation_company_context,
+    normalize_role_level,
+)
 
 router = APIRouter(prefix="/simulations")
 
@@ -31,6 +37,16 @@ async def list_simulations(
             title=sim.title,
             role=sim.role,
             techStack=sim.tech_stack,
+            seniority=normalize_role_level(getattr(sim, "seniority", None))
+            or getattr(sim, "seniority", None),
+            companyContext=build_simulation_company_context(
+                getattr(sim, "company_context", None)
+            ),
+            ai=build_simulation_ai_config(
+                notice_version=getattr(sim, "ai_notice_version", None),
+                notice_text=getattr(sim, "ai_notice_text", None),
+                eval_enabled_by_day=getattr(sim, "ai_eval_enabled_by_day", None),
+            ),
             templateKey=sim.template_key,
             status=sim_service.normalize_simulation_status_or_raise(
                 getattr(sim, "status", None)

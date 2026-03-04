@@ -1,111 +1,118 @@
-# P0 Recruiter Core: Simulation lifecycle state machine + invite gating
+# P0 Recruiter Core: Persist simulation recruiter context + AI toggles (Issue #196)
 
 ## TL;DR
 
-- Added a persisted simulation lifecycle with enforced state transitions: `draft -> generating -> ready_for_review -> active_inviting`, plus `any -> terminated`.
-- Added owner-only lifecycle APIs for activation and termination, both confirmation-gated and idempotent, to support safe recruiter control in MVP1.1.
-- Added invite gating so candidate invites and invite resends are blocked unless the simulation is `active_inviting`.
-- Updated simulation and candidate list behavior to hide `terminated` by default, with explicit `includeTerminated=true` opt-in.
-- Expanded simulation API responses to include lifecycle status/timestamps and `scenarioVersionSummary`, enabling recruiter review and frontend lifecycle UI.
+- Extended `POST /api/simulations` so recruiter context inputs are first-class API fields: `seniority`, `focus`, `companyContext`, and `ai` controls.
+- Persisted new simulation context columns (`company_context`, `ai_notice_version`, `ai_notice_text`, `ai_eval_enabled_by_day`) and continued persisting role/focus in existing `seniority`/`focus` columns.
+- Extended `GET /api/simulations/{id}` and `GET /api/simulations` responses to return these fields (list includes `seniority` and `ai.evalEnabledByDay`, and now also returns `companyContext` + `ai` summary).
+- Wired scenario generation job enqueue in create flow to use a structured recruiter-context payload builder, including normalized/allowlisted values.
+- Kept create flow atomic with a single outer transaction and deterministic idempotent job enqueue.
 
-## Detailed changes
+## What changed (detailed)
 
-### Database
+### API contract
 
-- Added simulation lifecycle persistence in `simulations`:
-  - `status` (non-null, default `generating`)
-  - `generating_at`
-  - `ready_for_review_at`
-  - `activated_at`
-  - `terminated_at`
-- Backfilled existing `simulations` rows to `active_inviting` and set `activated_at` with `COALESCE(activated_at, created_at, CURRENT_TIMESTAMP)`.
-- Added DB CHECK constraint `ck_simulations_status_lifecycle` restricting `status` to:
-  - `draft`
-  - `generating`
-  - `ready_for_review`
-  - `active_inviting`
-  - `terminated`
+- `POST /api/simulations` now accepts and validates:
+  - `seniority` (with aliases `roleLevel` / `role_level`)
+  - `focus` (with aliases `focusNotes` / `focus_notes`)
+  - `companyContext` object with allowlisted keys only: `domain`, `productArea`
+  - `ai` object with:
+    - `noticeVersion`
+    - `noticeText`
+    - `evalEnabledByDay`
+- `GET /api/simulations/{id}` returns the same persisted context fields:
+  - `seniority`, `focus`, `companyContext`, `ai`
+- `GET /api/simulations` includes summary fields (minimum required + more):
+  - `seniority`
+  - `ai.evalEnabledByDay` (via `ai`)
+  - also includes `companyContext` and `ai.noticeVersion/noticeText` when present
 
-### Backend services
+### DB changes
 
-- Centralized lifecycle transition rules in simulation lifecycle service:
-  - Allowed transitions: `draft -> generating`, `generating -> ready_for_review`, `ready_for_review -> active_inviting`.
-  - Termination rule: `any valid status -> terminated`.
-- Implemented idempotent transition behavior for `activate` and `terminate`:
-  - Repeated requests return success and preserve original lifecycle timestamp.
-- Added `normalize_simulation_status` and `normalize_simulation_status_or_raise`:
-  - Maps legacy `active` to `active_inviting`.
-  - Strictly rejects unknown statuses with `SIMULATION_STATUS_INVALID`.
-- Added lifecycle transition logging for successful transitions and rejected attempts, including simulation and actor identifiers.
+- Added new nullable columns on `simulations`:
+  - `company_context` (`JSON`)
+  - `ai_notice_version` (`String(100)`)
+  - `ai_notice_text` (`Text`)
+  - `ai_eval_enabled_by_day` (`JSON`)
+- Migration file:
+  - `alembic/versions/202603040001_add_simulation_context_columns.py`
 
-### API
+### Scenario generation integration
 
-- New endpoints:
-  - `POST /api/simulations/{id}/activate`
-    - Requires `{ "confirm": true }`
-    - Recruiter owner-only
-    - Idempotent
-    - Returns `simulationId`, `status`, `activatedAt`
-  - `POST /api/simulations/{id}/terminate`
-    - Requires `{ "confirm": true }`
-    - Recruiter owner-only
-    - Idempotent
-    - Returns `simulationId`, `status`, `terminatedAt`
-- Invite gating:
-  - `POST /api/simulations/{id}/invite` now returns `409` with `SIMULATION_NOT_INVITABLE` unless status is `active_inviting`.
-  - Invite resend flow enforces the same invitable-state check.
-- Filtering behavior:
-  - Recruiter simulation list hides terminated simulations by default; `includeTerminated=true` opts in.
-  - Recruiter candidate list for a simulation also hides terminated simulations by default; `includeTerminated=true` opts in.
-  - Candidate inbox (`GET /api/candidate/invites`) hides terminated simulations by default; `includeTerminated=true` can include them.
-- Response schema updates:
-  - Simulation create/list/detail responses now include lifecycle status and timestamps.
-  - Simulation create/detail include `generatingAt`, `readyForReviewAt`, `activatedAt`, `terminatedAt`.
-  - Simulation create/list/detail include `scenarioVersionSummary`.
+- Added structured payload builder:
+  - `app/services/simulations/scenario_payload_builder.py::build_scenario_generation_payload`
+- Payload now includes `recruiterContext` with normalized fields:
+  - `seniority`
+  - `focus`
+  - `companyContext`
+  - `ai` (`noticeVersion`, `noticeText`, `evalEnabledByDay`)
+- Create flow enqueues a `scenario_generation` durable job using this payload:
+  - `app/services/simulations/creation.py::create_simulation_with_tasks`
+- Idempotency key format:
+  - `simulation:{simulation_id}:scenario_generation`
+- Why this idempotency key is safe:
+  - Jobs are deduplicated by `(company_id, job_type, idempotency_key)` unique constraint, so retries/races for the same simulation resolve to one logical queued job per company.
 
-### Error contracts
+### Transactionality / invariants
 
-- Non-owner lifecycle transitions return `403`.
-- Missing simulation returns `404`.
-- Invalid persisted status (defensive, should be unreachable with DB constraint) raises `500` with `errorCode: SIMULATION_STATUS_INVALID`.
+- `create_simulation_with_tasks` uses one outer transaction for:
+  - simulation insert
+  - task seeding
+  - status transition to `ready_for_review`
+  - scenario job enqueue
+- Explicit `flush` happens before payload/idempotency-key construction so `sim.id` is materialized before:
+  - building job payload (`simulationId`)
+  - constructing idempotency key (`simulation:{id}:scenario_generation`)
+- Job enqueue uses `commit=False` so the job insert participates in the same outer transaction and commits atomically with simulation creation.
+
+## Validation + security notes
+
+- `companyContext` validation is strict/allowlisted:
+  - only `domain` and `productArea`
+  - unknown keys rejected (`extra="forbid"`)
+- `ai.evalEnabledByDay` is strict:
+  - day keys must be `"1"`..`"5"` only
+  - values must be booleans (`StrictBool`)
+- Size limits are enforced via constants in `app/schemas/simulations.py`:
+  - `MAX_FOCUS_NOTES_CHARS = 1000`
+  - `MAX_COMPANY_CONTEXT_VALUE_CHARS = 120`
+  - `MAX_AI_NOTICE_VERSION_CHARS = 100`
+  - `MAX_AI_NOTICE_TEXT_CHARS = 2000`
+- Logging posture:
+  - no new logs were added in create/payload paths that emit raw `focus` or AI notice text
+  - full focus/notice contents are not logged by this change set
 
 ## Testing
 
-Commands run and results:
+Commands run (all passed):
 
-- `poetry run ruff check .` -> pass
-- `poetry run ruff format .` -> pass (`736 files left unchanged`)
-- `poetry run pytest` -> pass (`864 passed in 13.87s`)
-- `./precommit.sh` -> pass (`864 passed in 14.07s`, all checks passed)
+- `poetry run ruff check .`
+- `poetry run ruff format --check .`
+- `poetry run pytest`
 
-Additional note:
+Key AC1-AC4 coverage (from Worker Report):
 
-- `poetry run mypy --version` -> not available (`Command not found: mypy`), so mypy was not run.
+- AC1 (create returns persisted fields):
+  - `tests/api/test_simulations_detail.py::test_simulation_context_round_trips_on_create_and_detail`
+- AC2 (detail returns same persisted fields):
+  - `tests/api/test_simulations_detail.py::test_simulation_context_round_trips_on_create_and_detail`
+- AC3 (list includes summary fields):
+  - `tests/api/test_simulations_list.py::test_list_simulations_includes_seniority_and_ai_eval_summary`
+- AC4 (scenario job payload consumes fields):
+  - `tests/unit/test_simulations_service.py::test_create_simulation_with_tasks_enqueues_scenario_generation_job`
+  - plus payload-builder unit coverage:
+    - `tests/unit/test_scenario_payload_builder.py::test_build_scenario_generation_payload_includes_recruiter_context_fields`
 
-## Migration / rollout notes
+## Risks / rollout
 
-- Apply migration:
-  - `poetry run alembic upgrade head`
-- Migration behavior:
-  - Adds lifecycle timestamp columns (`generating_at`, `ready_for_review_at`, `activated_at`, `terminated_at`).
-  - Backfills existing simulations to `active_inviting` with `activated_at` populated.
-  - Enforces status validity via CHECK constraint.
+- Risk level: low.
+  - Migration is additive and uses nullable columns, so it is backward-compatible for existing rows.
+- Transaction control note:
+  - Jobs repository supports `commit=False` for outer transaction control, which this create flow uses.
 
-### Demo rollout checklist
+Demo checklist:
 
-1. Create simulation -> status transitions through `generating` to `ready_for_review` (creation path is synchronous, so `generating` may be transient).
-2. Activate simulation -> status becomes `active_inviting`, `activatedAt` is set.
-3. Invite candidate -> succeeds only after activation.
-4. Terminate simulation -> invites become blocked; terminated simulation is excluded from default lists/inbox.
-
-### Rollback
-
-- Use repo downgrade conventions (e.g., `poetry run alembic downgrade -1` for this migration).
-- Downgrade removes lifecycle CHECK constraint and drops lifecycle timestamp columns, and restores previous `status` column nullability/default behavior.
-
-## Risks / follow-ups
-
-- #197: termination cleanup orchestration is a follow-up and not completed in this scope.
-- #205: deeper scenario version persistence/locking continues in follow-up work.
-- #196 and frontend lifecycle UX issues remain complementary tracks.
-- Scenario generation is still synchronous in create today, so `generating` can be short-lived/transient in practice.
+1. Create a simulation with `seniority`, `focus`, `companyContext`, and `ai.evalEnabledByDay`.
+2. Fetch simulation detail and verify fields round-trip unchanged.
+3. List simulations and verify `seniority` + `ai.evalEnabledByDay` summary presence.
+4. Confirm enqueued `scenario_generation` job payload contains `recruiterContext` fields.
