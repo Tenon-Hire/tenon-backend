@@ -107,6 +107,8 @@ async def create_simulation_with_tasks(
         changed_at=datetime.now(UTC),
     )
 
+    await db.flush()
+
     payload_json = build_scenario_generation_payload(sim)
     await jobs_repo.create_or_get_idempotent(
         db,
