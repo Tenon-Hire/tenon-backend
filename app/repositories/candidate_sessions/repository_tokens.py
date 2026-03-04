@@ -9,12 +9,23 @@ from app.domains.simulations.simulation import Simulation
 from app.repositories.simulations.simulation import SIMULATION_STATUS_TERMINATED
 
 
-async def get_by_token(
-    db: AsyncSession, token: str, *, with_simulation: bool = False
-) -> CandidateSession | None:
-    stmt = select(CandidateSession).where(CandidateSession.token == token)
-    if with_simulation:
-        stmt = stmt.options(selectinload(CandidateSession.simulation))
+def _not_terminated_simulation_clause():
+    return or_(
+        Simulation.status.is_(None),
+        Simulation.status != SIMULATION_STATUS_TERMINATED,
+    )
+
+
+async def get_by_token(db: AsyncSession, token: str) -> CandidateSession | None:
+    stmt = (
+        select(CandidateSession)
+        .join(Simulation, Simulation.id == CandidateSession.simulation_id)
+        .where(
+            CandidateSession.token == token,
+            _not_terminated_simulation_clause(),
+        )
+        .options(selectinload(CandidateSession.simulation))
+    )
     res = await db.execute(stmt)
     return res.scalar_one_or_none()
 
@@ -24,7 +35,11 @@ async def get_by_token_for_update(
 ) -> CandidateSession | None:
     stmt = (
         select(CandidateSession)
-        .where(CandidateSession.token == token)
+        .join(Simulation, Simulation.id == CandidateSession.simulation_id)
+        .where(
+            CandidateSession.token == token,
+            _not_terminated_simulation_clause(),
+        )
         .options(selectinload(CandidateSession.simulation))
         .with_for_update()
     )
@@ -44,12 +59,7 @@ async def list_for_email(
         )
     )
     if not include_terminated:
-        stmt = stmt.where(
-            or_(
-                Simulation.status.is_(None),
-                Simulation.status != SIMULATION_STATUS_TERMINATED,
-            )
-        )
+        stmt = stmt.where(_not_terminated_simulation_clause())
     res = await db.execute(stmt)
     return list(res.scalars().unique().all())
 

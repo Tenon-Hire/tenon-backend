@@ -47,16 +47,20 @@ def clear_handlers() -> None:
     _HANDLERS.clear()
 
 
-def _register_builtin_handlers() -> None:
+def has_handler(job_type: str) -> bool:
+    normalized = job_type.strip()
+    if not normalized:
+        return False
+    return normalized in _HANDLERS
+
+
+def register_builtin_handlers() -> None:
     from app.jobs.handlers import (
         SIMULATION_CLEANUP_JOB_TYPE,
         handle_simulation_cleanup,
     )
 
     register_handler(SIMULATION_CLEANUP_JOB_TYPE, handle_simulation_cleanup)
-
-
-_register_builtin_handlers()
 
 
 def compute_backoff_seconds(
@@ -204,6 +208,7 @@ async def run_forever(
 
 
 def main() -> None:  # pragma: no cover - thin CLI wrapper
+    register_builtin_handlers()
     asyncio.run(run_forever())
 
 

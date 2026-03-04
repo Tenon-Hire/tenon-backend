@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
+from sqlalchemy import inspect
+from sqlalchemy.exc import NoInspectionAvailable
 
 from app.core.auth.principal import Principal
 from app.domains import CandidateSession
@@ -18,6 +20,20 @@ _NOT_FOUND = HTTPException(
 )
 
 
+def _loaded_simulation_status(cs: CandidateSession) -> str | None:
+    try:
+        state = inspect(cs)
+    except NoInspectionAvailable:
+        simulation = getattr(cs, "simulation", None)
+        return getattr(simulation, "status", None)
+
+    if "simulation" in state.unloaded:
+        return None
+
+    simulation = state.attrs.simulation.value
+    return getattr(simulation, "status", None)
+
+
 def ensure_can_access(
     cs: CandidateSession | None,
     _principal: Principal,
@@ -29,8 +45,7 @@ def ensure_can_access(
         raise _NOT_FOUND
     if cs is None:
         raise _NOT_FOUND
-    simulation = getattr(cs, "simulation", None)
-    if getattr(simulation, "status", None) == SIMULATION_STATUS_TERMINATED:
+    if _loaded_simulation_status(cs) == SIMULATION_STATUS_TERMINATED:
         raise _NOT_FOUND
     require_not_expired(cs, now=now or datetime.now(UTC))
     return cs

@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from app.core.auth.principal import Principal
 from app.core.settings import settings
 from app.domains.candidate_sessions import service as cs_service
+from app.repositories.simulations.simulation import SIMULATION_STATUS_TERMINATED
 from tests.factories import (
     create_candidate_session,
     create_recruiter,
@@ -96,6 +97,20 @@ async def test_fetch_by_token_success(async_session):
     )
     loaded = await cs_service.fetch_by_token(async_session, cs.token)
     assert loaded.id == cs.id
+
+
+@pytest.mark.asyncio
+async def test_fetch_by_token_terminated_simulation_hidden(async_session):
+    recruiter = await create_recruiter(async_session, email="term-fetch@sim.com")
+    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    cs = await create_candidate_session(async_session, simulation=sim)
+    sim.status = SIMULATION_STATUS_TERMINATED
+    await async_session.commit()
+
+    with pytest.raises(HTTPException) as excinfo:
+        await cs_service.fetch_by_token(async_session, cs.token)
+    assert excinfo.value.status_code == 404
+    assert excinfo.value.detail == "Invalid invite token"
 
 
 @pytest.mark.asyncio
@@ -297,6 +312,21 @@ async def test_claim_invite_with_principal(async_session):
     assert verified.started_at is not None
     assert verified.candidate_auth0_sub == principal.sub
     assert verified.candidate_email == cs.invite_email
+
+
+@pytest.mark.asyncio
+async def test_claim_invite_terminated_simulation_hidden(async_session):
+    recruiter = await create_recruiter(async_session, email="term-claim@sim.com")
+    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    cs = await create_candidate_session(async_session, simulation=sim)
+    sim.status = SIMULATION_STATUS_TERMINATED
+    await async_session.commit()
+    principal = _principal(cs.invite_email)
+
+    with pytest.raises(HTTPException) as excinfo:
+        await cs_service.claim_invite_with_principal(async_session, cs.token, principal)
+    assert excinfo.value.status_code == 404
+    assert excinfo.value.detail == "Invalid invite token"
 
 
 @pytest.mark.asyncio
