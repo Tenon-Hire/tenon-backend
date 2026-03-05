@@ -1,176 +1,174 @@
-# P0 Recruiter Core: Terminate Simulation (idempotent) + invite blocking + cleanup job orchestration
+# P0 Candidate Core: CandidateSession scheduling fields + simulation day windows + schedule endpoint (#198)
 
 ## TL;DR
 
-- Added recruiter-only `POST /api/simulations/{simulation_id}/terminate` with explicit confirmation and optional reason.
-- Termination is idempotent: repeated calls return `200`, keep the original `terminatedAt`, and return stable `cleanupJobIds`.
-- Termination transitions simulation state to `terminated` and persists termination metadata (`terminated_at`, `terminated_reason`, `terminated_by_recruiter_id`).
-- Invite create and resend are both blocked after termination with `409` + `errorCode=SIMULATION_TERMINATED`.
-- Candidate-facing surfaces hide terminated simulations by default (invite lists, token resolve, claim, owned-session fetch).
-- Cleanup is orchestrated via durable jobs: `simulation_cleanup` jobs are enqueued with simulation-scoped payload and idempotency key.
-- Worker registration for cleanup is explicit at startup (`register_builtin_handlers()`), not via import-time side effects.
+- Added scheduling persistence on `candidate_sessions`: `scheduled_start_at`, `candidate_timezone`, `day_windows_json`, `schedule_locked_at`.
+- Added simulation-level day window config: `day_window_start_local` (`09:00` default), `day_window_end_local` (`17:00` default), `day_window_overrides_enabled`, `day_window_overrides_json`.
+- Added candidate-auth endpoint `POST /api/candidate/session/{token}/schedule` with schedule locking, timezone validation, and deterministic Day 1-5 UTC windows.
+- Enriched candidate payloads (`resolve` + invite list + schedule response) with schedule fields and derived `currentDayWindow` where applicable.
+- Triggered candidate + recruiter schedule confirmation emails via existing notification abstraction; dispatch is best-effort after DB commit.
+- Implemented canonical/idempotent behavior: normalized timezone, second-precision UTC schedule timestamps, serialized `day_windows_json` in Zulu string format, and same-input retries return success.
 
-## API Contract
+## Problem / Why
 
-- Endpoint: `POST /api/simulations/{simulation_id}/terminate`
-- Auth: recruiter bearer token + owner-only simulation access.
-- Request:
+- MVP1 requires five consecutive scheduled days with local-time windows (default 9AM-5PM), but previous progression had no scheduling semantics.
+- Recruiters need confidence that artifacts are produced within declared availability windows.
+- Persisting derived UTC windows at schedule-time makes enforcement deterministic across DST and later processing.
+- A lock-once schedule model is needed to prevent candidate-side rescheduling drift.
 
-```json
-{ "confirm": true, "reason": "regenerate" }
-```
+## Changes (detailed)
 
-- Response (example):
+### DB / Models
+
+- `CandidateSession` fields added:
+- `scheduled_start_at` (`DateTime(timezone=True)`, nullable)
+- `candidate_timezone` (`String(255)`, nullable)
+- `day_windows_json` (`JSON`, nullable)
+- `schedule_locked_at` (`DateTime(timezone=True)`, nullable)
+
+- `Simulation` fields added:
+- `day_window_start_local` (`Time`, non-null, server default `'09:00:00'`)
+- `day_window_end_local` (`Time`, non-null, server default `'17:00:00'`)
+- `day_window_overrides_enabled` (`Boolean`, non-null, server default `false`)
+- `day_window_overrides_json` (`JSON`, nullable)
+- Per-day override payload keys are gated to days `9`-`21` when `TENON_SCHEDULE_DAY_WINDOW_OVERRIDES_ENABLED=true`.
+
+- Migration:
+- `alembic/versions/202603050001_add_candidate_schedule_and_sim_window_config.py`
+- Adds all scheduling columns above and includes clean downgrade removal.
+
+### API
+
+- New endpoint: `POST /api/candidate/session/{token}/schedule`
+- Auth: candidate bearer principal + token, with ownership checks (`invite email == auth email`), verified email, claimed invite, and expiry/termination checks.
+
+- Request example:
 
 ```json
 {
-  "simulationId": 42,
-  "status": "terminated",
-  "terminatedAt": "2026-03-02T16:30:00Z",
-  "cleanupJobIds": ["0f3f2c1e-8f2d-4a6a-9c1a-2a3b4c5d6e7f"]
+  "scheduledStartAt": "2026-03-10T13:00:00Z",
+  "candidateTimezone": "America/New_York"
 }
 ```
 
-- Error cases:
-- `403` when requester is not the owner.
-- `404` when simulation does not exist.
-- `400` when `confirm` is missing/false (`SIMULATION_CONFIRMATION_REQUIRED`).
-- `409` on invite create/resend against a terminated simulation (`SIMULATION_TERMINATED`).
+- Response example:
 
-## Behavior / Acceptance Criteria Mapping
-
-- AC: Cannot create or resend invites after termination (`SIMULATION_TERMINATED`).
-- Implemented via `require_simulation_invitable()` in both invite routes before invite side effects; verified by:
-- `tests/api/test_simulations_lifecycle.py::test_invite_create_blocked_after_termination`
-- `tests/api/test_simulations_lifecycle.py::test_invite_resend_blocked_after_termination`
-
-- AC: Candidate dashboard does not show terminated simulations.
-- Implemented with default `include_terminated=False` filtering in candidate invite listing and terminated-token hiding; verified by:
-- `tests/api/test_simulations_lifecycle.py::test_candidate_invites_hide_terminated_by_default`
-- `tests/api/test_simulations_lifecycle.py::test_candidate_token_resolve_and_claim_hidden_after_termination`
-
-- AC: Termination enqueues cleanup job(s) and returns job IDs.
-- `terminate_simulation_with_cleanup()` enqueues `simulation_cleanup` and response includes `cleanupJobIds`; verified by:
-- `tests/api/test_simulations_lifecycle.py::test_terminate_is_owner_only_and_idempotent`
-- `tests/unit/test_simulations_lifecycle_service.py::test_terminate_with_cleanup_sets_reason_and_enqueues_job`
-
-- AC: Endpoint is idempotent.
-- Repeated terminate calls return `200` with `status=terminated`, same `terminatedAt`, and same `cleanupJobIds`; single persisted cleanup job is reused through idempotency key dedupe.
-
-## Implementation Details
-
-- State transition:
-- `apply_status_transition(..., target_status="terminated")` sets `simulation.status -> terminated` and sets `terminated_at` once.
-- On first transition only, service persists `terminated_reason` and `terminated_by_recruiter_id`.
-
-- Invite guards (early, before side effects):
-- `invite_create.py` and `invite_resend.py` call `require_simulation_invitable(simulation)` before invite creation/resend logic, preventing downstream email/GitHub side effects when terminated.
-
-- Candidate hiding strategy:
-- Token path returns `404` with `"Invalid invite token"` for terminated simulations (`fetch_token.py`).
-- Owned-session and token fetch paths filter terminated simulations at query level via joined simulation-status predicate (`repository_basic.py` and `repository_tokens.py`).
-- Defense-in-depth fail-closed guards reject access when simulation relationship is missing/unloaded (`fetch_owned_helpers.py`, `fetch_token.py`).
-
-- Cleanup job orchestration:
-- Job type: `simulation_cleanup`.
-- Idempotency key: `simulation_cleanup:{simulation_id}`.
-- Payload includes `simulationId` (plus `companyId`, `terminatedByUserId`, optional `reason`).
-- Job creation uses `create_or_get_idempotent(..., commit=False)` so enqueue participates in the same transaction as termination.
-- Handler registration is explicit at worker startup (`app/jobs/worker.py::register_builtin_handlers`), with no import-time registration side effects.
-
-- Concurrency note:
-- Candidate-session locking is scoped to candidate session rows only (`with_for_update(of=CandidateSession)`), not simulations.
-- Compiled SQL proof:
-
-```sql
-... FOR UPDATE OF candidate_sessions
+```json
+{
+  "candidateSessionId": 123,
+  "scheduledStartAt": "2026-03-10T13:00:00Z",
+  "candidateTimezone": "America/New_York",
+  "dayWindows": [
+    {
+      "dayIndex": 1,
+      "windowStartAt": "2026-03-10T13:00:00Z",
+      "windowEndAt": "2026-03-10T21:00:00Z"
+    }
+  ],
+  "scheduleLockedAt": "2026-03-02T17:00:00Z"
+}
 ```
+
+- Error codes and statuses:
+- `409` `SCHEDULE_ALREADY_SET`
+- `422` `SCHEDULE_INVALID_TIMEZONE`
+- `422` `SCHEDULE_START_IN_PAST`
+- `403` `SCHEDULE_NOT_CLAIMED`
+- `410` `INVITE_TOKEN_EXPIRED` (repo convention for expired invite token paths)
+
+### Behavior
+
+- Row-level concurrency:
+- Scheduling uses token lookup with `FOR UPDATE OF candidate_sessions` row lock semantics (`fetch_by_token_for_update`).
+
+- Idempotency:
+- If schedule is already locked and incoming schedule/timezone match normalized stored values, endpoint returns success (no conflict, no duplicate email send).
+- If locked and values differ, returns `409 SCHEDULE_ALREADY_SET`.
+
+- Canonicalization:
+- Incoming timezone is trimmed and validated to a canonical IANA key before comparison/persistence.
+- `scheduled_start_at` is normalized to UTC and truncated to second precision.
+- Persisted `day_windows_json` stores UTC timestamps as canonical Zulu strings (`YYYY-MM-DDTHH:MM:SSZ`) for deterministic reads/comparisons.
+
+- Payload enrichment:
+- `resolve` and candidate invite list responses include `scheduledStartAt`, `candidateTimezone`, `dayWindows`, `scheduleLockedAt`, and derived `currentDayWindow`.
+
+- Email confirmations:
+- On first schedule set, candidate + recruiter confirmation emails are dispatched through notification service.
+- Dispatch failures are logged and swallowed after commit (state remains persisted).
 
 ## Tests
 
-- Commands run:
-- `poetry run ruff check .` -> passed (no lint violations).
-- `poetry run ruff format .` -> passed (`745 files left unchanged`).
-- `poetry run pytest -q` -> passed (`900 passed in 16.01s`).
+Commands run:
 
-- Key tests added/updated for this feature:
-- `tests/api/test_simulations_lifecycle.py::test_terminate_is_owner_only_and_idempotent`
-- `tests/api/test_simulations_lifecycle.py::test_invite_create_blocked_after_termination`
-- `tests/api/test_simulations_lifecycle.py::test_invite_resend_blocked_after_termination`
-- `tests/api/test_simulations_lifecycle.py::test_terminated_hidden_by_default_in_simulation_and_candidate_lists`
-- `tests/api/test_simulations_lifecycle.py::test_candidate_invites_hide_terminated_by_default`
-- `tests/api/test_simulations_lifecycle.py::test_candidate_token_resolve_and_claim_hidden_after_termination`
-- `tests/unit/test_simulations_lifecycle_service.py::test_terminate_with_cleanup_sets_reason_and_enqueues_job`
-- `tests/unit/test_candidate_sessions_repository.py::test_get_by_id_for_update_locks_only_candidate_sessions`
-- `tests/unit/test_candidate_sessions_repository.py::test_get_by_token_for_update_locks_only_candidate_sessions`
-- `tests/unit/test_job_handler_registration.py::test_register_builtin_handlers_is_explicit`
+- `poetry run ruff check .` -> PASS
+- `poetry run pytest -q` -> PASS (`926 passed in 16.10s`, coverage gate met)
+- `poetry run python -m compileall app tests` -> PASS
 
-## Audit QA (runtime)
+Notable tests:
 
-- Execution method:
-- `uvicorn` localhost bind is blocked in this sandbox (`operation not permitted`), so manual runtime QA was executed via an in-process ASGI harness.
-- Harness: `.qa/issue197/manual_http_harness.py`
+- `tests/api/test_candidate_session_schedule.py`
+- route registered once at `/api/candidate/session/{token}/schedule`
+- happy path persistence + email send
+- idempotent same-payload retry + conflict on changed payload
+- expired token maps to `410` + `INVITE_TOKEN_EXPIRED`
 
-- Evidence files:
-- `.qa/issue197/QA_REPORT.md` — primary pass/fail matrix A–F.
-- `.qa/issue197/output.txt` — captured HTTP responses, DB checks, and compiled SQL snippets.
-- `.qa/issue197/commands.txt` — full command log.
-- `.qa/issue197/env.txt` — environment snapshot.
-- `.qa/issue197/issue197_manualqa.db` — SQLite DB used for the harness run.
+- `tests/unit/test_scheduling_day_windows.py`
+- DST-aware derivation
+- timezone validation
+- canonical serialization/deserialization (`Z` + second precision)
 
-- Results summary (A–F):
+- `tests/unit/test_candidate_session_schedule_service.py`
+- service-level lock/idempotency/conflict
+- JSON day-window storage shape assertions
+- token-expiry mapping behavior and ownership/claim validation paths
 
-| Check | Result |
-|------|--------|
-| A) Owner terminate / non-owner / missing sim | PASS (`200` owner terminate, `403` non-owner, `404` missing simulation) |
-| B) Idempotency | PASS (`terminatedAt` + `cleanupJobIds` stable; single cleanup job row) |
-| C) Invite create/resend blocked | PASS (`409` + `SIMULATION_TERMINATED`) |
-| D) Candidate resolve/claim hidden | PASS (`404` + `"Invalid invite token"`) |
-| E) Cleanup job row validation | PASS (`job_type`, `idempotency_key`, payload fields validated) |
-| F) Lock scope compiled SQL | PASS (`FOR UPDATE OF candidate_sessions`) |
+## Manual QA (Contract Examples)
 
-- Key response snippets:
+Executed via manual runtime QA.
+- `uvicorn` startup attempt in this sandbox failed to bind (`Operation not permitted`), so QA was executed through an in-process ASGI harness hitting real FastAPI routes end-to-end.
+- Evidence bundle (local): `.qa/issue198/issue198_20260305_002451/...`
+- Bundle is also zipped and attached externally to the PR as an artifact (not tracked in git).
+- Initial harness run failed due to harness-side formatting/regex bug; no product code changes were required; final run PASS.
 
-```json
-{
-  "cleanupJobIds": ["1707f03a-f172-463f-b54c-35db67ad387b"],
-  "simulationId": 1,
-  "status": "terminated",
-  "terminatedAt": "2026-03-04T05:13:15.439416"
-}
-```
+| Check | Result | Evidence |
+|---|---|---|
+| A Route exactness | PASS | `POST /api/candidate/session/{token}/schedule` |
+| B Preconditions/security | PASS | `403 SCHEDULE_NOT_CLAIMED`; ownership mismatch; `email_verified` enforced |
+| C Persistence/response | PASS | 5 windows; canonical `Z`; `schedule_locked_at` set |
+| D Idempotency/email dedupe | PASS | same payload `200` no extra emails; changed payload `409` |
+| E Resolve/invites enrichment | PASS | schedule fields + `currentDayWindow` present |
+| F Expiry semantics | PASS | `410 INVITE_TOKEN_EXPIRED`; detail `Invite token expired` |
 
-```json
-{
-  "detail": "Simulation has been terminated.",
-  "errorCode": "SIMULATION_TERMINATED"
-}
-```
+```bash
+# 1) Claim invite
+curl -X POST "http://localhost:8000/api/candidate/session/$TOKEN/claim" \
+  -H "Authorization: Bearer $CANDIDATE_JWT"
 
-```json
-{
-  "detail": "Invalid invite token"
-}
-```
+# 2) Schedule
+curl -X POST "http://localhost:8000/api/candidate/session/$TOKEN/schedule" \
+  -H "Authorization: Bearer $CANDIDATE_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "scheduledStartAt": "2026-03-10T13:00:00Z",
+    "candidateTimezone": "America/New_York"
+  }'
 
-```sql
-WHERE candidate_sessions.id = 123
-  AND (simulations.status IS NULL OR simulations.status != 'terminated')
-  FOR UPDATE OF candidate_sessions
+# 3) Resolve
+curl "http://localhost:8000/api/candidate/session/$TOKEN" \
+  -H "Authorization: Bearer $CANDIDATE_JWT"
 ```
 
 ## Risks / Rollout Notes
 
-- Cleanup is currently best-effort and safe: handler is a retry-safe noop skeleton scoped to simulation-owned resources, so external deletion coverage can be expanded incrementally.
-- Idempotent job creation (`simulation_cleanup:{simulation_id}`) prevents duplicate destructive work under retries/races.
-- Shared template repositories are protected by scope and current cleanup behavior (no destructive delete path in current handler).
+- `410` vs issue-text expectations: this repo consistently uses `410 Gone` for expired invite tokens; FE should branch primarily on `errorCode=INVITE_TOKEN_EXPIRED` for machine-stable handling.
+- Email dispatch is best-effort after commit: schedule persistence remains authoritative even if notification delivery fails transiently (acceptable for MVP).
+- Per-day overrides are guarded by `TENON_SCHEDULE_DAY_WINDOW_OVERRIDES_ENABLED`; when disabled, override payloads are rejected at schema validation.
 
-## Demo / Verification Checklist
+## Demo Checklist
 
-1. Create simulation -> activate -> invite candidate.
-2. Call `POST /api/simulations/{id}/terminate` with `{ "confirm": true }`.
-3. Verify invite create returns `409` with `errorCode=SIMULATION_TERMINATED`.
-4. Verify invite resend returns `409` with `errorCode=SIMULATION_TERMINATED`.
-5. Verify candidate token resolve/claim returns `404` with `"Invalid invite token"` and candidate invite list hides the terminated simulation by default.
-6. Verify cleanup job row exists with `job_type=simulation_cleanup`, payload `simulationId={id}`, and returned `cleanupJobIds` contains that job ID.
-7. Call terminate again and verify `200` idempotent response with unchanged `terminatedAt` and unchanged `cleanupJobIds`.
+1. Invite candidate.
+2. Candidate claims invite.
+3. Candidate schedules start date/timezone.
+4. Verify resolve payload exposes schedule fields plus `currentDayWindow` and schedule lock state.
+5. Verify confirmation emails are emitted (Memory provider in tests captures both candidate and recruiter messages).

@@ -1,13 +1,17 @@
-from datetime import datetime
+from datetime import datetime, time
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
     Integer,
     String,
     Text,
+    Time,
+    false,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -69,6 +73,27 @@ class Simulation(Base, TimestampMixin):
     ai_notice_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
     ai_notice_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     ai_eval_enabled_by_day: Mapped[dict[str, bool] | None] = mapped_column(
+        JSON, nullable=True
+    )
+    day_window_start_local: Mapped[time] = mapped_column(
+        Time(),
+        default=time(hour=9, minute=0),
+        server_default=text("'09:00:00'"),
+        nullable=False,
+    )
+    day_window_end_local: Mapped[time] = mapped_column(
+        Time(),
+        default=time(hour=17, minute=0),
+        server_default=text("'17:00:00'"),
+        nullable=False,
+    )
+    day_window_overrides_enabled: Mapped[bool] = mapped_column(
+        Boolean(),
+        default=False,
+        server_default=false(),
+        nullable=False,
+    )
+    day_window_overrides_json: Mapped[dict[str, dict[str, str]] | None] = mapped_column(
         JSON, nullable=True
     )
 

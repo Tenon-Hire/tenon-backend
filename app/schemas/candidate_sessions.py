@@ -47,6 +47,20 @@ class CandidateSimulationSummary(APIModel):
     role: str
 
 
+class DayWindow(APIModel):
+    """Daily availability window in UTC."""
+
+    dayIndex: int
+    windowStartAt: datetime
+    windowEndAt: datetime
+
+
+class CurrentDayWindow(DayWindow):
+    """Derived current or nearest day window state."""
+
+    state: Literal["upcoming", "active", "closed"]
+
+
 class CandidateSessionResolveResponse(APIModel):
     """Schema for resolving a candidate session."""
 
@@ -57,6 +71,28 @@ class CandidateSessionResolveResponse(APIModel):
     completedAt: datetime | None
     candidateName: str
     simulation: CandidateSimulationSummary
+    scheduledStartAt: datetime | None = None
+    candidateTimezone: str | None = None
+    dayWindows: list[DayWindow] = Field(default_factory=list)
+    scheduleLockedAt: datetime | None = None
+    currentDayWindow: CurrentDayWindow | None = None
+
+
+class CandidateSessionScheduleRequest(APIModel):
+    """Request payload for scheduling a candidate session."""
+
+    scheduledStartAt: datetime
+    candidateTimezone: str = Field(..., min_length=1, max_length=255)
+
+
+class CandidateSessionScheduleResponse(APIModel):
+    """Response payload for scheduling a candidate session."""
+
+    candidateSessionId: int
+    scheduledStartAt: datetime
+    candidateTimezone: str
+    dayWindows: list[DayWindow]
+    scheduleLockedAt: datetime
 
 
 class CandidateInviteListItem(APIModel):
@@ -74,6 +110,11 @@ class CandidateInviteListItem(APIModel):
     expiresAt: datetime | None
     inviteToken: str | None = None
     isExpired: bool
+    scheduledStartAt: datetime | None = None
+    candidateTimezone: str | None = None
+    dayWindows: list[DayWindow] = Field(default_factory=list)
+    scheduleLockedAt: datetime | None = None
+    currentDayWindow: CurrentDayWindow | None = None
 
 
 class CurrentTaskResponse(APIModel):

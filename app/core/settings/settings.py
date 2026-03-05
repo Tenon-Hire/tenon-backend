@@ -37,6 +37,7 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("DEV_AUTH_BYPASS", "TENON_DEV_AUTH_BYPASS"),
     )
+    SCHEDULE_DAY_WINDOW_OVERRIDES_ENABLED: bool = False
 
     # Flat env hooks (loaded from .env and merged into nested models)
     DATABASE_URL: str | None = None

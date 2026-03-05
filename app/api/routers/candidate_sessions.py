@@ -7,6 +7,9 @@ from app.api.routers.candidate_sessions_routes.resolve import (
     claim_candidate_session,
     resolve_candidate_session,
 )
+from app.api.routers.candidate_sessions_routes.schedule import (
+    schedule_candidate_session,
+)
 from app.domains.candidate_sessions import service as cs_service
 
 CANDIDATE_CLAIM_RATE_LIMIT = rate_limits.CANDIDATE_CLAIM_RATE_LIMIT
@@ -17,6 +20,7 @@ __all__ = [
     "cs_service",
     "resolve_candidate_session",
     "claim_candidate_session",
+    "schedule_candidate_session",
     "get_current_task",
     "list_candidate_invites",
     "rate_limit",

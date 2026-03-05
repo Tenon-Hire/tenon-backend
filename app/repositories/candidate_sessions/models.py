@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     DateTime,
     ForeignKey,
     Index,
@@ -71,6 +72,14 @@ class CandidateSession(Base):
         DateTime(timezone=True), nullable=True
     )
     invite_email_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    scheduled_start_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    candidate_timezone: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    day_windows_json: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
+    schedule_locked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 
