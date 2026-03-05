@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -67,6 +67,41 @@ def _extract_ai_fields(
     return notice_version, notice_text, normalized_eval
 
 
+def _extract_day_window_config(
+    payload: Any,
+) -> tuple[time, time, bool, dict[str, dict[str, str]] | None]:
+    day_window_start_local = getattr(payload, "dayWindowStartLocal", None) or time(
+        hour=9, minute=0
+    )
+    day_window_end_local = getattr(payload, "dayWindowEndLocal", None) or time(
+        hour=17, minute=0
+    )
+    overrides_enabled = bool(getattr(payload, "dayWindowOverridesEnabled", False))
+    raw_overrides = getattr(payload, "dayWindowOverrides", None)
+
+    if raw_overrides is None:
+        return day_window_start_local, day_window_end_local, overrides_enabled, None
+
+    normalized_overrides: dict[str, dict[str, str]] = {}
+    for raw_day, raw_window in raw_overrides.items():
+        if hasattr(raw_window, "model_dump"):
+            serialized = raw_window.model_dump(by_alias=True)
+        elif isinstance(raw_window, dict):
+            serialized = dict(raw_window)
+        else:
+            continue
+        normalized_overrides[str(raw_day)] = {
+            "startLocal": str(serialized.get("startLocal")),
+            "endLocal": str(serialized.get("endLocal")),
+        }
+    return (
+        day_window_start_local,
+        day_window_end_local,
+        overrides_enabled,
+        normalized_overrides or None,
+    )
+
+
 async def create_simulation_with_tasks(
     db: AsyncSession, payload: Any, user: Any
 ) -> tuple[Simulation, list[Task]]:
@@ -76,6 +111,12 @@ async def create_simulation_with_tasks(
     ai_notice_version, ai_notice_text, ai_eval_enabled_by_day = _extract_ai_fields(
         payload
     )
+    (
+        day_window_start_local,
+        day_window_end_local,
+        day_window_overrides_enabled,
+        day_window_overrides_json,
+    ) = _extract_day_window_config(payload)
     raw_seniority = getattr(payload, "seniority", None)
     normalized_seniority = normalize_role_level(raw_seniority)
     seniority_value = normalized_seniority or raw_seniority
@@ -89,6 +130,10 @@ async def create_simulation_with_tasks(
         ai_notice_version=ai_notice_version,
         ai_notice_text=ai_notice_text,
         ai_eval_enabled_by_day=ai_eval_enabled_by_day,
+        day_window_start_local=day_window_start_local,
+        day_window_end_local=day_window_end_local,
+        day_window_overrides_enabled=day_window_overrides_enabled,
+        day_window_overrides_json=day_window_overrides_json,
         scenario_template="default-5day-node-postgres",
         company_id=user.company_id,
         created_by=user.id,

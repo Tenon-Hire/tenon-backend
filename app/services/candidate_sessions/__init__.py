@@ -17,6 +17,9 @@ from app.domains.candidate_sessions.service.progress import (
     load_tasks,
     progress_snapshot,
 )
+from app.domains.candidate_sessions.service.schedule import (
+    schedule_candidate_session,
+)
 from app.domains.candidate_sessions.service.status import (
     mark_in_progress,
     require_not_expired,
@@ -33,6 +36,7 @@ __all__ = [
     "load_tasks",
     "mark_in_progress",
     "progress_snapshot",
+    "schedule_candidate_session",
     "require_not_expired",
     "_normalize_email",
     "_ensure_candidate_ownership",

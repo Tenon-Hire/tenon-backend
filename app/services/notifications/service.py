@@ -11,9 +11,11 @@ from app.domains.notifications.invite_time import (
 from app.domains.notifications.invite_time import (
     utc_now as _utc_now,
 )
+from app.services.notifications.schedule_send import send_schedule_confirmation_emails
 
 __all__ = [
     "send_invite_email",
+    "send_schedule_confirmation_emails",
     "INVITE_EMAIL_RATE_LIMIT_SECONDS",
     "_rate_limited",
     "_utc_now",

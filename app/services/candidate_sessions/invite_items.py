@@ -11,6 +11,9 @@ from app.domains.candidate_sessions.schemas import (
     ProgressSummary,
 )
 from app.services.candidate_sessions.progress import progress_snapshot
+from app.services.candidate_sessions.schedule_fields import (
+    schedule_payload_for_candidate_session,
+)
 
 
 async def build_invite_item(
@@ -38,6 +41,9 @@ async def build_invite_item(
         or candidate_session.completed_at
         or candidate_session.started_at
     )
+    schedule_payload = schedule_payload_for_candidate_session(
+        candidate_session, now_utc=now
+    )
     sim = candidate_session.simulation
     company_name = getattr(sim.company, "name", None) if sim else None
     return CandidateInviteListItem(
@@ -53,4 +59,9 @@ async def build_invite_item(
         expiresAt=candidate_session.expires_at,
         inviteToken=candidate_session.token,
         isExpired=is_expired,
+        scheduledStartAt=schedule_payload["scheduledStartAt"],
+        candidateTimezone=schedule_payload["candidateTimezone"],
+        dayWindows=schedule_payload["dayWindows"],
+        scheduleLockedAt=schedule_payload["scheduleLockedAt"],
+        currentDayWindow=schedule_payload["currentDayWindow"],
     )

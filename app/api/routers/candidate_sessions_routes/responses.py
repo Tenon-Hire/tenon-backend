@@ -1,14 +1,20 @@
+from app.api.routers.candidate_sessions_routes.time_utils import utcnow
 from app.domains.candidate_sessions.schemas import (
     CandidateSessionResolveResponse,
+    CandidateSessionScheduleResponse,
     CandidateSimulationSummary,
     CurrentTaskResponse,
     ProgressSummary,
 )
 from app.domains.tasks.schemas_public import TaskPublic
+from app.services.candidate_sessions.schedule_fields import (
+    schedule_payload_for_candidate_session,
+)
 
 
 def render_claim_response(cs) -> CandidateSessionResolveResponse:
     sim = cs.simulation
+    schedule_payload = schedule_payload_for_candidate_session(cs, now_utc=utcnow())
     return CandidateSessionResolveResponse(
         candidateSessionId=cs.id,
         status=cs.status,
@@ -19,6 +25,22 @@ def render_claim_response(cs) -> CandidateSessionResolveResponse:
         simulation=CandidateSimulationSummary(
             id=sim.id, title=sim.title, role=sim.role
         ),
+        scheduledStartAt=schedule_payload["scheduledStartAt"],
+        candidateTimezone=schedule_payload["candidateTimezone"],
+        dayWindows=schedule_payload["dayWindows"],
+        scheduleLockedAt=schedule_payload["scheduleLockedAt"],
+        currentDayWindow=schedule_payload["currentDayWindow"],
+    )
+
+
+def render_schedule_response(cs) -> CandidateSessionScheduleResponse:
+    schedule_payload = schedule_payload_for_candidate_session(cs, now_utc=utcnow())
+    return CandidateSessionScheduleResponse(
+        candidateSessionId=cs.id,
+        scheduledStartAt=schedule_payload["scheduledStartAt"],
+        candidateTimezone=schedule_payload["candidateTimezone"],
+        dayWindows=schedule_payload["dayWindows"],
+        scheduleLockedAt=schedule_payload["scheduleLockedAt"],
     )
 
 

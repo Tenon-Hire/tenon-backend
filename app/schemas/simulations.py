@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import datetime, time
 from typing import Any
 
 from pydantic import (
@@ -13,8 +13,10 @@ from pydantic import (
     ValidationError,
     field_validator,
     model_serializer,
+    model_validator,
 )
 
+from app.core.settings import settings
 from app.domains.common.types import SimulationStatus, TaskType
 from app.domains.tasks.schemas_public import TaskPublic
 from app.services.tasks.template_catalog import (
@@ -36,6 +38,7 @@ __all__ = [
     "ScenarioVersionSummary",
     "SimulationCompanyContext",
     "SimulationAIConfig",
+    "SimulationDayWindowOverride",
     "normalize_role_level",
     "normalize_eval_enabled_by_day",
     "build_simulation_ai_config",
@@ -49,6 +52,7 @@ MAX_AI_NOTICE_VERSION_CHARS = 100
 MAX_AI_NOTICE_TEXT_CHARS = 2000
 _ALLOWED_ROLE_LEVELS = frozenset({"junior", "mid", "senior", "staff", "principal"})
 _ALLOWED_AI_EVAL_DAY_KEYS = frozenset({"1", "2", "3", "4", "5"})
+_ALLOWED_DAY_WINDOW_OVERRIDE_KEYS = frozenset(str(day) for day in range(9, 22))
 
 
 def normalize_role_level(value: str | None) -> str | None:
@@ -154,6 +158,28 @@ class SimulationAIConfig(BaseModel):
         return data
 
 
+class SimulationDayWindowOverride(BaseModel):
+    """Optional per-day local schedule window override."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    start_local: time = Field(alias="startLocal")
+    end_local: time = Field(alias="endLocal")
+
+    @model_validator(mode="after")
+    def _validate_bounds(self):
+        if self.end_local <= self.start_local:
+            raise ValueError("endLocal must be after startLocal")
+        return self
+
+    @model_serializer(mode="plain")
+    def _serialize(self):
+        return {
+            "startLocal": self.start_local.strftime("%H:%M"),
+            "endLocal": self.end_local.strftime("%H:%M"),
+        }
+
+
 def build_simulation_company_context(
     value: Any,
 ) -> SimulationCompanyContext | None:
@@ -216,6 +242,10 @@ class SimulationCreate(BaseModel):
     templateKey: str = Field(
         DEFAULT_TEMPLATE_KEY, min_length=1, max_length=255, description="Template key"
     )
+    dayWindowStartLocal: time = Field(default=time(hour=9, minute=0))
+    dayWindowEndLocal: time = Field(default=time(hour=17, minute=0))
+    dayWindowOverridesEnabled: bool = False
+    dayWindowOverrides: dict[str, SimulationDayWindowOverride] | None = None
 
     @field_validator("seniority")
     @classmethod
@@ -233,6 +263,35 @@ class SimulationCreate(BaseModel):
             return validate_template_key(value)
         except TemplateKeyError as exc:
             raise ValueError(str(exc)) from None
+
+    @field_validator("dayWindowOverrides", mode="before")
+    @classmethod
+    def _validate_day_window_overrides(cls, value: Any):
+        if value is None:
+            return None
+        if not settings.SCHEDULE_DAY_WINDOW_OVERRIDES_ENABLED:
+            raise ValueError("dayWindowOverrides is disabled")
+        if not isinstance(value, Mapping):
+            raise ValueError("dayWindowOverrides must be an object")
+
+        normalized: dict[str, Any] = {}
+        for raw_key, raw_val in value.items():
+            day_key = str(raw_key).strip()
+            if day_key not in _ALLOWED_DAY_WINDOW_OVERRIDE_KEYS:
+                allowed = ", ".join(sorted(_ALLOWED_DAY_WINDOW_OVERRIDE_KEYS))
+                raise ValueError(f"dayWindowOverrides keys must be one of: {allowed}")
+            normalized[day_key] = raw_val
+        return normalized
+
+    @model_validator(mode="after")
+    def _validate_day_window_bounds(self):
+        if self.dayWindowEndLocal <= self.dayWindowStartLocal:
+            raise ValueError("dayWindowEndLocal must be after dayWindowStartLocal")
+        if self.dayWindowOverrides and not self.dayWindowOverridesEnabled:
+            raise ValueError(
+                "dayWindowOverridesEnabled must be true when dayWindowOverrides is set"
+            )
+        return self
 
 
 class TaskOut(BaseModel):
