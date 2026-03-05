@@ -46,6 +46,7 @@ async def test_submit_after_completion_returns_409(
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
 
     # Seed submissions for all tasks to mark sim complete
@@ -82,6 +83,7 @@ async def test_submit_returns_500_when_simulation_missing_tasks(
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
 
     # Remove tasks to exercise guard
@@ -107,6 +109,7 @@ async def test_submit_task_not_found(
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
 
     headers = candidate_header_factory(cs)
@@ -129,6 +132,7 @@ async def test_submit_task_from_other_simulation(
         async_session,
         simulation=sim_b,
         status="in_progress",
+        with_default_schedule=True,
     )
 
     # Use task from sim_a with session from sim_b -> 404
@@ -151,6 +155,7 @@ async def test_submit_unknown_task_type_errors(
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
 
     # Manually insert a task with unsupported type
@@ -191,6 +196,7 @@ async def test_submit_code_task_persists_actions_results(
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
     # Seed day 1 submission to unlock day 2 code task
     await create_submission(
@@ -266,6 +272,7 @@ async def test_submit_text_task_leaves_test_fields_null(
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
 
     headers = candidate_header_factory(cs)
@@ -293,6 +300,7 @@ async def test_submit_code_task_actions_error_returns_502_no_submission(
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
     # seed day 1 to reach day 2 code task
     await create_submission(

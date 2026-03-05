@@ -23,6 +23,7 @@ async def build_current_task_view(candidate_session_id, request, principal, db):
     cs = await cs_service.fetch_owned_session(
         db, candidate_session_id, principal, now=now
     )
+    cs_service.ensure_schedule_started_for_content(cs, now=now)
     (
         _tasks,
         completed_ids,

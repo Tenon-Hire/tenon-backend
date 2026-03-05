@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, status
@@ -8,6 +9,7 @@ from app.api.dependencies.github_native import get_github_client
 from app.api.routers.tasks.handlers import handle_codespace_init
 from app.core.db import get_session
 from app.domains import CandidateSession
+from app.domains.candidate_sessions import service as cs_service
 from app.domains.submissions.schemas import CodespaceInitRequest, CodespaceInitResponse
 from app.integrations.github import GithubClient
 
@@ -29,6 +31,9 @@ async def init_codespace_route(
     github_client: Annotated[GithubClient, Depends(get_github_client)],
 ) -> CodespaceInitResponse:
     """Provision or return a GitHub Codespace workspace for a task."""
+    cs_service.ensure_schedule_started_for_content(
+        candidate_session, now=datetime.now(UTC)
+    )
     return await handle_codespace_init(
         task_id=task_id,
         payload=payload,

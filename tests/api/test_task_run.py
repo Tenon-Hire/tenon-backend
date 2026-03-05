@@ -28,6 +28,7 @@ async def test_codespace_init_works_for_debug_task(
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
     # Complete earlier tasks to allow day 3 debug
     await create_submission(
@@ -62,6 +63,7 @@ async def test_codespace_init_missing_template_repo_returns_500(
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
     # Complete earlier tasks to allow day 3 debug
     await create_submission(
@@ -95,6 +97,7 @@ async def test_codespace_init_reuses_existing_workspace_and_skips_github(
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
     # Complete day 1 to unlock day 2 code task
     await create_submission(
@@ -174,6 +177,7 @@ async def test_codespace_init_maps_github_errors_to_502(
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
     await create_submission(
         async_session, candidate_session=cs, task=tasks[0], content_text="day1"
@@ -210,6 +214,7 @@ async def test_run_tests_returns_actions_result(
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
     await create_submission(
         async_session, candidate_session=cs, task=tasks[0], content_text="day1"
@@ -274,6 +279,7 @@ async def test_run_tests_rate_limited_when_prod_env(
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
     await create_submission(
         async_session, candidate_session=cs, task=tasks[0], content_text="day1"
@@ -318,6 +324,7 @@ async def test_run_tests_invalid_task_404(
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
     await async_session.commit()
 
@@ -341,7 +348,10 @@ async def test_run_tests_rejects_invalid_branch(
     recruiter = await create_recruiter(async_session, email="branch@test.com")
     sim, tasks = await create_simulation(async_session, created_by=recruiter)
     cs = await create_candidate_session(
-        async_session, simulation=sim, status="in_progress"
+        async_session,
+        simulation=sim,
+        status="in_progress",
+        with_default_schedule=True,
     )
     await create_submission(
         async_session, candidate_session=cs, task=tasks[0], content_text="day1"
@@ -374,7 +384,10 @@ async def test_run_tests_handles_artifact_missing_status_error(
     recruiter = await create_recruiter(async_session, email="artifact@test.com")
     sim, tasks = await create_simulation(async_session, created_by=recruiter)
     cs = await create_candidate_session(
-        async_session, simulation=sim, status="in_progress"
+        async_session,
+        simulation=sim,
+        status="in_progress",
+        with_default_schedule=True,
     )
     await create_submission(
         async_session, candidate_session=cs, task=tasks[0], content_text="day1"
@@ -476,6 +489,7 @@ async def test_run_tests_handles_actions_error(
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
     await create_submission(
         async_session, candidate_session=cs, task=tasks[0], content_text="day1"
@@ -513,6 +527,7 @@ async def test_codespace_init_error_includes_error_code_and_sanitizes_tokens(
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
     await create_submission(
         async_session, candidate_session=cs, task=tasks[0], content_text="day1"
@@ -551,7 +566,10 @@ async def test_codespace_init_invalid_token_maps_to_specific_error(
     recruiter = await create_recruiter(async_session, email="token@test.com")
     sim, tasks = await create_simulation(async_session, created_by=recruiter)
     cs = await create_candidate_session(
-        async_session, simulation=sim, status="in_progress"
+        async_session,
+        simulation=sim,
+        status="in_progress",
+        with_default_schedule=True,
     )
     await create_submission(
         async_session, candidate_session=cs, task=tasks[0], content_text="day1"
@@ -583,7 +601,10 @@ async def test_run_tests_maps_github_not_found_error(
     recruiter = await create_recruiter(async_session, email="run-notfound@sim.com")
     sim, tasks = await create_simulation(async_session, created_by=recruiter)
     cs = await create_candidate_session(
-        async_session, simulation=sim, status="in_progress"
+        async_session,
+        simulation=sim,
+        status="in_progress",
+        with_default_schedule=True,
     )
     await create_submission(
         async_session, candidate_session=cs, task=tasks[0], content_text="day1"
@@ -650,6 +671,7 @@ async def test_codespace_status_returns_summary(
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
     await create_submission(
         async_session, candidate_session=cs, task=tasks[0], content_text="day1"
@@ -693,6 +715,7 @@ async def test_get_run_result_returns_parsed_counts(
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
     await create_submission(
         async_session, candidate_session=cs, task=tasks[0], content_text="day1"
@@ -738,6 +761,7 @@ async def test_get_run_result_throttled_when_polling_too_fast(
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
     await create_submission(
         async_session, candidate_session=cs, task=tasks[0], content_text="day1"
@@ -792,6 +816,7 @@ async def test_get_run_result_marks_timeout(
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
     await create_submission(
         async_session, candidate_session=cs, task=tasks[0], content_text="day1"
@@ -826,6 +851,7 @@ async def test_get_run_result_github_error_maps_to_502(
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
     await create_submission(
         async_session, candidate_session=cs, task=tasks[0], content_text="day1"

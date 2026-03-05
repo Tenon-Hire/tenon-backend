@@ -97,6 +97,11 @@ async def test_get_current_task_marks_completed(monkeypatch):
         candidate_sessions.cs_service, "fetch_owned_session", _fetch_by_id
     )
     monkeypatch.setattr(
+        candidate_sessions.cs_service,
+        "ensure_schedule_started_for_content",
+        lambda *_a, **_k: None,
+    )
+    monkeypatch.setattr(
         candidate_sessions.cs_service, "progress_snapshot", _progress_snapshot
     )
 

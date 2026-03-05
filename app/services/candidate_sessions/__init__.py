@@ -24,6 +24,12 @@ from app.domains.candidate_sessions.service.status import (
     mark_in_progress,
     require_not_expired,
 )
+from app.services.candidate_sessions.schedule_gates import (
+    build_schedule_not_started_error,
+    compute_day1_window,
+    ensure_schedule_started_for_content,
+    is_schedule_started_for_content,
+)
 
 __all__ = [
     "cs_repo",
@@ -37,6 +43,10 @@ __all__ = [
     "mark_in_progress",
     "progress_snapshot",
     "schedule_candidate_session",
+    "build_schedule_not_started_error",
+    "compute_day1_window",
+    "is_schedule_started_for_content",
+    "ensure_schedule_started_for_content",
     "require_not_expired",
     "_normalize_email",
     "_ensure_candidate_ownership",

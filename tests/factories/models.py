@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +15,10 @@ from app.domains import (
     User,
 )
 from app.domains.simulations.blueprints import DEFAULT_5_DAY_BLUEPRINT
+from app.services.scheduling.day_windows import (
+    derive_day_windows,
+    serialize_day_windows,
+)
 from app.services.tasks.template_catalog import (
     DEFAULT_TEMPLATE_KEY,
     resolve_template_repo_full_name,
@@ -121,9 +125,47 @@ async def create_candidate_session(
     candidate_email: str | None = None,
     candidate_auth0_sub: str | None = None,
     claimed_at: datetime | None = None,
+    scheduled_start_at: datetime | None = None,
+    candidate_timezone: str | None = None,
+    day_windows_json: list[dict] | None = None,
+    schedule_locked_at: datetime | None = None,
+    with_default_schedule: bool = False,
 ) -> CandidateSession:
     token = token or secrets.token_urlsafe(16)
     expires_at = datetime.now(UTC) + timedelta(days=expires_in_days)
+    resolved_scheduled_start = scheduled_start_at
+    resolved_timezone = candidate_timezone
+    resolved_day_windows = day_windows_json
+    if (
+        with_default_schedule
+        and resolved_scheduled_start is None
+        and resolved_day_windows is None
+    ):
+        resolved_scheduled_start = datetime.now(UTC) - timedelta(days=1)
+        resolved_timezone = resolved_timezone or "UTC"
+        try:
+            day_windows = derive_day_windows(
+                scheduled_start_at_utc=resolved_scheduled_start,
+                candidate_tz=resolved_timezone,
+                day_window_start_local=getattr(
+                    simulation,
+                    "day_window_start_local",
+                    time(hour=9, minute=0),
+                ),
+                day_window_end_local=getattr(
+                    simulation,
+                    "day_window_end_local",
+                    time(hour=17, minute=0),
+                ),
+                overrides=getattr(simulation, "day_window_overrides_json", None),
+                overrides_enabled=bool(
+                    getattr(simulation, "day_window_overrides_enabled", False)
+                ),
+                total_days=5,
+            )
+            resolved_day_windows = serialize_day_windows(day_windows)
+        except ValueError:
+            resolved_day_windows = None
 
     cs = CandidateSession(
         simulation_id=simulation.id,
@@ -138,6 +180,10 @@ async def create_candidate_session(
         expires_at=expires_at,
         started_at=started_at,
         completed_at=completed_at,
+        scheduled_start_at=resolved_scheduled_start,
+        candidate_timezone=resolved_timezone,
+        day_windows_json=resolved_day_windows,
+        schedule_locked_at=schedule_locked_at,
     )
     session.add(cs)
     await session.flush()

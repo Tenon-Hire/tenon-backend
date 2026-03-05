@@ -1,9 +1,16 @@
+from datetime import UTC, datetime, time, timedelta
+from zoneinfo import ZoneInfo
+
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domains import CandidateSession, Company, Submission, User
+from app.domains import CandidateSession, Company, Simulation, Submission, User
 from app.integrations.github.workspaces.workspace import Workspace
+from app.services.scheduling.day_windows import (
+    derive_day_windows,
+    serialize_day_windows,
+)
 from tests.factories import (
     create_candidate_session,
     create_recruiter,
@@ -81,6 +88,45 @@ async def claim_session(async_client, token: str, email: str) -> dict:
     return resp.json()
 
 
+def _local_window_start_utc(timezone_name: str, *, days_ahead: int) -> datetime:
+    zone = ZoneInfo(timezone_name)
+    local_date = datetime.now(UTC).astimezone(zone).date() + timedelta(days=days_ahead)
+    local_start = datetime.combine(local_date, time(hour=9, minute=0), tzinfo=zone)
+    return local_start.astimezone(UTC).replace(microsecond=0)
+
+
+async def unlock_schedule(
+    async_session: AsyncSession,
+    *,
+    candidate_session_id: int,
+    timezone_name: str = "America/New_York",
+) -> None:
+    candidate_session = (
+        await async_session.execute(
+            select(CandidateSession).where(CandidateSession.id == candidate_session_id)
+        )
+    ).scalar_one()
+    simulation = (
+        await async_session.execute(
+            select(Simulation).where(Simulation.id == candidate_session.simulation_id)
+        )
+    ).scalar_one()
+    scheduled_start = _local_window_start_utc(timezone_name, days_ahead=-1)
+    day_windows = derive_day_windows(
+        scheduled_start_at_utc=scheduled_start,
+        candidate_tz=timezone_name,
+        day_window_start_local=simulation.day_window_start_local,
+        day_window_end_local=simulation.day_window_end_local,
+        overrides=simulation.day_window_overrides_json,
+        overrides_enabled=bool(simulation.day_window_overrides_enabled),
+        total_days=5,
+    )
+    candidate_session.scheduled_start_at = scheduled_start
+    candidate_session.candidate_timezone = timezone_name
+    candidate_session.day_windows_json = serialize_day_windows(day_windows)
+    await async_session.commit()
+
+
 async def get_current_task(async_client, cs_id: int, token: str) -> dict:
     resp = await async_client.get(
         f"/api/candidate/session/{cs_id}/current_task",
@@ -125,6 +171,7 @@ async def test_submit_day1_text_creates_submission_and_advances(
     invite = await invite_candidate(async_client, sim_id, recruiter_email)
     await claim_session(async_client, invite["token"], "jane@example.com")
     cs_id = invite["candidateSessionId"]
+    await unlock_schedule(async_session, candidate_session_id=cs_id)
     access_token = "candidate:jane@example.com"
 
     current = await get_current_task(async_client, cs_id, access_token)
@@ -164,6 +211,7 @@ async def test_submit_day2_code_records_actions_run(
     invite = await invite_candidate(async_client, sim_id, recruiter_email)
     await claim_session(async_client, invite["token"], "jane@example.com")
     cs_id = invite["candidateSessionId"]
+    await unlock_schedule(async_session, candidate_session_id=cs_id)
     access_token = "candidate:jane@example.com"
 
     # Submit Day 1 (text)
@@ -225,6 +273,7 @@ async def test_out_of_order_submission_rejected_400(
     invite = await invite_candidate(async_client, sim_id, recruiter_email)
     await claim_session(async_client, invite["token"], "jane@example.com")
     cs_id = invite["candidateSessionId"]
+    await unlock_schedule(async_session, candidate_session_id=cs_id)
     access_token = "candidate:jane@example.com"
 
     # Candidate is on day 1, but tries to submit day 3
@@ -257,6 +306,7 @@ async def test_token_session_mismatch_rejected_403(
     )
     await claim_session(async_client, invite_a["token"], email_a)
     cs_id_a = invite_a["candidateSessionId"]
+    await unlock_schedule(async_session, candidate_session_id=cs_id_a)
     token_a = f"candidate:{email_a}"
 
     email_b = "other@example.com"
@@ -265,6 +315,7 @@ async def test_token_session_mismatch_rejected_403(
     )
     await claim_session(async_client, invite_b["token"], email_b)
     cs_id_b = invite_b["candidateSessionId"]
+    await unlock_schedule(async_session, candidate_session_id=cs_id_b)
     token_b = f"candidate:{email_b}"
 
     current_b = await get_current_task(async_client, cs_id_b, token_b)
@@ -305,6 +356,7 @@ async def test_duplicate_submission_409(
     invite = await invite_candidate(async_client, sim["id"], recruiter_email)
     await claim_session(async_client, invite["token"], "jane@example.com")
     cs_id = invite["candidateSessionId"]
+    await unlock_schedule(async_session, candidate_session_id=cs_id)
     access_token = "candidate:jane@example.com"
 
     current = await get_current_task(async_client, cs_id, access_token)
@@ -340,6 +392,7 @@ async def test_text_submission_requires_content(
     invite = await invite_candidate(async_client, sim["id"], recruiter_email)
     await claim_session(async_client, invite["token"], "jane@example.com")
     cs_id = invite["candidateSessionId"]
+    await unlock_schedule(async_session, candidate_session_id=cs_id)
     access_token = "candidate:jane@example.com"
 
     current = await get_current_task(async_client, cs_id, access_token)
@@ -370,6 +423,7 @@ async def test_code_submission_uses_preprovisioned_workspace(
     invite = await invite_candidate(async_client, sim["id"], recruiter_email)
     await claim_session(async_client, invite["token"], "jane@example.com")
     cs_id = invite["candidateSessionId"]
+    await unlock_schedule(async_session, candidate_session_id=cs_id)
     access_token = "candidate:jane@example.com"
 
     # Complete day 1 (text) to advance to day 2 (code)
@@ -447,6 +501,7 @@ async def test_submitting_all_tasks_marks_session_complete(
     invite = await invite_candidate(async_client, sim["id"], recruiter_email)
     await claim_session(async_client, invite["token"], "jane@example.com")
     cs_id = invite["candidateSessionId"]
+    await unlock_schedule(async_session, candidate_session_id=cs_id)
     access_token = "candidate:jane@example.com"
 
     payloads_by_day = {

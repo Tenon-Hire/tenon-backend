@@ -1,5 +1,14 @@
-import pytest
+from datetime import UTC, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
+import pytest
+from sqlalchemy import select
+
+from app.domains import CandidateSession, Simulation
+from app.services.scheduling.day_windows import (
+    derive_day_windows,
+    serialize_day_windows,
+)
 from tests.factories import create_recruiter
 
 
@@ -8,6 +17,40 @@ def _task_id_by_day(sim_payload: dict, day_index: int) -> int:
         if task["day_index"] == day_index:
             return task["id"]
     raise AssertionError(f"Task with day_index={day_index} missing from payload")
+
+
+def _local_window_start_utc(timezone_name: str, *, days_ahead: int) -> datetime:
+    zone = ZoneInfo(timezone_name)
+    local_date = datetime.now(UTC).astimezone(zone).date() + timedelta(days=days_ahead)
+    local_start = datetime.combine(local_date, time(hour=9, minute=0), tzinfo=zone)
+    return local_start.astimezone(UTC).replace(microsecond=0)
+
+
+async def _unlock_schedule(async_session, *, candidate_session_id: int) -> None:
+    candidate_session = (
+        await async_session.execute(
+            select(CandidateSession).where(CandidateSession.id == candidate_session_id)
+        )
+    ).scalar_one()
+    simulation = (
+        await async_session.execute(
+            select(Simulation).where(Simulation.id == candidate_session.simulation_id)
+        )
+    ).scalar_one()
+    scheduled_start = _local_window_start_utc("America/New_York", days_ahead=-1)
+    day_windows = derive_day_windows(
+        scheduled_start_at_utc=scheduled_start,
+        candidate_tz="America/New_York",
+        day_window_start_local=simulation.day_window_start_local,
+        day_window_end_local=simulation.day_window_end_local,
+        overrides=simulation.day_window_overrides_json,
+        overrides_enabled=bool(simulation.day_window_overrides_enabled),
+        total_days=5,
+    )
+    candidate_session.scheduled_start_at = scheduled_start
+    candidate_session.candidate_timezone = "America/New_York"
+    candidate_session.day_windows_json = serialize_day_windows(day_windows)
+    await async_session.commit()
 
 
 @pytest.mark.asyncio
@@ -52,6 +95,7 @@ async def test_full_flow_invite_through_first_submission(
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert claim_res.status_code == 200, claim_res.text
+    await _unlock_schedule(async_session, candidate_session_id=cs_id)
 
     current_res = await async_client.get(
         f"/api/candidate/session/{cs_id}/current_task",

@@ -71,6 +71,9 @@ class CandidateSessionResolveResponse(APIModel):
     completedAt: datetime | None
     candidateName: str
     simulation: CandidateSimulationSummary
+    startAt: datetime | None = None
+    windowStartAt: datetime | None = None
+    windowEndAt: datetime | None = None
     scheduledStartAt: datetime | None = None
     candidateTimezone: str | None = None
     dayWindows: list[DayWindow] = Field(default_factory=list)

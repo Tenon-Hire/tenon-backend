@@ -1,174 +1,142 @@
-# P0 Candidate Core: CandidateSession scheduling fields + simulation day windows + schedule endpoint (#198)
+# Title
+
+- "P0 Candidate Core: Lock simulation content until schedule begins (Issue #199)"
 
 ## TL;DR
 
-- Added scheduling persistence on `candidate_sessions`: `scheduled_start_at`, `candidate_timezone`, `day_windows_json`, `schedule_locked_at`.
-- Added simulation-level day window config: `day_window_start_local` (`09:00` default), `day_window_end_local` (`17:00` default), `day_window_overrides_enabled`, `day_window_overrides_json`.
-- Added candidate-auth endpoint `POST /api/candidate/session/{token}/schedule` with schedule locking, timezone validation, and deterministic Day 1-5 UTC windows.
-- Enriched candidate payloads (`resolve` + invite list + schedule response) with schedule fields and derived `currentDayWindow` where applicable.
-- Triggered candidate + recruiter schedule confirmation emails via existing notification abstraction; dispatch is best-effort after DB commit.
-- Implemented canonical/idempotent behavior: normalized timezone, second-precision UTC schedule timestamps, serialized `day_windows_json` in Zulu string format, and same-input retries return success.
+- Added a centralized schedule-start gate for candidate content retrieval, returning a stable `SCHEDULE_NOT_STARTED` contract before Day 1 begins.
+- Gated candidate content surfaces that can leak scenario IP (`current_task`, codespace status, codespace init) until `windowStartAt`.
+- Updated resolve behavior to keep pre-start responses `200` but minimal, with timing fields for locked-state UI and no storyline/task/repo/codespace payload leakage.
+- Preserved auth/ownership precedence so invalid ownership still returns ownership/auth errors first (not schedule-gate errors).
+- Added integration/unit coverage to lock in the pre-start behavior and contract.
 
-## Problem / Why
+## What changed
 
-- MVP1 requires five consecutive scheduled days with local-time windows (default 9AM-5PM), but previous progression had no scheduling semantics.
-- Recruiters need confidence that artifacts are produced within declared availability windows.
-- Persisting derived UTC windows at schedule-time makes enforcement deterministic across DST and later processing.
-- A lock-once schedule model is needed to prevent candidate-side rescheduling drift.
+- Central schedule gate helper:
+  - Added `app/services/candidate_sessions/schedule_gates.py` with:
+    - `compute_day1_window(candidate_session)`
+    - `build_schedule_not_started_error(...)`
+    - `is_schedule_started_for_content(...)`
+    - `ensure_schedule_started_for_content(...)`
+  - `build_schedule_not_started_error` returns `409` + `SCHEDULE_NOT_STARTED` with `startAt`, `windowStartAt`, `windowEndAt`.
+  - Added `SCHEDULE_NOT_STARTED` constant in `app/core/errors.py`.
+  - Re-exported via `app/services/candidate_sessions/__init__.py` and compat shim `app/domains/candidate_sessions/service/schedule_gates.py`.
+- Gated candidate content endpoints:
+  - `GET current_task`: `app/api/routers/candidate_sessions_routes/current_task_logic.py`
+    - `build_current_task_view(...)` now calls `cs_service.ensure_schedule_started_for_content(cs, now=now)`.
+  - `GET codespace/status`: `app/api/routers/tasks/status.py`
+    - `codespace_status_route(...)` now enforces `ensure_schedule_started_for_content`.
+  - `POST codespace/init`: `app/api/routers/tasks/init.py`
+    - `init_codespace_route(...)` now enforces `ensure_schedule_started_for_content`.
+- Resolve route behavior (`app/api/routers/candidate_sessions_routes/responses.py`):
+  - Pre-start resolve still returns `200`.
+  - Added locked-state timing fields on resolve payload:
+    - `startAt`
+    - `windowStartAt`
+    - `windowEndAt`
+  - Resolve stays minimal pre-start (no storyline/task/repo/codespace content sections).
+  - Schema updated in `app/schemas/candidate_sessions.py` to include these timing fields.
 
-## Changes (detailed)
+## API contract
 
-### DB / Models
-
-- `CandidateSession` fields added:
-- `scheduled_start_at` (`DateTime(timezone=True)`, nullable)
-- `candidate_timezone` (`String(255)`, nullable)
-- `day_windows_json` (`JSON`, nullable)
-- `schedule_locked_at` (`DateTime(timezone=True)`, nullable)
-
-- `Simulation` fields added:
-- `day_window_start_local` (`Time`, non-null, server default `'09:00:00'`)
-- `day_window_end_local` (`Time`, non-null, server default `'17:00:00'`)
-- `day_window_overrides_enabled` (`Boolean`, non-null, server default `false`)
-- `day_window_overrides_json` (`JSON`, nullable)
-- Per-day override payload keys are gated to days `9`-`21` when `TENON_SCHEDULE_DAY_WINDOW_OVERRIDES_ENABLED=true`.
-
-- Migration:
-- `alembic/versions/202603050001_add_candidate_schedule_and_sim_window_config.py`
-- Adds all scheduling columns above and includes clean downgrade removal.
-
-### API
-
-- New endpoint: `POST /api/candidate/session/{token}/schedule`
-- Auth: candidate bearer principal + token, with ownership checks (`invite email == auth email`), verified email, claimed invite, and expiry/termination checks.
-
-- Request example:
-
-```json
-{
-  "scheduledStartAt": "2026-03-10T13:00:00Z",
-  "candidateTimezone": "America/New_York"
-}
-```
-
-- Response example:
+- Pre-start content requests return:
+  - HTTP status: `409`
+  - `errorCode`: `SCHEDULE_NOT_STARTED`
+  - `retryable`: `true`
+  - `details.startAt`, `details.windowStartAt`, `details.windowEndAt`
 
 ```json
 {
-  "candidateSessionId": 123,
-  "scheduledStartAt": "2026-03-10T13:00:00Z",
-  "candidateTimezone": "America/New_York",
-  "dayWindows": [
-    {
-      "dayIndex": 1,
-      "windowStartAt": "2026-03-10T13:00:00Z",
-      "windowEndAt": "2026-03-10T21:00:00Z"
-    }
-  ],
-  "scheduleLockedAt": "2026-03-02T17:00:00Z"
+  "detail": "Simulation has not started yet.",
+  "errorCode": "SCHEDULE_NOT_STARTED",
+  "retryable": true,
+  "details": {
+    "startAt": "2026-03-10T13:00:00Z",
+    "windowStartAt": "2026-03-10T13:00:00Z",
+    "windowEndAt": "2026-03-10T21:00:00Z"
+  }
 }
 ```
 
-- Error codes and statuses:
-- `409` `SCHEDULE_ALREADY_SET`
-- `422` `SCHEDULE_INVALID_TIMEZONE`
-- `422` `SCHEDULE_START_IN_PAST`
-- `403` `SCHEDULE_NOT_CLAIMED`
-- `410` `INVITE_TOKEN_EXPIRED` (repo convention for expired invite token paths)
+- Resolve additions for locked UI:
+  - `startAt`, `windowStartAt`, `windowEndAt` are included on resolve response pre-start so frontend can render "starts at" locked state without content leakage.
 
-### Behavior
+## Tests / Verification
 
-- Row-level concurrency:
-- Scheduling uses token lookup with `FOR UPDATE OF candidate_sessions` row lock semantics (`fetch_by_token_for_update`).
+- Commands run:
+  - `poetry run ruff check .` -> PASS
+  - `poetry run ruff format --check .` -> PASS (`761 files already formatted`)
+  - `poetry run pytest` -> PASS (`936 passed in 16.97s`)
+- Key tests added/updated:
+  - Current task blocks pre-start:
+    - `tests/api/test_candidate_session_resolve.py`
+      - `test_current_task_pre_start_returns_schedule_not_started`
+  - Codespace endpoints block pre-start:
+    - `tests/api/test_candidate_schedule_gates.py`
+      - `test_codespace_status_pre_start_returns_schedule_not_started`
+    - `app/api/routers/tasks/init.py` now uses the same gate path (`ensure_schedule_started_for_content`) as status; regression tests updated to explicitly unlock schedules where init is expected to succeed:
+      - `tests/api/test_task_run.py`
+      - `tests/api/test_task_submit.py`
+  - Resolve pre-start is minimal/no-leak:
+    - `tests/api/test_candidate_schedule_gates.py`
+      - `test_resolve_pre_start_returns_locked_payload_without_content_leaks`
+  - Ownership precedence preserved:
+    - `tests/api/test_candidate_schedule_gates.py`
+      - `test_current_task_mismatch_still_ownership_error_before_schedule_gate`
 
-- Idempotency:
-- If schedule is already locked and incoming schedule/timezone match normalized stored values, endpoint returns success (no conflict, no duplicate email send).
-- If locked and values differ, returns `409 SCHEDULE_ALREADY_SET`.
+## Manual QA (runtime / ASGI harness)
 
-- Canonicalization:
-- Incoming timezone is trimmed and validated to a canonical IANA key before comparison/persistence.
-- `scheduled_start_at` is normalized to UTC and truncated to second precision.
-- Persisted `day_windows_json` stores UTC timestamps as canonical Zulu strings (`YYYY-MM-DDTHH:MM:SSZ`) for deterministic reads/comparisons.
+- Overall verdict: PASS (A-F)
+- Preferred uvicorn bind attempt failed in this environment with `operation not permitted` when binding to `127.0.0.1:8010`.
+- QA therefore executed via an in-process ASGI harness.
+- Command run:
+  - `TENON_ENV=test poetry run python .qa/issue199/issue199_20260305_062941/manual_http_harness.py`
+- Evidence bundle path:
+  - `.qa/issue199/issue199_20260305_062941/`
+- Artifacts:
+  - `QA_REPORT.md`
+  - `env.txt`
+  - `commands.log`
+  - `manual_http_harness.py`
+  - `manual_harness_output.txt`
+  - `qa_summary.json`
+  - `responses/*.json` (A-F response captures)
 
-- Payload enrichment:
-- `resolve` and candidate invite list responses include `scheduledStartAt`, `candidateTimezone`, `dayWindows`, `scheduleLockedAt`, and derived `currentDayWindow`.
+| Check | Expected | Actual | Evidence |
+| --- | --- | --- | --- |
+| A) Resolve pre-start | `200` + timing fields (`startAt`, `windowStartAt`, `windowEndAt`) + no leak keys/URLs | PASS | `responses/A_resolve_prestart.json` |
+| B) `current_task` pre-start | `409` `SCHEDULE_NOT_STARTED` with details `{startAt, windowStartAt, windowEndAt}` | PASS | `responses/B_current_task_prestart.json` |
+| C) `codespace/status` pre-start | `409` `SCHEDULE_NOT_STARTED` with details | PASS | `responses/C_codespace_status_prestart.json` |
+| D) `codespace/init` pre-start | `409` `SCHEDULE_NOT_STARTED` with details | PASS | `responses/D_codespace_init_prestart.json` |
+| E) Ownership precedence | Ownership/auth error wins (not schedule gate) | PASS (`403 CANDIDATE_INVITE_EMAIL_MISMATCH`) | `responses/E_ownership_precedence.json` |
+| F) Post-start unlock | `current_task` `200` with description; codespace endpoints not schedule-gated | PASS | `responses/F1_current_task_poststart.json`, `responses/F2_codespace_status_poststart.json`, `responses/F3_codespace_init_poststart.json` |
 
-- Email confirmations:
-- On first schedule set, candidate + recruiter confirmation emails are dispatched through notification service.
-- Dispatch failures are logged and swallowed after commit (state remains persisted).
+- GitHub client was stubbed in the harness to validate schedule-gate behavior independently of external integrations.
+- `.qa/` is gitignored and artifacts are not committed; if sharing is needed, zip and distribute externally.
 
-## Tests
+## Content-surface audit (anti-leak proof)
 
-Commands run:
+- Commands run:
+  - `rg -n "codespace_url|codespaceUrl|repoUrl|templateRepo|github.com" app/api app/services app/domains`
+  - `rg -n "TaskPublic|description|resources|storyline|prestart" app/api app/services app/domains`
+  - `rg -n "APIRouter\\(|/api/tasks|/tasks/" app/api/routers`
+- Findings summary:
+  - Candidate-accessible leak surfaces are only:
+    - `GET /api/candidate/session/{candidate_session_id}/current_task` (`TaskPublic.description` via `build_current_task_response`)
+    - `GET /api/tasks/{task_id}/codespace/status` (`repoUrl`, `codespaceUrl`)
+    - `POST /api/tasks/{task_id}/codespace/init` (`repoUrl`, `codespaceUrl`)
+  - All of the above are now schedule-gated before content is returned.
+  - Recruiter-only surfaces containing richer task/repo fields (for example simulation detail and submissions views) remain recruiter-auth protected and unchanged.
 
-- `poetry run ruff check .` -> PASS
-- `poetry run pytest -q` -> PASS (`926 passed in 16.10s`, coverage gate met)
-- `poetry run python -m compileall app tests` -> PASS
+## Risks / Rollout notes
 
-Notable tests:
+- Unlock behavior is tied to Day 1 `windowStartAt`; window-end/read-only enforcement is intentionally handled in a separate issue.
+- Frontend should use `retryable: true` + `details.windowStartAt` for near-start polling/retry UX.
+- `mypy` is not installed in this local environment (`poetry run mypy --version` -> `Command not found: mypy`), so no mypy run is included.
 
-- `tests/api/test_candidate_session_schedule.py`
-- route registered once at `/api/candidate/session/{token}/schedule`
-- happy path persistence + email send
-- idempotent same-payload retry + conflict on changed payload
-- expired token maps to `410` + `INVITE_TOKEN_EXPIRED`
+## Demo checklist
 
-- `tests/unit/test_scheduling_day_windows.py`
-- DST-aware derivation
-- timezone validation
-- canonical serialization/deserialization (`Z` + second precision)
-
-- `tests/unit/test_candidate_session_schedule_service.py`
-- service-level lock/idempotency/conflict
-- JSON day-window storage shape assertions
-- token-expiry mapping behavior and ownership/claim validation paths
-
-## Manual QA (Contract Examples)
-
-Executed via manual runtime QA.
-- `uvicorn` startup attempt in this sandbox failed to bind (`Operation not permitted`), so QA was executed through an in-process ASGI harness hitting real FastAPI routes end-to-end.
-- Evidence bundle (local): `.qa/issue198/issue198_20260305_002451/...`
-- Bundle is also zipped and attached externally to the PR as an artifact (not tracked in git).
-- Initial harness run failed due to harness-side formatting/regex bug; no product code changes were required; final run PASS.
-
-| Check | Result | Evidence |
-|---|---|---|
-| A Route exactness | PASS | `POST /api/candidate/session/{token}/schedule` |
-| B Preconditions/security | PASS | `403 SCHEDULE_NOT_CLAIMED`; ownership mismatch; `email_verified` enforced |
-| C Persistence/response | PASS | 5 windows; canonical `Z`; `schedule_locked_at` set |
-| D Idempotency/email dedupe | PASS | same payload `200` no extra emails; changed payload `409` |
-| E Resolve/invites enrichment | PASS | schedule fields + `currentDayWindow` present |
-| F Expiry semantics | PASS | `410 INVITE_TOKEN_EXPIRED`; detail `Invite token expired` |
-
-```bash
-# 1) Claim invite
-curl -X POST "http://localhost:8000/api/candidate/session/$TOKEN/claim" \
-  -H "Authorization: Bearer $CANDIDATE_JWT"
-
-# 2) Schedule
-curl -X POST "http://localhost:8000/api/candidate/session/$TOKEN/schedule" \
-  -H "Authorization: Bearer $CANDIDATE_JWT" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "scheduledStartAt": "2026-03-10T13:00:00Z",
-    "candidateTimezone": "America/New_York"
-  }'
-
-# 3) Resolve
-curl "http://localhost:8000/api/candidate/session/$TOKEN" \
-  -H "Authorization: Bearer $CANDIDATE_JWT"
-```
-
-## Risks / Rollout Notes
-
-- `410` vs issue-text expectations: this repo consistently uses `410 Gone` for expired invite tokens; FE should branch primarily on `errorCode=INVITE_TOKEN_EXPIRED` for machine-stable handling.
-- Email dispatch is best-effort after commit: schedule persistence remains authoritative even if notification delivery fails transiently (acceptable for MVP).
-- Per-day overrides are guarded by `TENON_SCHEDULE_DAY_WINDOW_OVERRIDES_ENABLED`; when disabled, override payloads are rejected at schema validation.
-
-## Demo Checklist
-
-1. Invite candidate.
-2. Candidate claims invite.
-3. Candidate schedules start date/timezone.
-4. Verify resolve payload exposes schedule fields plus `currentDayWindow` and schedule lock state.
-5. Verify confirmation emails are emitted (Memory provider in tests captures both candidate and recruiter messages).
+1. Schedule a candidate session in the future.
+2. Call `GET /api/candidate/session/{candidate_session_id}/current_task` and `GET /api/tasks/{task_id}/codespace/status` before `windowStartAt` and confirm `409 SCHEDULE_NOT_STARTED`.
+3. Resolve pre-start via `GET /api/candidate/session/{token}` and confirm timing fields are present with no storyline/task/repo/codespace content leakage.
+4. Move time past `windowStartAt` and confirm content endpoints return normal payloads.

@@ -1,9 +1,14 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy import select
 
-from app.domains import CandidateSession, Company, Submission, Task, User
+from app.domains import CandidateSession, Company, Simulation, Submission, Task, User
+from app.services.scheduling.day_windows import (
+    derive_day_windows,
+    serialize_day_windows,
+)
 
 # -------------------------
 # Shared helpers (mirrors resolve tests)
@@ -78,6 +83,47 @@ async def _claim(async_client, token: str, email: str) -> dict:
     return res.json()
 
 
+def _next_local_window_start_utc(
+    timezone_name: str, *, days_ahead: int = 1
+) -> datetime:
+    zone = ZoneInfo(timezone_name)
+    local_date = datetime.now(UTC).astimezone(zone).date() + timedelta(days=days_ahead)
+    local_start = datetime.combine(local_date, time(hour=9, minute=0), tzinfo=zone)
+    return local_start.astimezone(UTC).replace(microsecond=0)
+
+
+async def _apply_schedule(
+    async_session,
+    *,
+    candidate_session_id: int,
+    scheduled_start_at: datetime,
+    candidate_timezone: str,
+) -> None:
+    cs = (
+        await async_session.execute(
+            select(CandidateSession).where(CandidateSession.id == candidate_session_id)
+        )
+    ).scalar_one()
+    sim = (
+        await async_session.execute(
+            select(Simulation).where(Simulation.id == cs.simulation_id)
+        )
+    ).scalar_one()
+    day_windows = derive_day_windows(
+        scheduled_start_at_utc=scheduled_start_at,
+        candidate_tz=candidate_timezone,
+        day_window_start_local=sim.day_window_start_local,
+        day_window_end_local=sim.day_window_end_local,
+        overrides=sim.day_window_overrides_json,
+        overrides_enabled=bool(sim.day_window_overrides_enabled),
+        total_days=5,
+    )
+    cs.scheduled_start_at = scheduled_start_at
+    cs.candidate_timezone = candidate_timezone
+    cs.day_windows_json = serialize_day_windows(day_windows)
+    await async_session.commit()
+
+
 # -------------------------
 # Tests
 # -------------------------
@@ -95,6 +141,14 @@ async def test_current_task_initial_is_day_1(async_client, async_session, monkey
     await _claim(async_client, invite["token"], "jane@example.com")
     cs_id = invite["candidateSessionId"]
     token = "candidate:jane@example.com"
+    await _apply_schedule(
+        async_session,
+        candidate_session_id=cs_id,
+        scheduled_start_at=_next_local_window_start_utc(
+            "America/New_York", days_ahead=-1
+        ),
+        candidate_timezone="America/New_York",
+    )
 
     res = await async_client.get(
         f"/api/candidate/session/{cs_id}/current_task",
@@ -116,6 +170,48 @@ async def test_current_task_initial_is_day_1(async_client, async_session, monkey
 
 
 @pytest.mark.asyncio
+async def test_current_task_pre_start_returns_schedule_not_started(
+    async_client, async_session, monkeypatch
+):
+    monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
+    recruiter_email = "recruiter-prestart@tenon.com"
+    await _seed_recruiter(async_session, recruiter_email)
+
+    sim_id = await _create_simulation(async_client, recruiter_email)
+    invite = await _invite_candidate(async_client, sim_id, recruiter_email)
+    await _claim(async_client, invite["token"], "jane@example.com")
+    cs_id = invite["candidateSessionId"]
+
+    scheduled_start = _next_local_window_start_utc("America/New_York", days_ahead=2)
+    await _apply_schedule(
+        async_session,
+        candidate_session_id=cs_id,
+        scheduled_start_at=scheduled_start,
+        candidate_timezone="America/New_York",
+    )
+
+    res = await async_client.get(
+        f"/api/candidate/session/{cs_id}/current_task",
+        headers={
+            "Authorization": "Bearer candidate:jane@example.com",
+            "x-candidate-session-id": str(cs_id),
+        },
+    )
+    assert res.status_code == 409, res.text
+    body = res.json()
+    assert body["detail"] == "Simulation has not started yet."
+    assert body["errorCode"] == "SCHEDULE_NOT_STARTED"
+    assert body["retryable"] is True
+    assert body["details"]["startAt"] == scheduled_start.isoformat().replace(
+        "+00:00", "Z"
+    )
+    assert body["details"]["windowStartAt"] == scheduled_start.isoformat().replace(
+        "+00:00", "Z"
+    )
+    assert body["details"]["windowEndAt"] is not None
+
+
+@pytest.mark.asyncio
 async def test_current_task_advances_after_submission(
     async_client, async_session, monkeypatch
 ):
@@ -129,6 +225,14 @@ async def test_current_task_advances_after_submission(
     await _claim(async_client, invite["token"], "jane@example.com")
     cs_id = invite["candidateSessionId"]
     token = "candidate:jane@example.com"
+    await _apply_schedule(
+        async_session,
+        candidate_session_id=cs_id,
+        scheduled_start_at=_next_local_window_start_utc(
+            "America/New_York", days_ahead=-1
+        ),
+        candidate_timezone="America/New_York",
+    )
 
     # Fetch Day 1 task
     day1_task = (
@@ -176,6 +280,14 @@ async def test_current_task_completed_after_all_tasks(
     await _claim(async_client, invite["token"], "jane@example.com")
     cs_id = invite["candidateSessionId"]
     token = "candidate:jane@example.com"
+    await _apply_schedule(
+        async_session,
+        candidate_session_id=cs_id,
+        scheduled_start_at=_next_local_window_start_utc(
+            "America/New_York", days_ahead=-1
+        ),
+        candidate_timezone="America/New_York",
+    )
 
     tasks = (
         (await async_session.execute(select(Task).where(Task.simulation_id == sim_id)))

@@ -92,6 +92,11 @@ async def test_candidate_session_rate_limits(monkeypatch):
         candidate_sessions.cs_service, "fetch_owned_session", fake_fetch
     )
     monkeypatch.setattr(
+        candidate_sessions.cs_service,
+        "ensure_schedule_started_for_content",
+        lambda *_a, **_k: None,
+    )
+    monkeypatch.setattr(
         candidate_sessions.cs_service, "progress_snapshot", fake_progress
     )
     monkeypatch.setattr(

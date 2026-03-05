@@ -75,6 +75,7 @@ async def test_current_task_marks_complete_when_all_tasks_done(
         simulation=sim,
         status="in_progress",
         started_at=datetime.now(UTC) - timedelta(hours=1),
+        with_default_schedule=True,
     )
 
     # Seed submissions for all tasks to mimic completion.
@@ -337,6 +338,7 @@ async def test_current_task_unclaimed_session_requires_verified_email_and_invite
         async_session,
         simulation=sim,
         invite_email="owner@example.com",
+        with_default_schedule=True,
     )
     route = f"/api/candidate/session/{cs.id}/current_task"
     headers = {"x-candidate-session-id": str(cs.id)}
@@ -403,6 +405,7 @@ async def test_current_task_no_tasks_returns_500(async_client, async_session):
         async_session,
         simulation=sim,
         status="in_progress",
+        with_default_schedule=True,
     )
 
     # Remove all tasks to trigger guard
