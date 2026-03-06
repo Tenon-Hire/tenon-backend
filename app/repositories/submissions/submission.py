@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     DateTime,
     ForeignKey,
     Index,
@@ -34,6 +35,7 @@ class Submission(Base):
     task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"))
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     content_text: Mapped[str | None] = mapped_column(Text)
+    content_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
     code_repo_path: Mapped[str | None] = mapped_column(String(500))
     commit_sha: Mapped[str | None] = mapped_column(String(100), nullable=True)
     workflow_run_id: Mapped[str | None] = mapped_column(String(100), nullable=True)

@@ -21,6 +21,9 @@ from app.core.errors import (
     ApiError,
 )
 from app.domains.notifications import service as notification_service
+from app.services.candidate_sessions.day_close_jobs import (
+    enqueue_day_close_finalize_text_jobs,
+)
 from app.services.candidate_sessions.email import normalize_email
 from app.services.candidate_sessions.fetch_token import fetch_by_token_for_update
 from app.services.candidate_sessions.ownership import ensure_email_verified
@@ -213,6 +216,11 @@ async def schedule_candidate_session(
                 )
                 candidate_session.day_windows_json = serialize_day_windows(day_windows)
                 changed = True
+                await enqueue_day_close_finalize_text_jobs(
+                    db,
+                    candidate_session=candidate_session,
+                    commit=False,
+                )
         else:
             simulation = candidate_session.simulation
             window_start, window_end = _default_window_times(simulation)
@@ -243,6 +251,11 @@ async def schedule_candidate_session(
             simulation_for_email = simulation
             changed = True
             schedule_created = True
+            await enqueue_day_close_finalize_text_jobs(
+                db,
+                candidate_session=candidate_session,
+                commit=False,
+            )
 
     if changed:
         await db.commit()

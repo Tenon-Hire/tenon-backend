@@ -148,3 +148,116 @@ async def test_run_once_dead_letters_when_handler_missing(async_session):
     assert refreshed is not None
     assert refreshed.status == JOB_STATUS_DEAD_LETTER
     assert "no handler registered" in (refreshed.last_error or "")
+
+
+@pytest.mark.asyncio
+async def test_run_once_keeps_handler_rescheduled_job_queued(async_session):
+    company = await create_company(async_session, name="Worker Rescheduled Co")
+    job = await jobs_repo.create_or_get_idempotent(
+        async_session,
+        job_type="worker_handler_rescheduled",
+        idempotency_key="worker-rescheduled-1",
+        payload_json={"x": 4},
+        company_id=company.id,
+    )
+    now = datetime.now(UTC)
+    next_run_at = now + timedelta(hours=1)
+
+    async def _handler(_payload):
+        await jobs_repo.requeue_nonterminal_idempotent_job(
+            async_session,
+            company_id=company.id,
+            job_type=job.job_type,
+            idempotency_key=job.idempotency_key,
+            next_run_at=next_run_at,
+            now=now,
+            payload_json={"x": 4},
+            commit=True,
+        )
+        return {"_jobDisposition": "rescheduled"}
+
+    worker.register_handler("worker_handler_rescheduled", _handler)
+    handled = await worker.run_once(
+        session_maker=_session_maker(async_session),
+        worker_id="worker-handler-rescheduled",
+        now=now,
+    )
+    assert handled is True
+
+    refreshed = await jobs_repo.get_by_id(async_session, job.id)
+    assert refreshed is not None
+    assert refreshed.status == JOB_STATUS_QUEUED
+    observed_next_run = refreshed.next_run_at
+    assert observed_next_run is not None
+    if observed_next_run.tzinfo is None:
+        observed_next_run = observed_next_run.replace(tzinfo=UTC)
+    assert observed_next_run == next_run_at
+    assert refreshed.result_json is None
+
+
+@pytest.mark.asyncio
+async def test_run_once_reschedule_disposition_without_requeue_is_retried(
+    async_session,
+):
+    company = await create_company(async_session, name="Worker Bad Reschedule Co")
+    job = await jobs_repo.create_or_get_idempotent(
+        async_session,
+        job_type="worker_handler_bad_rescheduled",
+        idempotency_key="worker-bad-rescheduled-1",
+        payload_json={"x": 5},
+        company_id=company.id,
+    )
+    now = datetime.now(UTC)
+
+    async def _handler(_payload):
+        return {"_jobDisposition": "rescheduled"}
+
+    worker.register_handler("worker_handler_bad_rescheduled", _handler)
+    handled = await worker.run_once(
+        session_maker=_session_maker(async_session),
+        worker_id="worker-handler-bad-rescheduled",
+        now=now,
+    )
+    assert handled is True
+
+    refreshed = await jobs_repo.get_by_id(async_session, job.id)
+    assert refreshed is not None
+    assert refreshed.status == JOB_STATUS_QUEUED
+    assert refreshed.locked_at is None
+    assert refreshed.locked_by is None
+    assert "handler_reschedule_failed" in (refreshed.last_error or "")
+    assert refreshed.result_json is None
+
+
+@pytest.mark.asyncio
+async def test_run_once_reschedule_disposition_without_requeue_dead_letters_at_max(
+    async_session,
+):
+    company = await create_company(async_session, name="Worker Bad Reschedule Max Co")
+    job = await jobs_repo.create_or_get_idempotent(
+        async_session,
+        job_type="worker_handler_bad_rescheduled_max",
+        idempotency_key="worker-bad-rescheduled-max-1",
+        payload_json={"x": 6},
+        company_id=company.id,
+        max_attempts=1,
+    )
+    now = datetime.now(UTC)
+
+    async def _handler(_payload):
+        return {"_jobDisposition": "rescheduled"}
+
+    worker.register_handler("worker_handler_bad_rescheduled_max", _handler)
+    handled = await worker.run_once(
+        session_maker=_session_maker(async_session),
+        worker_id="worker-handler-bad-rescheduled-max",
+        now=now,
+    )
+    assert handled is True
+
+    refreshed = await jobs_repo.get_by_id(async_session, job.id)
+    assert refreshed is not None
+    assert refreshed.status == JOB_STATUS_DEAD_LETTER
+    assert refreshed.locked_at is None
+    assert refreshed.locked_by is None
+    assert "handler_reschedule_failed" in (refreshed.last_error or "")
