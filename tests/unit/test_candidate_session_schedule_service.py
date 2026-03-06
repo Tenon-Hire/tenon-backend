@@ -6,10 +6,12 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException, status
+from sqlalchemy import select
 
 from app.core.auth.principal import Principal
 from app.core.errors import ApiError
 from app.core.settings import settings
+from app.domains import Job
 from app.integrations.notifications.email_provider import MemoryEmailProvider
 from app.services.candidate_sessions import schedule as schedule_service
 from app.services.email import EmailService
@@ -52,7 +54,7 @@ async def test_schedule_candidate_session_success_idempotent_and_conflict(
     async_session, monkeypatch
 ):
     recruiter = await create_recruiter(async_session, email="schedule-service@test.com")
-    simulation, _tasks = await create_simulation(async_session, created_by=recruiter)
+    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
     cs = await create_candidate_session(
         async_session,
         simulation=simulation,
@@ -116,6 +118,23 @@ async def test_schedule_candidate_session_success_idempotent_and_conflict(
             is not None
         )
     assert sent_events == [(cs.id, "req-1")]
+    day_close_jobs = (
+        await async_session.execute(
+            select(Job).where(
+                Job.job_type == "day_close_finalize_text",
+                Job.candidate_session_id == cs.id,
+            )
+        )
+    ).scalars()
+    jobs = list(day_close_jobs)
+    assert len(jobs) == 2
+    expected_task_ids = {task.id for task in tasks if task.day_index in {1, 5}}
+    assert {job.payload_json["taskId"] for job in jobs} == expected_task_ids
+    assert {job.payload_json["dayIndex"] for job in jobs} == {1, 5}
+    for job in jobs:
+        assert job.next_run_at is not None
+        assert job.idempotency_key.startswith("day_close_finalize_text:")
+        assert isinstance(job.payload_json["windowEndAt"], str)
 
     # Idempotent retry: same schedule should not conflict and should not resend email.
     second = await schedule_service.schedule_candidate_session(
@@ -129,6 +148,15 @@ async def test_schedule_candidate_session_success_idempotent_and_conflict(
     )
     assert second.created is False
     assert len(sent_events) == 1
+    jobs_after_second = (
+        await async_session.execute(
+            select(Job).where(
+                Job.job_type == "day_close_finalize_text",
+                Job.candidate_session_id == cs.id,
+            )
+        )
+    ).scalars()
+    assert len(list(jobs_after_second)) == 2
 
     with pytest.raises(ApiError) as excinfo:
         await schedule_service.schedule_candidate_session(

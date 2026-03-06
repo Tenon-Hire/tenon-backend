@@ -6,6 +6,7 @@ from app.repositories.jobs.models import Job
 from app.repositories.simulations.simulation import Simulation
 from app.repositories.submissions.fit_profile import FitProfile
 from app.repositories.submissions.submission import Submission
+from app.repositories.task_drafts.models import TaskDraft
 from app.repositories.tasks.models import Task
 from app.repositories.users.models import User
 
@@ -17,6 +18,7 @@ __all__ = [
     "Job",
     "Simulation",
     "Task",
+    "TaskDraft",
     "Submission",
     "FitProfile",
     "Workspace",

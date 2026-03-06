@@ -10,6 +10,7 @@ from app.core.auth.principal import Principal
 from app.repositories.jobs import repository as jobs_repo
 from app.repositories.jobs.models import (
     JOB_STATUS_DEAD_LETTER,
+    JOB_STATUS_QUEUED,
     JOB_STATUS_RUNNING,
     JOB_STATUS_SUCCEEDED,
 )
@@ -405,3 +406,136 @@ async def test_get_by_id_for_principal_denies_company_scoped_job_for_candidate(
         async_session, job.id, candidate_principal
     )
     assert denied is None
+
+
+@pytest.mark.asyncio
+async def test_create_or_update_idempotent_updates_existing_queued_job(async_session):
+    company = await create_company(async_session, name="Jobs Co Update")
+    now = datetime.now(UTC)
+
+    first = await jobs_repo.create_or_update_idempotent(
+        async_session,
+        job_type="scenario_generation",
+        idempotency_key="idem-update-queued",
+        payload_json={"v": 1},
+        company_id=company.id,
+        candidate_session_id=None,
+        correlation_id="corr-a",
+        next_run_at=now + timedelta(minutes=30),
+        commit=True,
+    )
+    second = await jobs_repo.create_or_update_idempotent(
+        async_session,
+        job_type="scenario_generation",
+        idempotency_key="idem-update-queued",
+        payload_json={"v": 2},
+        company_id=company.id,
+        candidate_session_id=None,
+        correlation_id="corr-b",
+        next_run_at=now + timedelta(hours=2),
+        commit=True,
+    )
+
+    assert first.id == second.id
+    refreshed = await jobs_repo.get_by_id(async_session, first.id)
+    assert refreshed is not None
+    assert refreshed.payload_json == {"v": 2}
+    assert refreshed.correlation_id == "corr-b"
+    expected_next_run = now + timedelta(hours=2)
+    observed_next_run = refreshed.next_run_at
+    assert observed_next_run is not None
+    if observed_next_run.tzinfo is None:
+        observed_next_run = observed_next_run.replace(tzinfo=UTC)
+    assert observed_next_run == expected_next_run
+
+
+@pytest.mark.asyncio
+async def test_requeue_nonterminal_idempotent_job_validates_and_flushes(async_session):
+    company = await create_company(async_session, name="Jobs Co Requeue")
+    now = datetime.now(UTC)
+    job = await jobs_repo.create_or_get_idempotent(
+        async_session,
+        job_type="scenario_generation",
+        idempotency_key="idem-requeue",
+        payload_json={"windowEndAt": "2026-03-10T18:30:00Z"},
+        company_id=company.id,
+        next_run_at=now + timedelta(minutes=10),
+    )
+
+    with pytest.raises(ValueError):
+        await jobs_repo.requeue_nonterminal_idempotent_job(
+            async_session,
+            company_id=company.id,
+            job_type=" ",
+            idempotency_key=job.idempotency_key,
+            next_run_at=now + timedelta(hours=1),
+            now=now,
+        )
+    with pytest.raises(ValueError):
+        await jobs_repo.requeue_nonterminal_idempotent_job(
+            async_session,
+            company_id=company.id,
+            job_type=job.job_type,
+            idempotency_key=" ",
+            next_run_at=now + timedelta(hours=1),
+            now=now,
+        )
+
+    updated = await jobs_repo.requeue_nonterminal_idempotent_job(
+        async_session,
+        company_id=company.id,
+        job_type=job.job_type,
+        idempotency_key=job.idempotency_key,
+        next_run_at=now + timedelta(hours=3),
+        now=now,
+        payload_json={"windowEndAt": "2026-03-10T21:30:00Z"},
+        commit=False,
+    )
+    assert updated is not None
+    assert updated.status == JOB_STATUS_QUEUED
+    assert updated.payload_json == {"windowEndAt": "2026-03-10T21:30:00Z"}
+    observed_next_run = updated.next_run_at
+    assert observed_next_run is not None
+    if observed_next_run.tzinfo is None:
+        observed_next_run = observed_next_run.replace(tzinfo=UTC)
+    assert observed_next_run == now + timedelta(hours=3)
+
+
+@pytest.mark.asyncio
+async def test_requeue_nonterminal_idempotent_job_returns_none_for_terminal_status(
+    async_session,
+):
+    company = await create_company(async_session, name="Jobs Co Terminal Requeue")
+    now = datetime.now(UTC)
+    job = await create_job(
+        async_session,
+        company=company,
+        job_type="scenario_generation",
+        status=JOB_STATUS_SUCCEEDED,
+        idempotency_key="idem-terminal-requeue",
+        payload_json={"windowEndAt": "2026-03-10T18:30:00Z"},
+        next_run_at=None,
+    )
+    await async_session.commit()
+
+    before = await jobs_repo.get_by_id(async_session, job.id)
+    assert before is not None
+
+    updated = await jobs_repo.requeue_nonterminal_idempotent_job(
+        async_session,
+        company_id=company.id,
+        job_type=job.job_type,
+        idempotency_key=job.idempotency_key,
+        next_run_at=now + timedelta(hours=3),
+        now=now,
+        payload_json={"windowEndAt": "2026-03-10T21:30:00Z"},
+    )
+
+    assert updated is None
+
+    after = await jobs_repo.get_by_id(async_session, job.id)
+    assert after is not None
+    assert after.status == JOB_STATUS_SUCCEEDED
+    assert after.payload_json == before.payload_json
+    assert after.next_run_at == before.next_run_at
+    assert after.last_error == before.last_error

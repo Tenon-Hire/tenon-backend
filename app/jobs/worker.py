@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.db import async_session_maker
 from app.repositories.jobs import repository as jobs_repo
+from app.repositories.jobs.models import JOB_STATUS_QUEUED
 
 logger = logging.getLogger(__name__)
 
@@ -56,11 +57,14 @@ def has_handler(job_type: str) -> bool:
 
 def register_builtin_handlers() -> None:
     from app.jobs.handlers import (
+        DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE,
         SIMULATION_CLEANUP_JOB_TYPE,
+        handle_day_close_finalize_text,
         handle_simulation_cleanup,
     )
 
     register_handler(SIMULATION_CLEANUP_JOB_TYPE, handle_simulation_cleanup)
+    register_handler(DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE, handle_day_close_finalize_text)
 
 
 def compute_backoff_seconds(
@@ -94,6 +98,22 @@ async def _invoke_handler(
     if value is not None and not isinstance(value, dict):
         raise PermanentJobError("job handler result must be a JSON object or null")
     return value
+
+
+async def _verify_handler_rescheduled(
+    session_maker: async_sessionmaker[AsyncSession],
+    *,
+    job_id: str,
+) -> bool:
+    async with session_maker() as db:
+        refreshed = await jobs_repo.get_by_id(db, job_id)
+    if refreshed is None:
+        return False
+    return (
+        refreshed.status == JOB_STATUS_QUEUED
+        and refreshed.locked_at is None
+        and refreshed.locked_by is None
+    )
 
 
 async def run_once(
@@ -165,6 +185,48 @@ async def run_once(
                 )
             logger.info(
                 "job_rescheduled",
+                extra={
+                    **log_extra,
+                    "delay_seconds": delay_seconds,
+                    "next_run_at": next_run_at.isoformat(),
+                },
+            )
+            return True
+
+        async with session_maker() as db:
+            await jobs_repo.mark_dead_letter(
+                db, job_id=job.id, error_str=error, now=claim_time
+            )
+        logger.warning("job_dead_letter", extra=log_extra)
+        return True
+
+    if result is not None and result.get("_jobDisposition") == "rescheduled":
+        verified = await _verify_handler_rescheduled(session_maker, job_id=job.id)
+        if verified:
+            logger.info("job_rescheduled_by_handler", extra=log_extra)
+            return True
+
+        error = (
+            "handler_reschedule_failed: "
+            "job still running/locked after handler disposition=rescheduled"
+        )
+        if job.attempt < job.max_attempts:
+            delay_seconds = compute_backoff_seconds(
+                job.attempt,
+                base_seconds=base_backoff_seconds,
+                max_seconds=max_backoff_seconds,
+            )
+            next_run_at = claim_time + timedelta(seconds=delay_seconds)
+            async with session_maker() as db:
+                await jobs_repo.mark_failed_and_reschedule(
+                    db,
+                    job_id=job.id,
+                    error_str=error,
+                    next_run_at=next_run_at,
+                    now=claim_time,
+                )
+            logger.warning(
+                "job_reschedule_verification_failed",
                 extra={
                     **log_extra,
                     "delay_seconds": delay_seconds,

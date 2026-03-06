@@ -119,6 +119,65 @@ async def get_by_id_for_principal(
     return None
 
 
+def _normalize_idempotent_create_inputs(
+    *,
+    job_type: str,
+    idempotency_key: str,
+    max_attempts: int,
+) -> tuple[str, str]:
+    normalized_type = job_type.strip()
+    normalized_key = idempotency_key.strip()
+    if not normalized_type:
+        raise ValueError("job_type is required")
+    if not normalized_key:
+        raise ValueError("idempotency_key is required")
+    if max_attempts < 1:
+        raise ValueError("max_attempts must be >= 1")
+    return normalized_type, normalized_key
+
+
+async def _load_idempotent_job(
+    db: AsyncSession,
+    *,
+    company_id: int,
+    job_type: str,
+    idempotency_key: str,
+) -> Job | None:
+    return (
+        await db.execute(
+            select(Job).where(
+                Job.company_id == company_id,
+                Job.job_type == job_type,
+                Job.idempotency_key == idempotency_key,
+            )
+        )
+    ).scalar_one_or_none()
+
+
+def _is_mutable_idempotent_job(job: Job) -> bool:
+    return (
+        job.status == JOB_STATUS_QUEUED
+        and job.locked_at is None
+        and job.locked_by is None
+    )
+
+
+def _apply_idempotent_job_updates(
+    job: Job,
+    *,
+    payload_json: dict[str, Any],
+    candidate_session_id: int | None,
+    max_attempts: int,
+    correlation_id: str | None,
+    next_run_at: datetime | None,
+) -> None:
+    job.payload_json = payload_json
+    job.candidate_session_id = candidate_session_id
+    job.max_attempts = max_attempts
+    job.correlation_id = correlation_id
+    job.next_run_at = next_run_at or datetime.now(UTC)
+
+
 async def create_or_get_idempotent(
     db: AsyncSession,
     *,
@@ -129,28 +188,23 @@ async def create_or_get_idempotent(
     candidate_session_id: int | None = None,
     max_attempts: int = 5,
     correlation_id: str | None = None,
+    next_run_at: datetime | None = None,
     commit: bool = True,
 ) -> Job:
-    normalized_type = job_type.strip()
-    normalized_key = idempotency_key.strip()
-    if not normalized_type:
-        raise ValueError("job_type is required")
-    if not normalized_key:
-        raise ValueError("idempotency_key is required")
-    if max_attempts < 1:
-        raise ValueError("max_attempts must be >= 1")
+    normalized_type, normalized_key = _normalize_idempotent_create_inputs(
+        job_type=job_type,
+        idempotency_key=idempotency_key,
+        max_attempts=max_attempts,
+    )
 
     _validate_payload_size(payload_json)
 
-    existing = (
-        await db.execute(
-            select(Job).where(
-                Job.company_id == company_id,
-                Job.job_type == normalized_type,
-                Job.idempotency_key == normalized_key,
-            )
-        )
-    ).scalar_one_or_none()
+    existing = await _load_idempotent_job(
+        db,
+        company_id=company_id,
+        job_type=normalized_type,
+        idempotency_key=normalized_key,
+    )
     if existing is not None:
         return existing
 
@@ -163,7 +217,7 @@ async def create_or_get_idempotent(
         payload_json=payload_json,
         result_json=None,
         last_error=None,
-        next_run_at=datetime.now(UTC),
+        next_run_at=next_run_at or datetime.now(UTC),
         locked_at=None,
         locked_by=None,
         correlation_id=correlation_id,
@@ -176,15 +230,12 @@ async def create_or_get_idempotent(
             await db.commit()
         except IntegrityError:
             await db.rollback()
-            existing = (
-                await db.execute(
-                    select(Job).where(
-                        Job.company_id == company_id,
-                        Job.job_type == normalized_type,
-                        Job.idempotency_key == normalized_key,
-                    )
-                )
-            ).scalar_one_or_none()
+            existing = await _load_idempotent_job(
+                db,
+                company_id=company_id,
+                job_type=normalized_type,
+                idempotency_key=normalized_key,
+            )
             if existing is None:
                 raise
             return existing
@@ -196,19 +247,149 @@ async def create_or_get_idempotent(
             db.add(job)
             await db.flush()
     except IntegrityError:
-        existing = (
-            await db.execute(
-                select(Job).where(
-                    Job.company_id == company_id,
-                    Job.job_type == normalized_type,
-                    Job.idempotency_key == normalized_key,
-                )
-            )
-        ).scalar_one_or_none()
+        existing = await _load_idempotent_job(
+            db,
+            company_id=company_id,
+            job_type=normalized_type,
+            idempotency_key=normalized_key,
+        )
         if existing is None:
             raise
         return existing
     return job
+
+
+async def create_or_update_idempotent(
+    db: AsyncSession,
+    *,
+    job_type: str,
+    idempotency_key: str,
+    payload_json: dict[str, Any],
+    company_id: int,
+    candidate_session_id: int | None = None,
+    max_attempts: int = 5,
+    correlation_id: str | None = None,
+    next_run_at: datetime | None = None,
+    commit: bool = True,
+) -> Job:
+    normalized_type, normalized_key = _normalize_idempotent_create_inputs(
+        job_type=job_type,
+        idempotency_key=idempotency_key,
+        max_attempts=max_attempts,
+    )
+    _validate_payload_size(payload_json)
+
+    existing = await _load_idempotent_job(
+        db,
+        company_id=company_id,
+        job_type=normalized_type,
+        idempotency_key=normalized_key,
+    )
+    if existing is not None:
+        if _is_mutable_idempotent_job(existing):
+            _apply_idempotent_job_updates(
+                existing,
+                payload_json=payload_json,
+                candidate_session_id=candidate_session_id,
+                max_attempts=max_attempts,
+                correlation_id=correlation_id,
+                next_run_at=next_run_at,
+            )
+            if commit:
+                await db.commit()
+                await db.refresh(existing)
+            else:
+                await db.flush()
+        return existing
+
+    job = await create_or_get_idempotent(
+        db,
+        job_type=normalized_type,
+        idempotency_key=normalized_key,
+        payload_json=payload_json,
+        company_id=company_id,
+        candidate_session_id=candidate_session_id,
+        max_attempts=max_attempts,
+        correlation_id=correlation_id,
+        next_run_at=next_run_at,
+        commit=commit,
+    )
+    if (
+        job.idempotency_key == normalized_key
+        and job.job_type == normalized_type
+        and _is_mutable_idempotent_job(job)
+    ):
+        _apply_idempotent_job_updates(
+            job,
+            payload_json=payload_json,
+            candidate_session_id=candidate_session_id,
+            max_attempts=max_attempts,
+            correlation_id=correlation_id,
+            next_run_at=next_run_at,
+        )
+        if commit:
+            await db.commit()
+            await db.refresh(job)
+        else:
+            await db.flush()
+    return job
+
+
+async def requeue_nonterminal_idempotent_job(
+    db: AsyncSession,
+    *,
+    company_id: int,
+    job_type: str,
+    idempotency_key: str,
+    next_run_at: datetime,
+    now: datetime,
+    payload_json: dict[str, Any] | None = None,
+    commit: bool = True,
+) -> Job | None:
+    normalized_type = job_type.strip()
+    normalized_key = idempotency_key.strip()
+    if not normalized_type:
+        raise ValueError("job_type is required")
+    if not normalized_key:
+        raise ValueError("idempotency_key is required")
+    if payload_json is not None:
+        _validate_payload_size(payload_json)
+
+    updates: dict[str, object] = {
+        "status": JOB_STATUS_QUEUED,
+        "next_run_at": next_run_at,
+        "last_error": None,
+        "locked_at": None,
+        "locked_by": None,
+        "updated_at": now,
+    }
+    if payload_json is not None:
+        updates["payload_json"] = payload_json
+
+    result = await db.execute(
+        update(Job)
+        .where(
+            Job.company_id == company_id,
+            Job.job_type == normalized_type,
+            Job.idempotency_key == normalized_key,
+            Job.status.in_((JOB_STATUS_QUEUED, JOB_STATUS_RUNNING)),
+        )
+        .values(**updates)
+    )
+    if result.rowcount == 0:
+        return None
+
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()
+
+    return await _load_idempotent_job(
+        db,
+        company_id=company_id,
+        job_type=normalized_type,
+        idempotency_key=normalized_key,
+    )
 
 
 async def claim_next_runnable(
