@@ -22,6 +22,8 @@ def build_submission(
     test_output,
     last_run_at,
 ) -> Submission:
+    checkpoint_sha = commit_sha if task.day_index == 2 else None
+    final_sha = commit_sha if task.day_index == 3 else None
     return Submission(
         candidate_session_id=candidate_session.id,
         task_id=task.id,
@@ -30,6 +32,8 @@ def build_submission(
         content_json=content_json,
         code_repo_path=workspace.repo_full_name if workspace else None,
         commit_sha=commit_sha,
+        checkpoint_sha=checkpoint_sha,
+        final_sha=final_sha,
         workflow_run_id=workflow_run_id,
         diff_summary_json=diff_summary_json,
         tests_passed=tests_passed,

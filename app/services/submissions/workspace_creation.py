@@ -6,10 +6,12 @@ from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 
 from app.domains import CandidateSession, Task
+from app.domains.submissions.exceptions import WorkspaceMissing
 from app.integrations.github.client import GithubClient, GithubError
 from app.repositories.github_native.workspaces import repository as workspace_repo
 from app.repositories.github_native.workspaces.models import Workspace, WorkspaceGroup
 from app.repositories.github_native.workspaces.workspace_keys import (
+    CODING_WORKSPACE_KEY,
     resolve_workspace_key_for_task,
 )
 from app.services.submissions.workspace_repo_state import (
@@ -38,6 +40,21 @@ async def provision_workspace(
         candidate_session_id=candidate_session.id,
         workspace_key=workspace_key,
     ):
+        if (
+            workspace_key == CODING_WORKSPACE_KEY
+            and getattr(task, "day_index", None) == 3
+        ):
+            existing_group = await workspace_repo.get_workspace_group(
+                db,
+                candidate_session_id=candidate_session.id,
+                workspace_key=workspace_key,
+            )
+            if existing_group is None:
+                raise WorkspaceMissing(
+                    detail=(
+                        "Workspace not initialized. Call Day 2 /codespace/init first."
+                    )
+                )
         return await _provision_grouped_workspace(
             db,
             candidate_session=candidate_session,

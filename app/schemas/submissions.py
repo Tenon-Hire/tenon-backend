@@ -80,6 +80,9 @@ class SubmissionCreateResponse(APIModel):
     taskId: int
     candidateSessionId: int
     submittedAt: datetime
+    commitSha: str | None = None
+    checkpointSha: str | None = None
+    finalSha: str | None = None
     progress: ProgressSummary
     isComplete: bool
 

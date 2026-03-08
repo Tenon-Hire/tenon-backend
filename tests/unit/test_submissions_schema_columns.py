@@ -15,6 +15,8 @@ async def test_submissions_table_has_test_result_columns(db_engine):
         "test_output",
         "last_run_at",
         "commit_sha",
+        "checkpoint_sha",
+        "final_sha",
         "workflow_run_id",
         "diff_summary_json",
     }

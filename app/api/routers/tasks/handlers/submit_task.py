@@ -39,6 +39,9 @@ async def handle_submit_task(
         taskId=task.id,
         candidateSessionId=candidate_session.id,
         submittedAt=submission.submitted_at,
+        commitSha=getattr(submission, "commit_sha", None),
+        checkpointSha=getattr(submission, "checkpoint_sha", None),
+        finalSha=getattr(submission, "final_sha", None),
         progress=ProgressSummary(completed=completed, total=total),
         isComplete=is_complete,
     )
