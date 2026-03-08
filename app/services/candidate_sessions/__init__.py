@@ -25,10 +25,15 @@ from app.domains.candidate_sessions.service.status import (
     require_not_expired,
 )
 from app.services.candidate_sessions.day_close_jobs import (
+    DAY_CLOSE_ENFORCEMENT_DAY_INDEXES,
+    DAY_CLOSE_ENFORCEMENT_JOB_TYPE,
     DAY_CLOSE_FINALIZE_TEXT_DAY_INDEXES,
     DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE,
+    build_day_close_enforcement_payload,
     build_day_close_finalize_text_payload,
+    day_close_enforcement_idempotency_key,
     day_close_finalize_text_idempotency_key,
+    enqueue_day_close_enforcement_jobs,
     enqueue_day_close_finalize_text_jobs,
 )
 from app.services.candidate_sessions.schedule_gates import (
@@ -54,10 +59,15 @@ __all__ = [
     "mark_in_progress",
     "progress_snapshot",
     "schedule_candidate_session",
+    "DAY_CLOSE_ENFORCEMENT_JOB_TYPE",
+    "DAY_CLOSE_ENFORCEMENT_DAY_INDEXES",
     "DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE",
     "DAY_CLOSE_FINALIZE_TEXT_DAY_INDEXES",
+    "build_day_close_enforcement_payload",
     "build_day_close_finalize_text_payload",
+    "day_close_enforcement_idempotency_key",
     "day_close_finalize_text_idempotency_key",
+    "enqueue_day_close_enforcement_jobs",
     "enqueue_day_close_finalize_text_jobs",
     "TaskWindow",
     "build_schedule_not_started_error",

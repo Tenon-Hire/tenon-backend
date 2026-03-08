@@ -81,6 +81,9 @@ class SubmissionCreateResponse(APIModel):
     candidateSessionId: int
     submittedAt: datetime
     commitSha: str | None = None
+    cutoffCommitSha: str | None = None
+    cutoffAt: datetime | None = None
+    evalBasisRef: str | None = None
     checkpointSha: str | None = None
     finalSha: str | None = None
     progress: ProgressSummary
@@ -144,6 +147,10 @@ class RecruiterSubmissionDetailOut(APIModel):
     testResults: RecruiterTestResultsOut | None = None
     diffSummary: dict[str, object] | str | None = None
     submittedAt: datetime
+    commitSha: str | None = None
+    cutoffCommitSha: str | None = None
+    cutoffAt: datetime | None = None
+    evalBasisRef: str | None = None
     workflowUrl: str | None = None
     commitUrl: str | None = None
     diffUrl: str | None = None
@@ -162,6 +169,9 @@ class RecruiterSubmissionListItemOut(APIModel):
     repoUrl: str | None = None
     workflowRunId: str | None = None
     commitSha: str | None = None
+    cutoffCommitSha: str | None = None
+    cutoffAt: datetime | None = None
+    evalBasisRef: str | None = None
     workflowUrl: str | None = None
     commitUrl: str | None = None
     diffUrl: str | None = None

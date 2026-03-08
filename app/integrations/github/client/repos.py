@@ -32,3 +32,8 @@ class RepoOperations:
         owner, repo = split_full_name(repo_full_name)
         path = f"/repos/{owner}/{repo}/collaborators/{username}"
         return await self._request("PUT", path, json={"permission": permission})
+
+    async def remove_collaborator(self, repo_full_name: str, username: str) -> dict:
+        owner, repo = split_full_name(repo_full_name)
+        path = f"/repos/{owner}/{repo}/collaborators/{username}"
+        return await self._request("DELETE", path, expect_body=False)

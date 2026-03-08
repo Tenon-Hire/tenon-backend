@@ -1,5 +1,8 @@
 from app.core.db.base import Base, TimestampMixin
-from app.repositories.candidate_sessions.models import CandidateSession
+from app.repositories.candidate_sessions.models import (
+    CandidateDayAudit,
+    CandidateSession,
+)
 from app.repositories.companies.models import Company
 from app.repositories.github_native.workspaces.models import Workspace, WorkspaceGroup
 from app.repositories.jobs.models import Job
@@ -14,6 +17,7 @@ __all__ = [
     "Base",
     "TimestampMixin",
     "CandidateSession",
+    "CandidateDayAudit",
     "Company",
     "Job",
     "Simulation",

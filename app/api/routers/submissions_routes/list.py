@@ -8,6 +8,7 @@ from app.core.auth.current_user import get_current_user
 from app.core.auth.roles import ensure_recruiter
 from app.core.db import get_session
 from app.domains import User
+from app.domains.candidate_sessions import repository as cs_repo
 from app.domains.submissions import service_recruiter as recruiter_sub_service
 from app.domains.submissions.presenter import present_list_item
 from app.domains.submissions.schemas import (
@@ -36,7 +37,7 @@ async def list_submissions_route(
     rows = await recruiter_sub_service.list_submissions(
         db, user.id, candidateSessionId, taskId, limit, offset
     )
-    items: list[RecruiterSubmissionListItemOut] = []
+    parsed_rows: list[tuple[object, object]] = []
     for row in rows:
         sub = row
         task = None
@@ -44,6 +45,36 @@ async def list_submissions_route(
             sub, task, *_ = row
         if task is None:
             continue
-        payload = present_list_item(sub, task)
+        parsed_rows.append((sub, task))
+
+    candidate_session_ids: set[int] = set()
+    day_indexes: set[int] = set()
+    for sub, task in parsed_rows:
+        candidate_session_id = getattr(sub, "candidate_session_id", None)
+        day_index = getattr(task, "day_index", None)
+        if isinstance(candidate_session_id, int) and isinstance(day_index, int):
+            candidate_session_ids.add(candidate_session_id)
+            day_indexes.add(day_index)
+
+    day_audits = await cs_repo.list_day_audits(
+        db,
+        candidate_session_ids=candidate_session_ids,
+        day_indexes=day_indexes,
+    )
+    day_audit_by_key = {
+        (audit.candidate_session_id, audit.day_index): audit for audit in day_audits
+    }
+
+    items: list[RecruiterSubmissionListItemOut] = []
+    for sub, task in parsed_rows:
+        day_audit = None
+        candidate_session_id = getattr(sub, "candidate_session_id", None)
+        day_index = getattr(task, "day_index", None)
+        if isinstance(candidate_session_id, int) and isinstance(day_index, int):
+            day_audit = day_audit_by_key.get((candidate_session_id, day_index))
+        try:
+            payload = present_list_item(sub, task, day_audit=day_audit)
+        except TypeError:
+            payload = present_list_item(sub, task)
         items.append(RecruiterSubmissionListItemOut(**payload))
     return RecruiterSubmissionListOut(items=items)

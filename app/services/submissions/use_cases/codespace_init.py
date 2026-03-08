@@ -38,6 +38,13 @@ async def init_codespace(
         template_default_owner=template_owner,
         now=now or datetime.now(UTC),
     )
+    normalized_username = (github_username or "").strip()
+    if (
+        normalized_username
+        and getattr(candidate_session, "github_username", None) != normalized_username
+    ):
+        candidate_session.github_username = normalized_username
+        await db.commit()
     if not workspace.repo_full_name:
         raise ApiError(
             status_code=409,

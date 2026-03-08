@@ -17,6 +17,7 @@ def build_test_results(
     commit_url: str | None,
     include_output: bool,
     max_output_chars: int,
+    commit_sha_override: str | None = None,
 ):
     parsed_payload = parsed_output or None
     payload = extract_payload(
@@ -39,6 +40,8 @@ def build_test_results(
     ) = enrich_run_info(
         sub, payload["run_id"], payload["conclusion"], payload["timeout"]
     )
+    if commit_sha_override is not None:
+        commit_sha = commit_sha_override
     if should_skip(
         status_str,
         passed_val,

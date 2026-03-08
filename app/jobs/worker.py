@@ -57,14 +57,17 @@ def has_handler(job_type: str) -> bool:
 
 def register_builtin_handlers() -> None:
     from app.jobs.handlers import (
+        DAY_CLOSE_ENFORCEMENT_JOB_TYPE,
         DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE,
         SIMULATION_CLEANUP_JOB_TYPE,
+        handle_day_close_enforcement,
         handle_day_close_finalize_text,
         handle_simulation_cleanup,
     )
 
     register_handler(SIMULATION_CLEANUP_JOB_TYPE, handle_simulation_cleanup)
     register_handler(DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE, handle_day_close_finalize_text)
+    register_handler(DAY_CLOSE_ENFORCEMENT_JOB_TYPE, handle_day_close_enforcement)
 
 
 def compute_backoff_seconds(
