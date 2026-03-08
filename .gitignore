@@ -216,4 +216,4 @@ setEnvVar.sh
 .qa/
 issue.md
 AI_FLOW.md
-installAIFlow.sh
+ai_flow_boot_script.sh
