@@ -23,6 +23,8 @@ async def test_github_client_happy_paths():
             return httpx.Response(201, json={"full_name": "org/new-repo"})
         if request.method == "PUT" and "/collaborators/" in request.url.path:
             return httpx.Response(200, json={"ok": True})
+        if request.method == "DELETE" and "/collaborators/" in request.url.path:
+            return httpx.Response(204)
         if request.method == "POST" and "/dispatches" in request.url.path:
             return httpx.Response(204)
         if request.method == "GET" and "/branches/" in request.url.path:
@@ -50,6 +52,8 @@ async def test_github_client_happy_paths():
 
     collab = await client.add_collaborator("org/repo", "octocat")
     assert collab["ok"] is True
+    removed = await client.remove_collaborator("org/repo", "octocat")
+    assert removed == {}
 
     # No exception raised on 204/expect_body False
     await client.trigger_workflow_dispatch(

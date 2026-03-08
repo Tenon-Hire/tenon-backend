@@ -7,6 +7,7 @@ from app.core.auth.current_user import get_current_user
 from app.core.auth.roles import ensure_recruiter
 from app.core.db import get_session
 from app.domains import User
+from app.domains.candidate_sessions import repository as cs_repo
 from app.domains.submissions import service_recruiter as recruiter_sub_service
 from app.domains.submissions.presenter import present_detail
 from app.domains.submissions.schemas import RecruiterSubmissionDetailOut
@@ -25,5 +26,14 @@ async def get_submission_detail_route(
     sub, task, cs, sim = await recruiter_sub_service.fetch_detail(
         db, submission_id, user.id
     )
-    payload = present_detail(sub, task, cs, sim)
+    day_audit = None
+    candidate_session_id = getattr(sub, "candidate_session_id", None)
+    day_index = getattr(task, "day_index", None)
+    if isinstance(candidate_session_id, int) and isinstance(day_index, int):
+        day_audit = await cs_repo.get_day_audit(
+            db,
+            candidate_session_id=candidate_session_id,
+            day_index=day_index,
+        )
+    payload = present_detail(sub, task, cs, sim, day_audit=day_audit)
     return RecruiterSubmissionDetailOut(**payload)

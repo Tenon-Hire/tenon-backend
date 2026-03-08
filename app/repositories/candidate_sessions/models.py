@@ -4,6 +4,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     JSON,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -78,6 +79,7 @@ class CandidateSession(Base):
         DateTime(timezone=True), nullable=True
     )
     candidate_timezone: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    github_username: Mapped[str | None] = mapped_column(String(39), nullable=True)
     day_windows_json: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
     schedule_locked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -102,3 +104,46 @@ class CandidateSession(Base):
         back_populates="candidate_session",
         cascade="all, delete-orphan",
     )
+    day_audits = relationship(
+        "CandidateDayAudit",
+        back_populates="candidate_session",
+        cascade="all, delete-orphan",
+    )
+
+
+class CandidateDayAudit(Base):
+    """Write-once cutoff evidence per candidate session/day."""
+
+    __tablename__ = "candidate_day_audits"
+    __table_args__ = (
+        UniqueConstraint(
+            "candidate_session_id",
+            "day_index",
+            name="uq_candidate_day_audits_session_day",
+        ),
+        CheckConstraint(
+            "day_index IN (2, 3)", name="ck_candidate_day_audits_day_index"
+        ),
+        Index(
+            "ix_candidate_day_audits_candidate_session_day",
+            "candidate_session_id",
+            "day_index",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    candidate_session_id: Mapped[int] = mapped_column(
+        ForeignKey("candidate_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    day_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    cutoff_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    cutoff_commit_sha: Mapped[str] = mapped_column(String(100), nullable=False)
+    eval_basis_ref: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    candidate_session = relationship("CandidateSession", back_populates="day_audits")

@@ -135,6 +135,27 @@ async def test_schedule_candidate_session_success_idempotent_and_conflict(
         assert job.next_run_at is not None
         assert job.idempotency_key.startswith("day_close_finalize_text:")
         assert isinstance(job.payload_json["windowEndAt"], str)
+    day_close_enforcement_jobs = (
+        await async_session.execute(
+            select(Job).where(
+                Job.job_type == "day_close_enforcement",
+                Job.candidate_session_id == cs.id,
+            )
+        )
+    ).scalars()
+    enforcement_jobs = list(day_close_enforcement_jobs)
+    assert len(enforcement_jobs) == 2
+    expected_enforcement_task_ids = {
+        task.id for task in tasks if task.day_index in {2, 3}
+    }
+    assert {
+        job.payload_json["taskId"] for job in enforcement_jobs
+    } == expected_enforcement_task_ids
+    assert {job.payload_json["dayIndex"] for job in enforcement_jobs} == {2, 3}
+    for job in enforcement_jobs:
+        assert job.next_run_at is not None
+        assert job.idempotency_key.startswith("day_close_enforcement:")
+        assert isinstance(job.payload_json["windowEndAt"], str)
 
     # Idempotent retry: same schedule should not conflict and should not resend email.
     second = await schedule_service.schedule_candidate_session(
@@ -157,6 +178,15 @@ async def test_schedule_candidate_session_success_idempotent_and_conflict(
         )
     ).scalars()
     assert len(list(jobs_after_second)) == 2
+    enforcement_after_second = (
+        await async_session.execute(
+            select(Job).where(
+                Job.job_type == "day_close_enforcement",
+                Job.candidate_session_id == cs.id,
+            )
+        )
+    ).scalars()
+    assert len(list(enforcement_after_second)) == 2
 
     with pytest.raises(ApiError) as excinfo:
         await schedule_service.schedule_candidate_session(

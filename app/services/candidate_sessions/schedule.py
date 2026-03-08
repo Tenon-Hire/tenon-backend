@@ -22,6 +22,7 @@ from app.core.errors import (
 )
 from app.domains.notifications import service as notification_service
 from app.services.candidate_sessions.day_close_jobs import (
+    enqueue_day_close_enforcement_jobs,
     enqueue_day_close_finalize_text_jobs,
 )
 from app.services.candidate_sessions.email import normalize_email
@@ -221,6 +222,11 @@ async def schedule_candidate_session(
                     candidate_session=candidate_session,
                     commit=False,
                 )
+                await enqueue_day_close_enforcement_jobs(
+                    db,
+                    candidate_session=candidate_session,
+                    commit=False,
+                )
         else:
             simulation = candidate_session.simulation
             window_start, window_end = _default_window_times(simulation)
@@ -252,6 +258,11 @@ async def schedule_candidate_session(
             changed = True
             schedule_created = True
             await enqueue_day_close_finalize_text_jobs(
+                db,
+                candidate_session=candidate_session,
+                commit=False,
+            )
+            await enqueue_day_close_enforcement_jobs(
                 db,
                 candidate_session=candidate_session,
                 commit=False,
