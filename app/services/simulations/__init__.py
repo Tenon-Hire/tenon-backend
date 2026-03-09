@@ -38,11 +38,13 @@ from .listing import list_candidates_with_profile, list_simulations
 from .ownership import require_owned_simulation, require_owned_simulation_with_tasks
 from .scenario_payload_builder import build_scenario_generation_payload
 from .scenario_versions import (
+    approve_scenario_version,
     create_initial_scenario_version,
     ensure_scenario_version_mutable,
     get_active_scenario_version,
     lock_active_scenario_for_invites,
     regenerate_active_scenario_version,
+    request_scenario_regeneration,
     update_active_scenario_version,
 )
 from .task_templates import _template_repo_for_task
@@ -67,6 +69,7 @@ __all__ = [
     "apply_status_transition",
     "build_simulation_cleanup_payload",
     "build_scenario_generation_payload",
+    "approve_scenario_version",
     "create_initial_scenario_version",
     "create_invite",
     "create_or_resend_invite",
@@ -82,6 +85,7 @@ __all__ = [
     "normalize_simulation_status",
     "normalize_simulation_status_or_raise",
     "regenerate_active_scenario_version",
+    "request_scenario_regeneration",
     "require_owner_for_lifecycle",
     "require_owned_simulation",
     "require_owned_simulation_with_tasks",

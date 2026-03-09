@@ -116,3 +116,10 @@ def test_simulation_create_day_window_overrides_validation(monkeypatch) -> None:
     }
     with pytest.raises(ValidationError):
         SimulationCreate.model_validate(missing_enabled)
+
+
+def test_simulation_create_allows_explicit_null_day_window_overrides() -> None:
+    payload = _base_payload()
+    payload["dayWindowOverrides"] = None
+    parsed = SimulationCreate.model_validate(payload)
+    assert parsed.dayWindowOverrides is None

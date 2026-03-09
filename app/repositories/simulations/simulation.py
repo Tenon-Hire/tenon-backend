@@ -118,6 +118,14 @@ class Simulation(Base, TimestampMixin):
         ),
         nullable=True,
     )
+    pending_scenario_version_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "scenario_versions.id",
+            use_alter=True,
+            name="fk_simulations_pending_scenario_version_id",
+        ),
+        nullable=True,
+    )
 
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
     status: Mapped[str] = mapped_column(
@@ -147,6 +155,12 @@ class Simulation(Base, TimestampMixin):
     active_scenario_version = relationship(
         "ScenarioVersion",
         foreign_keys=[active_scenario_version_id],
+        uselist=False,
+        post_update=True,
+    )
+    pending_scenario_version = relationship(
+        "ScenarioVersion",
+        foreign_keys=[pending_scenario_version_id],
         uselist=False,
         post_update=True,
     )

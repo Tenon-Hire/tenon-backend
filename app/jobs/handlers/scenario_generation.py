@@ -9,7 +9,10 @@ from sqlalchemy import select
 
 from app.core.db import async_session_maker
 from app.domains import ScenarioVersion, Simulation, Task
-from app.repositories.scenario_versions.models import SCENARIO_VERSION_STATUS_READY
+from app.repositories.scenario_versions.models import (
+    SCENARIO_VERSION_STATUS_LOCKED,
+    SCENARIO_VERSION_STATUS_READY,
+)
 from app.repositories.simulations.simulation import (
     SIMULATION_STATUS_ACTIVE_INVITING,
     SIMULATION_STATUS_GENERATING,
@@ -46,6 +49,9 @@ async def handle_scenario_generation(payload_json: dict[str, Any]) -> dict[str, 
     if simulation_id is None:
         return {"status": "skipped_invalid_payload", "simulationId": None}
 
+    requested_scenario_version_id = _parse_positive_int(
+        payload_json.get("scenarioVersionId")
+    )
     scenario_version_id: int | None = None
     source: str | None = None
     model_name: str | None = None
@@ -65,10 +71,7 @@ async def handle_scenario_generation(payload_json: dict[str, Any]) -> dict[str, 
             return {"status": "simulation_not_found", "simulationId": simulation_id}
 
         current_status = normalize_simulation_status(simulation.status)
-        if current_status in {
-            SIMULATION_STATUS_ACTIVE_INVITING,
-            SIMULATION_STATUS_TERMINATED,
-        }:
+        if current_status == SIMULATION_STATUS_TERMINATED:
             return {
                 "status": "skipped_non_mutable_simulation",
                 "simulationId": simulation_id,
@@ -78,6 +81,7 @@ async def handle_scenario_generation(payload_json: dict[str, Any]) -> dict[str, 
         if current_status not in {
             SIMULATION_STATUS_GENERATING,
             SIMULATION_STATUS_READY_FOR_REVIEW,
+            SIMULATION_STATUS_ACTIVE_INVITING,
         }:
             return {
                 "status": "skipped_unexpected_status",
@@ -99,69 +103,109 @@ async def handle_scenario_generation(payload_json: dict[str, Any]) -> dict[str, 
         if not tasks:
             raise RuntimeError("scenario_generation_missing_seeded_tasks")
 
-        # Second idempotency layer: retries/replays reuse ScenarioVersion v1
-        # instead of inserting additional version-index 1 rows.
-        existing_v1 = (
-            await db.execute(
-                select(ScenarioVersion)
-                .where(
-                    ScenarioVersion.simulation_id == simulation.id,
-                    ScenarioVersion.version_index == 1,
-                )
-                .with_for_update()
-            )
-        ).scalar_one_or_none()
-
-        if (
-            current_status != SIMULATION_STATUS_GENERATING
-            and simulation.active_scenario_version_id is not None
-            and (
-                existing_v1 is None
-                or simulation.active_scenario_version_id != existing_v1.id
-            )
-        ):
-            return {
-                "status": "skipped_active_version_moved",
-                "simulationId": simulation_id,
-                "activeScenarioVersionId": simulation.active_scenario_version_id,
-            }
-
         generated = generate_scenario_payload(
             role=simulation.role,
             tech_stack=simulation.tech_stack,
             template_key=simulation.template_key,
         )
 
-        scenario_v1 = existing_v1
-        created_new = scenario_v1 is None
-        if scenario_v1 is None:
-            scenario_v1 = ScenarioVersion(
-                simulation_id=simulation.id,
-                version_index=1,
-                status=SCENARIO_VERSION_STATUS_READY,
-                storyline_md="",
-                task_prompts_json=[],
-                rubric_json={},
-                focus_notes=simulation.focus or "",
-                template_key=simulation.template_key,
-                tech_stack=simulation.tech_stack,
-                seniority=simulation.seniority,
-            )
-            db.add(scenario_v1)
-            await db.flush()
+        if requested_scenario_version_id is not None:
+            target_scenario = (
+                await db.execute(
+                    select(ScenarioVersion)
+                    .where(
+                        ScenarioVersion.id == requested_scenario_version_id,
+                        ScenarioVersion.simulation_id == simulation.id,
+                    )
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
+            if target_scenario is None:
+                return {
+                    "status": "scenario_version_not_found",
+                    "simulationId": simulation_id,
+                    "scenarioVersionId": requested_scenario_version_id,
+                }
+            if target_scenario.status == SCENARIO_VERSION_STATUS_LOCKED:
+                return {
+                    "status": "skipped_locked_scenario_version",
+                    "simulationId": simulation_id,
+                    "scenarioVersionId": target_scenario.id,
+                }
+            target_scenario.status = SCENARIO_VERSION_STATUS_READY
+            target_scenario.storyline_md = generated.storyline_md
+            target_scenario.task_prompts_json = generated.task_prompts_json
+            target_scenario.rubric_json = generated.rubric_json
+            target_scenario.focus_notes = simulation.focus or ""
+            target_scenario.template_key = simulation.template_key
+            target_scenario.tech_stack = simulation.tech_stack
+            target_scenario.seniority = simulation.seniority
+            target_scenario.model_name = generated.metadata.model_name
+            target_scenario.model_version = generated.metadata.model_version
+            target_scenario.prompt_version = generated.metadata.prompt_version
+            target_scenario.rubric_version = generated.metadata.rubric_version
+            target_scenario.locked_at = None
+            scenario_version_id = target_scenario.id
+        else:
+            # Second idempotency layer: retries/replays reuse ScenarioVersion v1
+            # instead of inserting additional version-index 1 rows.
+            existing_v1 = (
+                await db.execute(
+                    select(ScenarioVersion)
+                    .where(
+                        ScenarioVersion.simulation_id == simulation.id,
+                        ScenarioVersion.version_index == 1,
+                    )
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
 
-        scenario_v1.status = SCENARIO_VERSION_STATUS_READY
-        scenario_v1.storyline_md = generated.storyline_md
-        scenario_v1.task_prompts_json = generated.task_prompts_json
-        scenario_v1.rubric_json = generated.rubric_json
-        scenario_v1.focus_notes = simulation.focus or ""
-        scenario_v1.template_key = simulation.template_key
-        scenario_v1.tech_stack = simulation.tech_stack
-        scenario_v1.seniority = simulation.seniority
-        scenario_v1.model_name = generated.metadata.model_name
-        scenario_v1.model_version = generated.metadata.model_version
-        scenario_v1.prompt_version = generated.metadata.prompt_version
-        scenario_v1.rubric_version = generated.metadata.rubric_version
+            if (
+                current_status != SIMULATION_STATUS_GENERATING
+                and simulation.active_scenario_version_id is not None
+                and (
+                    existing_v1 is None
+                    or simulation.active_scenario_version_id != existing_v1.id
+                )
+            ):
+                return {
+                    "status": "skipped_active_version_moved",
+                    "simulationId": simulation_id,
+                    "activeScenarioVersionId": simulation.active_scenario_version_id,
+                }
+
+            scenario_v1 = existing_v1
+            created_new = scenario_v1 is None
+            if scenario_v1 is None:
+                scenario_v1 = ScenarioVersion(
+                    simulation_id=simulation.id,
+                    version_index=1,
+                    status=SCENARIO_VERSION_STATUS_READY,
+                    storyline_md="",
+                    task_prompts_json=[],
+                    rubric_json={},
+                    focus_notes=simulation.focus or "",
+                    template_key=simulation.template_key,
+                    tech_stack=simulation.tech_stack,
+                    seniority=simulation.seniority,
+                )
+                db.add(scenario_v1)
+                await db.flush()
+
+            scenario_v1.status = SCENARIO_VERSION_STATUS_READY
+            scenario_v1.storyline_md = generated.storyline_md
+            scenario_v1.task_prompts_json = generated.task_prompts_json
+            scenario_v1.rubric_json = generated.rubric_json
+            scenario_v1.focus_notes = simulation.focus or ""
+            scenario_v1.template_key = simulation.template_key
+            scenario_v1.tech_stack = simulation.tech_stack
+            scenario_v1.seniority = simulation.seniority
+            scenario_v1.model_name = generated.metadata.model_name
+            scenario_v1.model_version = generated.metadata.model_version
+            scenario_v1.prompt_version = generated.metadata.prompt_version
+            scenario_v1.rubric_version = generated.metadata.rubric_version
+            simulation.active_scenario_version_id = scenario_v1.id
+            scenario_version_id = scenario_v1.id
 
         apply_generated_task_updates(
             tasks=tasks,
@@ -169,7 +213,6 @@ async def handle_scenario_generation(payload_json: dict[str, Any]) -> dict[str, 
             rubric_json=generated.rubric_json,
         )
 
-        simulation.active_scenario_version_id = scenario_v1.id
         apply_status_transition(
             simulation,
             target_status=SIMULATION_STATUS_READY_FOR_REVIEW,
@@ -177,7 +220,6 @@ async def handle_scenario_generation(payload_json: dict[str, Any]) -> dict[str, 
         )
 
         await db.commit()
-        scenario_version_id = scenario_v1.id
         source = generated.metadata.source
         model_name = generated.metadata.model_name
         model_version = generated.metadata.model_version

@@ -19,6 +19,8 @@ async def test_get_simulation_detail_happy_path(
 
     body = res.json()
     assert body["id"] == sim.id
+    assert body["activeScenarioVersionId"] == sim.active_scenario_version_id
+    assert body["pendingScenarioVersionId"] is None
     assert body["scenario"]["id"] == sim.active_scenario_version_id
     assert body["scenario"]["versionIndex"] == 1
     assert body["scenario"]["status"] in {"ready", "locked"}

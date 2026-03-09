@@ -39,6 +39,7 @@ __all__ = [
     "ScenarioVersionSummary",
     "ScenarioStateSummary",
     "ScenarioRegenerateResponse",
+    "ScenarioApproveResponse",
     "ScenarioActiveUpdateRequest",
     "ScenarioActiveUpdateResponse",
     "SimulationCompanyContext",
@@ -341,7 +342,18 @@ class SimulationDetailScenario(ScenarioStateSummary):
 class ScenarioRegenerateResponse(BaseModel):
     """Response for scenario regeneration."""
 
+    scenarioVersionId: int
+    jobId: str
+    status: str
+
+
+class ScenarioApproveResponse(BaseModel):
+    """Response for explicit scenario version approval."""
+
     simulationId: int
+    status: SimulationStatus
+    activeScenarioVersionId: int
+    pendingScenarioVersionId: int | None = None
     scenario: ScenarioStateSummary
 
 
@@ -453,6 +465,8 @@ class SimulationDetailResponse(BaseModel):
     focus: str | list[str] | None = None
     companyContext: SimulationCompanyContext | None = None
     ai: SimulationAIConfig | None = None
+    activeScenarioVersionId: int | None = None
+    pendingScenarioVersionId: int | None = None
     scenario: SimulationDetailScenario | None = None
     status: SimulationStatus
     generatingAt: datetime | None = None

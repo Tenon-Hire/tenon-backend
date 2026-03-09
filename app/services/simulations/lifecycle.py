@@ -27,7 +27,7 @@ _ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     SIMULATION_STATUS_DRAFT: {SIMULATION_STATUS_GENERATING},
     SIMULATION_STATUS_GENERATING: {SIMULATION_STATUS_READY_FOR_REVIEW},
     SIMULATION_STATUS_READY_FOR_REVIEW: {SIMULATION_STATUS_ACTIVE_INVITING},
-    SIMULATION_STATUS_ACTIVE_INVITING: set(),
+    SIMULATION_STATUS_ACTIVE_INVITING: {SIMULATION_STATUS_READY_FOR_REVIEW},
     SIMULATION_STATUS_TERMINATED: set(),
 }
 
@@ -144,6 +144,18 @@ def require_simulation_invitable(simulation: Simulation) -> None:
             details={"status": current_status},
         )
 
+    pending_scenario_version_id = getattr(
+        simulation, "pending_scenario_version_id", None
+    )
+    if pending_scenario_version_id is not None:
+        raise ApiError(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Scenario approval is pending before inviting.",
+            error_code="SCENARIO_APPROVAL_PENDING",
+            retryable=False,
+            details={"pendingScenarioVersionId": pending_scenario_version_id},
+        )
+
     if current_status == SIMULATION_STATUS_ACTIVE_INVITING:
         return
 
@@ -199,6 +211,20 @@ async def _transition_owned_simulation(
         db, simulation_id, actor_user_id, for_update=True
     )
     from_status = normalize_simulation_status(simulation.status)
+    pending_scenario_version_id = getattr(
+        simulation, "pending_scenario_version_id", None
+    )
+    if (
+        target_status == SIMULATION_STATUS_ACTIVE_INVITING
+        and pending_scenario_version_id is not None
+    ):
+        raise ApiError(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Scenario approval is pending before inviting.",
+            error_code="SCENARIO_APPROVAL_PENDING",
+            retryable=False,
+            details={"pendingScenarioVersionId": pending_scenario_version_id},
+        )
 
     try:
         changed = apply_status_transition(

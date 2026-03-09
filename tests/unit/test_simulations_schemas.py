@@ -1,6 +1,8 @@
 import pytest
+from pydantic import ValidationError
 
 from app.domains.simulations.schemas import (
+    SimulationDayWindowOverride,
     SimulationDetailTask,
     build_simulation_ai_config,
     build_simulation_company_context,
@@ -48,3 +50,15 @@ def test_simulation_schema_helpers_cover_edge_cases():
         )
         is None
     )
+
+
+def test_simulation_day_window_override_validation_and_serializer():
+    with pytest.raises(ValidationError):
+        SimulationDayWindowOverride.model_validate(
+            {"startLocal": "10:00", "endLocal": "09:00"}
+        )
+
+    override = SimulationDayWindowOverride.model_validate(
+        {"startLocal": "10:00", "endLocal": "18:00"}
+    )
+    assert override.model_dump() == {"startLocal": "10:00", "endLocal": "18:00"}

@@ -34,6 +34,8 @@ def render_simulation_detail(
             notice_text=getattr(sim, "ai_notice_text", None),
             eval_enabled_by_day=getattr(sim, "ai_eval_enabled_by_day", None),
         ),
+        activeScenarioVersionId=getattr(sim, "active_scenario_version_id", None),
+        pendingScenarioVersionId=getattr(sim, "pending_scenario_version_id", None),
         scenario=(
             SimulationDetailScenario(
                 id=active_scenario_version.id,
