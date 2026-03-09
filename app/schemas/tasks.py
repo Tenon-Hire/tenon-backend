@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from app.domains.common.base import APIModel
 
 
@@ -9,3 +11,5 @@ class TaskPublic(APIModel):
     title: str
     type: str
     description: str
+    cutoffCommitSha: str | None = None
+    cutoffAt: datetime | None = None

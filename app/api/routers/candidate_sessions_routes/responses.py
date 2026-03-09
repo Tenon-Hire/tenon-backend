@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from app.api.routers.candidate_sessions_routes.time_utils import utcnow
 from app.domains.candidate_sessions import service as cs_service
 from app.domains.candidate_sessions.schemas import (
@@ -12,6 +14,17 @@ from app.domains.tasks.schemas_public import TaskPublic
 from app.services.candidate_sessions.schedule_fields import (
     schedule_payload_for_candidate_session,
 )
+
+
+def _resolve_cutoff_fields(day_audit) -> tuple[str | None, datetime | None]:
+    if day_audit is None:
+        return None, None
+
+    cutoff_commit_sha = getattr(day_audit, "cutoff_commit_sha", None)
+    cutoff_at = getattr(day_audit, "cutoff_at", None)
+    if isinstance(cutoff_at, datetime) and cutoff_at.tzinfo is None:
+        cutoff_at = cutoff_at.replace(tzinfo=UTC)
+    return cutoff_commit_sha, cutoff_at
 
 
 def _resolve_simulation_summary(
@@ -73,6 +86,7 @@ def build_current_task_response(
     total,
     is_complete,
     *,
+    day_audit=None,
     now_utc,
 ):
     current_window = None
@@ -90,6 +104,8 @@ def build_current_task_response(
                 now=task_window.now,
             )
 
+    cutoff_commit_sha, cutoff_at = _resolve_cutoff_fields(day_audit)
+
     return CurrentTaskResponse(
         candidateSessionId=cs.id,
         status=cs.status,
@@ -103,6 +119,8 @@ def build_current_task_response(
                 title=current_task.title,
                 type=current_task.type,
                 description=current_task.description,
+                cutoffCommitSha=cutoff_commit_sha,
+                cutoffAt=cutoff_at,
             )
         ),
         completedTaskIds=sorted(completed_ids),
