@@ -6,8 +6,11 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from app.domains import CandidateSession, ScenarioVersion, Simulation
+from app.api.routers import simulations as sim_routes
+from app.core.settings import settings
+from app.domains import CandidateSession, Job, ScenarioVersion, Simulation
 from app.jobs import worker
+from app.repositories.jobs.models import JOB_STATUS_QUEUED
 from tests.factories import create_recruiter
 
 
@@ -97,28 +100,30 @@ async def test_first_invite_locks_active_scenario_and_pins_candidate_session(
 
 
 @pytest.mark.asyncio
-async def test_regenerate_creates_next_version_and_switches_active(
+async def test_regenerate_requires_approval_and_preserves_existing_pinning(
     async_client, async_session, auth_header_factory
 ):
     recruiter = await create_recruiter(async_session, email="scenario-regen@test.com")
     sim_id = await _create_simulation(
         async_client, async_session, auth_header_factory(recruiter)
     )
+    headers = auth_header_factory(recruiter)
 
     activate = await async_client.post(
         f"/api/simulations/{sim_id}/activate",
-        headers=auth_header_factory(recruiter),
+        headers=headers,
         json={"confirm": True},
     )
     assert activate.status_code == 200, activate.text
 
     first_invite = await async_client.post(
         f"/api/simulations/{sim_id}/invite",
-        headers=auth_header_factory(recruiter),
+        headers=headers,
         json={"candidateName": "First", "inviteEmail": "first@example.com"},
     )
     assert first_invite.status_code == 200, first_invite.text
     first_candidate_session_id = first_invite.json()["candidateSessionId"]
+
     first_scenario = (
         await async_session.execute(
             select(ScenarioVersion)
@@ -132,22 +137,114 @@ async def test_regenerate_creates_next_version_and_switches_active(
     first_scenario_id = first_scenario.id
     assert first_scenario.version_index == 1
     assert first_scenario.status == "locked"
-    assert first_scenario.locked_at is not None
+    initial_detail = await async_client.get(
+        f"/api/simulations/{sim_id}", headers=headers
+    )
+    assert initial_detail.status_code == 200, initial_detail.text
+    initial_body = initial_detail.json()
+    assert initial_body["status"] == "active_inviting"
+    assert initial_body["activeScenarioVersionId"] == first_scenario_id
+    assert initial_body["pendingScenarioVersionId"] is None
 
     regenerate = await async_client.post(
         f"/api/simulations/{sim_id}/scenario/regenerate",
-        headers=auth_header_factory(recruiter),
+        headers=headers,
     )
     assert regenerate.status_code == 200, regenerate.text
-    regenerated_scenario = regenerate.json()["scenario"]
-    assert regenerated_scenario["versionIndex"] == 2
-    assert regenerated_scenario["status"] == "ready"
-    assert regenerated_scenario["lockedAt"] is None
-    assert regenerated_scenario["id"] != first_scenario_id
+    regenerated_payload = regenerate.json()
+    regenerated_scenario_id = regenerated_payload["scenarioVersionId"]
+    assert regenerated_payload["status"] == "generating"
+    assert isinstance(regenerated_payload["jobId"], str)
+    assert regenerated_scenario_id != first_scenario_id
+
+    queued_job = (
+        await async_session.execute(
+            select(ScenarioVersion).where(ScenarioVersion.id == regenerated_scenario_id)
+        )
+    ).scalar_one()
+    assert queued_job.status == "generating"
+
+    detail_pending = await async_client.get(
+        f"/api/simulations/{sim_id}", headers=headers
+    )
+    assert detail_pending.status_code == 200, detail_pending.text
+    pending_body = detail_pending.json()
+    assert pending_body["status"] == "ready_for_review"
+    assert pending_body["activeScenarioVersionId"] == first_scenario_id
+    assert pending_body["pendingScenarioVersionId"] == regenerated_scenario_id
+
+    activate_while_pending = await async_client.post(
+        f"/api/simulations/{sim_id}/activate",
+        headers=headers,
+        json={"confirm": True},
+    )
+    assert activate_while_pending.status_code == 409, activate_while_pending.text
+    assert activate_while_pending.json()["errorCode"] == "SCENARIO_APPROVAL_PENDING"
+
+    blocked_invite = await async_client.post(
+        f"/api/simulations/{sim_id}/invite",
+        headers=headers,
+        json={"candidateName": "Blocked", "inviteEmail": "blocked@example.com"},
+    )
+    assert blocked_invite.status_code == 409, blocked_invite.text
+    assert blocked_invite.json()["errorCode"] == "SCENARIO_APPROVAL_PENDING"
+
+    approve_early = await async_client.post(
+        f"/api/simulations/{sim_id}/scenario/{regenerated_scenario_id}/approve",
+        headers=headers,
+    )
+    assert approve_early.status_code == 409, approve_early.text
+    assert approve_early.json()["errorCode"] == "SCENARIO_NOT_READY"
+
+    session_maker = async_sessionmaker(
+        bind=async_session.bind, expire_on_commit=False, autoflush=False
+    )
+    worker.clear_handlers()
+    try:
+        worker.register_builtin_handlers()
+        handled = await worker.run_once(
+            session_maker=session_maker,
+            worker_id="scenario-versions-regen-worker",
+            now=datetime.now(UTC),
+        )
+    finally:
+        worker.clear_handlers()
+    assert handled is True
+
+    async_session.expire_all()
+    refreshed_regenerated = await async_session.get(
+        ScenarioVersion, regenerated_scenario_id
+    )
+    assert refreshed_regenerated is not None
+    assert refreshed_regenerated.status == "ready"
+    detail_ready = await async_client.get(f"/api/simulations/{sim_id}", headers=headers)
+    assert detail_ready.status_code == 200, detail_ready.text
+    ready_body = detail_ready.json()
+    assert ready_body["status"] == "ready_for_review"
+    assert ready_body["activeScenarioVersionId"] == first_scenario_id
+    assert ready_body["pendingScenarioVersionId"] == regenerated_scenario_id
+
+    approve = await async_client.post(
+        f"/api/simulations/{sim_id}/scenario/{regenerated_scenario_id}/approve",
+        headers=headers,
+    )
+    assert approve.status_code == 200, approve.text
+    approve_body = approve.json()
+    assert approve_body["status"] == "active_inviting"
+    assert approve_body["activeScenarioVersionId"] == regenerated_scenario_id
+    assert approve_body["pendingScenarioVersionId"] is None
+    detail_approved = await async_client.get(
+        f"/api/simulations/{sim_id}", headers=headers
+    )
+    assert detail_approved.status_code == 200, detail_approved.text
+    approved_detail_body = detail_approved.json()
+    assert approved_detail_body["status"] == "active_inviting"
+    assert approved_detail_body["activeScenarioVersionId"] == regenerated_scenario_id
+    assert approved_detail_body["pendingScenarioVersionId"] is None
 
     second_invite = await async_client.post(
         f"/api/simulations/{sim_id}/invite",
-        headers=auth_header_factory(recruiter),
+        headers=headers,
         json={"candidateName": "Second", "inviteEmail": "second@example.com"},
     )
     assert second_invite.status_code == 200, second_invite.text
@@ -167,33 +264,64 @@ async def test_regenerate_creates_next_version_and_switches_active(
             )
         )
     ).scalar_one()
-
     assert first_candidate_session.scenario_version_id == first_scenario_id
-    assert second_candidate_session.scenario_version_id == regenerated_scenario["id"]
+    assert second_candidate_session.scenario_version_id == regenerated_scenario_id
 
-    refreshed_first = await async_session.get(ScenarioVersion, first_scenario_id)
-    refreshed_second = await async_session.get(
-        ScenarioVersion, regenerated_scenario["id"]
-    )
-    assert refreshed_first is not None
-    assert refreshed_first.status == "locked"
-    assert refreshed_first.locked_at is not None
-    assert refreshed_second is not None
-    assert refreshed_second.status == "locked"
-    assert refreshed_second.locked_at is not None
 
-    versions = (
-        (
-            await async_session.execute(
-                select(ScenarioVersion)
-                .where(ScenarioVersion.simulation_id == sim_id)
-                .order_by(ScenarioVersion.version_index.asc())
-            )
-        )
-        .scalars()
-        .all()
+@pytest.mark.asyncio
+async def test_regenerate_duplicate_pending_returns_409(
+    async_client, async_session, auth_header_factory
+):
+    recruiter = await create_recruiter(
+        async_session, email="scenario-regen-duplicate@test.com"
     )
-    assert [version.version_index for version in versions] == [1, 2]
+    sim_id = await _create_simulation(
+        async_client, async_session, auth_header_factory(recruiter)
+    )
+    headers = auth_header_factory(recruiter)
+
+    activate = await async_client.post(
+        f"/api/simulations/{sim_id}/activate",
+        headers=headers,
+        json={"confirm": True},
+    )
+    assert activate.status_code == 200, activate.text
+
+    first = await async_client.post(
+        f"/api/simulations/{sim_id}/scenario/regenerate",
+        headers=headers,
+    )
+    assert first.status_code == 200, first.text
+
+    second = await async_client.post(
+        f"/api/simulations/{sim_id}/scenario/regenerate",
+        headers=headers,
+    )
+    assert second.status_code == 409, second.text
+    assert second.json()["errorCode"] == "SCENARIO_REGENERATION_PENDING"
+
+
+@pytest.mark.asyncio
+async def test_regenerate_owner_and_not_found_guards(
+    async_client, async_session, auth_header_factory
+):
+    owner = await create_recruiter(async_session, email="scenario-owner@test.com")
+    outsider = await create_recruiter(async_session, email="scenario-outsider@test.com")
+    sim_id = await _create_simulation(
+        async_client, async_session, auth_header_factory(owner)
+    )
+
+    forbidden = await async_client.post(
+        f"/api/simulations/{sim_id}/scenario/regenerate",
+        headers=auth_header_factory(outsider),
+    )
+    assert forbidden.status_code == 403, forbidden.text
+
+    missing = await async_client.post(
+        "/api/simulations/999999/scenario/regenerate",
+        headers=auth_header_factory(owner),
+    )
+    assert missing.status_code == 404, missing.text
 
 
 @pytest.mark.asyncio
@@ -229,3 +357,83 @@ async def test_mutating_locked_scenario_returns_scenario_locked(
         "detail": "Scenario version is locked.",
         "errorCode": "SCENARIO_LOCKED",
     }
+
+
+@pytest.mark.asyncio
+async def test_regenerate_enqueues_scenario_generation_job(
+    async_client, async_session, auth_header_factory
+):
+    recruiter = await create_recruiter(
+        async_session, email="scenario-job-queue@test.com"
+    )
+    sim_id = await _create_simulation(
+        async_client, async_session, auth_header_factory(recruiter)
+    )
+    headers = auth_header_factory(recruiter)
+    activate = await async_client.post(
+        f"/api/simulations/{sim_id}/activate",
+        headers=headers,
+        json={"confirm": True},
+    )
+    assert activate.status_code == 200, activate.text
+
+    regenerate = await async_client.post(
+        f"/api/simulations/{sim_id}/scenario/regenerate",
+        headers=headers,
+    )
+    assert regenerate.status_code == 200, regenerate.text
+    payload = regenerate.json()
+
+    job = await async_session.get(Job, payload["jobId"])
+    assert job is not None
+    assert job.status == JOB_STATUS_QUEUED
+    assert job.payload_json["simulationId"] == sim_id
+    assert job.payload_json["scenarioVersionId"] == payload["scenarioVersionId"]
+
+
+@pytest.mark.asyncio
+async def test_regenerate_rate_limited_in_prod(
+    async_client, async_session, auth_header_factory, monkeypatch
+):
+    monkeypatch.setattr(settings, "ENV", "prod")
+    sim_routes.rate_limit.limiter.reset()
+    original_rule = sim_routes.SCENARIO_REGENERATE_RATE_LIMIT
+    sim_routes.SCENARIO_REGENERATE_RATE_LIMIT = sim_routes.rate_limit.RateLimitRule(
+        limit=1, window_seconds=60.0
+    )
+
+    try:
+        recruiter = await create_recruiter(
+            async_session, email="scenario-regen-rate@test.com"
+        )
+        headers = auth_header_factory(recruiter)
+        first_sim_id = await _create_simulation(async_client, async_session, headers)
+        second_sim_id = await _create_simulation(async_client, async_session, headers)
+
+        activate_first = await async_client.post(
+            f"/api/simulations/{first_sim_id}/activate",
+            headers=headers,
+            json={"confirm": True},
+        )
+        assert activate_first.status_code == 200, activate_first.text
+        activate_second = await async_client.post(
+            f"/api/simulations/{second_sim_id}/activate",
+            headers=headers,
+            json={"confirm": True},
+        )
+        assert activate_second.status_code == 200, activate_second.text
+
+        first = await async_client.post(
+            f"/api/simulations/{first_sim_id}/scenario/regenerate",
+            headers=headers,
+        )
+        assert first.status_code == 200, first.text
+
+        second = await async_client.post(
+            f"/api/simulations/{second_sim_id}/scenario/regenerate",
+            headers=headers,
+        )
+        assert second.status_code == 429, second.text
+    finally:
+        sim_routes.SCENARIO_REGENERATE_RATE_LIMIT = original_rule
+        sim_routes.rate_limit.limiter.reset()

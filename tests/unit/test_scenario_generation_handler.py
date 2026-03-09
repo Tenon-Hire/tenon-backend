@@ -11,7 +11,10 @@ from app.jobs import worker
 from app.jobs.handlers import scenario_generation as scenario_handler
 from app.repositories.jobs import repository as jobs_repo
 from app.repositories.jobs.models import JOB_STATUS_DEAD_LETTER
-from app.repositories.scenario_versions.models import SCENARIO_VERSION_STATUS_READY
+from app.repositories.scenario_versions.models import (
+    SCENARIO_VERSION_STATUS_GENERATING,
+    SCENARIO_VERSION_STATUS_READY,
+)
 from app.services.simulations.creation import create_simulation_with_tasks
 from tests.factories import create_recruiter
 
@@ -240,6 +243,80 @@ async def test_scenario_generation_handler_reuses_existing_v1_while_generating(
     assert refreshed_sim is not None
     assert refreshed_sim.status == "ready_for_review"
     assert refreshed_sim.active_scenario_version_id == existing_v1.id
+
+
+@pytest.mark.asyncio
+async def test_scenario_generation_handler_targets_specific_pending_version(
+    async_session,
+):
+    recruiter = await create_recruiter(async_session, email="targeted-version@test.com")
+    sim, _tasks, _job = await create_simulation_with_tasks(
+        async_session,
+        _simulation_payload(),
+        recruiter,
+    )
+
+    first = await scenario_handler.handle_scenario_generation({"simulationId": sim.id})
+    assert first["status"] == "completed"
+    active_v1_id = first["scenarioVersionId"]
+
+    pending_v2 = ScenarioVersion(
+        simulation_id=sim.id,
+        version_index=2,
+        status=SCENARIO_VERSION_STATUS_GENERATING,
+        storyline_md="pending",
+        task_prompts_json=[],
+        rubric_json={},
+        focus_notes=sim.focus or "",
+        template_key=sim.template_key,
+        tech_stack=sim.tech_stack,
+        seniority=sim.seniority,
+    )
+    async_session.add(pending_v2)
+    await async_session.flush()
+    sim.pending_scenario_version_id = pending_v2.id
+    sim.status = "ready_for_review"
+    await async_session.commit()
+
+    targeted = await scenario_handler.handle_scenario_generation(
+        {"simulationId": sim.id, "scenarioVersionId": pending_v2.id}
+    )
+    assert targeted["status"] == "completed"
+    assert targeted["scenarioVersionId"] == pending_v2.id
+
+    session_maker = _session_maker(async_session)
+    async with session_maker() as check_session:
+        refreshed_sim = await check_session.get(Simulation, sim.id)
+        refreshed_v2 = await check_session.get(ScenarioVersion, pending_v2.id)
+    assert refreshed_sim is not None
+    assert refreshed_v2 is not None
+    assert refreshed_sim.active_scenario_version_id == active_v1_id
+    assert refreshed_sim.pending_scenario_version_id == pending_v2.id
+    assert refreshed_sim.status == "ready_for_review"
+    assert refreshed_v2.status == SCENARIO_VERSION_STATUS_READY
+    assert refreshed_v2.storyline_md
+    assert refreshed_v2.task_prompts_json
+
+
+@pytest.mark.asyncio
+async def test_scenario_generation_handler_returns_not_found_for_target_version(
+    async_session,
+):
+    recruiter = await create_recruiter(async_session, email="target-missing@test.com")
+    sim, _tasks, _job = await create_simulation_with_tasks(
+        async_session,
+        _simulation_payload(),
+        recruiter,
+    )
+
+    result = await scenario_handler.handle_scenario_generation(
+        {"simulationId": sim.id, "scenarioVersionId": 999999}
+    )
+    assert result == {
+        "status": "scenario_version_not_found",
+        "simulationId": sim.id,
+        "scenarioVersionId": 999999,
+    }
 
 
 @pytest.mark.asyncio

@@ -1,184 +1,137 @@
 # Title
-Issue #206: Scenario generation job + recruiter status lifecycle (`generating` -> `ready_for_review`)
+Backend: add scenario regenerate vN flow with approval gating and version pinning
 
 ## TL;DR
-- `POST /api/simulations` now creates simulations in `status="generating"` and returns `scenarioGenerationJobId`.
-- A durable `scenario_generation` worker flow is wired through job enqueue + worker handler registration.
-- Worker execution creates/reuses `ScenarioVersion v1`, persists generated storyline/tasks/rubric + generation metadata, and updates seeded task descriptions/scores.
-- On successful generation, simulation status transitions to `ready_for_review` and active scenario version is set.
-- Recruiter simulation detail now surfaces generated scenario content (`storylineMd`, `taskPromptsJson`, `rubricJson`) and metadata (`modelName`, `modelVersion`, `promptVersion`, `rubricVersion`).
-- Deterministic template-catalog fallback is used when LLM keys are absent, demo mode is enabled, or LLM generation fails, and is stable for identical `(role, techStack, templateKey)` inputs.
+- `POST /api/simulations/{id}/scenario/regenerate` now creates `ScenarioVersion vN` in `status="generating"` and increments `version_index`.
+- A durable `scenario_generation` job is queued with `scenarioVersionId` so generation targets an explicit version row.
+- Regenerated versions require explicit recruiter approval before invites can proceed.
+- Existing candidate sessions stay pinned to their original `scenario_version_id`; new invites after approval use the new active version.
+- Regenerate is rate-limited via the repo-standard limiter (current in-memory pattern).
 
-## Problem / Why
-Recruiters need a clear and trustworthy simulation lifecycle: create simulation, see `Generating...`, then review finalized scenario content before activation/invites. Without durable job tracking, the system cannot provide reliable async progress or failure visibility.
-
-For MVP/demo reliability, deterministic fallback is required so scenario output remains reproducible even when LLM access is disabled, unavailable, or errors.
+## Problem
+Recruiters need deterministic regeneration when a generated scenario is not acceptable, without mutating already-started candidate experiences. Fairness requires version pinning for existing sessions and explicit approval gating before future invites can move to a new scenario version.
 
 ## What changed
-### Simulation creation API
-- `POST /api/simulations` now returns `scenarioGenerationJobId` in `SimulationCreateResponse`.
-- New simulations are persisted with `status="generating"` (and `generating_at` set).
-- Scenario generation is enqueued during create flow.
 
-### Job / worker flow
-- Added/wired `scenario_generation` in job handler exports and worker builtin handler registration.
-- New handler: `app/jobs/handlers/scenario_generation.py`.
-- Handler loads simulation + seeded tasks, generates scenario payload, and persists/updates `ScenarioVersion v1`.
-- Generated storyline/task prompts/rubric are saved to scenario version; seeded task `description`, `title`, and rubric-weight-based `max_score` are updated.
-- On success, simulation `active_scenario_version_id` is set and status is transitioned to `ready_for_review`.
+### API
+- Added `POST /api/simulations/{id}/scenario/regenerate`.
+- Added `POST /api/simulations/{id}/scenario/{scenario_version_id}/approve`.
+- `GET /api/simulations/{id}` now includes:
+  - `activeScenarioVersionId`
+  - `pendingScenarioVersionId`
 
-### Public Jobs API contract
-- Jobs API maps internal durable terminal states to public polling states:
-- `succeeded` -> `completed`
-- `dead_letter` -> `failed`
-- `queued`/`running` remain unchanged for polling.
+Regenerate response contract:
 
-### Detail read-path
-- Recruiter simulation detail now renders active scenario content and metadata from `ScenarioVersion`.
-- Exposed scenario fields include:
-- `storylineMd`
-- `taskPromptsJson`
-- `rubricJson`
-- `modelName`, `modelVersion`, `promptVersion`, `rubricVersion`
+```json
+{
+  "scenarioVersionId": 12,
+  "jobId": "0f3f2c1e-...",
+  "status": "generating"
+}
+```
 
-### Deterministic fallback
-- Scenario source selection uses deterministic fallback when:
-- LLM credentials are absent, or
-- demo mode is enabled, or
-- LLM generation raises an error.
-- Fallback generation is deterministic per `(role, techStack, templateKey)` via stable input hashing/template selection.
+### State model / lifecycle
+- `Simulation.active_scenario_version_id` remains the invite source of truth.
+- `Simulation.pending_scenario_version_id` stages regenerated versions awaiting approval.
+- Regeneration flow:
+  - create vN as `generating`
+  - worker marks vN `ready` on completion
+  - recruiter approval promotes vN to active and clears pending
+- Simulation remains non-invitable while pending approval exists; invite/activate attempts return `SCENARIO_APPROVAL_PENDING`.
 
-### Failure behavior
-- If scenario generation fails to complete, the job transitions to failed (`dead_letter` internally, `failed` publicly).
-- Simulation remains in `generating` and does not get an active scenario version.
+### Worker / job behavior
+- Scenario generation jobs now target a specific `scenarioVersionId` in payload, not implicit "latest version" behavior.
+- The handler updates that exact scenario version and marks it `ready` when generation completes.
+- This keeps regeneration deterministic and retry-safe per version row.
 
-### Idempotency / retries
-- Enqueue layer idempotency key: `simulation:{id}:scenario_generation`.
-- Handler layer reuses existing `ScenarioVersion v1` (version index `1`) under lock, avoiding duplicate `v1` rows on retries/replays.
+### Invite pinning
+- Existing candidate sessions remain pinned to their original `scenario_version_id`.
+- Regeneration is allowed with active sessions; no silent mutation occurs for in-flight candidates.
+- After approval, new invites pin to the newly active scenario version.
 
-## Acceptance criteria coverage
-- Create simulation returns `status=generating` + `scenarioGenerationJobId`:
-  - Covered by `tests/api/test_scenario_generation_flow.py::test_create_simulation_returns_generating_and_scenario_job_id`
-  - Also covered in create-route tests (`tests/api/test_simulations_create.py`)
-- Job creates `ScenarioVersion v1`:
-  - Covered by `tests/api/test_scenario_generation_flow.py::test_scenario_generation_job_creates_v1_and_updates_detail_read`
-  - Idempotent `v1` reuse verified by `tests/unit/test_scenario_generation_handler.py`
-- Simulation transitions to `ready_for_review`:
-  - Covered by scenario generation flow + handler tests.
-- Simulation detail exposes generated scenario content:
-  - Covered by detail assertions in scenario generation flow test (`storylineMd`, `taskPromptsJson`, `rubricJson`, metadata fields).
-- Deterministic fallback is stable for identical inputs:
-  - Covered by `tests/unit/test_scenario_generation_service.py::test_deterministic_template_generation_is_stable_for_same_inputs`.
-- Failure path keeps simulation `generating` and exposes failed job:
-  - Covered by API + handler failure tests in scenario generation flow/handler suites.
+### Rate limiting
+- Regenerate endpoint uses the repo-standard limiter (`RateLimitRule` + `rate_limit.limiter.allow`).
+- Scope follows existing in-memory limiter behavior (user/client keyed).
+- This is acceptable for current MVP scope.
 
-## Files changed
-### API / schemas
-- `app/api/routers/simulations_routes/create.py`
-- `app/api/routers/simulations_routes/detail_render.py`
-- `app/api/routers/jobs.py`
-- `app/schemas/simulations.py`
+## Data model / migration
+- Added `Simulation.pending_scenario_version_id` (FK to `scenario_versions.id`).
+- Updated `scenario_versions` status check constraint to include `generating`.
+- Migration: `alembic/versions/202603090002_add_pending_scenario_version_and_generating_status.py`.
 
-### Simulation generation services / jobs
-- `app/services/simulations/creation.py`
-- `app/services/simulations/scenario_payload_builder.py`
-- `app/services/simulations/scenario_generation.py`
-- `app/jobs/handlers/scenario_generation.py`
-- `app/jobs/handlers/__init__.py`
-- `app/jobs/worker.py`
+## Deleted / cleaned up
+- Removed obsolete duplicate route modules:
+  - `app/api/routers/simulations_routes/scenario_regenerate.py`
+  - `app/api/routers/simulations_routes/scenario_update.py`
+- Routing is now consolidated in `app/api/routers/simulations_routes/scenario.py`.
+- This avoids duplicate/ambiguous route registration; route uniqueness is covered by tests.
 
-### Major test areas
-- Jobs API status mapping (`tests/api/test_jobs_api.py`)
-- End-to-end scenario generation flow (`tests/api/test_scenario_generation_flow.py`)
-- Scenario generation service behavior/fallback (`tests/unit/test_scenario_generation_service.py`)
-- Scenario generation handler behavior/idempotency/failure (`tests/unit/test_scenario_generation_handler.py`)
-- Simulation lifecycle/create alignment and payload wiring (`tests/unit/test_simulations_service.py`, `tests/api/test_simulations_lifecycle.py`, `tests/api/test_simulations_create.py`)
-- Detail read-path exposure and cross-flow regressions (API/integration suite updates)
+## Error contracts
+Verified key contracts:
+- `409 SCENARIO_REGENERATION_PENDING`
+- `409 SCENARIO_APPROVAL_PENDING`
+- `409 SCENARIO_NOT_READY`
+- `403` owner-only protection
+- `404` simulation/version not found
+- `429` regenerate rate-limited
 
 ## Testing
-- `poetry run pytest --no-cov -q tests/api/test_jobs_api.py tests/api/test_scenario_generation_flow.py tests/unit/test_scenario_generation_service.py tests/unit/test_scenario_generation_handler.py tests/unit/test_simulations_service.py` -> PASS (`62 passed`)
+Authoritative gate:
 - `./precommit.sh` -> PASS
-- Full suite within precommit -> `1106 passed`
-- Coverage output within precommit -> `Total coverage: 99.04%`
-- Manual/runtime audit QA (`.qa/issue206/manual_qa_20260309T152525Z`, 2026-03-09) -> PASS (scenarios A-H)
+- Total tests: `1127 passed`
+- Coverage: `99.05%`
+- Manual runtime QA: `PASS` (evidence-backed)
+- QA bundle:
+  - `.qa/issue207/manual_qa_20260309T224125Z`
+  - `.qa/issue207/manual_qa_20260309T224125Z.zip`
 
-Key validated areas:
-- Jobs API state mapping and poll semantics.
-- Scenario generation create/enqueue/run flow.
-- Scenario handler/service fallback + metadata persistence.
-- Simulation lifecycle alignment to `ready_for_review`.
-- Detail read-path scenario payload exposure.
-- Retry/idempotency behavior across enqueue and handler layers.
-- Failure path preserves `generating` simulation state.
+Covered behavior categories:
+- regenerate flow (vN creation + queueing + worker completion)
+- approval gating
+- invite blocking while pending approval
+- existing session pinning
+- post-approval new invite uses new active version
+- regenerate rate-limit behavior
+- route uniqueness for scenario endpoints
+- simulation detail contract transitions (`activeScenarioVersionId` / `pendingScenarioVersionId`)
 
-## Audit QA (manual / runtime)
-- Overall verdict: `PASS`
-- Runtime method summary:
-  - Attempted localhost runtime first (`uvicorn` + `curl` probe).
-  - Sandbox blocked bind on `127.0.0.1:8016` (`[Errno 1] operation not permitted`), so verification used ASGI in-process fallback against the real FastAPI app/routes/services/repos/worker with isolated DB-backed behavior.
-- Environment summary:
-  - OS: macOS `Darwin 25.3.0`
-  - Python: host `3.14.3`, Poetry env `3.12.8`
-  - Poetry: `2.3.2`
-  - DB: isolated SQLite file
-  - Auth mode: recruiter bearer dev token in `TENON_ENV=test`
-- Evidence bundle paths:
-  - `.qa/issue206/manual_qa_20260309T152525Z/`
-  - `.qa/issue206/manual_qa_20260309T152525Z.zip`
+## Manual QA
+- Completed against the real FastAPI app (`app.main:app`) using ASGI in-process fallback after localhost bind was blocked by sandbox restrictions.
+- Exercised real HTTP routes and real DB-backed logic for regenerate/pending/approve/pinning flow.
+- External GitHub/email integrations were stubbed narrowly to avoid network calls.
+- Verified scenarios A-L with evidence:
+  - A: baseline simulation state
+  - B: existing invite/session pinned to v1
+  - C: regenerate creates v2 `generating` + targeted job payload (`scenarioVersionId`)
+  - D: duplicate regenerate blocked (`409 SCENARIO_REGENERATION_PENDING`)
+  - E: pending version blocks new invites (`409 SCENARIO_APPROVAL_PENDING`)
+  - F: worker completes v2 to `ready` without activation
+  - G: explicit approval promotes v2 to active and clears pending
+  - H: new invite after approval uses v2 while old session remains on v1
+  - I: approve-before-ready returns `409 SCENARIO_NOT_READY`
+  - J: auth negative paths return expected `403` / `404`
+  - K: regenerate rate limit returns `429`
+  - L: runtime route surface sanity
+- Key QA IDs observed: `simulationId=1`, `v1=1`, `v2=2`, `v3=3`, `inviteSessionV1=1`, `inviteSessionV2=2`, `regenJobId=95e3ebd6-8cb0-409e-a2c6-7713a36045f5`.
+- Evidence bundle:
+  - `.qa/issue207/manual_qa_20260309T224125Z`
+  - `.qa/issue207/manual_qa_20260309T224125Z.zip`
 
-| Scenario | Result | Finding |
-|---|---|---|
-| A | PASS | `POST /api/simulations` returned `201`, `status="generating"`, and non-empty `scenarioGenerationJobId`; DB showed queued `scenario_generation` job. |
-| B | PASS | `GET /api/jobs/{job_id}` exposed `jobType="scenario_generation"` with public statuses `queued`, `completed`, and `failed` at runtime. |
-| C | PASS | Worker run created/reused `ScenarioVersion v1`, persisted scenario payload, set `active_scenario_version_id`, and transitioned simulation to `ready_for_review`. |
-| D | PASS | Seeded tasks were updated from generated prompts; descriptions and rubric-derived scores were applied. |
-| E | PASS | Simulation detail exposed `storylineMd`, `taskPromptsJson`, `rubricJson`, and metadata fields. |
-| F | PASS | Deterministic fallback was stable for identical `(role, techStack, templateKey)`. |
-| G | PASS | Forced generation failure produced failed job status while simulation stayed `generating` with no active scenario version. |
-| H | PASS | Controlled retry/re-run did not create duplicate `ScenarioVersion v1` rows. |
+### QA notes / limitations
+- Localhost runtime was attempted first, but sandbox bind restrictions blocked that path.
+- Verification used an isolated SQLite database scoped to QA runs.
+- GitHub/email dependencies were stubbed only where needed to avoid external network calls.
 
-- Key evidence files:
-  - `.qa/issue206/manual_qa_20260309T152525Z/QA_REPORT.md`
-  - `.qa/issue206/manual_qa_20260309T152525Z/artifacts/scenario_a_create_simulation_response.json`
-  - `.qa/issue206/manual_qa_20260309T152525Z/artifacts/scenario_b_get_job_status_queued_response.json`
-  - `.qa/issue206/manual_qa_20260309T152525Z/artifacts/scenario_c_db_assertions.json`
-  - `.qa/issue206/manual_qa_20260309T152525Z/artifacts/scenario_d_task_update_comparison.json`
-  - `.qa/issue206/manual_qa_20260309T152525Z/artifacts/scenario_e_get_simulation_detail_response.json`
-  - `.qa/issue206/manual_qa_20260309T152525Z/artifacts/scenario_f_determinism_assertion.json`
-  - `.qa/issue206/manual_qa_20260309T152525Z/artifacts/scenario_g_get_job_status_failed_response.json`
-  - `.qa/issue206/manual_qa_20260309T152525Z/artifacts/scenario_h_retry_idempotency_assertion.json`
-  - `.qa/issue206/manual_qa_20260309T152525Z/artifacts/verification_results.json`
-- Commands run + results:
-  - Localhost `uvicorn` probe -> FAIL (`curl` exit `7`; bind blocked on `127.0.0.1:8016`)
-  - ASGI harness run #1 -> FAIL (QA harness query bug: selected non-existent `jobs.completed_at`)
-  - ASGI harness run #2 -> FAIL (QA harness JSON normalization bug for `jobs.payload_json`)
-  - ASGI harness run #3 -> PASS (scenarios A-H PASS)
-  - Bundle secret scan -> PASS (`no_matches`; grep-style scan exit `1` expected when no matches)
-  - Bundle zip creation -> PASS
-- Notes / limitations:
-  - Localhost bind was blocked in sandbox, so QA used ASGI in-process fallback.
-  - SQLite was used for isolated runtime QA; Postgres-specific behavior was not directly exercised.
-  - Two earlier QA harness attempts failed due QA-script bugs only; final harness pass succeeded.
-  - Runtime jobs response uses `jobType` (not `type` from issue prose example), matching current backend schema/runtime.
-- Final QA conclusion:
-  - Runtime/manual audit evidence is `PASS` for issue #206 scope; create -> generating -> ready lifecycle, job polling visibility, scenario persistence/read-path, deterministic fallback stability, failure semantics, and v1 idempotency were all verified in the evidence bundle.
+## Risks / notes
+- Regenerate limiter uses the current in-memory repo pattern (not distributed/shared state).
+- No behavior change for already-started sessions beyond preserving pinning fairness.
+- Generation completion alone does not activate invites; recruiter approval is still required.
 
-## Risks / Rollout notes
-- Depends on durable jobs contracts from #194 and ScenarioVersion persistence contracts from #205.
-- Worker execution is out-of-band in production; simulation stays `generating` until worker completion.
-- Public jobs API intentionally abstracts storage-level terminal labels (`succeeded`/`dead_letter`).
-- Runtime jobs contract field for job type is `jobType` in current schema/runtime.
-- Manual/runtime audit used ASGI in-process + SQLite due sandbox localhost bind restrictions; Postgres-specific behavior was not directly exercised in that run.
-- Logging records status/metadata/latency without logging full scenario content or secrets.
-
-## Demo / verification checklist
-1. Create a simulation via `POST /api/simulations`.
-2. Verify response includes `status="generating"` and `scenarioGenerationJobId`.
-3. Run worker or poll `GET /api/jobs/{job_id}` until terminal state.
-4. Verify successful generation transitions simulation to `ready_for_review`.
-5. Verify simulation detail exposes generated scenario content (`storylineMd`, `taskPromptsJson`, `rubricJson`) and metadata fields.
-6. Verify deterministic fallback returns stable output for identical `(role, techStack, templateKey)` tuples.
-7. Verify forced generation failure leaves simulation in `generating` and job status as failed.
-
-## Notes / follow-ups
-- Regeneration endpoint and approval/send gating continue in adjacent follow-up issues (for example #207 + recruiter approval UX flow).
+## Rollout / demo checklist
+1. Create simulation with v1.
+2. Invite candidate A and confirm session is pinned to v1.
+3. Regenerate and confirm v2 is created in `generating` and `pendingScenarioVersionId` is set.
+4. Complete generation and confirm v2 is `ready` while simulation remains non-invitable.
+5. Approve v2.
+6. Invite candidate B and confirm session is pinned to v2.
+7. Verify candidate A remains pinned to v1.

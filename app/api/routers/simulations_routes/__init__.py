@@ -8,8 +8,7 @@ from app.api.routers.simulations_routes import (
     invite_resend,
     lifecycle,
     list_simulations,
-    scenario_regenerate,
-    scenario_update,
+    scenario,
 )
 
 router = APIRouter()
@@ -20,7 +19,6 @@ router.include_router(invite_create.router, prefix="/simulations")
 router.include_router(invite_resend.router, prefix="/simulations")
 router.include_router(candidates.router, prefix="/simulations")
 router.include_router(lifecycle.router, prefix="/simulations")
-router.include_router(scenario_regenerate.router, prefix="/simulations")
-router.include_router(scenario_update.router, prefix="/simulations")
+router.include_router(scenario.router, prefix="/simulations")
 
 __all__ = ["router"]

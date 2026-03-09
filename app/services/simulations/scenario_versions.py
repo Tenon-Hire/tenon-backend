@@ -10,12 +10,23 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ApiError
-from app.domains import ScenarioVersion, Simulation, Task
+from app.domains import Job, ScenarioVersion, Simulation, Task
+from app.repositories.jobs import repository as jobs_repo
 from app.repositories.scenario_versions import repository as scenario_repo
 from app.repositories.scenario_versions.models import (
     SCENARIO_VERSION_STATUS_DRAFT,
+    SCENARIO_VERSION_STATUS_GENERATING,
     SCENARIO_VERSION_STATUS_LOCKED,
     SCENARIO_VERSION_STATUS_READY,
+)
+from app.repositories.simulations.simulation import (
+    SIMULATION_STATUS_ACTIVE_INVITING,
+    SIMULATION_STATUS_READY_FOR_REVIEW,
+)
+from app.services.simulations.lifecycle import apply_status_transition
+from app.services.simulations.scenario_generation import SCENARIO_GENERATION_JOB_TYPE
+from app.services.simulations.scenario_payload_builder import (
+    build_scenario_generation_payload,
 )
 
 logger = logging.getLogger(__name__)
@@ -100,20 +111,22 @@ async def get_active_scenario_version(
 async def _require_owned_simulation_for_update(
     db: AsyncSession, simulation_id: int, actor_user_id: int
 ) -> Simulation:
-    stmt = (
-        select(Simulation)
-        .where(
-            Simulation.id == simulation_id,
-            Simulation.created_by == actor_user_id,
-        )
-        .with_for_update()
-    )
+    stmt = select(Simulation).where(Simulation.id == simulation_id).with_for_update()
     simulation = (await db.execute(stmt)).scalar_one_or_none()
     if simulation is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Simulation not found"
         )
+    if simulation.created_by != actor_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this simulation",
+        )
     return simulation
+
+
+def _scenario_generation_idempotency_key(scenario_version_id: int) -> str:
+    return f"scenario_version:{scenario_version_id}:scenario_generation"
 
 
 async def lock_active_scenario_for_invites(
@@ -178,6 +191,21 @@ async def regenerate_active_scenario_version(
     simulation_id: int,
     actor_user_id: int,
 ) -> tuple[Simulation, ScenarioVersion]:
+    simulation, regenerated, _job = await request_scenario_regeneration(
+        db,
+        simulation_id=simulation_id,
+        actor_user_id=actor_user_id,
+    )
+    return simulation, regenerated
+
+
+async def request_scenario_regeneration(
+    db: AsyncSession,
+    *,
+    simulation_id: int,
+    actor_user_id: int,
+) -> tuple[Simulation, ScenarioVersion, Job]:
+    regenerated_at = datetime.now(UTC)
     simulation = await _require_owned_simulation_for_update(
         db, simulation_id, actor_user_id
     )
@@ -188,6 +216,16 @@ async def regenerate_active_scenario_version(
             error_code="SCENARIO_ACTIVE_VERSION_MISSING",
             retryable=False,
             details={},
+        )
+    if simulation.pending_scenario_version_id is not None:
+        raise ApiError(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Scenario regeneration is already pending approval.",
+            error_code="SCENARIO_REGENERATION_PENDING",
+            retryable=False,
+            details={
+                "pendingScenarioVersionId": simulation.pending_scenario_version_id
+            },
         )
     active = await scenario_repo.get_by_id(
         db, simulation.active_scenario_version_id, for_update=True
@@ -205,7 +243,7 @@ async def regenerate_active_scenario_version(
     regenerated = ScenarioVersion(
         simulation_id=simulation.id,
         version_index=new_index,
-        status=SCENARIO_VERSION_STATUS_READY,
+        status=SCENARIO_VERSION_STATUS_GENERATING,
         storyline_md=active.storyline_md,
         task_prompts_json=copy.deepcopy(active.task_prompts_json),
         rubric_json=copy.deepcopy(active.rubric_json),
@@ -221,18 +259,117 @@ async def regenerate_active_scenario_version(
     )
     db.add(regenerated)
     await db.flush()
-    simulation.active_scenario_version_id = regenerated.id
+    simulation.pending_scenario_version_id = regenerated.id
+    apply_status_transition(
+        simulation,
+        target_status=SIMULATION_STATUS_READY_FOR_REVIEW,
+        changed_at=regenerated_at,
+    )
+    payload_json = build_scenario_generation_payload(simulation)
+    payload_json["scenarioVersionId"] = regenerated.id
+    scenario_job = await jobs_repo.create_or_get_idempotent(
+        db,
+        job_type=SCENARIO_GENERATION_JOB_TYPE,
+        idempotency_key=_scenario_generation_idempotency_key(regenerated.id),
+        payload_json=payload_json,
+        company_id=simulation.company_id,
+        correlation_id=f"simulation:{simulation.id}:scenario_version:{regenerated.id}",
+        commit=False,
+    )
     await db.commit()
     await db.refresh(simulation)
     await db.refresh(regenerated)
+    await db.refresh(scenario_job)
     logger.info(
-        "Scenario version regenerated simulationId=%s fromScenarioVersionId=%s toScenarioVersionId=%s versionIndex=%s",
+        (
+            "Scenario regeneration requested simulationId=%s fromScenarioVersionId=%s "
+            "toScenarioVersionId=%s versionIndex=%s jobId=%s"
+        ),
         simulation.id,
         active.id,
         regenerated.id,
         regenerated.version_index,
+        scenario_job.id,
     )
-    return simulation, regenerated
+    return simulation, regenerated, scenario_job
+
+
+async def approve_scenario_version(
+    db: AsyncSession,
+    *,
+    simulation_id: int,
+    scenario_version_id: int,
+    actor_user_id: int,
+    now: datetime | None = None,
+) -> tuple[Simulation, ScenarioVersion]:
+    approved_at = now or datetime.now(UTC)
+    simulation = await _require_owned_simulation_for_update(
+        db, simulation_id, actor_user_id
+    )
+    target = await scenario_repo.get_by_id(db, scenario_version_id, for_update=True)
+    if target is None or target.simulation_id != simulation.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Scenario version not found",
+        )
+
+    pending_id = simulation.pending_scenario_version_id
+    if pending_id is None:
+        if simulation.active_scenario_version_id == target.id:
+            apply_status_transition(
+                simulation,
+                target_status=SIMULATION_STATUS_ACTIVE_INVITING,
+                changed_at=approved_at,
+            )
+            await db.commit()
+            await db.refresh(simulation)
+            await db.refresh(target)
+            return simulation, target
+        raise ApiError(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No pending scenario version to approve.",
+            error_code="SCENARIO_APPROVAL_NOT_PENDING",
+            retryable=False,
+            details={},
+        )
+    if pending_id != target.id:
+        raise ApiError(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Scenario version is not pending approval.",
+            error_code="SCENARIO_VERSION_NOT_PENDING",
+            retryable=False,
+            details={"pendingScenarioVersionId": pending_id},
+        )
+    if target.status != SCENARIO_VERSION_STATUS_READY:
+        raise ApiError(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Scenario version is not ready for approval.",
+            error_code="SCENARIO_NOT_READY",
+            retryable=False,
+            details={"status": target.status},
+        )
+
+    simulation.active_scenario_version_id = target.id
+    simulation.pending_scenario_version_id = None
+    apply_status_transition(
+        simulation,
+        target_status=SIMULATION_STATUS_ACTIVE_INVITING,
+        changed_at=approved_at,
+    )
+    await db.commit()
+    await db.refresh(simulation)
+    await db.refresh(target)
+    logger.info(
+        (
+            "Scenario version approved simulationId=%s actorUserId=%s "
+            "scenarioVersionId=%s status=%s"
+        ),
+        simulation.id,
+        actor_user_id,
+        target.id,
+        simulation.status,
+    )
+    return simulation, target
 
 
 async def update_active_scenario_version(
@@ -309,10 +446,12 @@ async def update_active_scenario_version(
 
 
 __all__ = [
+    "approve_scenario_version",
     "create_initial_scenario_version",
     "ensure_scenario_version_mutable",
     "get_active_scenario_version",
     "lock_active_scenario_for_invites",
     "regenerate_active_scenario_version",
+    "request_scenario_regeneration",
     "update_active_scenario_version",
 ]

@@ -11,10 +11,9 @@ from app.api.routers.simulations_routes.lifecycle import (
     terminate_simulation,
 )
 from app.api.routers.simulations_routes.list_simulations import list_simulations
-from app.api.routers.simulations_routes.scenario_regenerate import (
+from app.api.routers.simulations_routes.scenario import (
+    approve_scenario_version,
     regenerate_scenario_version,
-)
-from app.api.routers.simulations_routes.scenario_update import (
     update_active_scenario_version,
 )
 from app.core.auth.roles import ensure_recruiter_or_none
@@ -24,6 +23,7 @@ from app.domains.submissions import service_candidate as submission_service
 
 INVITE_CREATE_RATE_LIMIT = rate_limits.INVITE_CREATE_RATE_LIMIT
 INVITE_RESEND_RATE_LIMIT = rate_limits.INVITE_RESEND_RATE_LIMIT
+SCENARIO_REGENERATE_RATE_LIMIT = rate_limits.SCENARIO_REGENERATE_RATE_LIMIT
 rate_limit = rate_limits.rate_limit
 
 __all__ = [
@@ -36,6 +36,7 @@ __all__ = [
     "terminate_simulation",
     "list_simulation_candidates",
     "list_simulations",
+    "approve_scenario_version",
     "regenerate_scenario_version",
     "update_active_scenario_version",
     "notification_service",
@@ -45,4 +46,5 @@ __all__ = [
     "rate_limit",
     "INVITE_CREATE_RATE_LIMIT",
     "INVITE_RESEND_RATE_LIMIT",
+    "SCENARIO_REGENERATE_RATE_LIMIT",
 ]

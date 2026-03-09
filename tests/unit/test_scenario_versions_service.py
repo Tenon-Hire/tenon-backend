@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 
 from app.core.errors import ApiError
-from app.domains import ScenarioVersion, Simulation, Task
+from app.domains import Job, ScenarioVersion, Simulation, Task
 from app.services.simulations import scenario_versions as scenario_service
 from tests.factories import create_recruiter, create_simulation
 
@@ -214,8 +214,10 @@ async def test_regenerate_active_scenario_version_creates_incremented_row(
 
     assert regenerated.version_index == 2
     assert regenerated.id != previous_active
-    assert regenerated.status == "ready"
-    assert updated_sim.active_scenario_version_id == regenerated.id
+    assert regenerated.status == "generating"
+    assert updated_sim.active_scenario_version_id == previous_active
+    assert updated_sim.pending_scenario_version_id == regenerated.id
+    assert updated_sim.status == "ready_for_review"
 
     versions = (
         (
@@ -229,6 +231,51 @@ async def test_regenerate_active_scenario_version_creates_incremented_row(
         .all()
     )
     assert [version.version_index for version in versions] == [1, 2]
+    assert versions[0].id == previous_active
+    assert versions[1].id == regenerated.id
+
+
+@pytest.mark.asyncio
+async def test_request_scenario_regeneration_enqueues_targeted_job(async_session):
+    recruiter = await create_recruiter(
+        async_session, email="scenario-regen-job@test.com"
+    )
+    sim, _tasks = await create_simulation(async_session, created_by=recruiter)
+    previous_active = sim.active_scenario_version_id
+
+    (
+        updated_sim,
+        regenerated,
+        scenario_job,
+    ) = await scenario_service.request_scenario_regeneration(
+        async_session,
+        simulation_id=sim.id,
+        actor_user_id=recruiter.id,
+    )
+
+    assert regenerated.status == "generating"
+    assert regenerated.version_index == 2
+    assert updated_sim.active_scenario_version_id == previous_active
+    assert updated_sim.pending_scenario_version_id == regenerated.id
+    assert scenario_job.job_type == "scenario_generation"
+    assert scenario_job.payload_json["simulationId"] == sim.id
+    assert scenario_job.payload_json["scenarioVersionId"] == regenerated.id
+
+    persisted = await async_session.get(Job, scenario_job.id)
+    assert persisted is not None
+    assert (
+        persisted.idempotency_key
+        == f"scenario_version:{regenerated.id}:scenario_generation"
+    )
+
+    with pytest.raises(ApiError) as duplicate_exc:
+        await scenario_service.request_scenario_regeneration(
+            async_session,
+            simulation_id=sim.id,
+            actor_user_id=recruiter.id,
+        )
+    assert duplicate_exc.value.status_code == 409
+    assert duplicate_exc.value.error_code == "SCENARIO_REGENERATION_PENDING"
 
 
 @pytest.mark.asyncio
@@ -247,7 +294,7 @@ async def test_regenerate_active_scenario_version_owner_and_active_guards(
             simulation_id=sim.id,
             actor_user_id=outsider.id,
         )
-    assert excinfo.value.status_code == 404
+    assert excinfo.value.status_code == 403
 
     sim.status = "generating"
     sim.active_scenario_version_id = None
@@ -280,6 +327,174 @@ async def test_regenerate_active_scenario_version_rejects_mismatched_active(
             actor_user_id=recruiter.id,
         )
     assert excinfo.value.error_code == "SCENARIO_ACTIVE_VERSION_MISSING"
+
+
+@pytest.mark.asyncio
+async def test_approve_scenario_version_promotes_pending_to_active(async_session):
+    recruiter = await create_recruiter(
+        async_session, email="scenario-approve-ok@test.com"
+    )
+    sim, _tasks = await create_simulation(async_session, created_by=recruiter)
+    previous_active = sim.active_scenario_version_id
+    (
+        _updated_sim,
+        regenerated,
+        _job,
+    ) = await scenario_service.request_scenario_regeneration(
+        async_session,
+        simulation_id=sim.id,
+        actor_user_id=recruiter.id,
+    )
+    regenerated.status = "ready"
+    await async_session.commit()
+
+    approved_sim, approved_version = await scenario_service.approve_scenario_version(
+        async_session,
+        simulation_id=sim.id,
+        scenario_version_id=regenerated.id,
+        actor_user_id=recruiter.id,
+    )
+
+    assert approved_version.id == regenerated.id
+    assert approved_sim.pending_scenario_version_id is None
+    assert approved_sim.active_scenario_version_id == regenerated.id
+    assert approved_sim.active_scenario_version_id != previous_active
+    assert approved_sim.status == "active_inviting"
+
+    first_session_active = await async_session.get(ScenarioVersion, previous_active)
+    assert first_session_active is not None
+
+
+@pytest.mark.asyncio
+async def test_approve_scenario_version_guards(async_session):
+    owner = await create_recruiter(
+        async_session, email="scenario-approve-owner@test.com"
+    )
+    outsider = await create_recruiter(
+        async_session, email="scenario-approve-outsider@test.com"
+    )
+    sim, _tasks = await create_simulation(async_session, created_by=owner)
+    (
+        _updated_sim,
+        regenerated,
+        _job,
+    ) = await scenario_service.request_scenario_regeneration(
+        async_session,
+        simulation_id=sim.id,
+        actor_user_id=owner.id,
+    )
+
+    with pytest.raises(HTTPException) as forbidden_exc:
+        await scenario_service.approve_scenario_version(
+            async_session,
+            simulation_id=sim.id,
+            scenario_version_id=regenerated.id,
+            actor_user_id=outsider.id,
+        )
+    assert forbidden_exc.value.status_code == 403
+
+    with pytest.raises(ApiError) as not_ready_exc:
+        await scenario_service.approve_scenario_version(
+            async_session,
+            simulation_id=sim.id,
+            scenario_version_id=regenerated.id,
+            actor_user_id=owner.id,
+        )
+    assert not_ready_exc.value.status_code == 409
+    assert not_ready_exc.value.error_code == "SCENARIO_NOT_READY"
+
+    regenerated.status = "ready"
+    await async_session.commit()
+
+    with pytest.raises(ApiError) as mismatch_exc:
+        await scenario_service.approve_scenario_version(
+            async_session,
+            simulation_id=sim.id,
+            scenario_version_id=sim.active_scenario_version_id,
+            actor_user_id=owner.id,
+        )
+    assert mismatch_exc.value.status_code == 409
+    assert mismatch_exc.value.error_code == "SCENARIO_VERSION_NOT_PENDING"
+
+
+@pytest.mark.asyncio
+async def test_request_scenario_regeneration_missing_simulation_returns_404(
+    async_session,
+):
+    recruiter = await create_recruiter(
+        async_session, email="scenario-regen-missing@test.com"
+    )
+    with pytest.raises(HTTPException) as excinfo:
+        await scenario_service.request_scenario_regeneration(
+            async_session,
+            simulation_id=999999,
+            actor_user_id=recruiter.id,
+        )
+    assert excinfo.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_approve_scenario_version_without_pending_state_branches(async_session):
+    recruiter = await create_recruiter(
+        async_session, email="scenario-approve-nopending@test.com"
+    )
+    sim, _tasks = await create_simulation(async_session, created_by=recruiter)
+    active_id = sim.active_scenario_version_id
+    assert active_id is not None
+
+    sim.status = "ready_for_review"
+    await async_session.flush()
+
+    approved_sim, approved_version = await scenario_service.approve_scenario_version(
+        async_session,
+        simulation_id=sim.id,
+        scenario_version_id=active_id,
+        actor_user_id=recruiter.id,
+    )
+    assert approved_sim.status == "active_inviting"
+    assert approved_version.id == active_id
+
+    non_active = ScenarioVersion(
+        simulation_id=sim.id,
+        version_index=2,
+        status="ready",
+        storyline_md="# v2",
+        task_prompts_json=[],
+        rubric_json={},
+        focus_notes=sim.focus,
+        template_key=sim.template_key,
+        tech_stack=sim.tech_stack,
+        seniority=sim.seniority,
+    )
+    async_session.add(non_active)
+    await async_session.commit()
+
+    with pytest.raises(ApiError) as not_pending_exc:
+        await scenario_service.approve_scenario_version(
+            async_session,
+            simulation_id=sim.id,
+            scenario_version_id=non_active.id,
+            actor_user_id=recruiter.id,
+        )
+    assert not_pending_exc.value.status_code == 409
+    assert not_pending_exc.value.error_code == "SCENARIO_APPROVAL_NOT_PENDING"
+
+
+@pytest.mark.asyncio
+async def test_approve_scenario_version_not_found_returns_404(async_session):
+    recruiter = await create_recruiter(
+        async_session, email="scenario-approve-missing@test.com"
+    )
+    sim, _tasks = await create_simulation(async_session, created_by=recruiter)
+
+    with pytest.raises(HTTPException) as excinfo:
+        await scenario_service.approve_scenario_version(
+            async_session,
+            simulation_id=sim.id,
+            scenario_version_id=999999,
+            actor_user_id=recruiter.id,
+        )
+    assert excinfo.value.status_code == 404
 
 
 @pytest.mark.asyncio
