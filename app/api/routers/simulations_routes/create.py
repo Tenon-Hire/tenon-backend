@@ -32,7 +32,7 @@ async def create_simulation(
 ):
     """Create a simulation and seed default tasks."""
     ensure_recruiter_or_none(user)
-    sim, created_tasks = await sim_service.create_simulation_with_tasks(
+    sim, created_tasks, scenario_job = await sim_service.create_simulation_with_tasks(
         db, payload, user
     )
     raw_status = getattr(sim, "status", None)
@@ -61,6 +61,7 @@ async def create_simulation(
             templateKey=getattr(sim, "template_key", None),
             scenarioTemplate=getattr(sim, "scenario_template", None),
         ),
+        scenarioGenerationJobId=str(scenario_job.id),
         tasks=[
             TaskOut(id=t.id, day_index=t.day_index, type=t.type, title=t.title)
             for t in created_tasks

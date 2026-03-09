@@ -1,8 +1,12 @@
+from datetime import UTC, datetime
+
 import pytest
 import pytest_asyncio
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.core.auth.current_user import get_current_user
 from app.domains import CandidateSession, Company, Simulation, User
+from app.jobs import worker
 
 
 @pytest_asyncio.fixture
@@ -31,6 +35,23 @@ async def authed_client(async_client, recruiter_user, override_dependencies):
 
     with override_dependencies({get_current_user: override_get_current_user}):
         yield async_client
+
+
+async def _run_one_job(async_session) -> None:
+    session_maker = async_sessionmaker(
+        bind=async_session.bind, expire_on_commit=False, autoflush=False
+    )
+    worker.clear_handlers()
+    try:
+        worker.register_builtin_handlers()
+        handled = await worker.run_once(
+            session_maker=session_maker,
+            worker_id="sim-list-worker",
+            now=datetime.now(UTC),
+        )
+    finally:
+        worker.clear_handlers()
+    assert handled is True
 
 
 @pytest.mark.asyncio
@@ -91,6 +112,7 @@ async def test_list_simulations_candidate_counts(authed_client, async_session):
     r = await authed_client.post("/api/simulations", json=payload)
     assert r.status_code == 201
     sim_id = r.json()["id"]
+    await _run_one_job(async_session)
     sim = await async_session.get(Simulation, sim_id)
     assert sim is not None and sim.active_scenario_version_id is not None
 

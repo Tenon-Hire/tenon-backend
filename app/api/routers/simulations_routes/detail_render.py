@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from app.domains.simulations import service as sim_service
 from app.domains.simulations.schemas import (
-    ScenarioStateSummary,
     ScenarioVersionSummary,
     SimulationDetailResponse,
+    SimulationDetailScenario,
     SimulationDetailTask,
     build_simulation_ai_config,
     build_simulation_company_context,
@@ -35,11 +35,18 @@ def render_simulation_detail(
             eval_enabled_by_day=getattr(sim, "ai_eval_enabled_by_day", None),
         ),
         scenario=(
-            ScenarioStateSummary(
+            SimulationDetailScenario(
                 id=active_scenario_version.id,
                 versionIndex=active_scenario_version.version_index,
                 status=active_scenario_version.status,
                 lockedAt=active_scenario_version.locked_at,
+                storylineMd=active_scenario_version.storyline_md,
+                taskPromptsJson=active_scenario_version.task_prompts_json,
+                rubricJson=active_scenario_version.rubric_json,
+                modelName=active_scenario_version.model_name,
+                modelVersion=active_scenario_version.model_version,
+                promptVersion=active_scenario_version.prompt_version,
+                rubricVersion=active_scenario_version.rubric_version,
             )
             if active_scenario_version is not None
             else None

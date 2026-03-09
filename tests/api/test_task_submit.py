@@ -2,10 +2,11 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.domains import CandidateSession, Company, Simulation, Submission, User
 from app.integrations.github.workspaces.workspace import Workspace
+from app.jobs import worker
 from app.services.scheduling.day_windows import serialize_day_windows
 from tests.factories import (
     create_candidate_session,
@@ -37,7 +38,7 @@ async def seed_recruiter(
     return user
 
 
-async def create_simulation(async_client, recruiter_email: str) -> dict:
+async def create_simulation(async_client, async_session, recruiter_email: str) -> dict:
     resp = await async_client.post(
         "/api/simulations",
         headers={"x-dev-user-email": recruiter_email},
@@ -51,6 +52,20 @@ async def create_simulation(async_client, recruiter_email: str) -> dict:
     )
     assert resp.status_code == 201, resp.text
     simulation = resp.json()
+    session_maker = async_sessionmaker(
+        bind=async_session.bind, expire_on_commit=False, autoflush=False
+    )
+    worker.clear_handlers()
+    try:
+        worker.register_builtin_handlers()
+        handled = await worker.run_once(
+            session_maker=session_maker,
+            worker_id="task-submit-worker",
+            now=datetime.now(UTC),
+        )
+    finally:
+        worker.clear_handlers()
+    assert handled is True
     activate = await async_client.post(
         f"/api/simulations/{simulation['id']}/activate",
         headers={"x-dev-user-email": recruiter_email},
@@ -187,7 +202,7 @@ async def test_submit_day1_text_creates_submission_and_advances(
         async_session, email=recruiter_email, company_name="Recruiter A"
     )
 
-    sim = await create_simulation(async_client, recruiter_email)
+    sim = await create_simulation(async_client, async_session, recruiter_email)
     sim_id = sim["id"]
 
     invite = await invite_candidate(async_client, sim_id, recruiter_email)
@@ -227,7 +242,7 @@ async def test_submit_day2_code_records_actions_run(
         async_session, email=recruiter_email, company_name="Recruiter A"
     )
 
-    sim = await create_simulation(async_client, recruiter_email)
+    sim = await create_simulation(async_client, async_session, recruiter_email)
     sim_id = sim["id"]
 
     invite = await invite_candidate(async_client, sim_id, recruiter_email)
@@ -296,7 +311,7 @@ async def test_submit_day3_debug_returns_and_persists_final_sha(
         async_session, email=recruiter_email, company_name="Recruiter A"
     )
 
-    sim = await create_simulation(async_client, recruiter_email)
+    sim = await create_simulation(async_client, async_session, recruiter_email)
     invite = await invite_candidate(async_client, sim["id"], recruiter_email)
     await claim_session(async_client, invite["token"], "jane@example.com")
     cs_id = invite["candidateSessionId"]
@@ -381,7 +396,7 @@ async def test_out_of_order_submission_rejected_400(
         async_session, email=recruiter_email, company_name="Recruiter A"
     )
 
-    sim = await create_simulation(async_client, recruiter_email)
+    sim = await create_simulation(async_client, async_session, recruiter_email)
     sim_id = sim["id"]
 
     invite = await invite_candidate(async_client, sim_id, recruiter_email)
@@ -412,7 +427,7 @@ async def test_token_session_mismatch_rejected_403(
         async_session, email=recruiter_email, company_name="Recruiter A"
     )
 
-    sim = await create_simulation(async_client, recruiter_email)
+    sim = await create_simulation(async_client, async_session, recruiter_email)
 
     email_a = "jane@example.com"
     invite_a = await invite_candidate(
@@ -466,7 +481,7 @@ async def test_duplicate_submission_409(
         async_session, email=recruiter_email, company_name="Recruiter A"
     )
 
-    sim = await create_simulation(async_client, recruiter_email)
+    sim = await create_simulation(async_client, async_session, recruiter_email)
     invite = await invite_candidate(async_client, sim["id"], recruiter_email)
     await claim_session(async_client, invite["token"], "jane@example.com")
     cs_id = invite["candidateSessionId"]
@@ -502,7 +517,7 @@ async def test_text_submission_requires_content(
         async_session, email=recruiter_email, company_name="Recruiter A"
     )
 
-    sim = await create_simulation(async_client, recruiter_email)
+    sim = await create_simulation(async_client, async_session, recruiter_email)
     invite = await invite_candidate(async_client, sim["id"], recruiter_email)
     await claim_session(async_client, invite["token"], "jane@example.com")
     cs_id = invite["candidateSessionId"]
@@ -533,7 +548,7 @@ async def test_code_submission_uses_preprovisioned_workspace(
         async_session, email=recruiter_email, company_name="Recruiter A"
     )
 
-    sim = await create_simulation(async_client, recruiter_email)
+    sim = await create_simulation(async_client, async_session, recruiter_email)
     invite = await invite_candidate(async_client, sim["id"], recruiter_email)
     await claim_session(async_client, invite["token"], "jane@example.com")
     cs_id = invite["candidateSessionId"]
@@ -615,7 +630,7 @@ async def test_submitting_all_tasks_marks_session_complete(
         async_session, email=recruiter_email, company_name="Recruiter A"
     )
 
-    sim = await create_simulation(async_client, recruiter_email)
+    sim = await create_simulation(async_client, async_session, recruiter_email)
     invite = await invite_candidate(async_client, sim["id"], recruiter_email)
     await claim_session(async_client, invite["token"], "jane@example.com")
     cs_id = invite["candidateSessionId"]

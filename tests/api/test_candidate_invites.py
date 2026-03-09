@@ -2,12 +2,13 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.api.routers import simulations as sim_routes
 from app.core.settings import settings
 from app.domains import CandidateSession, Company, User
 from app.domains.common.types import CANDIDATE_SESSION_STATUS_COMPLETED
+from app.jobs import worker
 
 
 async def seed_recruiter(
@@ -34,6 +35,49 @@ async def seed_recruiter(
     return user
 
 
+async def _create_and_activate_simulation(
+    async_client,
+    async_session: AsyncSession,
+    recruiter_email: str,
+) -> int:
+    create_sim = await async_client.post(
+        "/api/simulations",
+        headers={"x-dev-user-email": recruiter_email},
+        json={
+            "title": "Backend Node Simulation",
+            "role": "Backend Engineer",
+            "techStack": "Node.js, PostgreSQL",
+            "seniority": "Mid",
+            "focus": "Build new API feature and debug an issue",
+        },
+    )
+    assert create_sim.status_code == 201
+    sim_id = create_sim.json()["id"]
+
+    session_maker = async_sessionmaker(
+        bind=async_session.bind, expire_on_commit=False, autoflush=False
+    )
+    worker.clear_handlers()
+    try:
+        worker.register_builtin_handlers()
+        handled = await worker.run_once(
+            session_maker=session_maker,
+            worker_id="candidate-invites-worker",
+            now=datetime.now(UTC),
+        )
+    finally:
+        worker.clear_handlers()
+    assert handled is True
+
+    activate = await async_client.post(
+        f"/api/simulations/{sim_id}/activate",
+        headers={"x-dev-user-email": recruiter_email},
+        json={"confirm": True},
+    )
+    assert activate.status_code == 200, activate.text
+    return sim_id
+
+
 @pytest.mark.asyncio
 async def test_invite_creates_candidate_session(
     async_client, async_session: AsyncSession, monkeypatch
@@ -46,27 +90,9 @@ async def test_invite_creates_candidate_session(
         company_name="Recruiter A Co",
     )
 
-    # Create simulation
-    create_sim = await async_client.post(
-        "/api/simulations",
-        headers={"x-dev-user-email": "recruiterA@tenon.com"},
-        json={
-            "title": "Backend Node Simulation",
-            "role": "Backend Engineer",
-            "techStack": "Node.js, PostgreSQL",
-            "seniority": "Mid",
-            "focus": "Build new API feature and debug an issue",
-        },
+    sim_id = await _create_and_activate_simulation(
+        async_client, async_session, "recruiterA@tenon.com"
     )
-    assert create_sim.status_code == 201
-    sim_id = create_sim.json()["id"]
-
-    activate = await async_client.post(
-        f"/api/simulations/{sim_id}/activate",
-        headers={"x-dev-user-email": "recruiterA@tenon.com"},
-        json={"confirm": True},
-    )
-    assert activate.status_code == 200, activate.text
 
     # Invite candidate
     resp = await async_client.post(
@@ -115,25 +141,9 @@ async def test_invite_resends_existing_active(
         company_name="Recruiter A Co",
     )
 
-    create_sim = await async_client.post(
-        "/api/simulations",
-        headers={"x-dev-user-email": "recruiterA@tenon.com"},
-        json={
-            "title": "Backend Node Simulation",
-            "role": "Backend Engineer",
-            "techStack": "Node.js, PostgreSQL",
-            "seniority": "Mid",
-            "focus": "Build new API feature and debug an issue",
-        },
+    sim_id = await _create_and_activate_simulation(
+        async_client, async_session, "recruiterA@tenon.com"
     )
-    sim_id = create_sim.json()["id"]
-
-    activate = await async_client.post(
-        f"/api/simulations/{sim_id}/activate",
-        headers={"x-dev-user-email": "recruiterA@tenon.com"},
-        json={"confirm": True},
-    )
-    assert activate.status_code == 200, activate.text
 
     first = await async_client.post(
         f"/api/simulations/{sim_id}/invite",
@@ -170,25 +180,9 @@ async def test_invite_expired_refreshes_token(
         company_name="Recruiter A Co",
     )
 
-    create_sim = await async_client.post(
-        "/api/simulations",
-        headers={"x-dev-user-email": "recruiterA@tenon.com"},
-        json={
-            "title": "Backend Node Simulation",
-            "role": "Backend Engineer",
-            "techStack": "Node.js, PostgreSQL",
-            "seniority": "Mid",
-            "focus": "Build new API feature and debug an issue",
-        },
+    sim_id = await _create_and_activate_simulation(
+        async_client, async_session, "recruiterA@tenon.com"
     )
-    sim_id = create_sim.json()["id"]
-
-    activate = await async_client.post(
-        f"/api/simulations/{sim_id}/activate",
-        headers={"x-dev-user-email": "recruiterA@tenon.com"},
-        json={"confirm": True},
-    )
-    assert activate.status_code == 200, activate.text
 
     first = await async_client.post(
         f"/api/simulations/{sim_id}/invite",
@@ -229,25 +223,9 @@ async def test_invite_completed_rejected(
         company_name="Recruiter A Co",
     )
 
-    create_sim = await async_client.post(
-        "/api/simulations",
-        headers={"x-dev-user-email": "recruiterA@tenon.com"},
-        json={
-            "title": "Backend Node Simulation",
-            "role": "Backend Engineer",
-            "techStack": "Node.js, PostgreSQL",
-            "seniority": "Mid",
-            "focus": "Build new API feature and debug an issue",
-        },
+    sim_id = await _create_and_activate_simulation(
+        async_client, async_session, "recruiterA@tenon.com"
     )
-    sim_id = create_sim.json()["id"]
-
-    activate = await async_client.post(
-        f"/api/simulations/{sim_id}/activate",
-        headers={"x-dev-user-email": "recruiterA@tenon.com"},
-        json={"confirm": True},
-    )
-    assert activate.status_code == 200, activate.text
 
     first = await async_client.post(
         f"/api/simulations/{sim_id}/invite",
@@ -288,25 +266,9 @@ async def test_invite_duplicate_requests_idempotent(
         company_name="Recruiter A Co",
     )
 
-    create_sim = await async_client.post(
-        "/api/simulations",
-        headers={"x-dev-user-email": "recruiterA@tenon.com"},
-        json={
-            "title": "Backend Node Simulation",
-            "role": "Backend Engineer",
-            "techStack": "Node.js, PostgreSQL",
-            "seniority": "Mid",
-            "focus": "Build new API feature and debug an issue",
-        },
+    sim_id = await _create_and_activate_simulation(
+        async_client, async_session, "recruiterA@tenon.com"
     )
-    sim_id = create_sim.json()["id"]
-
-    activate = await async_client.post(
-        f"/api/simulations/{sim_id}/activate",
-        headers={"x-dev-user-email": "recruiterA@tenon.com"},
-        json={"confirm": True},
-    )
-    assert activate.status_code == 200, activate.text
 
     async def _invite():
         return await async_client.post(
@@ -347,25 +309,9 @@ async def test_invite_rate_limited_in_prod(
         company_name="Recruiter Rate Co",
     )
 
-    create_sim = await async_client.post(
-        "/api/simulations",
-        headers={"x-dev-user-email": "recruiter-rate@tenon.com"},
-        json={
-            "title": "Backend Node Simulation",
-            "role": "Backend Engineer",
-            "techStack": "Node.js, PostgreSQL",
-            "seniority": "Mid",
-            "focus": "Build new API feature and debug an issue",
-        },
+    sim_id = await _create_and_activate_simulation(
+        async_client, async_session, "recruiter-rate@tenon.com"
     )
-    sim_id = create_sim.json()["id"]
-
-    activate = await async_client.post(
-        f"/api/simulations/{sim_id}/activate",
-        headers={"x-dev-user-email": "recruiter-rate@tenon.com"},
-        json={"confirm": True},
-    )
-    assert activate.status_code == 200, activate.text
 
     first = await async_client.post(
         f"/api/simulations/{sim_id}/invite",
@@ -420,27 +366,9 @@ async def test_invite_not_owned_simulation_returns_404(
         company_name="Recruiter B Co",
     )
 
-    # Recruiter A creates sim
-    create_sim = await async_client.post(
-        "/api/simulations",
-        headers={"x-dev-user-email": "recruiterA@tenon.com"},
-        json={
-            "title": "Sim Owned By A",
-            "role": "Backend Engineer",
-            "techStack": "Node.js, PostgreSQL",
-            "seniority": "Mid",
-            "focus": "Focus",
-        },
+    sim_id = await _create_and_activate_simulation(
+        async_client, async_session, "recruiterA@tenon.com"
     )
-    assert create_sim.status_code == 201
-    sim_id = create_sim.json()["id"]
-
-    activate = await async_client.post(
-        f"/api/simulations/{sim_id}/activate",
-        headers={"x-dev-user-email": "recruiterA@tenon.com"},
-        json={"confirm": True},
-    )
-    assert activate.status_code == 200, activate.text
 
     # Recruiter B attempts invite -> 404 (do not leak existence)
     resp = await async_client.post(

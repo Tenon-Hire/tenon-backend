@@ -67,6 +67,16 @@ async def _async_session_alias(db_session: AsyncSession) -> AsyncSession:
     return db_session
 
 
+@pytest.fixture(autouse=True)
+def _patch_scenario_generation_handler_session(async_session, monkeypatch):
+    from app.jobs.handlers import scenario_generation as scenario_handler
+
+    session_maker = async_sessionmaker(
+        bind=async_session.bind, expire_on_commit=False, autoflush=False
+    )
+    monkeypatch.setattr(scenario_handler, "async_session_maker", session_maker)
+
+
 @pytest_asyncio.fixture
 async def async_client(db_session: AsyncSession):
     """FastAPI TestClient wired to the shared async session + auth override."""

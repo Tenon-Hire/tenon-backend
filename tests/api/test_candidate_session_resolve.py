@@ -3,8 +3,10 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.domains import CandidateSession, Company, Simulation, Submission, Task, User
+from app.jobs import worker
 from app.services.scheduling.day_windows import (
     derive_day_windows,
     serialize_day_windows,
@@ -34,7 +36,7 @@ async def _seed_recruiter(async_session, email: str = "recruiter1@tenon.com") ->
     return user
 
 
-async def _create_simulation(async_client, recruiter_email: str) -> int:
+async def _create_simulation(async_client, async_session, recruiter_email: str) -> int:
     payload = {
         "title": "Backend Node Simulation",
         "role": "Backend Engineer",
@@ -49,6 +51,20 @@ async def _create_simulation(async_client, recruiter_email: str) -> int:
     )
     assert res.status_code in (200, 201), res.text
     sim_id = res.json()["id"]
+    session_maker = async_sessionmaker(
+        bind=async_session.bind, expire_on_commit=False, autoflush=False
+    )
+    worker.clear_handlers()
+    try:
+        worker.register_builtin_handlers()
+        handled = await worker.run_once(
+            session_maker=session_maker,
+            worker_id="candidate-session-resolve-worker",
+            now=datetime.now(UTC),
+        )
+    finally:
+        worker.clear_handlers()
+    assert handled is True
     activate = await async_client.post(
         f"/api/simulations/{sim_id}/activate",
         json={"confirm": True},
@@ -135,7 +151,7 @@ async def test_current_task_initial_is_day_1(async_client, async_session, monkey
     recruiter_email = "recruiter1@tenon.com"
     await _seed_recruiter(async_session, recruiter_email)
 
-    sim_id = await _create_simulation(async_client, recruiter_email)
+    sim_id = await _create_simulation(async_client, async_session, recruiter_email)
     invite = await _invite_candidate(async_client, sim_id, recruiter_email)
 
     await _claim(async_client, invite["token"], "jane@example.com")
@@ -182,7 +198,7 @@ async def test_current_task_pre_start_returns_schedule_not_started(
     recruiter_email = "recruiter-prestart@tenon.com"
     await _seed_recruiter(async_session, recruiter_email)
 
-    sim_id = await _create_simulation(async_client, recruiter_email)
+    sim_id = await _create_simulation(async_client, async_session, recruiter_email)
     invite = await _invite_candidate(async_client, sim_id, recruiter_email)
     await _claim(async_client, invite["token"], "jane@example.com")
     cs_id = invite["candidateSessionId"]
@@ -224,7 +240,7 @@ async def test_current_task_advances_after_submission(
     recruiter_email = "recruiter1@tenon.com"
     await _seed_recruiter(async_session, recruiter_email)
 
-    sim_id = await _create_simulation(async_client, recruiter_email)
+    sim_id = await _create_simulation(async_client, async_session, recruiter_email)
     invite = await _invite_candidate(async_client, sim_id, recruiter_email)
 
     await _claim(async_client, invite["token"], "jane@example.com")
@@ -279,7 +295,7 @@ async def test_current_task_completed_after_all_tasks(
     recruiter_email = "recruiter1@tenon.com"
     await _seed_recruiter(async_session, recruiter_email)
 
-    sim_id = await _create_simulation(async_client, recruiter_email)
+    sim_id = await _create_simulation(async_client, async_session, recruiter_email)
     invite = await _invite_candidate(async_client, sim_id, recruiter_email)
 
     await _claim(async_client, invite["token"], "jane@example.com")
@@ -344,7 +360,7 @@ async def test_current_task_expired_invite_410(async_client, async_session):
     recruiter_email = "recruiter1@tenon.com"
     await _seed_recruiter(async_session, recruiter_email)
 
-    sim_id = await _create_simulation(async_client, recruiter_email)
+    sim_id = await _create_simulation(async_client, async_session, recruiter_email)
     invite = await _invite_candidate(async_client, sim_id, recruiter_email)
 
     await _claim(async_client, invite["token"], "jane@example.com")
@@ -375,7 +391,7 @@ async def test_resolve_transitions_to_in_progress(async_client, async_session):
     recruiter_email = "recruiter1@tenon.com"
     await _seed_recruiter(async_session, recruiter_email)
 
-    sim_id = await _create_simulation(async_client, recruiter_email)
+    sim_id = await _create_simulation(async_client, async_session, recruiter_email)
     invite = await _invite_candidate(async_client, sim_id, recruiter_email)
 
     token = invite["token"]
@@ -408,7 +424,7 @@ async def test_resolve_expired_token_returns_410(async_client, async_session):
     recruiter_email = "recruiter1@tenon.com"
     await _seed_recruiter(async_session, recruiter_email)
 
-    sim_id = await _create_simulation(async_client, recruiter_email)
+    sim_id = await _create_simulation(async_client, async_session, recruiter_email)
     invite = await _invite_candidate(async_client, sim_id, recruiter_email)
 
     token = invite["token"]
@@ -435,7 +451,7 @@ async def test_resolve_expired_token_returns_410(async_client, async_session):
 async def test_resolve_invalid_token_returns_404(async_client, async_session):
     recruiter_email = "invalidtoken@test.com"
     await _seed_recruiter(async_session, recruiter_email)
-    sim_id = await _create_simulation(async_client, recruiter_email)
+    sim_id = await _create_simulation(async_client, async_session, recruiter_email)
     invite = await _invite_candidate(async_client, sim_id, recruiter_email)
     await _claim(async_client, invite["token"], "jane@example.com")
     access_token = "candidate:jane@example.com"
@@ -452,7 +468,7 @@ async def test_resolve_invalid_token_returns_404(async_client, async_session):
 async def test_bootstrap_wrong_email_forbidden(async_client, async_session):
     recruiter_email = "wrongemail@test.com"
     await _seed_recruiter(async_session, recruiter_email)
-    sim_id = await _create_simulation(async_client, recruiter_email)
+    sim_id = await _create_simulation(async_client, async_session, recruiter_email)
     invite = await _invite_candidate(async_client, sim_id, recruiter_email)
     other_invite = await _invite_candidate(
         async_client,

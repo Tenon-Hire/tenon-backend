@@ -35,11 +35,12 @@ def _invalid_simulation() -> SimpleNamespace:
 async def test_create_route_rejects_invalid_status(monkeypatch):
     sim = _invalid_simulation()
     task = SimpleNamespace(id=9, day_index=1, type="code", title="Task")
+    scenario_job = SimpleNamespace(id="job-123")
 
     monkeypatch.setattr(sim_create_route, "ensure_recruiter_or_none", lambda _u: None)
 
     async def _fake_create(*_args, **_kwargs):
-        return sim, [task]
+        return sim, [task], scenario_job
 
     monkeypatch.setattr(
         sim_create_route.sim_service, "create_simulation_with_tasks", _fake_create

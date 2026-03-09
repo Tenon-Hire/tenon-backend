@@ -5,7 +5,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domains import Simulation, Task
+from app.domains import Job, Simulation, Task
 from app.domains.simulations.schemas import (
     normalize_eval_enabled_by_day,
     normalize_role_level,
@@ -13,16 +13,12 @@ from app.domains.simulations.schemas import (
 from app.repositories.jobs import repository as jobs_repo
 from app.repositories.simulations.simulation import (
     SIMULATION_STATUS_GENERATING,
-    SIMULATION_STATUS_READY_FOR_REVIEW,
 )
 
-from .lifecycle import apply_status_transition
+from .scenario_generation import SCENARIO_GENERATION_JOB_TYPE
 from .scenario_payload_builder import build_scenario_generation_payload
-from .scenario_versions import create_initial_scenario_version
 from .task_seed import seed_default_tasks
 from .template_keys import resolve_template_key
-
-SCENARIO_GENERATION_JOB_TYPE = "scenario_generation"
 
 
 def _scenario_generation_idempotency_key(simulation_id: int) -> str:
@@ -105,7 +101,7 @@ def _extract_day_window_config(
 
 async def create_simulation_with_tasks(
     db: AsyncSession, payload: Any, user: Any
-) -> tuple[Simulation, list[Task]]:
+) -> tuple[Simulation, list[Task], Job]:
     template_key = resolve_template_key(payload)
     started_at = datetime.now(UTC)
     company_context = _extract_company_context(payload)
@@ -146,17 +142,11 @@ async def create_simulation_with_tasks(
     await db.flush()
 
     created_tasks = await seed_default_tasks(db, sim.id, template_key)
-    await create_initial_scenario_version(db, simulation=sim, tasks=created_tasks)
-    # Creation is currently synchronous, so "generating" can be short-lived.
-    apply_status_transition(
-        sim,
-        target_status=SIMULATION_STATUS_READY_FOR_REVIEW,
-        changed_at=datetime.now(UTC),
-    )
-    await db.flush()
 
     payload_json = build_scenario_generation_payload(sim)
-    await jobs_repo.create_or_get_idempotent(
+    # First idempotency layer: exactly one scenario_generation enqueue key per
+    # simulation create flow.
+    scenario_job = await jobs_repo.create_or_get_idempotent(
         db,
         job_type=SCENARIO_GENERATION_JOB_TYPE,
         idempotency_key=_scenario_generation_idempotency_key(sim.id),
@@ -170,6 +160,7 @@ async def create_simulation_with_tasks(
     await db.refresh(sim)
     for task in created_tasks:
         await db.refresh(task)
+    await db.refresh(scenario_job)
 
     created_tasks.sort(key=lambda task: task.day_index)
-    return sim, created_tasks
+    return sim, created_tasks, scenario_job

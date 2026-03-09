@@ -52,6 +52,9 @@ async def test_create_simulation_creates_sim_and_5_tasks(
             "documentation",
         ]
         assert data["templateKey"] == "python-fastapi"
+        assert data["status"] == "generating"
+        assert isinstance(data["scenarioGenerationJobId"], str)
+        assert data["scenarioGenerationJobId"]
 
 
 @pytest.mark.asyncio

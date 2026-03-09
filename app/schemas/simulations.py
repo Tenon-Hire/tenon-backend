@@ -32,6 +32,7 @@ __all__ = [
     "SimulationListItem",
     "SimulationDetailResponse",
     "SimulationDetailTask",
+    "SimulationDetailScenario",
     "SimulationLifecycleRequest",
     "SimulationActivateResponse",
     "SimulationTerminateResponse",
@@ -325,6 +326,18 @@ class ScenarioStateSummary(BaseModel):
     lockedAt: datetime | None = None
 
 
+class SimulationDetailScenario(ScenarioStateSummary):
+    """Expanded scenario payload for simulation detail views."""
+
+    storylineMd: str | None = None
+    taskPromptsJson: list[dict[str, Any]] | dict[str, Any] | list[Any] | None = None
+    rubricJson: dict[str, Any] | list[Any] | None = None
+    modelName: str | None = None
+    modelVersion: str | None = None
+    promptVersion: str | None = None
+    rubricVersion: str | None = None
+
+
 class ScenarioRegenerateResponse(BaseModel):
     """Response for scenario regeneration."""
 
@@ -369,6 +382,7 @@ class SimulationCreateResponse(BaseModel):
     activatedAt: datetime | None = None
     terminatedAt: datetime | None = None
     scenarioVersionSummary: ScenarioVersionSummary | None = None
+    scenarioGenerationJobId: str
     tasks: list[TaskOut]
 
 
@@ -439,7 +453,7 @@ class SimulationDetailResponse(BaseModel):
     focus: str | list[str] | None = None
     companyContext: SimulationCompanyContext | None = None
     ai: SimulationAIConfig | None = None
-    scenario: ScenarioStateSummary | None = None
+    scenario: SimulationDetailScenario | None = None
     status: SimulationStatus
     generatingAt: datetime | None = None
     readyForReviewAt: datetime | None = None

@@ -2,8 +2,10 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.domains import CandidateSession, Simulation
+from app.jobs import worker
 from app.services.scheduling.day_windows import serialize_day_windows
 from tests.factories import create_recruiter
 
@@ -63,6 +65,21 @@ async def test_full_flow_invite_through_first_submission(
     )
     assert sim_res.status_code == 201, sim_res.text
     sim_body = sim_res.json()
+    session_maker = async_sessionmaker(
+        bind=async_session.bind, expire_on_commit=False, autoflush=False
+    )
+    worker.clear_handlers()
+    try:
+        worker.register_builtin_handlers()
+        handled = await worker.run_once(
+            session_maker=session_maker,
+            worker_id="candidate-flow-worker",
+            now=datetime.now(UTC),
+        )
+    finally:
+        worker.clear_handlers()
+    assert handled is True
+
     activate_res = await async_client.post(
         f"/api/simulations/{sim_body['id']}/activate",
         json={"confirm": True},

@@ -229,11 +229,14 @@ async def test_create_simulation_with_tasks_flow(async_session, monkeypatch):
         },
     )()
     user = type("U", (), {"company_id": 1, "id": 2})
-    sim, tasks = await sim_service.create_simulation_with_tasks(
+    sim, tasks, scenario_job = await sim_service.create_simulation_with_tasks(
         async_session, payload, user
     )
     assert sim.id is not None
-    assert sim.active_scenario_version_id is not None
+    assert sim.active_scenario_version_id is None
+    assert sim.status == "generating"
+    assert scenario_job.job_type == "scenario_generation"
+    assert scenario_job.payload_json["simulationId"] == sim.id
     assert len(tasks) == len(sim_service.DEFAULT_5_DAY_BLUEPRINT)
     # ensure tasks are sorted and refreshed
     assert tasks[0].day_index == 1
@@ -263,7 +266,7 @@ async def test_create_simulation_with_tasks_enqueues_scenario_generation_job(
         },
     )()
 
-    sim, _tasks = await sim_service.create_simulation_with_tasks(
+    sim, _tasks, scenario_job = await sim_service.create_simulation_with_tasks(
         async_session, payload, recruiter
     )
 
@@ -287,6 +290,7 @@ async def test_create_simulation_with_tasks_enqueues_scenario_generation_job(
         ).scalar_one()
 
     assert persisted_sim.id == sim.id
+    assert scenario_job.id == job.id
 
     assert job.payload_json["simulationId"] == sim.id
     assert job.payload_json["templateKey"] == "python-fastapi"

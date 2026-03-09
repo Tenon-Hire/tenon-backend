@@ -172,12 +172,13 @@ async def test_simulation_routes_execute_service_calls(monkeypatch):
         created_at=datetime.now(UTC),
     )
     task = SimpleNamespace(id=9, day_index=1, type="code", title="Task")
+    scenario_job = SimpleNamespace(id="job-123")
     monkeypatch.setattr(sim_create_route, "ensure_recruiter_or_none", lambda _u: None)
     monkeypatch.setattr(sim_detail_route, "ensure_recruiter_or_none", lambda _u: None)
     monkeypatch.setattr(sim_list_route, "ensure_recruiter_or_none", lambda _u: None)
 
     async def _create_sim_with_tasks(*_a, **_k):
-        return sim, [task]
+        return sim, [task], scenario_job
 
     async def _require_owned(*_a, **_k):
         return sim, [task]

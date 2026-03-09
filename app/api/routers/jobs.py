@@ -9,7 +9,12 @@ from app.core.auth.principal import Principal, get_principal
 from app.core.db import get_session
 from app.core.errors import ApiError
 from app.repositories.jobs import repository as jobs_repo
-from app.repositories.jobs.models import JOB_STATUS_QUEUED, JOB_STATUS_RUNNING
+from app.repositories.jobs.models import (
+    JOB_STATUS_DEAD_LETTER,
+    JOB_STATUS_QUEUED,
+    JOB_STATUS_RUNNING,
+    JOB_STATUS_SUCCEEDED,
+)
 from app.schemas.jobs import JobStatusResponse
 
 router = APIRouter(prefix="/jobs")
@@ -22,6 +27,17 @@ def _poll_after_ms_for_status(status_value: str) -> int:
     if status_value in {JOB_STATUS_QUEUED, JOB_STATUS_RUNNING}:
         return ACTIVE_POLL_AFTER_MS
     return TERMINAL_POLL_AFTER_MS
+
+
+def _public_job_status(internal_status: str) -> str:
+    # Durable job rows persist terminal states as succeeded/dead_letter. The
+    # public polling contract (including scenario_generation jobs) uses
+    # completed/failed so clients never depend on storage-level labels.
+    if internal_status == JOB_STATUS_SUCCEEDED:
+        return "completed"
+    if internal_status == JOB_STATUS_DEAD_LETTER:
+        return "failed"
+    return internal_status
 
 
 @router.get(
@@ -47,10 +63,11 @@ async def get_job_status(
     result: dict[str, Any] | None = (
         job.result_json if isinstance(job.result_json, dict) else None
     )
+    public_status = _public_job_status(job.status)
     return JobStatusResponse(
         jobId=job.id,
         jobType=job.job_type,
-        status=job.status,
+        status=public_status,
         attempt=job.attempt,
         maxAttempts=job.max_attempts,
         pollAfterMs=_poll_after_ms_for_status(job.status),

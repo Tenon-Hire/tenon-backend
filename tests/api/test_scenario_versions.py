@@ -1,13 +1,19 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.domains import CandidateSession, ScenarioVersion, Simulation
+from app.jobs import worker
 from tests.factories import create_recruiter
 
 
-async def _create_simulation(async_client, headers: dict[str, str]) -> int:
+async def _create_simulation(
+    async_client, async_session, headers: dict[str, str]
+) -> int:
     response = await async_client.post(
         "/api/simulations",
         headers=headers,
@@ -20,7 +26,22 @@ async def _create_simulation(async_client, headers: dict[str, str]) -> int:
         },
     )
     assert response.status_code == 201, response.text
-    return int(response.json()["id"])
+    simulation_id = int(response.json()["id"])
+    session_maker = async_sessionmaker(
+        bind=async_session.bind, expire_on_commit=False, autoflush=False
+    )
+    worker.clear_handlers()
+    try:
+        worker.register_builtin_handlers()
+        handled = await worker.run_once(
+            session_maker=session_maker,
+            worker_id="scenario-versions-worker",
+            now=datetime.now(UTC),
+        )
+    finally:
+        worker.clear_handlers()
+    assert handled is True
+    return simulation_id
 
 
 @pytest.mark.asyncio
@@ -28,7 +49,9 @@ async def test_first_invite_locks_active_scenario_and_pins_candidate_session(
     async_client, async_session, auth_header_factory
 ):
     recruiter = await create_recruiter(async_session, email="scenario-lock@test.com")
-    sim_id = await _create_simulation(async_client, auth_header_factory(recruiter))
+    sim_id = await _create_simulation(
+        async_client, async_session, auth_header_factory(recruiter)
+    )
 
     activate = await async_client.post(
         f"/api/simulations/{sim_id}/activate",
@@ -78,7 +101,9 @@ async def test_regenerate_creates_next_version_and_switches_active(
     async_client, async_session, auth_header_factory
 ):
     recruiter = await create_recruiter(async_session, email="scenario-regen@test.com")
-    sim_id = await _create_simulation(async_client, auth_header_factory(recruiter))
+    sim_id = await _create_simulation(
+        async_client, async_session, auth_header_factory(recruiter)
+    )
 
     activate = await async_client.post(
         f"/api/simulations/{sim_id}/activate",
@@ -176,7 +201,9 @@ async def test_mutating_locked_scenario_returns_scenario_locked(
     async_client, async_session, auth_header_factory
 ):
     recruiter = await create_recruiter(async_session, email="scenario-mutate@test.com")
-    sim_id = await _create_simulation(async_client, auth_header_factory(recruiter))
+    sim_id = await _create_simulation(
+        async_client, async_session, auth_header_factory(recruiter)
+    )
 
     activate = await async_client.post(
         f"/api/simulations/{sim_id}/activate",

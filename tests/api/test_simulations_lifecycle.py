@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.domains import Job
+from app.jobs import worker
+from app.repositories.jobs.models import JOB_STATUS_SUCCEEDED
 from tests.factories import (
     create_candidate_session,
     create_recruiter,
@@ -11,7 +16,17 @@ from tests.factories import (
 )
 
 
-async def _create_simulation_via_api(async_client, headers: dict[str, str]) -> dict:
+def _session_maker(async_session: AsyncSession) -> async_sessionmaker[AsyncSession]:
+    return async_sessionmaker(
+        bind=async_session.bind, expire_on_commit=False, autoflush=False
+    )
+
+
+async def _create_simulation_via_api(
+    async_client,
+    async_session: AsyncSession,
+    headers: dict[str, str],
+) -> dict:
     res = await async_client.post(
         "/api/simulations",
         headers=headers,
@@ -24,7 +39,25 @@ async def _create_simulation_via_api(async_client, headers: dict[str, str]) -> d
         },
     )
     assert res.status_code == 201, res.text
-    return res.json()
+    created = res.json()
+    assert created["status"] == "generating"
+    assert created["scenarioGenerationJobId"]
+
+    worker.clear_handlers()
+    try:
+        worker.register_builtin_handlers()
+        handled = await worker.run_once(
+            session_maker=_session_maker(async_session),
+            worker_id="sim-lifecycle-worker",
+            now=datetime.now(UTC),
+        )
+    finally:
+        worker.clear_handlers()
+    assert handled is True
+    scenario_job = await async_session.get(Job, created["scenarioGenerationJobId"])
+    assert scenario_job is not None
+    assert scenario_job.status == JOB_STATUS_SUCCEEDED
+    return created
 
 
 @pytest.mark.asyncio
@@ -35,7 +68,9 @@ async def test_activate_is_owner_only_and_idempotent(
     outsider = await create_recruiter(
         async_session, email="outsider-lifecycle@test.com"
     )
-    created = await _create_simulation_via_api(async_client, auth_header_factory(owner))
+    created = await _create_simulation_via_api(
+        async_client, async_session, auth_header_factory(owner)
+    )
     sim_id = created["id"]
 
     forbidden = await async_client.post(
@@ -71,7 +106,9 @@ async def test_activate_requires_confirm_true(
     async_client, async_session, auth_header_factory
 ):
     owner = await create_recruiter(async_session, email="confirm-lifecycle@test.com")
-    created = await _create_simulation_via_api(async_client, auth_header_factory(owner))
+    created = await _create_simulation_via_api(
+        async_client, async_session, auth_header_factory(owner)
+    )
     sim_id = created["id"]
 
     res = await async_client.post(
@@ -104,7 +141,9 @@ async def test_terminate_is_owner_only_and_idempotent(
 ):
     owner = await create_recruiter(async_session, email="owner-term@test.com")
     outsider = await create_recruiter(async_session, email="outsider-term@test.com")
-    created = await _create_simulation_via_api(async_client, auth_header_factory(owner))
+    created = await _create_simulation_via_api(
+        async_client, async_session, auth_header_factory(owner)
+    )
     sim_id = created["id"]
 
     forbidden = await async_client.post(
@@ -175,7 +214,7 @@ async def test_invite_requires_active_inviting(
 ):
     recruiter = await create_recruiter(async_session, email="invite-state@test.com")
     created = await _create_simulation_via_api(
-        async_client, auth_header_factory(recruiter)
+        async_client, async_session, auth_header_factory(recruiter)
     )
     sim_id = created["id"]
 
@@ -213,7 +252,7 @@ async def test_invite_create_blocked_after_termination(
 ):
     recruiter = await create_recruiter(async_session, email="invite-stop@test.com")
     created = await _create_simulation_via_api(
-        async_client, auth_header_factory(recruiter)
+        async_client, async_session, auth_header_factory(recruiter)
     )
     sim_id = created["id"]
 
@@ -246,7 +285,7 @@ async def test_invite_resend_blocked_after_termination(
 ):
     recruiter = await create_recruiter(async_session, email="resend-stop@test.com")
     created = await _create_simulation_via_api(
-        async_client, auth_header_factory(recruiter)
+        async_client, async_session, auth_header_factory(recruiter)
     )
     sim_id = created["id"]
 
@@ -286,7 +325,7 @@ async def test_terminated_hidden_by_default_in_simulation_and_candidate_lists(
 ):
     recruiter = await create_recruiter(async_session, email="filter@test.com")
     created = await _create_simulation_via_api(
-        async_client, auth_header_factory(recruiter)
+        async_client, async_session, auth_header_factory(recruiter)
     )
     sim_id = created["id"]
 
@@ -381,7 +420,7 @@ async def test_candidate_token_resolve_and_claim_hidden_after_termination(
 ):
     recruiter = await create_recruiter(async_session, email="token-hide@test.com")
     created = await _create_simulation_via_api(
-        async_client, auth_header_factory(recruiter)
+        async_client, async_session, auth_header_factory(recruiter)
     )
     sim_id = created["id"]
 
@@ -428,7 +467,7 @@ async def test_detail_includes_status_and_lifecycle_timestamps(
 ):
     recruiter = await create_recruiter(async_session, email="detail-lifecycle@test.com")
     created = await _create_simulation_via_api(
-        async_client, auth_header_factory(recruiter)
+        async_client, async_session, auth_header_factory(recruiter)
     )
     sim_id = created["id"]
 
