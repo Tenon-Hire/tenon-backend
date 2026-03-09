@@ -11,6 +11,7 @@ from app.api.routers.candidate_sessions_routes.responses import (
 from app.api.routers.candidate_sessions_routes.time_utils import utcnow
 from app.core.auth import rate_limit
 from app.core.errors import ApiError
+from app.domains.candidate_sessions import repository as cs_repo
 from app.domains.candidate_sessions import service as cs_service
 
 
@@ -73,6 +74,13 @@ async def build_current_task_view(candidate_session_id, request, principal, db):
             cs.completed_at = now
         await db.commit()
         await db.refresh(cs)
+    day_audit = None
+    if not is_complete and current_task is not None:
+        day_audit = await cs_repo.get_day_audit(
+            db,
+            candidate_session_id=cs.id,
+            day_index=current_task.day_index,
+        )
     return build_current_task_response(
         cs,
         current_task,
@@ -80,6 +88,7 @@ async def build_current_task_view(candidate_session_id, request, principal, db):
         completed,
         total,
         is_complete,
+        day_audit=day_audit,
         now_utc=now,
     )
 

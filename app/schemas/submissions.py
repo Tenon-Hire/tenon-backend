@@ -71,6 +71,8 @@ class CodespaceStatusResponse(APIModel):
     lastWorkflowConclusion: str | None = None
     lastTestSummary: dict[str, Any] | None = None
     workspaceId: str
+    cutoffCommitSha: str | None = None
+    cutoffAt: datetime | None = None
 
 
 class SubmissionCreateResponse(APIModel):

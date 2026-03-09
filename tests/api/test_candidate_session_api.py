@@ -7,6 +7,7 @@ from app.api.routers import candidate_sessions as candidate_routes
 from app.core.auth.principal import Principal, get_principal
 from app.core.settings import settings
 from app.domains import Task
+from app.domains.candidate_sessions import repository as cs_repo
 from tests.factories import (
     create_candidate_session,
     create_recruiter,
@@ -105,6 +106,79 @@ async def test_current_task_marks_complete_when_all_tasks_done(
     await async_session.refresh(cs)
     assert cs.status == "completed"
     assert cs.completed_at is not None
+
+
+@pytest.mark.asyncio
+async def test_current_task_includes_cutoff_fields_when_day_audit_exists(
+    async_client, async_session
+):
+    recruiter = await create_recruiter(async_session, email="current-cutoff@test.com")
+    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    cs = await create_candidate_session(
+        async_session,
+        simulation=sim,
+        status="in_progress",
+        with_default_schedule=True,
+    )
+    day2_task = next(task for task in tasks if task.day_index == 2)
+    await create_submission(
+        async_session, candidate_session=cs, task=tasks[0], content_text="day1"
+    )
+    cutoff_at = datetime(2026, 3, 8, 17, 45, tzinfo=UTC)
+    await cs_repo.create_day_audit_once(
+        async_session,
+        candidate_session_id=cs.id,
+        day_index=day2_task.day_index,
+        cutoff_at=cutoff_at,
+        cutoff_commit_sha="abc123def456",
+        eval_basis_ref="refs/heads/main@cutoff",
+        commit=True,
+    )
+
+    res = await async_client.get(
+        f"/api/candidate/session/{cs.id}/current_task",
+        headers={
+            "Authorization": f"Bearer candidate:{cs.invite_email}",
+            "x-candidate-session-id": str(cs.id),
+        },
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["currentTask"]["dayIndex"] == 2
+    assert body["currentTask"]["cutoffCommitSha"] == "abc123def456"
+    assert body["currentTask"]["cutoffAt"] == "2026-03-08T17:45:00Z"
+
+
+@pytest.mark.asyncio
+async def test_current_task_returns_null_cutoff_fields_when_day_audit_missing(
+    async_client, async_session
+):
+    recruiter = await create_recruiter(
+        async_session, email="current-cutoff-missing@test.com"
+    )
+    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    cs = await create_candidate_session(
+        async_session,
+        simulation=sim,
+        status="in_progress",
+        with_default_schedule=True,
+    )
+    await create_submission(
+        async_session, candidate_session=cs, task=tasks[0], content_text="day1"
+    )
+
+    res = await async_client.get(
+        f"/api/candidate/session/{cs.id}/current_task",
+        headers={
+            "Authorization": f"Bearer candidate:{cs.invite_email}",
+            "x-candidate-session-id": str(cs.id),
+        },
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["currentTask"]["dayIndex"] == 2
+    assert body["currentTask"]["cutoffCommitSha"] is None
+    assert body["currentTask"]["cutoffAt"] is None
 
 
 @pytest.mark.asyncio
