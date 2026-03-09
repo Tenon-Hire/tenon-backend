@@ -111,6 +111,7 @@ def upgrade() -> None:
     simulations = sa.table(
         "simulations",
         sa.column("id", sa.Integer()),
+        sa.column("active_scenario_version_id", sa.Integer()),
         sa.column("status", sa.String()),
         sa.column("title", sa.String()),
         sa.column("role", sa.String()),
