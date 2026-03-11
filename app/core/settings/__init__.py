@@ -10,6 +10,7 @@ from .email import EmailSettings
 from .github import GithubSettings
 from .parsers import parse_env_list
 from .settings import Settings
+from .storage_media import StorageMediaSettings
 
 _normalize_sync_url = normalize_sync_url
 _to_async_url = to_async_url
@@ -28,6 +29,7 @@ __all__ = [
     "claim_uri",
     "parse_env_list",
     "settings",
+    "StorageMediaSettings",
     "normalize_sync_url",
     "to_async_url",
     "_normalize_sync_url",

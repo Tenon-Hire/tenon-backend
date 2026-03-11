@@ -1,167 +1,181 @@
 # Title
-Issue #209: Added PrecommitBundle persistence and applies scenario bundle during workspace provisioning
+Issue #210: Added object storage integration, signed media URLs, and recording/transcript persistence
 
 ## TL;DR
-- Added `PrecommitBundle` persistence keyed by `(scenario_version_id, template_key)`.
-- Workspace provisioning now looks up and applies a ready scenario bundle during repo creation.
-- Workspace responses now surface both `baseTemplateSha` and `precommitSha`.
-- No-bundle path is a successful no-op with internal diagnostics persisted.
-- Retries are idempotent and do not create duplicate specialization commits.
-- Lint and test suites passed, including targeted precommit/workspace coverage.
-
-## Why / Problem
-Candidates in the same simulation need the same scenario-specialized repository baseline for fair evaluation. This change makes specialization deterministic by applying a canonical scenario bundle during workspace provisioning instead of starting from raw templates only.
+- Added pluggable media object storage integration under `app/integrations/storage_media` with `fake` and S3-compatible providers.
+- Added candidate handoff upload init/complete flow backed by `recording_assets`, plus transcript placeholder creation on complete.
+- Added `recording_assets` and `transcripts` models/repositories with migration-managed schema and status constraints.
+- Added recruiter submission detail media payload (`recording`, `transcript`) with short-lived signed download URL generation.
+- Enforced media security constraints: session/company auth boundaries, safe object key validation, TTL clamping, content type/size allowlists, and upload metadata verification before status transition.
 
 ## What changed
-- Added `app/repositories/precommit_bundles/*` for bundle persistence and lookup by scenario version + template key.
-- Updated workspace provisioning (`workspace_creation.py`, `workspace_existing.py`, `workspace_precommit_bundle.py`) to lookup/apply bundles and persist specialization outcomes.
-- Extended existing Codespace init/status payloads to include baseline SHA fields.
-- Added internal no-bundle diagnostics persistence on workspace rows for observability/debugging.
+- **Storage abstraction**
+  - Introduced `StorageMediaProvider` contract in `app/integrations/storage_media/base.py`:
+    - `create_signed_upload_url(key, content_type, size_bytes, expires_seconds)`
+    - `create_signed_download_url(key, expires_seconds)`
+    - `get_object_metadata(key)` (used to verify completed uploads)
+  - Added safe-key validation (`ensure_safe_storage_key`) and TTL clamping helper.
+  - Added provider factory (`app/integrations/storage_media/factory.py`) with pluggable provider selection.
 
-## Data model and migrations
-- Migration: `202603100001_add_precommit_bundles_and_workspace_precommit_sha.py`
-- Migration: `202603100002_add_workspace_precommit_details_json.py`
+- **Signed upload/download URL support**
+  - Added deterministic `FakeStorageMediaProvider` for local/test flows.
+  - Added `S3StorageMediaProvider` implementing SigV4 query-signed URLs for upload/download and metadata HEAD checks.
+  - Added TTL resolution/clamping via media settings (`MEDIA_SIGNED_URL_*`).
 
-`PrecommitBundle` fields:
-- `scenario_version_id`
-- `template_key`
-- `status` (`draft|ready|disabled`)
-- storage pointer (`patch_text` and/or `storage_ref`)
-- `content_sha256`
-- `base_template_sha`
-- `applied_commit_sha`
-- timestamps (`created_at`, `updated_at`)
+- **Recording/transcript models + migration**
+  - Added `RecordingAsset` model + repository under `app/repositories/recordings/*`.
+  - Added `Transcript` model + repository under `app/repositories/transcripts/*`.
+  - Added migration `alembic/versions/202603100003_add_recording_assets_and_transcripts.py`.
 
-Schema constraints/columns:
-- Unique constraint on `(scenario_version_id, template_key)`.
-- `Workspace.precommit_sha` added.
-- `Workspace.precommit_details_json` added.
+- **Candidate upload init/complete endpoints**
+  - Added:
+    - `POST /api/tasks/{task_id}/handoff/upload/init`
+    - `POST /api/tasks/{task_id}/handoff/upload/complete`
+  - Added service orchestration in `app/services/media/handoff_upload.py`.
+  - Added key generation/parsing in `app/services/media/keys.py` and upload validation in `app/services/media/validation.py`.
 
-SHA semantics:
-- `PrecommitBundle.applied_commit_sha` is a canonical/provenance field for the bundle artifact.
-- `Workspace.precommit_sha` is the per-workspace specialization commit SHA actually applied to the candidate repository.
+- **Recruiter submission detail media additions**
+  - Extended recruiter submission detail route (`GET /api/submissions/{submission_id}`) to include:
+    - latest recording metadata for the submission task/session
+    - transcript metadata
+    - signed download URL when recording status is downloadable
+  - Extended schema outputs in `app/schemas/submissions.py` (`RecruiterRecordingAssetOut`, `RecruiterTranscriptOut`).
 
-## Provisioning flow changes
-1. Create workspace repository from template.
-2. Resolve scenario version from the candidate session (simulation-selected/locked version for that session).
-3. Lookup ready bundle by `(scenario_version_id, template_key)`.
-4. If found, apply file changes via Git Data operations (`create_blob`/`create_tree`/`create_commit`/`update_ref`) to produce exactly one specialization commit, then persist `workspace.precommit_sha`.
-5. If missing, continue provisioning successfully and persist internal no-bundle diagnostics.
+- **Upload-complete metadata verification**
+  - `complete` flow now validates uploaded object exists and matches expected `content_type` and `size_bytes` before transitioning recording status from `uploading/failed` to `uploaded`.
+  - Transcript placeholder row is created idempotently (`pending`) during completion.
 
-Persisted no-bundle details shape:
+- **Logging/security behavior**
+  - Added structured logs for recording creation, upload completion, transcript placeholder creation, and download URL generation.
+  - Logs intentionally exclude signed URLs and transcript text payloads.
 
-```json
-{"reason":"bundle_not_found","scenarioVersionId":<id>,"state":"no_bundle","templateKey":"<template_key>"}
-```
+## API contract
+- **Candidate auth endpoints**
+  - `POST /api/tasks/{task_id}/handoff/upload/init`
+    - Request:
+      - `contentType: string`
+      - `sizeBytes: int (>0)`
+      - `filename?: string`
+    - Response:
+      - `recordingId: string` (e.g., `rec_123`)
+      - `uploadUrl: string`
+      - `expiresInSeconds: int`
+  - `POST /api/tasks/{task_id}/handoff/upload/complete`
+    - Request:
+      - `recordingId: string` (`rec_<id>` or positive integer string)
+    - Response:
+      - `recordingId: string`
+      - `status: string`
 
-## API contract changes
-- No new public endpoints.
-- Additive response fields only on existing Codespace init/status payloads: `baseTemplateSha`, `precommitSha`.
-- `precommit_details_json` is internal diagnostics only and is not part of the public API response.
+- **Recruiter auth endpoint (existing, additive media fields)**
+  - `GET /api/submissions/{submission_id}`
+    - Adds `recording` and `transcript` payloads when present.
+    - `recording.downloadUrl` is generated on request only for downloadable recording statuses.
 
-## Idempotency and retry behavior
-- Persisted guard: if `workspace.precommit_sha` is already set, precommit apply is skipped.
-- Deterministic marker: specialization commit message includes a stable bundle marker (`bundle_id` + `checksum`).
-- Repo-state recovery/hydration: if marker commit already exists (including after ref-update conflict), existing SHA is recovered and reused.
+- **Error behavior**
+  - `403`:
+    - candidate/recruiter auth boundary violations
+    - candidate attempting to complete another candidate’s recording
+    - recruiter attempting cross-company submission access
+  - `404`:
+    - nonexistent submission/recording
+  - `422`:
+    - invalid `contentType`, invalid file extension, invalid `sizeBytes`, invalid `recordingId`
+    - non-handoff task upload attempt
+    - uploaded object missing or metadata mismatch (size/type)
+  - `503`:
+    - storage provider unavailable for signed URL generation or metadata inspection
 
-Retries therefore do not double-apply the bundle commit.
+## Schema / migration
+- Migration added:
+  - `202603100003_add_recording_assets_and_transcripts.py`
 
-## Observability and security
-- Structured logs added for bundle lookup/apply outcomes and resulting SHAs (with session/repo context).
-- Patch contents are not logged.
-- Payload/path safety is enforced (size validation and safe repo path checks).
-- Bundle-missing is treated as a no-op (`state=no_bundle`), not an error path.
+- New table: `recording_assets`
+  - Columns: `id`, `candidate_session_id`, `task_id`, `storage_key`, `content_type`, `bytes`, `status`, `created_at`
+  - Constraints:
+    - `uq_recording_assets_storage_key`
+    - `ck_recording_assets_status` (`uploading|uploaded|processing|ready|failed`)
+    - FKs to `candidate_sessions.id`, `tasks.id`
+  - Indexes:
+    - `ix_recording_assets_candidate_session_task_created_at`
+    - `ix_recording_assets_candidate_session_id`
+    - `ix_recording_assets_task_id`
 
-## Testing
-Commands that passed:
+- New table: `transcripts`
+  - Columns: `id`, `recording_id`, `text`, `segments_json`, `model_name`, `status`, `created_at`
+  - Constraints:
+    - `uq_transcripts_recording_id`
+    - `ck_transcripts_status` (`pending|processing|ready|failed`)
+    - FK to `recording_assets.id`
+  - Indexes:
+    - `ix_transcripts_recording_id`
+    - `ix_transcripts_status_created_at`
 
-```bash
-poetry run ruff check app tests
-poetry run ruff format --check app tests
-poetry run pytest --no-cov tests/unit/test_precommit_bundles_repository.py tests/unit/test_workspace_precommit_bundle.py tests/unit/test_workspace_creation.py tests/unit/test_workspace_existing.py tests/api/test_task_run.py
-poetry run pytest --no-cov
-poetry run pytest
-```
+- Migration verification note:
+  - Full `alembic upgrade head` on SQLite failed at unrelated historical migration `202506010001` (SQLite constraint ALTER limitation).
+  - Issue #210 migration was verified directly with targeted `alembic stamp 202603100002` + `alembic upgrade 202603100003` on an isolated DB.
+  - `recording_assets` and `transcripts` tables/columns/constraints/indexes were verified from isolated QA DB artifacts.
 
-Final results:
-- `1204 passed`
-- `99.01% coverage`
+## Security / invariants
+- Candidate endpoints require candidate auth and enforce task/session ownership.
+- Recruiter submission detail enforces recruiter role + company boundary checks.
+- Object keys are namespaced and traversal-safe via key builder + `ensure_safe_storage_key`.
+- Signed URL TTL is bounded by settings (`MEDIA_SIGNED_URL_MIN_SECONDS` / `MEDIA_SIGNED_URL_MAX_SECONDS`).
+- Signed URLs and transcript text are not logged.
+- Upload completion never marks `uploaded` unless object metadata (existence, content type, size) matches expected recording metadata.
 
-Key test areas covered:
-- Repository uniqueness and ready-bundle lookup behavior.
-- Bundle apply and no-bundle provisioning paths.
-- Exact Codespace init/status response assertions for `baseTemplateSha` and `precommitSha`.
-- Idempotency, retry hydration, and ref-conflict recovery behavior.
+## Final verification results
+- `poetry run ruff check .`: PASS
+- `poetry run ruff format --check .`: PASS (`839 files already formatted`)
+- `poetry run pytest -q`: PASS (`1262 passed in 66.96s (0:01:06)`)
+- Coverage: `Required test coverage of 99% reached. Total coverage: 99.02%`
 
-## Manual QA / Runtime Verification
-Overall QA verdict:
-- Manual/runtime QA for Issue #209 passed.
-- Strict evidence-backed verification was completed; Issue #209 is PR-ready.
+- Key targeted areas added/expanded:
+  - Storage key safety, provider factory resolution, and S3 signing/error-path behavior.
+  - Candidate upload init/complete route shapes and service authorization/validation/error handling.
+  - Recording/transcript repository create/get/update/get-or-create behavior.
+  - Recruiter submission detail media payload + signed download URL path and storage-failure handling.
 
-Runtime method used:
-- Localhost server startup was attempted first (`poetry run uvicorn app.api.main:app --host 127.0.0.1 --port 8014`).
-- Sandbox bind restriction prevented localhost verification (`operation not permitted`).
-- QA proceeded using an ASGI in-process harness.
-- The harness exercised the real FastAPI app/routes/services/repositories with an isolated QA DB.
-- Only external GitHub operations were stubbed.
+## Manual QA
+- Verdict: **PASS**
+- Runtime method:
+  - Localhost attempt failed due sandbox bind restriction.
+  - ASGI in-process fallback was used against the real FastAPI app.
+- Isolated QA environment:
+  - `TENON_ENV=test`
+  - Isolated runtime DB for scenario execution.
+  - Isolated migration DB artifacts for schema verification.
+  - Deterministic `FakeStorageMediaProvider`.
 
-Scenarios verified:
-- A. Migration/schema baseline — PASS
-- B. Bundle exists apply path — PASS
-- C. No-bundle success path — PASS
-- D. Idempotent retry — PASS
-- E. Marker hydration / recovery — PASS
-- F. Init/status response contract — PASS
-- G. Uniqueness invariant — PASS
-- H. Observability/safety spot-check — PASS
+- Scenario checklist (all PASS):
+  - A: candidate upload init success.
+  - B: invalid metadata rejected with `422`.
+  - C: candidate ownership enforcement with `403`.
+  - D: complete upload success with object metadata verification.
+  - E: complete upload idempotency.
+  - F: missing object rejected with `422`.
+  - G: size/content-type mismatch rejected with `422`.
+  - H: authorized recruiter gets recording/transcript metadata plus signed download URL.
+  - I: wrong-company recruiter denied with `403`.
+  - J: storage/download failure path returns `503`.
+  - K: signed URL TTL bounded and observed as expected.
+  - L: logging hygiene verified (no full signed URLs, no transcript plaintext in logs).
 
-Key runtime findings:
-- `precommit_bundles` schema exists with required fields and unique `(scenario_version_id, template_key)` constraint.
-- `workspaces.precommit_sha` exists.
-- `workspaces.precommit_details_json` exists.
-- Bundle path produced exactly one specialization commit and persisted `precommitSha`.
-- No-bundle path succeeded and persisted internal diagnostics.
-- Retry did not create a duplicate specialization commit.
-- Marker hydration restored missing `workspace.precommit_sha` without creating a new commit.
-- Init/status payloads include `repoFullName`, `baseTemplateSha`, and `precommitSha`.
-- Duplicate bundle insert was rejected at DB layer.
-- GitHub 503 mapped to existing `GITHUB_UNAVAILABLE` behavior.
-
-Persisted no-bundle diagnostic example (from QA run):
-
-```json
-{
-  "reason": "bundle_not_found",
-  "scenarioVersionId": 2,
-  "state": "no_bundle",
-  "templateKey": "python-fastapi"
-}
-```
-
-The specific `scenarioVersionId` and `templateKey` values above are from the QA run example.
-
-QA evidence bundle:
-- `.qa/issue209/manual_qa_20260310T133934Z`
-- `.qa/issue209/manual_qa_20260310T133934Z.zip`
-- Includes: `QA_REPORT.md`, `qa_result.json`, schema inspection output, request/response artifacts, DB snapshots, structured log excerpts.
-
-Environment limitation note:
-- `alembic upgrade head` on SQLite hit a historical migration limitation outside Issue #209 (documented during QA).
-- This was not treated as a regression in #209.
-- Schema/runtime verification still proceeded successfully through the isolated QA harness.
-
-Based on implementation review plus strict manual/runtime QA evidence, Issue #209 is ready for PR raise.
+### QA evidence
+- Bundle: `.qa/issue210/manual_qa_20260310T234901Z`
+- Report: `.qa/issue210/manual_qa_20260310T234901Z/QA_REPORT.md`
+- Commands log: `.qa/issue210/manual_qa_20260310T234901Z/commands.log`
+- Zip: `.qa/issue210/manual_qa_20260310T234901Z.zip`
 
 ## Risks / follow-ups
-- Assumes dependency behavior from #203 and #205.
-- `PrecommitBundle.applied_commit_sha` is provenance-oriented until future bundle-generation workflows use it more fully.
-- `precommit_details_json` requires migration rollout before diagnostics appear in all environments.
+- Real object-store behavior may vary by provider around `Content-Type` normalization and HEAD metadata timing/availability.
+- Unrelated SQLite full-head migration limitation exists outside Issue #210 scope.
+- This limitation does not invalidate the Issue #210 feature manual QA result.
+- Follow-up #211 (transcription job pipeline/orchestration) is intentionally out of scope for this PR.
 
 ## Rollout / demo checklist
-- Run both migrations.
-- Create/seed a ready bundle for a target scenario version.
-- Invite a candidate.
-- Verify candidate repo contains the specialization commit.
-- Verify API returns `baseTemplateSha` and `precommitSha`.
-- Retry provisioning and confirm no duplicate specialization commit.
-- Verify a no-bundle scenario still succeeds with `precommitSha = null`.
+- Candidate calls upload init endpoint and receives `recordingId` + signed `uploadUrl`.
+- Client performs direct object storage upload.
+- Candidate calls upload complete and recording status transitions to `uploaded`.
+- Recruiter fetches submission detail and receives media metadata plus signed `downloadUrl` when authorized.
+- Unauthorized candidate/recruiter paths return expected `403`/`404`/`422` behavior.

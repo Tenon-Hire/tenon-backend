@@ -1,6 +1,7 @@
+import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth.current_user import get_current_user
@@ -11,8 +12,16 @@ from app.domains.candidate_sessions import repository as cs_repo
 from app.domains.submissions import service_recruiter as recruiter_sub_service
 from app.domains.submissions.presenter import present_detail
 from app.domains.submissions.schemas import RecruiterSubmissionDetailOut
+from app.integrations.storage_media import (
+    get_storage_media_provider,
+    resolve_signed_url_ttl,
+)
+from app.integrations.storage_media.base import StorageMediaError
+from app.repositories.recordings import repository as recordings_repo
+from app.repositories.transcripts import repository as transcripts_repo
 
 router = APIRouter(prefix="/submissions", tags=["submissions"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/{submission_id}", response_model=RecruiterSubmissionDetailOut)
@@ -24,7 +33,10 @@ async def get_submission_detail_route(
     """Return recruiter-facing detail for a submission."""
     ensure_recruiter(user)
     sub, task, cs, sim = await recruiter_sub_service.fetch_detail(
-        db, submission_id, user.id
+        db,
+        submission_id,
+        user.id,
+        recruiter_company_id=getattr(user, "company_id", None),
     )
     day_audit = None
     candidate_session_id = getattr(sub, "candidate_session_id", None)
@@ -35,5 +47,54 @@ async def get_submission_detail_route(
             candidate_session_id=candidate_session_id,
             day_index=day_index,
         )
-    payload = present_detail(sub, task, cs, sim, day_audit=day_audit)
+
+    recording = None
+    transcript = None
+    resolved_candidate_session_id = getattr(cs, "id", None) or getattr(
+        sub, "candidate_session_id", None
+    )
+    resolved_task_id = getattr(task, "id", None) or getattr(sub, "task_id", None)
+    if isinstance(resolved_candidate_session_id, int) and isinstance(
+        resolved_task_id, int
+    ):
+        recording = await recordings_repo.get_latest_for_task_session(
+            db,
+            candidate_session_id=resolved_candidate_session_id,
+            task_id=resolved_task_id,
+        )
+        if recording is not None:
+            transcript = await transcripts_repo.get_by_recording_id(db, recording.id)
+
+    recording_download_url = None
+    if recordings_repo.is_downloadable(recording):
+        expires_seconds = resolve_signed_url_ttl()
+        try:
+            storage_provider = get_storage_media_provider()
+            recording_download_url = storage_provider.create_signed_download_url(
+                recording.storage_key,
+                expires_seconds=expires_seconds,
+            )
+        except (StorageMediaError, ValueError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Media storage unavailable",
+            ) from exc
+        logger.info(
+            "Recording download URL generated recordingId=%s submissionId=%s recruiterId=%s expiresInSeconds=%s",
+            recording.id,
+            sub.id,
+            user.id,
+            expires_seconds,
+        )
+
+    payload = present_detail(
+        sub,
+        task,
+        cs,
+        sim,
+        day_audit=day_audit,
+        recording=recording,
+        transcript=transcript,
+        recording_download_url=recording_download_url,
+    )
     return RecruiterSubmissionDetailOut(**payload)

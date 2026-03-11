@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from app.domains.submissions import service_recruiter as svc
@@ -36,7 +38,7 @@ async def test_fetch_detail_not_found_raises(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_fetch_detail_returns_row(monkeypatch):
-    expected = ("sub", "task", "cs", "sim")
+    expected = ("sub", "task", "cs", SimpleNamespace(company_id=1, created_by=2))
 
     class DummyResult:
         def __init__(self, val):
@@ -50,6 +52,55 @@ async def test_fetch_detail_returns_row(monkeypatch):
             return DummyResult(expected)
 
     row = await svc.fetch_detail(DummySession(), submission_id=1, recruiter_id=2)
+    assert row == expected
+
+
+@pytest.mark.asyncio
+async def test_fetch_detail_rejects_wrong_company():
+    expected = ("sub", "task", "cs", SimpleNamespace(company_id=7, created_by=2))
+
+    class DummyResult:
+        def __init__(self, val):
+            self.val = val
+
+        def first(self):
+            return self.val
+
+    class DummySession:
+        async def execute(self, *_a, **_k):
+            return DummyResult(expected)
+
+    with pytest.raises(Exception) as excinfo:
+        await svc.fetch_detail(
+            DummySession(),
+            submission_id=1,
+            recruiter_id=2,
+            recruiter_company_id=3,
+        )
+    assert excinfo.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_fetch_detail_allows_same_company():
+    expected = ("sub", "task", "cs", SimpleNamespace(company_id=7, created_by=2))
+
+    class DummyResult:
+        def __init__(self, val):
+            self.val = val
+
+        def first(self):
+            return self.val
+
+    class DummySession:
+        async def execute(self, *_a, **_k):
+            return DummyResult(expected)
+
+    row = await svc.fetch_detail(
+        DummySession(),
+        submission_id=1,
+        recruiter_id=99,
+        recruiter_company_id=7,
+    )
     assert row == expected
 
 

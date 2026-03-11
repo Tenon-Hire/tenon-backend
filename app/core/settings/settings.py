@@ -14,6 +14,7 @@ from .email import EmailSettings
 from .github import GithubSettings
 from .merge import merge_nested_settings
 from .parsers import parse_env_list
+from .storage_media import StorageMediaSettings
 
 
 class Settings(BaseSettings):
@@ -65,6 +66,7 @@ class Settings(BaseSettings):
     cors: CorsSettings = Field(default_factory=CorsSettings)
     github: GithubSettings = Field(default_factory=GithubSettings)
     email: EmailSettings = Field(default_factory=EmailSettings)
+    storage_media: StorageMediaSettings = Field(default_factory=StorageMediaSettings)
 
     CANDIDATE_PORTAL_BASE_URL: str = ""
     ADMIN_API_KEY: str = ""

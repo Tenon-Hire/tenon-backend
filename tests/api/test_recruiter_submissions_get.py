@@ -96,10 +96,9 @@ async def test_recruiter_cannot_access_other_recruiters_submission(
         f"/api/submissions/{sub.id}",
         headers={"x-dev-user-email": recruiter1.email},
     )
-    # prefer 404 to avoid leaking existence
-    assert resp.status_code == 404
+    assert resp.status_code == 403
     body = resp.json()
-    assert body["detail"] == "Submission not found"
+    assert body["detail"] == "Submission access forbidden"
     combined = json.dumps(body)
     assert "Other Candidate" not in combined
 
