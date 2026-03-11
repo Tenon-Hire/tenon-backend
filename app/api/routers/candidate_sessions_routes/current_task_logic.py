@@ -67,7 +67,7 @@ async def build_current_task_view(candidate_session_id, request, principal, db):
         completed,
         total,
         is_complete,
-    ) = await cs_service.progress_snapshot(db, cs)
+    ) = await cs_service.progress_snapshot(db, cs, now=now)
     if is_complete and cs.status != "completed":
         cs.status = "completed"
         if cs.completed_at is None:

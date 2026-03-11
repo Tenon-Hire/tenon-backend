@@ -1,4 +1,4 @@
-# Issue #211 Follow-up: Candidate Handoff Status Contract Extension for Day 4
+# Issue #211 Patch 2: Added `_handoff_revisit_task(...)` in progress service to override computed current task
 
 ## Title
 Extend candidate handoff status payload with preview URL and ready transcript content/segments

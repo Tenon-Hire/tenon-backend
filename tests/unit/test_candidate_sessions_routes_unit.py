@@ -70,7 +70,7 @@ async def test_candidate_session_rate_limits(monkeypatch):
     async def fake_fetch(db, cs_id, principal, now):
         return cs_obj
 
-    async def fake_progress(db, cs):
+    async def fake_progress(db, cs, **_kwargs):
         return (
             [],
             set(),

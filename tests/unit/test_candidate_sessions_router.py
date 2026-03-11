@@ -83,7 +83,7 @@ async def test_get_current_task_marks_completed(monkeypatch):
         assert session_id == cs.id
         return cs
 
-    async def _progress_snapshot(db, candidate_session):
+    async def _progress_snapshot(db, candidate_session, **_kwargs):
         return (
             [current_task],
             {1, 2, 3},

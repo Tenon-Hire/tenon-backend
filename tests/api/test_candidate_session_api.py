@@ -8,6 +8,12 @@ from app.core.auth.principal import Principal, get_principal
 from app.core.settings import settings
 from app.domains import Task
 from app.domains.candidate_sessions import repository as cs_repo
+from app.integrations.storage_media import (
+    FakeStorageMediaProvider,
+    get_storage_media_provider,
+)
+from app.repositories.recordings import repository as recordings_repo
+from app.services.scheduling.day_windows import serialize_day_windows
 from tests.factories import (
     create_candidate_session,
     create_recruiter,
@@ -38,6 +44,107 @@ def _principal(
         permissions=["candidate:access"],
         claims=claims,
     )
+
+
+def _task_for_day(tasks: list[Task], *, day_index: int) -> Task:
+    return next(task for task in tasks if task.day_index == day_index)
+
+
+def _set_day4_day5_transition_windows(candidate_session, *, day5_open: bool) -> None:
+    now = datetime.now(UTC).replace(microsecond=0)
+    always_open_start = now - timedelta(days=1)
+    always_open_end = now + timedelta(days=1)
+
+    if day5_open:
+        day4_start = now - timedelta(hours=6)
+        day4_end = now - timedelta(hours=4)
+        day5_start = now - timedelta(hours=1)
+        day5_end = now + timedelta(hours=1)
+    else:
+        day4_start = now - timedelta(hours=1)
+        day4_end = now + timedelta(hours=1)
+        day5_start = now + timedelta(hours=3)
+        day5_end = now + timedelta(hours=5)
+
+    candidate_session.scheduled_start_at = always_open_start
+    candidate_session.candidate_timezone = "UTC"
+    candidate_session.day_windows_json = serialize_day_windows(
+        [
+            {
+                "dayIndex": 1,
+                "windowStartAt": always_open_start,
+                "windowEndAt": always_open_end,
+            },
+            {
+                "dayIndex": 2,
+                "windowStartAt": always_open_start,
+                "windowEndAt": always_open_end,
+            },
+            {
+                "dayIndex": 3,
+                "windowStartAt": always_open_start,
+                "windowEndAt": always_open_end,
+            },
+            {
+                "dayIndex": 4,
+                "windowStartAt": day4_start,
+                "windowEndAt": day4_end,
+            },
+            {
+                "dayIndex": 5,
+                "windowStartAt": day5_start,
+                "windowEndAt": day5_end,
+            },
+        ]
+    )
+
+
+async def _complete_handoff_upload(
+    *,
+    async_client,
+    async_session,
+    candidate_session,
+    task_id: int,
+    filename: str,
+    size_bytes: int,
+) -> str:
+    headers = {
+        "Authorization": f"Bearer candidate:{candidate_session.invite_email}",
+        "x-candidate-session-id": str(candidate_session.id),
+    }
+    init_response = await async_client.post(
+        f"/api/tasks/{task_id}/handoff/upload/init",
+        headers=headers,
+        json={
+            "contentType": "video/mp4",
+            "sizeBytes": size_bytes,
+            "filename": filename,
+        },
+    )
+    assert init_response.status_code == 200, init_response.text
+    recording_id = init_response.json()["recordingId"]
+
+    recording = await recordings_repo.get_latest_for_task_session(
+        async_session,
+        candidate_session_id=candidate_session.id,
+        task_id=task_id,
+    )
+    assert recording is not None
+    storage_provider = get_storage_media_provider()
+    assert isinstance(storage_provider, FakeStorageMediaProvider)
+    storage_provider.set_object_metadata(
+        recording.storage_key,
+        content_type=recording.content_type,
+        size_bytes=recording.bytes,
+    )
+
+    complete_response = await async_client.post(
+        f"/api/tasks/{task_id}/handoff/upload/complete",
+        headers=headers,
+        json={"recordingId": recording_id},
+    )
+    assert complete_response.status_code == 200, complete_response.text
+    return recording_id
 
 
 @pytest.mark.asyncio
@@ -179,6 +286,134 @@ async def test_current_task_returns_null_cutoff_fields_when_day_audit_missing(
     assert body["currentTask"]["dayIndex"] == 2
     assert body["currentTask"]["cutoffCommitSha"] is None
     assert body["currentTask"]["cutoffAt"] is None
+
+
+@pytest.mark.asyncio
+async def test_current_task_keeps_day4_handoff_until_day5_window_opens(
+    async_client, async_session
+):
+    recruiter = await create_recruiter(
+        async_session, email="current-day4-handoff-window@test.com"
+    )
+    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    day1_task = _task_for_day(tasks, day_index=1)
+    day2_task = _task_for_day(tasks, day_index=2)
+    day3_task = _task_for_day(tasks, day_index=3)
+    day4_task = _task_for_day(tasks, day_index=4)
+    day5_task = _task_for_day(tasks, day_index=5)
+
+    cs = await create_candidate_session(
+        async_session,
+        simulation=sim,
+        status="in_progress",
+        with_default_schedule=False,
+    )
+    _set_day4_day5_transition_windows(cs, day5_open=False)
+    await create_submission(async_session, candidate_session=cs, task=day1_task)
+    await create_submission(async_session, candidate_session=cs, task=day2_task)
+    await create_submission(async_session, candidate_session=cs, task=day3_task)
+    await async_session.commit()
+
+    await _complete_handoff_upload(
+        async_client=async_client,
+        async_session=async_session,
+        candidate_session=cs,
+        task_id=day4_task.id,
+        filename="day4-first.mp4",
+        size_bytes=2_048,
+    )
+
+    headers = {
+        "Authorization": f"Bearer candidate:{cs.invite_email}",
+        "x-candidate-session-id": str(cs.id),
+    }
+    first_view = await async_client.get(
+        f"/api/candidate/session/{cs.id}/current_task",
+        headers=headers,
+    )
+    assert first_view.status_code == 200, first_view.text
+    first_body = first_view.json()
+    assert first_body["currentTask"]["id"] == day4_task.id
+    assert first_body["currentTask"]["dayIndex"] == 4
+    assert first_body["currentTask"]["type"] == "handoff"
+
+    revisit_view = await async_client.get(
+        f"/api/candidate/session/{cs.id}/current_task",
+        headers=headers,
+    )
+    assert revisit_view.status_code == 200, revisit_view.text
+    revisit_body = revisit_view.json()
+    assert revisit_body["currentTask"]["id"] == day4_task.id
+    assert revisit_body["currentTask"]["dayIndex"] == 4
+
+    _set_day4_day5_transition_windows(cs, day5_open=True)
+    await async_session.commit()
+
+    after_day5_open = await async_client.get(
+        f"/api/candidate/session/{cs.id}/current_task",
+        headers=headers,
+    )
+    assert after_day5_open.status_code == 200, after_day5_open.text
+    after_day5_open_body = after_day5_open.json()
+    assert after_day5_open_body["currentTask"]["id"] == day5_task.id
+    assert after_day5_open_body["currentTask"]["dayIndex"] == 5
+
+
+@pytest.mark.asyncio
+async def test_handoff_resubmission_allowed_while_day4_is_current_before_day5_open(
+    async_client, async_session
+):
+    recruiter = await create_recruiter(
+        async_session, email="current-day4-resubmit-before-day5@test.com"
+    )
+    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    day1_task = _task_for_day(tasks, day_index=1)
+    day2_task = _task_for_day(tasks, day_index=2)
+    day3_task = _task_for_day(tasks, day_index=3)
+    day4_task = _task_for_day(tasks, day_index=4)
+
+    cs = await create_candidate_session(
+        async_session,
+        simulation=sim,
+        status="in_progress",
+        with_default_schedule=False,
+    )
+    _set_day4_day5_transition_windows(cs, day5_open=False)
+    await create_submission(async_session, candidate_session=cs, task=day1_task)
+    await create_submission(async_session, candidate_session=cs, task=day2_task)
+    await create_submission(async_session, candidate_session=cs, task=day3_task)
+    await async_session.commit()
+
+    first_recording_id = await _complete_handoff_upload(
+        async_client=async_client,
+        async_session=async_session,
+        candidate_session=cs,
+        task_id=day4_task.id,
+        filename="day4-first-resubmit.mp4",
+        size_bytes=2_048,
+    )
+    second_recording_id = await _complete_handoff_upload(
+        async_client=async_client,
+        async_session=async_session,
+        candidate_session=cs,
+        task_id=day4_task.id,
+        filename="day4-second-resubmit.mp4",
+        size_bytes=2_049,
+    )
+    assert second_recording_id != first_recording_id
+
+    headers = {
+        "Authorization": f"Bearer candidate:{cs.invite_email}",
+        "x-candidate-session-id": str(cs.id),
+    }
+    current_view = await async_client.get(
+        f"/api/candidate/session/{cs.id}/current_task",
+        headers=headers,
+    )
+    assert current_view.status_code == 200, current_view.text
+    current_body = current_view.json()
+    assert current_body["currentTask"]["id"] == day4_task.id
+    assert current_body["currentTask"]["dayIndex"] == 4
 
 
 @pytest.mark.asyncio
