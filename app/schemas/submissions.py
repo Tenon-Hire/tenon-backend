@@ -79,6 +79,35 @@ class CodespaceStatusResponse(APIModel):
     cutoffAt: datetime | None = None
 
 
+class HandoffUploadInitRequest(BaseModel):
+    """Request payload for handoff video upload init."""
+
+    contentType: str
+    sizeBytes: int = Field(gt=0)
+    filename: str | None = None
+
+
+class HandoffUploadInitResponse(APIModel):
+    """Response payload for handoff video upload init."""
+
+    recordingId: str
+    uploadUrl: str
+    expiresInSeconds: int
+
+
+class HandoffUploadCompleteRequest(BaseModel):
+    """Request payload for handoff video upload completion."""
+
+    recordingId: str
+
+
+class HandoffUploadCompleteResponse(APIModel):
+    """Response payload for handoff video upload completion."""
+
+    recordingId: str
+    status: str
+
+
 class SubmissionCreateResponse(APIModel):
     """Schema for submission creation response."""
 
@@ -141,6 +170,26 @@ class RecruiterTestResultsOut(APIModel):
     commitUrl: str | None = None
 
 
+class RecruiterRecordingAssetOut(APIModel):
+    """Schema for recruiter-facing recording metadata."""
+
+    recordingId: str
+    contentType: str
+    bytes: int
+    status: str
+    createdAt: datetime
+    downloadUrl: str | None = None
+
+
+class RecruiterTranscriptOut(APIModel):
+    """Schema for recruiter-facing transcript metadata."""
+
+    status: str
+    modelName: str | None = None
+    text: str | None = None
+    segmentsJson: list[dict[str, Any]] | None = None
+
+
 class RecruiterSubmissionDetailOut(APIModel):
     """Schema for recruiter submission details output."""
 
@@ -160,6 +209,8 @@ class RecruiterSubmissionDetailOut(APIModel):
     workflowUrl: str | None = None
     commitUrl: str | None = None
     diffUrl: str | None = None
+    recording: RecruiterRecordingAssetOut | None = None
+    transcript: RecruiterTranscriptOut | None = None
 
 
 class RecruiterSubmissionListItemOut(APIModel):

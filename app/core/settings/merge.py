@@ -48,6 +48,25 @@ _SECTIONS: dict[str, tuple[list[str], str]] = {
         ],
         "",
     ),
+    "storage_media": (
+        [
+            "MEDIA_STORAGE_PROVIDER",
+            "MEDIA_S3_ENDPOINT",
+            "MEDIA_S3_REGION",
+            "MEDIA_S3_BUCKET",
+            "MEDIA_S3_ACCESS_KEY_ID",
+            "MEDIA_S3_SECRET_ACCESS_KEY",
+            "MEDIA_S3_SESSION_TOKEN",
+            "MEDIA_S3_USE_PATH_STYLE",
+            "MEDIA_SIGNED_URL_EXPIRES_SECONDS",
+            "MEDIA_SIGNED_URL_MIN_SECONDS",
+            "MEDIA_SIGNED_URL_MAX_SECONDS",
+            "MEDIA_MAX_UPLOAD_BYTES",
+            "MEDIA_ALLOWED_CONTENT_TYPES",
+            "MEDIA_ALLOWED_EXTENSIONS",
+        ],
+        "TENON_",
+    ),
 }
 
 

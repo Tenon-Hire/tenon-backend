@@ -13,6 +13,7 @@ from app.domains.submissions.presenter.output import (
     parse_diff_summary,
 )
 from app.domains.submissions.presenter.test_results import build_test_results
+from app.services.media.keys import recording_public_id
 
 
 def _resolve_commit_basis(sub, day_audit):
@@ -28,7 +29,41 @@ def _resolve_commit_basis(sub, day_audit):
     )
 
 
-def present_detail(sub, task, cs, _sim, *, day_audit=None):
+def _build_recording_payload(recording, *, download_url: str | None):
+    if recording is None:
+        return None
+    return {
+        "recordingId": recording_public_id(recording.id),
+        "contentType": recording.content_type,
+        "bytes": recording.bytes,
+        "status": recording.status,
+        "createdAt": recording.created_at,
+        "downloadUrl": download_url,
+    }
+
+
+def _build_transcript_payload(transcript):
+    if transcript is None:
+        return None
+    return {
+        "status": transcript.status,
+        "modelName": transcript.model_name,
+        "text": transcript.text,
+        "segmentsJson": transcript.segments_json,
+    }
+
+
+def present_detail(
+    sub,
+    task,
+    cs,
+    _sim,
+    *,
+    day_audit=None,
+    recording=None,
+    transcript=None,
+    recording_download_url: str | None = None,
+):
     parsed_output = recruiter_sub_service.parse_test_output(
         getattr(sub, "test_output", None)
     )
@@ -66,4 +101,8 @@ def present_detail(sub, task, cs, _sim, *, day_audit=None):
         "workflowUrl": workflow_url,
         "commitUrl": commit_url,
         "diffUrl": build_diff_url(repo_full_name, diff_summary),
+        "recording": _build_recording_payload(
+            recording, download_url=recording_download_url
+        ),
+        "transcript": _build_transcript_payload(transcript),
     }

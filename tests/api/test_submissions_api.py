@@ -25,7 +25,7 @@ async def test_submissions_list_forbidden_for_non_recruiter(
 
 
 @pytest.mark.asyncio
-async def test_submissions_detail_404_when_not_owner(async_client, async_session):
+async def test_submissions_detail_403_when_wrong_company(async_client, async_session):
     owner = await create_recruiter(async_session, email="owner@sim.com")
     other = await create_recruiter(async_session, email="other@sim.com")
     sim, tasks = await create_simulation(async_session, created_by=owner)
@@ -43,4 +43,4 @@ async def test_submissions_detail_404_when_not_owner(async_client, async_session
         f"/api/submissions/{sub.id}",
         headers={"x-dev-user-email": other.email},
     )
-    assert res.status_code == 404
+    assert res.status_code == 403
