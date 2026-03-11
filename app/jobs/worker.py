@@ -61,16 +61,19 @@ def register_builtin_handlers() -> None:
         DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE,
         SCENARIO_GENERATION_JOB_TYPE,
         SIMULATION_CLEANUP_JOB_TYPE,
+        TRANSCRIBE_RECORDING_JOB_TYPE,
         handle_day_close_enforcement,
         handle_day_close_finalize_text,
         handle_scenario_generation,
         handle_simulation_cleanup,
+        handle_transcribe_recording,
     )
 
     register_handler(SIMULATION_CLEANUP_JOB_TYPE, handle_simulation_cleanup)
     register_handler(DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE, handle_day_close_finalize_text)
     register_handler(DAY_CLOSE_ENFORCEMENT_JOB_TYPE, handle_day_close_enforcement)
     register_handler(SCENARIO_GENERATION_JOB_TYPE, handle_scenario_generation)
+    register_handler(TRANSCRIBE_RECORDING_JOB_TYPE, handle_transcribe_recording)
 
 
 def compute_backoff_seconds(

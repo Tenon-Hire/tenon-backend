@@ -64,6 +64,7 @@ class Transcript(Base, TimestampMixin):
         JSON, nullable=True
     )
     model_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(
         String(50),
         nullable=False,

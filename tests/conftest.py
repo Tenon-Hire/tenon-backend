@@ -77,6 +77,16 @@ def _patch_scenario_generation_handler_session(async_session, monkeypatch):
     monkeypatch.setattr(scenario_handler, "async_session_maker", session_maker)
 
 
+@pytest.fixture(autouse=True)
+def _patch_transcribe_recording_handler_session(async_session, monkeypatch):
+    from app.jobs.handlers import transcribe_recording as transcribe_handler
+
+    session_maker = async_sessionmaker(
+        bind=async_session.bind, expire_on_commit=False, autoflush=False
+    )
+    monkeypatch.setattr(transcribe_handler, "async_session_maker", session_maker)
+
+
 @pytest_asyncio.fixture
 async def async_client(db_session: AsyncSession):
     """FastAPI TestClient wired to the shared async session + auth override."""

@@ -14,6 +14,10 @@ from app.jobs.handlers.simulation_cleanup import (
     SIMULATION_CLEANUP_JOB_TYPE,
     handle_simulation_cleanup,
 )
+from app.jobs.handlers.transcribe_recording import (
+    TRANSCRIBE_RECORDING_JOB_TYPE,
+    handle_transcribe_recording,
+)
 
 __all__ = [
     "DAY_CLOSE_ENFORCEMENT_JOB_TYPE",
@@ -24,4 +28,6 @@ __all__ = [
     "handle_simulation_cleanup",
     "SCENARIO_GENERATION_JOB_TYPE",
     "handle_scenario_generation",
+    "TRANSCRIBE_RECORDING_JOB_TYPE",
+    "handle_transcribe_recording",
 ]

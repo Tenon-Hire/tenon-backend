@@ -73,3 +73,32 @@ async def test_complete_handoff_upload_route_shapes_response(monkeypatch):
 
     assert result.recordingId == "rec_33"
     assert result.status == "uploaded"
+
+
+@pytest.mark.asyncio
+async def test_handoff_status_route_shapes_response(monkeypatch):
+    async def _stub_status(
+        db,
+        *,
+        candidate_session,
+        task_id: int,
+    ):
+        del db, candidate_session, task_id
+        return (
+            SimpleNamespace(id=44, status="processing"),
+            SimpleNamespace(status="processing"),
+        )
+
+    monkeypatch.setattr(handoff_upload_router, "get_handoff_status", _stub_status)
+
+    result = await handoff_upload_router.handoff_status_route(
+        task_id=7,
+        candidate_session=SimpleNamespace(id=3),
+        db=None,
+    )
+
+    assert result.recording is not None
+    assert result.recording.recordingId == "rec_44"
+    assert result.recording.status == "processing"
+    assert result.transcript is not None
+    assert result.transcript.status == "processing"

@@ -10,6 +10,7 @@ from app.api.dependencies.storage_media import get_media_storage_provider
 from app.core.db import get_session
 from app.domains import CandidateSession
 from app.domains.submissions.schemas import (
+    HandoffStatusResponse,
     HandoffUploadCompleteRequest,
     HandoffUploadCompleteResponse,
     HandoffUploadInitRequest,
@@ -18,6 +19,7 @@ from app.domains.submissions.schemas import (
 from app.integrations.storage_media import StorageMediaProvider
 from app.services.media.handoff_upload import (
     complete_handoff_upload,
+    get_handoff_status,
     init_handoff_upload,
 )
 from app.services.media.keys import recording_public_id
@@ -88,4 +90,47 @@ async def complete_handoff_upload_route(
     )
 
 
-__all__ = ["complete_handoff_upload_route", "init_handoff_upload_route", "router"]
+@router.get(
+    "/{task_id}/handoff/status",
+    response_model=HandoffStatusResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def handoff_status_route(
+    task_id: Annotated[int, Path(..., ge=1)],
+    candidate_session: Annotated[
+        CandidateSession, Depends(candidate_session_from_headers)
+    ],
+    db: Annotated[AsyncSession, Depends(get_session)],
+) -> HandoffStatusResponse:
+    """Return current recording/transcript processing status for a handoff task."""
+    recording, transcript = await get_handoff_status(
+        db,
+        candidate_session=candidate_session,
+        task_id=task_id,
+    )
+    recording_payload = None
+    if recording is not None:
+        recording_payload = {
+            "recordingId": recording_public_id(recording.id),
+            "status": recording.status,
+        }
+
+    transcript_payload = None
+    if transcript is not None:
+        transcript_payload = {
+            "status": transcript.status,
+            "progress": None,
+        }
+
+    return HandoffStatusResponse(
+        recording=recording_payload,
+        transcript=transcript_payload,
+    )
+
+
+__all__ = [
+    "complete_handoff_upload_route",
+    "handoff_status_route",
+    "init_handoff_upload_route",
+    "router",
+]

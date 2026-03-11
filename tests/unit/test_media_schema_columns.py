@@ -11,9 +11,13 @@ async def test_media_tables_have_expected_columns(db_engine):
         transcript_columns = await conn.run_sync(
             lambda sync_conn: inspect(sync_conn).get_columns("transcripts")
         )
+        submission_columns = await conn.run_sync(
+            lambda sync_conn: inspect(sync_conn).get_columns("submissions")
+        )
 
     recording_names = {col["name"] for col in recording_columns}
     transcript_names = {col["name"] for col in transcript_columns}
+    submission_names = {col["name"] for col in submission_columns}
 
     assert {
         "id",
@@ -32,6 +36,9 @@ async def test_media_tables_have_expected_columns(db_engine):
         "text",
         "segments_json",
         "model_name",
+        "last_error",
         "status",
         "created_at",
     }.issubset(transcript_names)
+
+    assert {"recording_id"}.issubset(submission_names)

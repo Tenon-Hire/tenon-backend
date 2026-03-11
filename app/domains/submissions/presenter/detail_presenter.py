@@ -45,11 +45,28 @@ def _build_recording_payload(recording, *, download_url: str | None):
 def _build_transcript_payload(transcript):
     if transcript is None:
         return None
+    segments = transcript.segments_json
     return {
         "status": transcript.status,
         "modelName": transcript.model_name,
         "text": transcript.text,
-        "segmentsJson": transcript.segments_json,
+        "segmentsJson": segments,
+        "segments": segments,
+    }
+
+
+def _build_handoff_payload(
+    recording,
+    *,
+    download_url: str | None,
+    transcript_payload,
+):
+    if recording is None:
+        return None
+    return {
+        "recordingId": recording_public_id(recording.id),
+        "downloadUrl": download_url,
+        "transcript": transcript_payload,
     }
 
 
@@ -84,6 +101,7 @@ def present_detail(
         max_output_chars=max_output_chars(True),
         commit_sha_override=commit_sha,
     )
+    transcript_payload = _build_transcript_payload(transcript)
     return {
         "submissionId": sub.id,
         "candidateSessionId": cs.id,
@@ -104,5 +122,10 @@ def present_detail(
         "recording": _build_recording_payload(
             recording, download_url=recording_download_url
         ),
-        "transcript": _build_transcript_payload(transcript),
+        "transcript": transcript_payload,
+        "handoff": _build_handoff_payload(
+            recording,
+            download_url=recording_download_url,
+            transcript_payload=transcript_payload,
+        ),
     }

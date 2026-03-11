@@ -5,6 +5,7 @@ from pathlib import Path
 
 from fastapi import HTTPException, status
 
+from app.core.errors import REQUEST_TOO_LARGE, ApiError
 from app.core.settings import settings
 from app.services.media.keys import normalize_extension
 
@@ -49,7 +50,17 @@ def validate_upload_input(
     if size_bytes <= 0:
         raise _unprocessable("sizeBytes must be greater than 0")
     if size_bytes > max_bytes:
-        raise _unprocessable(f"sizeBytes exceeds max {max_bytes}")
+        raise ApiError(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"sizeBytes exceeds max {max_bytes}",
+            error_code=REQUEST_TOO_LARGE,
+            retryable=False,
+            details={
+                "field": "sizeBytes",
+                "maxBytes": max_bytes,
+                "actualBytes": int(size_bytes),
+            },
+        )
 
     extension = _resolve_extension(
         content_type=normalized_type,

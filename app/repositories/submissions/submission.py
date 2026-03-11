@@ -26,6 +26,7 @@ class Submission(Base):
             name="uq_submissions_candidate_session_task",
         ),
         Index("ix_submissions_candidate_session_id", "candidate_session_id"),
+        Index("ix_submissions_recording_id", "recording_id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -33,6 +34,10 @@ class Submission(Base):
         ForeignKey("candidate_sessions.id")
     )
     task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"))
+    recording_id: Mapped[int | None] = mapped_column(
+        ForeignKey("recording_assets.id"),
+        nullable=True,
+    )
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     content_text: Mapped[str | None] = mapped_column(Text)
     content_json: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
@@ -51,3 +56,4 @@ class Submission(Base):
 
     candidate_session = relationship("CandidateSession", back_populates="submissions")
     task = relationship("Task", back_populates="submissions")
+    recording = relationship("RecordingAsset")

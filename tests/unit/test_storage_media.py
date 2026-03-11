@@ -94,7 +94,8 @@ def test_validate_upload_input_rejects_invalid_values(monkeypatch):
     except HTTPException as exc:
         with_exception = exc
     assert with_exception is not None
-    assert with_exception.status_code == 422
+    assert with_exception.status_code == 413
+    assert getattr(with_exception, "error_code", None) == "REQUEST_TOO_LARGE"
 
 
 def test_resolve_signed_url_ttl_clamps(monkeypatch):

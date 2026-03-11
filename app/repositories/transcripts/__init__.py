@@ -11,6 +11,7 @@ from app.repositories.transcripts.repository import (
     get_by_recording_id,
     get_or_create_transcript,
     update_status,
+    update_transcript,
 )
 
 __all__ = [
@@ -23,5 +24,6 @@ __all__ = [
     "create_transcript",
     "get_by_recording_id",
     "get_or_create_transcript",
+    "update_transcript",
     "update_status",
 ]

@@ -260,10 +260,12 @@ async def create_submission(
     commit_sha: str | None = None,
     workflow_run_id: str | None = None,
     diff_summary_json: str | None = None,
+    recording_id: int | None = None,
 ) -> Submission:
     submission = Submission(
         candidate_session_id=candidate_session.id,
         task_id=task.id,
+        recording_id=recording_id,
         submitted_at=submitted_at or datetime.now(UTC),
         content_text=content_text,
         content_json=content_json,

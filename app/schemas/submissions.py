@@ -108,6 +108,27 @@ class HandoffUploadCompleteResponse(APIModel):
     status: str
 
 
+class HandoffStatusRecordingOut(APIModel):
+    """Current recording state for Day 4 handoff."""
+
+    recordingId: str
+    status: str
+
+
+class HandoffStatusTranscriptOut(APIModel):
+    """Current transcript processing state for Day 4 handoff."""
+
+    status: str
+    progress: int | None = None
+
+
+class HandoffStatusResponse(APIModel):
+    """Polling response for Day 4 handoff processing."""
+
+    recording: HandoffStatusRecordingOut | None = None
+    transcript: HandoffStatusTranscriptOut | None = None
+
+
 class SubmissionCreateResponse(APIModel):
     """Schema for submission creation response."""
 
@@ -188,6 +209,15 @@ class RecruiterTranscriptOut(APIModel):
     modelName: str | None = None
     text: str | None = None
     segmentsJson: list[dict[str, Any]] | None = None
+    segments: list[dict[str, Any]] | None = None
+
+
+class RecruiterHandoffOut(APIModel):
+    """Schema for recruiter-facing handoff payload."""
+
+    recordingId: str | None = None
+    downloadUrl: str | None = None
+    transcript: RecruiterTranscriptOut | None = None
 
 
 class RecruiterSubmissionDetailOut(APIModel):
@@ -211,6 +241,7 @@ class RecruiterSubmissionDetailOut(APIModel):
     diffUrl: str | None = None
     recording: RecruiterRecordingAssetOut | None = None
     transcript: RecruiterTranscriptOut | None = None
+    handoff: RecruiterHandoffOut | None = None
 
 
 class RecruiterSubmissionListItemOut(APIModel):
