@@ -40,7 +40,7 @@ async def generate_fit_profile_route(
 @router.get(
     "/{candidate_session_id}/fit_profile",
     response_model=FitProfileStatusResponse,
-    response_model_exclude_none=True,
+    response_model_exclude_unset=True,
     status_code=status.HTTP_200_OK,
 )
 async def get_fit_profile_route(

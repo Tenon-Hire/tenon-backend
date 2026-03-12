@@ -70,9 +70,38 @@ def _sanitize_evidence(pointer: Any) -> dict[str, Any] | None:
     return sanitized
 
 
-def _compose_day_scores(run: EvaluationRun) -> list[dict[str, Any]]:
+def _human_review_day_from_raw(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, Mapping):
+        return None
+    day_index = value.get("dayIndex")
+    if isinstance(day_index, bool) or not isinstance(day_index, int):
+        return None
+    if day_index < 1 or day_index > 5:
+        return None
+
+    status_value = value.get("status")
+    if not isinstance(status_value, str) or status_value != "human_review_required":
+        return None
+
+    reason_value = value.get("reason")
+    if not isinstance(reason_value, str) or not reason_value.strip():
+        return None
+
+    return {
+        "dayIndex": day_index,
+        "score": None,
+        "rubricBreakdown": {},
+        "evidence": [],
+        "status": status_value,
+        "reason": reason_value.strip(),
+    }
+
+
+def _compose_day_scores(
+    run: EvaluationRun, persisted_report: Mapping[str, Any]
+) -> list[dict[str, Any]]:
     rows = sorted(run.day_scores, key=lambda row: row.day_index)
-    payload: list[dict[str, Any]] = []
+    scored_by_day: dict[int, dict[str, Any]] = {}
     for row in rows:
         evidence = [
             sanitized
@@ -82,14 +111,32 @@ def _compose_day_scores(run: EvaluationRun) -> list[dict[str, Any]]:
             )
             if sanitized is not None
         ]
-        payload.append(
-            {
-                "dayIndex": int(row.day_index),
-                "score": float(row.score),
-                "rubricBreakdown": dict(row.rubric_results_json or {}),
-                "evidence": evidence,
-            }
-        )
+        scored_by_day[int(row.day_index)] = {
+            "dayIndex": int(row.day_index),
+            "score": float(row.score),
+            "rubricBreakdown": dict(row.rubric_results_json or {}),
+            "evidence": evidence,
+            "status": "scored",
+        }
+
+    persisted_day_scores = persisted_report.get("dayScores")
+    placeholder_days: dict[int, dict[str, Any]] = {}
+    if isinstance(persisted_day_scores, list):
+        for raw_day_score in persisted_day_scores:
+            placeholder = _human_review_day_from_raw(raw_day_score)
+            if placeholder is None:
+                continue
+            day_index = int(placeholder["dayIndex"])
+            if day_index in scored_by_day:
+                continue
+            placeholder_days[day_index] = placeholder
+
+    payload: list[dict[str, Any]] = []
+    for day_index in sorted(set(scored_by_day) | set(placeholder_days)):
+        if day_index in scored_by_day:
+            payload.append(scored_by_day[day_index])
+            continue
+        payload.append(placeholder_days[day_index])
     return payload
 
 
@@ -98,15 +145,23 @@ def compose_report(run: EvaluationRun) -> dict[str, Any]:
         dict(run.raw_report_json) if isinstance(run.raw_report_json, Mapping) else {}
     )
 
-    day_scores = _compose_day_scores(run)
+    day_scores = _compose_day_scores(run, persisted_report)
+    scored_days = [
+        day for day in day_scores if day.get("status") != "human_review_required"
+    ]
     overall_fit_score = _normalize_unit_interval(run.overall_fit_score)
     if overall_fit_score is None:
         report_score = _normalize_unit_interval(persisted_report.get("overallFitScore"))
         if report_score is not None:
             overall_fit_score = report_score
-        elif day_scores:
+        elif scored_days:
             overall_fit_score = round(
-                mean(float(day["score"]) for day in day_scores), 4
+                mean(
+                    float(day["score"])
+                    for day in scored_days
+                    if day.get("score") is not None
+                ),
+                4,
             )
         else:
             overall_fit_score = 0.0
@@ -134,12 +189,22 @@ def compose_report(run: EvaluationRun) -> dict[str, Any]:
 
     metadata_json = run.metadata_json if isinstance(run.metadata_json, Mapping) else {}
     disabled_day_indexes = metadata_json.get("disabledDayIndexes")
+    disabled_indexes: set[int] = set()
     if isinstance(disabled_day_indexes, list):
-        report["disabledDayIndexes"] = [
+        disabled_indexes.update(
             int(value)
             for value in disabled_day_indexes
             if isinstance(value, int) and 1 <= value <= 5
-        ]
+        )
+
+    disabled_indexes.update(
+        int(day["dayIndex"])
+        for day in day_scores
+        if day.get("status") == "human_review_required"
+        and isinstance(day.get("dayIndex"), int)
+    )
+    if disabled_indexes:
+        report["disabledDayIndexes"] = sorted(disabled_indexes)
 
     return report
 

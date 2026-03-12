@@ -19,6 +19,12 @@ from pydantic import (
 
 from app.core.settings import settings
 from app.domains.common.types import SimulationStatus, TaskType
+from app.domains.simulations.ai_config import (
+    AI_EVAL_DAY_KEYS,
+    AI_NOTICE_DEFAULT_TEXT,
+    AI_NOTICE_DEFAULT_VERSION,
+    default_ai_eval_enabled_by_day,
+)
 from app.domains.tasks.schemas_public import TaskPublic
 from app.services.tasks.template_catalog import (
     DEFAULT_TEMPLATE_KEY,
@@ -28,6 +34,7 @@ from app.services.tasks.template_catalog import (
 
 __all__ = [
     "SimulationCreate",
+    "SimulationUpdate",
     "TaskOut",
     "SimulationCreateResponse",
     "SimulationListItem",
@@ -51,6 +58,7 @@ __all__ = [
     "SimulationDayWindowOverride",
     "normalize_role_level",
     "normalize_eval_enabled_by_day",
+    "resolve_simulation_ai_fields",
     "build_simulation_ai_config",
     "build_simulation_company_context",
     "TaskPublic",
@@ -65,7 +73,7 @@ MAX_COMPANY_CONTEXT_VALUE_CHARS = 120
 MAX_AI_NOTICE_VERSION_CHARS = 100
 MAX_AI_NOTICE_TEXT_CHARS = 2000
 _ALLOWED_ROLE_LEVELS = frozenset({"junior", "mid", "senior", "staff", "principal"})
-_ALLOWED_AI_EVAL_DAY_KEYS = frozenset({"1", "2", "3", "4", "5"})
+_ALLOWED_AI_EVAL_DAY_KEYS = frozenset(AI_EVAL_DAY_KEYS)
 _ALLOWED_DAY_WINDOW_OVERRIDE_KEYS = frozenset(str(day) for day in range(9, 22))
 
 
@@ -114,6 +122,73 @@ def normalize_eval_enabled_by_day(
             continue
         normalized[day_key] = raw_value
     return normalized
+
+
+def _coerce_notice_value(value: Any, *, max_length: int) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip()
+    if not normalized:
+        return None
+    if len(normalized) > max_length:
+        return None
+    return normalized
+
+
+def resolve_simulation_ai_fields(
+    *,
+    notice_version: Any,
+    notice_text: Any,
+    eval_enabled_by_day: Any,
+    fallback_notice_version: Any = None,
+    fallback_notice_text: Any = None,
+    fallback_eval_enabled_by_day: Any = None,
+) -> tuple[str, str, dict[str, bool]]:
+    resolved_notice_version = (
+        _coerce_notice_value(notice_version, max_length=MAX_AI_NOTICE_VERSION_CHARS)
+        or _coerce_notice_value(
+            fallback_notice_version,
+            max_length=MAX_AI_NOTICE_VERSION_CHARS,
+        )
+        or AI_NOTICE_DEFAULT_VERSION
+    )
+    resolved_notice_text = (
+        _coerce_notice_value(notice_text, max_length=MAX_AI_NOTICE_TEXT_CHARS)
+        or _coerce_notice_value(
+            fallback_notice_text,
+            max_length=MAX_AI_NOTICE_TEXT_CHARS,
+        )
+        or AI_NOTICE_DEFAULT_TEXT
+    )
+
+    resolved_eval = default_ai_eval_enabled_by_day()
+    fallback_eval = normalize_eval_enabled_by_day(
+        fallback_eval_enabled_by_day,
+        strict=False,
+    )
+    if fallback_eval is not None:
+        resolved_eval.update(fallback_eval)
+    incoming_eval = normalize_eval_enabled_by_day(eval_enabled_by_day, strict=False)
+    if incoming_eval is not None:
+        resolved_eval.update(incoming_eval)
+
+    validated = SimulationAIConfig.model_validate(
+        {
+            "noticeVersion": resolved_notice_version,
+            "noticeText": resolved_notice_text,
+            "evalEnabledByDay": resolved_eval,
+        }
+    )
+    final_eval = (
+        dict(validated.eval_enabled_by_day)
+        if validated.eval_enabled_by_day is not None
+        else default_ai_eval_enabled_by_day()
+    )
+    return (
+        validated.notice_version or AI_NOTICE_DEFAULT_VERSION,
+        validated.notice_text or AI_NOTICE_DEFAULT_TEXT,
+        final_eval,
+    )
 
 
 class SimulationCompanyContext(BaseModel):
@@ -221,21 +296,31 @@ def build_simulation_ai_config(
     notice_text: str | None,
     eval_enabled_by_day: Any,
 ) -> SimulationAIConfig | None:
-    normalized_eval = normalize_eval_enabled_by_day(eval_enabled_by_day, strict=False)
-    if notice_version is None and notice_text is None and normalized_eval is None:
-        return None
-
-    payload: dict[str, Any] = {}
-    if notice_version is not None:
-        payload["noticeVersion"] = notice_version
-    if notice_text is not None:
-        payload["noticeText"] = notice_text
-    if normalized_eval is not None:
-        payload["evalEnabledByDay"] = normalized_eval
+    (
+        resolved_notice_version,
+        resolved_notice_text,
+        resolved_eval,
+    ) = resolve_simulation_ai_fields(
+        notice_version=notice_version,
+        notice_text=notice_text,
+        eval_enabled_by_day=eval_enabled_by_day,
+    )
     try:
-        return SimulationAIConfig.model_validate(payload)
+        return SimulationAIConfig.model_validate(
+            {
+                "noticeVersion": resolved_notice_version,
+                "noticeText": resolved_notice_text,
+                "evalEnabledByDay": resolved_eval,
+            }
+        )
     except ValidationError:
-        return None
+        return SimulationAIConfig.model_validate(
+            {
+                "noticeVersion": AI_NOTICE_DEFAULT_VERSION,
+                "noticeText": AI_NOTICE_DEFAULT_TEXT,
+                "evalEnabledByDay": default_ai_eval_enabled_by_day(),
+            }
+        )
 
 
 class SimulationCreate(BaseModel):
@@ -316,6 +401,14 @@ class SimulationCreate(BaseModel):
                 "dayWindowOverridesEnabled must be true when dayWindowOverrides is set"
             )
         return self
+
+
+class SimulationUpdate(BaseModel):
+    """Payload for updating mutable simulation configuration."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    ai: SimulationAIConfig | None = None
 
 
 class TaskOut(BaseModel):

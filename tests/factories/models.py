@@ -16,6 +16,11 @@ from app.domains import (
     Task,
     User,
 )
+from app.domains.simulations.ai_config import (
+    AI_NOTICE_DEFAULT_TEXT,
+    AI_NOTICE_DEFAULT_VERSION,
+    default_ai_eval_enabled_by_day,
+)
 from app.domains.simulations.blueprints import DEFAULT_5_DAY_BLUEPRINT
 from app.services.scheduling.day_windows import serialize_day_windows
 from app.services.tasks.template_catalog import (
@@ -69,6 +74,13 @@ async def create_simulation(
     ai_notice_text: str | None = None,
     ai_eval_enabled_by_day: dict[str, bool] | None = None,
 ) -> tuple[Simulation, list[Task]]:
+    if ai_notice_version is None:
+        ai_notice_version = AI_NOTICE_DEFAULT_VERSION
+    if ai_notice_text is None:
+        ai_notice_text = AI_NOTICE_DEFAULT_TEXT
+    if ai_eval_enabled_by_day is None:
+        ai_eval_enabled_by_day = default_ai_eval_enabled_by_day()
+
     sim = Simulation(
         company_id=created_by.company_id,
         title=title,

@@ -10,6 +10,7 @@ from app.domains.candidate_sessions.schemas import (
     CurrentTaskWindow,
     ProgressSummary,
 )
+from app.domains.simulations.schemas import resolve_simulation_ai_fields
 from app.domains.tasks.schemas_public import TaskPublic
 from app.services.candidate_sessions.schedule_fields import (
     schedule_payload_for_candidate_session,
@@ -46,6 +47,19 @@ def render_claim_response(cs) -> CandidateSessionResolveResponse:
     include_content_sections = cs_service.is_schedule_started_for_content(
         cs, now=now_utc
     )
+    (
+        ai_notice_version,
+        ai_notice_text,
+        eval_enabled_by_day,
+    ) = resolve_simulation_ai_fields(
+        notice_version=getattr(cs.simulation, "ai_notice_version", None),
+        notice_text=getattr(cs.simulation, "ai_notice_text", None),
+        eval_enabled_by_day=getattr(
+            cs.simulation,
+            "ai_eval_enabled_by_day",
+            None,
+        ),
+    )
     return CandidateSessionResolveResponse(
         candidateSessionId=cs.id,
         status=cs.status,
@@ -56,6 +70,9 @@ def render_claim_response(cs) -> CandidateSessionResolveResponse:
         simulation=_resolve_simulation_summary(
             cs, include_content_sections=include_content_sections
         ),
+        aiNoticeText=ai_notice_text,
+        aiNoticeVersion=ai_notice_version,
+        evalEnabledByDay=eval_enabled_by_day,
         startAt=schedule_payload["scheduledStartAt"],
         windowStartAt=window_start_at,
         windowEndAt=window_end_at,

@@ -50,6 +50,7 @@ from .scenario_versions import (
 )
 from .task_templates import _template_repo_for_task
 from .template_keys import ApiError
+from .update import update_simulation
 from .urls import invite_url
 
 __all__ = [
@@ -99,5 +100,6 @@ __all__ = [
     "simulation_cleanup_idempotency_key",
     "terminate_simulation",
     "terminate_simulation_with_cleanup",
+    "update_simulation",
     "update_active_scenario_version",
 ]

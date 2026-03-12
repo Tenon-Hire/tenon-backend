@@ -71,6 +71,9 @@ class CandidateSessionResolveResponse(APIModel):
     completedAt: datetime | None
     candidateName: str
     simulation: CandidateSimulationSummary
+    aiNoticeText: str
+    aiNoticeVersion: str
+    evalEnabledByDay: dict[str, bool]
     startAt: datetime | None = None
     windowStartAt: datetime | None = None
     windowEndAt: datetime | None = None

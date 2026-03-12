@@ -394,8 +394,18 @@ async def test_fit_profile_disabled_day_multiple_runs_and_cutoff_immutability(
     assert fetch.status_code == 200, fetch.text
     body = fetch.json()
     assert body["status"] == "ready"
-    day_indexes = [day["dayIndex"] for day in body["report"]["dayScores"]]
-    assert 4 not in day_indexes
+    day_scores = body["report"]["dayScores"]
+    day4_entry = next(day for day in day_scores if day["dayIndex"] == 4)
+    assert day4_entry["status"] == "human_review_required"
+    assert day4_entry["reason"] == "ai_eval_disabled_for_day"
+    assert day4_entry["score"] is None
+    scored_days = [day for day in day_scores if day["status"] == "scored"]
+    assert scored_days
+    expected_overall = round(
+        sum(float(day["score"]) for day in scored_days) / len(scored_days),
+        4,
+    )
+    assert body["report"]["overallFitScore"] == expected_overall
 
 
 @pytest.mark.asyncio

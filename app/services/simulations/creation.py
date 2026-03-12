@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, time
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains import Job, Simulation, Task
+from app.domains.simulations.ai_config import AI_NOTICE_DEFAULT_VERSION
 from app.domains.simulations.schemas import (
     normalize_eval_enabled_by_day,
     normalize_role_level,
+    resolve_simulation_ai_fields,
 )
 from app.repositories.jobs import repository as jobs_repo
 from app.repositories.simulations.simulation import (
@@ -19,6 +22,8 @@ from .scenario_generation import SCENARIO_GENERATION_JOB_TYPE
 from .scenario_payload_builder import build_scenario_generation_payload
 from .task_seed import seed_default_tasks
 from .template_keys import resolve_template_key
+
+logger = logging.getLogger(__name__)
 
 
 def _scenario_generation_idempotency_key(simulation_id: int) -> str:
@@ -109,6 +114,15 @@ async def create_simulation_with_tasks(
         payload
     )
     (
+        resolved_notice_version,
+        resolved_notice_text,
+        resolved_eval_by_day,
+    ) = resolve_simulation_ai_fields(
+        notice_version=ai_notice_version,
+        notice_text=ai_notice_text,
+        eval_enabled_by_day=ai_eval_enabled_by_day,
+    )
+    (
         day_window_start_local,
         day_window_end_local,
         day_window_overrides_enabled,
@@ -124,9 +138,9 @@ async def create_simulation_with_tasks(
         seniority=seniority_value,
         focus=payload.focus,
         company_context=company_context,
-        ai_notice_version=ai_notice_version,
-        ai_notice_text=ai_notice_text,
-        ai_eval_enabled_by_day=ai_eval_enabled_by_day,
+        ai_notice_version=resolved_notice_version,
+        ai_notice_text=resolved_notice_text,
+        ai_eval_enabled_by_day=resolved_eval_by_day,
         day_window_start_local=day_window_start_local,
         day_window_end_local=day_window_end_local,
         day_window_overrides_enabled=day_window_overrides_enabled,
@@ -140,6 +154,35 @@ async def create_simulation_with_tasks(
     )
     db.add(sim)
     await db.flush()
+
+    if resolved_notice_version != AI_NOTICE_DEFAULT_VERSION:
+        logger.info(
+            (
+                "simulation_ai_notice_version_changed simulationId=%s "
+                "actorUserId=%s from=%s to=%s"
+            ),
+            sim.id,
+            user.id,
+            AI_NOTICE_DEFAULT_VERSION,
+            resolved_notice_version,
+        )
+    changed_days = [
+        int(day)
+        for day, enabled in sorted(
+            resolved_eval_by_day.items(), key=lambda item: int(item[0])
+        )
+        if enabled is False
+    ]
+    if changed_days:
+        logger.info(
+            (
+                "simulation_ai_eval_toggles_changed simulationId=%s "
+                "actorUserId=%s changedDays=%s"
+            ),
+            sim.id,
+            user.id,
+            changed_days,
+        )
 
     created_tasks = await seed_default_tasks(db, sim.id, template_key)
 

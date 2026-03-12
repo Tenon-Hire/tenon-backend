@@ -269,9 +269,17 @@ class DeterministicFitProfileEvaluator:
     async def evaluate(self, bundle: EvaluationInputBundle) -> EvaluationResult:
         disabled = set(bundle.disabled_day_indexes)
         day_results: list[DayEvaluationResult] = []
+        report_day_scores: list[dict[str, Any]] = []
 
         for day_input in sorted(bundle.day_inputs, key=lambda value: value.day_index):
             if day_input.day_index in disabled:
+                report_day_scores.append(
+                    {
+                        "dayIndex": day_input.day_index,
+                        "status": "human_review_required",
+                        "reason": "ai_eval_disabled_for_day",
+                    }
+                )
                 continue
             evidence = _build_day_evidence(day_input)
             score = _score_for_day(day_input, evidence)
@@ -287,6 +295,15 @@ class DeterministicFitProfileEvaluator:
                     rubric_breakdown=rubric_breakdown,
                     evidence=evidence,
                 )
+            )
+            report_day_scores.append(
+                {
+                    "dayIndex": day_input.day_index,
+                    "score": score,
+                    "rubricBreakdown": dict(rubric_breakdown),
+                    "evidence": list(evidence),
+                    "status": "scored",
+                }
             )
 
         enabled_count = len(day_results)
@@ -306,15 +323,7 @@ class DeterministicFitProfileEvaluator:
             "overallFitScore": overall,
             "recommendation": recommendation,
             "confidence": confidence,
-            "dayScores": [
-                {
-                    "dayIndex": result.day_index,
-                    "score": result.score,
-                    "rubricBreakdown": dict(result.rubric_breakdown),
-                    "evidence": list(result.evidence),
-                }
-                for result in day_results
-            ],
+            "dayScores": report_day_scores,
             "disabledDayIndexes": sorted(bundle.disabled_day_indexes),
             "version": {
                 "model": bundle.model_name,

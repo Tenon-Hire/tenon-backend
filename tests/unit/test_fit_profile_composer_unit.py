@@ -102,6 +102,40 @@ def test_fit_profile_composer_sanitize_evidence():
     }
 
 
+def test_human_review_day_from_raw_rejects_invalid_shapes():
+    assert fit_profile_composer._human_review_day_from_raw("bad") is None
+    assert (
+        fit_profile_composer._human_review_day_from_raw(
+            {
+                "dayIndex": True,
+                "status": "human_review_required",
+                "reason": "ai_eval_disabled_for_day",
+            }
+        )
+        is None
+    )
+    assert (
+        fit_profile_composer._human_review_day_from_raw(
+            {
+                "dayIndex": 6,
+                "status": "human_review_required",
+                "reason": "ai_eval_disabled_for_day",
+            }
+        )
+        is None
+    )
+    assert (
+        fit_profile_composer._human_review_day_from_raw(
+            {
+                "dayIndex": 4,
+                "status": "human_review_required",
+                "reason": "   ",
+            }
+        )
+        is None
+    )
+
+
 def test_compose_report_fallbacks_to_persisted_values_and_filters_metadata():
     run = _run(
         overall_fit_score=None,
@@ -167,6 +201,70 @@ def test_compose_report_uses_day_score_mean_and_empty_defaults():
     empty_report = fit_profile_composer.compose_report(run_without_scores)
     assert empty_report["overallFitScore"] == 0.0
     assert empty_report["confidence"] == 0.0
+
+
+def test_compose_report_includes_human_review_placeholders_from_raw_report():
+    run = _run(
+        overall_fit_score=None,
+        confidence=None,
+        raw_report_json={
+            "dayScores": [
+                {
+                    "dayIndex": 4,
+                    "status": "human_review_required",
+                    "reason": "ai_eval_disabled_for_day",
+                }
+            ]
+        },
+        metadata_json={},
+        day_scores=[
+            _row(
+                day_index=2,
+                score=0.8,
+                rubric_results_json={},
+                evidence_pointers_json=[],
+            )
+        ],
+    )
+
+    report = fit_profile_composer.compose_report(run)
+    assert report["overallFitScore"] == 0.8
+    assert report["disabledDayIndexes"] == [4]
+    day4 = next(day for day in report["dayScores"] if day["dayIndex"] == 4)
+    assert day4["status"] == "human_review_required"
+    assert day4["reason"] == "ai_eval_disabled_for_day"
+    assert day4["score"] is None
+
+
+def test_compose_report_prefers_scored_day_over_raw_placeholder():
+    run = _run(
+        overall_fit_score=None,
+        confidence=None,
+        raw_report_json={
+            "dayScores": [
+                {
+                    "dayIndex": 2,
+                    "status": "human_review_required",
+                    "reason": "ai_eval_disabled_for_day",
+                }
+            ]
+        },
+        metadata_json={},
+        day_scores=[
+            _row(
+                day_index=2,
+                score=0.7,
+                rubric_results_json={},
+                evidence_pointers_json=[],
+            )
+        ],
+    )
+
+    report = fit_profile_composer.compose_report(run)
+    assert len(report["dayScores"]) == 1
+    assert report["dayScores"][0]["dayIndex"] == 2
+    assert report["dayScores"][0]["status"] == "scored"
+    assert "disabledDayIndexes" not in report
 
 
 def test_build_ready_payload_uses_started_at_when_other_timestamps_missing():

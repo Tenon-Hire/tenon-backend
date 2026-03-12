@@ -183,6 +183,13 @@ async def test_deterministic_evaluator_handles_empty_enabled_days():
     assert result.confidence == 0.0
     assert result.recommendation == EVALUATION_RECOMMENDATION_NO_HIRE
     assert result.day_results == []
+    assert result.report_json["dayScores"] == [
+        {
+            "dayIndex": 1,
+            "status": "human_review_required",
+            "reason": "ai_eval_disabled_for_day",
+        }
+    ]
 
 
 async def test_deterministic_evaluator_sorts_days_and_builds_report():

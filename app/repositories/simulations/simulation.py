@@ -16,6 +16,12 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db.base import Base, TimestampMixin
+from app.domains.simulations.ai_config import (
+    AI_EVAL_ENABLED_BY_DAY_DEFAULT_JSON,
+    AI_NOTICE_DEFAULT_TEXT,
+    AI_NOTICE_DEFAULT_VERSION,
+    default_ai_eval_enabled_by_day,
+)
 from app.services.tasks.template_catalog import DEFAULT_TEMPLATE_KEY
 
 SIMULATION_STATUS_DRAFT = "draft"
@@ -84,10 +90,23 @@ class Simulation(Base, TimestampMixin):
         Text, nullable=False, server_default="", default=""
     )
     company_context: Mapped[dict[str, str] | None] = mapped_column(JSON, nullable=True)
-    ai_notice_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    ai_notice_text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    ai_eval_enabled_by_day: Mapped[dict[str, bool] | None] = mapped_column(
-        JSON, nullable=True
+    ai_notice_version: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        default=AI_NOTICE_DEFAULT_VERSION,
+        server_default=AI_NOTICE_DEFAULT_VERSION,
+    )
+    ai_notice_text: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=AI_NOTICE_DEFAULT_TEXT,
+        server_default=AI_NOTICE_DEFAULT_TEXT,
+    )
+    ai_eval_enabled_by_day: Mapped[dict[str, bool]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=default_ai_eval_enabled_by_day,
+        server_default=text(f"'{AI_EVAL_ENABLED_BY_DAY_DEFAULT_JSON}'"),
     )
     day_window_start_local: Mapped[time] = mapped_column(
         Time(),

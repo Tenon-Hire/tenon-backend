@@ -85,6 +85,14 @@ def test_create_simulation_payload_extractors_cover_context_branches():
         {"2": False},
     )
 
+    payload_with_unsupported_company_context = SimpleNamespace(
+        companyContext=object(),
+    )
+    assert (
+        sim_creation._extract_company_context(payload_with_unsupported_company_context)
+        is None
+    )
+
 
 def test_extract_day_window_config_normalizes_overrides():
     class _ModelOverride:
@@ -302,9 +310,61 @@ async def test_create_simulation_with_tasks_enqueues_scenario_generation_job(
         "ai": {
             "noticeVersion": "mvp1",
             "noticeText": "AI may assist with scenario generation.",
-            "evalEnabledByDay": {"1": True, "2": False},
+            "evalEnabledByDay": {
+                "1": True,
+                "2": False,
+                "3": True,
+                "4": True,
+                "5": True,
+            },
         },
     }
+
+
+@pytest.mark.asyncio
+async def test_create_simulation_with_tasks_logs_ai_config_changes_without_notice_text(
+    async_session,
+    caplog,
+):
+    recruiter = await create_recruiter(async_session, email="sim-log@test.com")
+    payload = type(
+        "P",
+        (),
+        {
+            "title": "Title",
+            "role": "Role",
+            "techStack": "Python",
+            "seniority": "Mid",
+            "focus": "Build",
+            "ai": {
+                "noticeVersion": "mvp2",
+                "noticeText": "Private AI notice text should not be logged.",
+                "evalEnabledByDay": {"1": True, "2": False},
+            },
+            "templateKey": "python-fastapi",
+        },
+    )()
+
+    caplog.set_level("INFO", logger="app.services.simulations.creation")
+    sim, tasks, _scenario_job = await sim_service.create_simulation_with_tasks(
+        async_session,
+        payload,
+        recruiter,
+    )
+
+    assert sim.id is not None
+    assert len(tasks) == len(sim_service.DEFAULT_5_DAY_BLUEPRINT)
+
+    log_text = "\n".join(record.getMessage() for record in caplog.records)
+    assert (
+        f"simulation_ai_notice_version_changed simulationId={sim.id} "
+        f"actorUserId={recruiter.id} from=mvp1 to=mvp2"
+    ) in log_text
+    assert (
+        f"simulation_ai_eval_toggles_changed simulationId={sim.id} "
+        f"actorUserId={recruiter.id} changedDays=[2]"
+    ) in log_text
+    assert "Private AI notice text should not be logged." not in log_text
 
 
 @pytest.mark.asyncio

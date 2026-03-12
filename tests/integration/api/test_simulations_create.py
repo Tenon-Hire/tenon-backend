@@ -3,6 +3,10 @@ from sqlalchemy import select
 
 from app.core.auth.current_user import get_current_user
 from app.domains import Company, Task, User
+from app.domains.simulations.ai_config import (
+    AI_NOTICE_DEFAULT_TEXT,
+    AI_NOTICE_DEFAULT_VERSION,
+)
 
 
 @pytest.mark.asyncio
@@ -55,6 +59,17 @@ async def test_create_simulation_creates_sim_and_5_tasks(
         assert data["status"] == "generating"
         assert isinstance(data["scenarioGenerationJobId"], str)
         assert data["scenarioGenerationJobId"]
+        assert data["ai"] == {
+            "noticeVersion": AI_NOTICE_DEFAULT_VERSION,
+            "noticeText": AI_NOTICE_DEFAULT_TEXT,
+            "evalEnabledByDay": {
+                "1": True,
+                "2": True,
+                "3": True,
+                "4": True,
+                "5": True,
+            },
+        }
 
 
 @pytest.mark.asyncio

@@ -1,205 +1,206 @@
-# Issue #214: Evaluator Jobs (Day1-Day5) + Fit Profile Composer + Recruiter Report API
+# Issue #218: Store AI-eval notices + per-day toggles per simulation and expose in APIs
+
+## Title
+Persist simulation AI notice + per-day evaluation toggles, expose them in recruiter/candidate APIs, and enforce disabled-day evaluation behavior.
 
 ## TL;DR
-- Added recruiter-facing Fit Profile API endpoints to generate and fetch evaluation reports.
-- Implemented durable `evaluation_run` worker orchestration from queue to terminal state.
-- Persist evaluation outputs as historical `evaluation_runs` + `evaluation_day_scores` with evidence-backed report payloads.
-- Updates FitProfile presence marker when a run completes successfully.
-- Preserves append-only rerun history across recruiter-triggered generations.
-- Enforces same-job replay idempotency for durable job reprocessing.
-- Preserves durable failure semantics so failed evaluations surface as failed jobs and failed fetch status.
-- Hardened `evaluation_runs.job_id` at DB level with unique non-null behavior.
-- Final automated checks and final manual/runtime QA are green.
+- Added persisted simulation AI config fields: `ai_notice_version`, `ai_notice_text`, `ai_eval_enabled_by_day`.
+- Added defaults and migration backfill so existing/new simulations resolve safely (`mvp1`, default notice text, all days enabled).
+- Exposed AI config in recruiter simulation APIs and candidate session payloads.
+- Kept simulation update behavior AI-config-focused with partial-merge semantics and no-op when `ai` is omitted.
+- Enforced strict day-key/boolean validation and recruiter-only mutation boundaries.
+- Evaluation/reporting now honor day toggles: disabled days are emitted as human-review-required placeholders and excluded from AI score denominator.
 
 ## Problem / Why
-MVP1.5 needs a deterministic, evidence-backed evaluation layer recruiters can trigger and trust. Without durable evaluation execution and persisted report artifacts, the product cannot provide stable Fit Profiles with auditable scoring, version metadata, and immutable evidence basis references.
+Issue #218 requires durable AI notice disclosure and per-day AI evaluation controls per simulation so recruiters can configure compliance behavior and candidates can consistently see AI-use notice context. Without persistence + API exposure + evaluator enforcement, the compliance/demo posture is unreliable.
 
 ## What changed
-### API routes
-- Added recruiter-only endpoints:
-  - `POST /api/candidate_sessions/{candidate_session_id}/fit_profile/generate`
-  - `GET /api/candidate_sessions/{candidate_session_id}/fit_profile`
-- Generate endpoint enqueues durable `evaluation_run` and returns queued job metadata.
-- Fetch endpoint returns a status envelope and includes report payload once terminal success is reached.
+### Data model / migration
+- Added simulation-level persistence fields:
+  - `ai_notice_version`
+  - `ai_notice_text`
+  - `ai_eval_enabled_by_day`
+- Added defaults:
+  - notice version: `"mvp1"`
+  - default AI notice text
+  - day toggles default to all enabled (`"1"`..`"5"` => `true`)
+- Added backfill migration for existing rows and enforced `NOT NULL`/server defaults.
 
-### Worker/job orchestration
-- Wired `evaluation_run` into durable job handling.
-- Worker delegates execution to fit-profile evaluation pipeline.
-- Terminal failures propagate as durable job failure semantics (not silent success).
+### API contract
+- `POST /api/simulations` and `PUT /api/simulations/{id}` accept optional `ai` payload.
+- Recruiter simulation read APIs expose normalized `ai` block.
+- Update path behavior is AI-config-focused:
+  - omitted `ai` => no AI-config mutation
+  - provided `ai` => field-level merge/update
+  - provided `evalEnabledByDay` => merge by provided day keys
 
-### Evaluation pipeline
-- Reads required per-day/session artifacts (Day1-Day5 + refs + metadata).
-- Produces evaluator output with overall score, recommendation, confidence, per-day scores, and evidence pointers.
-- Stores model/prompt/rubric version metadata on each run.
-- Uses immutable, cutoff-backed basis references for traceability.
+### Candidate session exposure
+- Candidate session payload now includes:
+  - `aiNoticeText`
+  - `aiNoticeVersion`
+  - `evalEnabledByDay`
+- Candidate exposure is read-only.
 
-### Persistence/migrations
-- Persists historical runs in `evaluation_runs` and per-day results in `evaluation_day_scores`.
-- Persists evidence pointers and full composed report JSON.
-- Hardened `evaluation_runs.job_id` uniqueness semantics at DB level via unique index behavior for non-null `job_id` values.
+### Evaluation pipeline / fit-profile reporting
+- Evaluator reads per-day toggles before LLM scoring.
+- If AI is disabled for a day, LLM scoring is skipped for that day.
+- Disabled day is written/reported as placeholder:
+  - `status: "human_review_required"`
+  - `reason: "ai_eval_disabled_for_day"`
+  - `score: null`
+- Recruiter-visible fit-profile/reporting includes disabled-day placeholder entries.
+- Overall fit score excludes disabled placeholder days from denominator.
 
-### Report composition
-- Composes recruiter report payload from persisted run + day-score data.
-- Includes score summary, recommendation, confidence, day breakdown, evidence pointers, and version metadata.
+### Validation / auth
+- Strict validation for `evalEnabledByDay`:
+  - object shape required
+  - only day keys `"1"`..`"5"`
+  - values must be booleans
+  - invalid payload rejected with `422`
+- Recruiter-only mutation enforced on create/update paths.
+- Candidate cannot mutate AI config; candidate endpoints remain read-only.
 
-### Auth boundaries
-- Recruiter-only access enforced.
-- Candidate session ownership boundary enforced per company.
-- Unknown session returns `404`; cross-company access returns `403`.
+### Observability / logging
+- Logs record AI notice-version and toggle-change events.
+- Logs do not include full AI notice text content.
 
-### Disabled-day behavior
-- Disabled scenario days are excluded from scoring denominator.
-- Disabled days are not scored as active day results.
+## Detailed implementation notes
+- Field names persisted on simulation:
+  - `ai_notice_version`
+  - `ai_notice_text`
+  - `ai_eval_enabled_by_day`
+- Default behavior:
+  - if AI config is omitted at create, defaults are applied
+  - migration backfills legacy null/blank AI values to defaults
+  - post-migration rows keep AI columns non-null with server-side defaults
+- Merge semantics for update (`PUT /api/simulations/{id}`):
+  - omitted `ai` block is a no-op for AI config
+  - provided `ai.noticeVersion` / `ai.noticeText` update only those fields
+  - provided `ai.evalEnabledByDay` merges only specified day keys into stored map
+- Day-key validation is strict and bounded to simulation days `1`-`5`; arbitrary keys/types are rejected (`422`).
+- Candidate exposure is read-only: candidate session payload returns AI notice/toggles but no candidate mutation route can set them.
+- Disabled-day placeholder behavior is recruiter-visible in evaluation outputs with `human_review_required` + `ai_eval_disabled_for_day`.
+- Fit-profile response explicitly preserves `score: null` for disabled-day placeholders.
 
-### Failure semantics
-- Evaluation failures are persisted with explicit error state/code.
-- Fetch endpoint surfaces failed run state (`status: failed`) rather than masking errors.
-
-### Idempotency behavior
-- Replaying the same durable job does not create duplicate run rows.
-- Separate recruiter-triggered reruns create distinct historical runs.
-
-## API contract
-### `POST /api/candidate_sessions/{candidate_session_id}/fit_profile/generate`
-- Recruiter-only.
-- Returns queued durable job status:
-
+## API examples
+### Simulation create/update `ai` payload
 ```json
 {
-  "jobId": "0f3f2c1e-...",
-  "status": "queued"
-}
-```
-
-### `GET /api/candidate_sessions/{candidate_session_id}/fit_profile`
-- Recruiter-only.
-- Status shapes:
-
-`not_started`
-
-```json
-{
-  "status": "not_started"
-}
-```
-
-`running`
-
-```json
-{
-  "status": "running"
-}
-```
-
-`ready`
-
-```json
-{
-  "status": "ready",
-  "generatedAt": "2026-03-12T18:00:00Z",
-  "report": {
-    "overallFitScore": 0.78,
-    "recommendation": "hire",
-    "confidence": 0.74,
-    "dayScores": [
-      {
-        "dayIndex": 1,
-        "score": 0.7,
-        "rubricBreakdown": {},
-        "evidence": []
-      }
-    ],
-    "version": {
-      "model": "tenon-fit-evaluator",
-      "promptVersion": "fit-profile-v1",
-      "rubricVersion": "rubric-v1"
+  "ai": {
+    "noticeVersion": "mvp1",
+    "noticeText": "We use AI to assist in evaluation...",
+    "evalEnabledByDay": {
+      "1": true,
+      "2": true,
+      "3": true,
+      "4": false,
+      "5": true
     }
   }
 }
 ```
 
-`failed`
-
+### Recruiter simulation detail `ai` block
 ```json
 {
-  "status": "failed",
-  "errorCode": "evaluation_failed"
+  "id": 42,
+  "ai": {
+    "noticeVersion": "mvp1",
+    "noticeText": "We use AI to assist in evaluation...",
+    "evalEnabledByDay": {
+      "1": true,
+      "2": true,
+      "3": true,
+      "4": false,
+      "5": true
+    }
+  }
 }
 ```
 
-## Data model / persistence
-- `evaluation_runs`
-  - durable linkage: `job_id`
-  - basis traceability: `basis_fingerprint`
-  - report summary fields: `overall_fit_score`, `recommendation`, `confidence`, `generated_at`
-  - full report payload: `raw_report_json`
-  - terminal failure field: `error_code`
-- `evaluation_day_scores`
-  - per-day score + rubric breakdown + evidence pointers
-- Evidence pointers persisted with typed references (commit/diff/test/transcript/reflection)
-- DB hardening: unique `job_id` index semantics on `evaluation_runs.job_id` for non-null values
+### Candidate session payload
+```json
+{
+  "candidateSessionId": 101,
+  "aiNoticeText": "We use AI to help evaluate submitted work artifacts...",
+  "aiNoticeVersion": "mvp1",
+  "evalEnabledByDay": {
+    "1": true,
+    "2": true,
+    "3": true,
+    "4": false,
+    "5": true
+  }
+}
+```
 
-## Key invariants
-- Evaluation runs are append-only historical records.
-- Same durable job replay does not create duplicate runs.
-- Separate recruiter reruns create distinct runs.
-- Failed evaluations surface as failed durable jobs.
-- Immutable cutoff-backed basis refs are used for evaluation inputs.
-- Disabled days are excluded from overall denominator.
-- Recruiter/company authorization boundaries are enforced.
+### Disabled-day fit-profile/report entry
+```json
+{
+  "dayIndex": 4,
+  "status": "human_review_required",
+  "reason": "ai_eval_disabled_for_day",
+  "score": null
+}
+```
 
-## Automated testing
-Final commands and outcomes:
-- `poetry run ruff check .` -> PASS
-- `poetry run ruff format --check .` -> PASS
-- `poetry run pytest` -> PASS (`1382 passed`)
-- `./precommit.sh` -> PASS
+## Testing
+- Unit/integration coverage validates:
+  - simulation AI config serialization/default fallback
+  - create with omitted/custom AI payload
+  - AI-focused update merge behavior and omitted-`ai` no-op
+  - validation failures (`422`) for invalid `evalEnabledByDay`
+  - recruiter simulation read APIs exposing AI block
+  - candidate session exposure of `aiNoticeText`, `aiNoticeVersion`, `evalEnabledByDay`
+  - evaluation/report behavior for AI-disabled day placeholders
+  - overall fit-score denominator excludes disabled days
+  - logging hygiene for version/toggle change events
+- Final automated validation:
+  - `./precommit.sh`: PASS
+  - coverage: `99.01%`
+- Final manual/runtime QA:
+  - verdict: PASS
+  - verified on real Postgres 15 with real migration path from `202603120002` to `202603120003`
+  - verified via real localhost HTTP runtime (`uvicorn`) across API/service/repository/worker behavior
+- Evidence bundle:
+  - `.qa/issue218/manual_qa_full_pass_20260312T140450Z`
+- Final verified runtime scenarios include:
+  - create with omitted AI defaults
+  - create with custom AI config
+  - partial update merge
+  - omitted `ai` no-op
+  - invalid config returns `422`
+  - recruiter read APIs expose `ai`
+  - candidate session exposes AI notice + toggles
+  - disabled-day evaluation/report behavior
+  - overall score denominator behavior
+  - logging hygiene
+  - auth boundary enforcement
 
-Final automated results:
-- Test suite: `1382 passed`
-- Coverage: `99.01%`
-- Precommit: passed
+## QA evidence
+- Evidence bundle:
+  - `.qa/issue218/manual_qa_full_pass_20260312T140450Z`
+- Key artifacts and what they prove:
+  - `QA_REPORT.md`: end-to-end QA execution summary and final PASS verdict.
+  - `legacy_rows_pre_migration_null_check.txt`: legacy null/blank AI state exists pre-migration.
+  - `legacy_rows_post_migration.txt`: legacy rows backfilled after migration.
+  - `legacy_rows_post_default_assertions.txt`: defaults/assertions hold after backfill.
+  - `schema_post_ai_columns_info_schema.txt`: AI columns present with expected nullability/default metadata.
+  - `schema_post_ai_columns_pg_catalog.txt`: catalog-level confirmation of column defaults/constraints.
+  - `post_migration_insert_without_ai_row.txt`: insert without explicit AI config safely receives defaults.
+  - `scenario_jk_evaluation_flow.json`: disabled-day placeholder behavior and overall-score denominator checks.
+  - `scenario_l_logging_hygiene.json`: version/toggle logs present without full notice text leakage.
+  - `scenario_m_auth_boundary_responses.json`: recruiter/candidate/auth boundary enforcement.
 
-## Manual / runtime QA
-Iteration 4 final manual/runtime QA verdict: PASS.
+## Risks / follow-ups
+- No blocking risk identified for this issue scope.
+- Follow-up (narrow): if simulation day ranges become dynamic beyond `1`-`5`, extend validation/default toggle map accordingly.
 
-Runtime execution method:
-- First attempted localhost `uvicorn` bind.
-- Sandbox blocked bind (`operation not permitted`).
-- Executed runtime QA via ASGI in-process fallback against real `app.main:app`.
-
-Evidence bundle:
-- `/Users/robelmelaku/Desktop/tenon-backend-wip/.qa/issue214/manual_qa_20260312T032006Z`
-
-Repo cleanliness during QA:
-- Repo state before QA: clean.
-- Repo state after QA: clean.
-
-Scenarios A-M: all PASS.
-- A: schema/index integrity
-- B: generate endpoint
-- C: fetch `not_started`
-- D: fetch `running`
-- E: fetch `ready`
-- F: FitProfile marker
-- G: historical reruns
-- H: same-job replay idempotency
-- I: durable failure semantics
-- J: auth boundaries
-- K: disabled-day behavior
-- L: immutable basis/cutoff behavior
-- M: logging hygiene
-
-## Environment note / non-blocking observation
-Non-blocking note: full historical `alembic upgrade head` on isolated SQLite fails at an older pre-existing migration due to SQLite constraint-alter limitations. This is outside #214 scope. #214’s own migration chain and final runtime schema behavior were still validated via issue-scoped migration probe and live runtime checks.
-
-## Rollout / demo notes
-- Generate a fit profile from recruiter context via generate endpoint.
-- Poll fetch endpoint and observe transition through queued/running/ready states.
-- Review evidence-backed report output (overall score, recommendation, per-day evidence trail).
-- Trigger a rerun and show append-only historical run behavior.
-- Optionally induce evaluator failure and show failed durable job + failed fetch status.
+## Rollout / demo checklist
+- Create a simulation with Day 4 AI disabled.
+- Candidate sees AI notice (`aiNoticeText`/`aiNoticeVersion`) in session payload.
+- Generate evaluation.
+- Recruiter sees Day 4 marked human-review-only in fit-profile/report output.
 
 ## Final status
-- QA verdict: PASS
-- Ready for PR raise
+Issue #218 is complete, fully QA-verified (manual/runtime PASS), and ready for PR raise.

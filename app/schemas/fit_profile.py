@@ -24,9 +24,11 @@ class FitProfileEvidenceOut(APIModel):
 
 class FitProfileDayScoreOut(APIModel):
     dayIndex: int
-    score: float
+    score: float | None = None
     rubricBreakdown: dict[str, Any] = Field(default_factory=dict)
     evidence: list[FitProfileEvidenceOut] = Field(default_factory=list)
+    status: str | None = None
+    reason: str | None = None
 
 
 class FitProfileVersionOut(APIModel):

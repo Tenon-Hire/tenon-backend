@@ -409,6 +409,16 @@ async def test_resolve_transitions_to_in_progress(async_client, async_session):
     assert body["status"] == "in_progress"
     assert body["startedAt"] is not None
     assert body["candidateSessionId"] == cs_id
+    assert body["aiNoticeVersion"] == "mvp1"
+    assert isinstance(body["aiNoticeText"], str)
+    assert body["aiNoticeText"]
+    assert body["evalEnabledByDay"] == {
+        "1": True,
+        "2": True,
+        "3": True,
+        "4": True,
+        "5": True,
+    }
 
     cs_after = (
         await async_session.execute(

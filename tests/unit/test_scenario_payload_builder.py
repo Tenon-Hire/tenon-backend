@@ -31,5 +31,11 @@ def test_build_scenario_generation_payload_includes_recruiter_context_fields() -
     assert payload["recruiterContext"]["ai"] == {
         "noticeVersion": "mvp1",
         "noticeText": "AI may be used for scenario generation.",
-        "evalEnabledByDay": {"1": True, "2": True, "3": False},
+        "evalEnabledByDay": {
+            "1": True,
+            "2": True,
+            "3": False,
+            "4": True,
+            "5": True,
+        },
     }
