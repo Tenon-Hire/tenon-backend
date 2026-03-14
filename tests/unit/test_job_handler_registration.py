@@ -7,6 +7,7 @@ from app.jobs.handlers import (
     SCENARIO_GENERATION_JOB_TYPE,
     SIMULATION_CLEANUP_JOB_TYPE,
     TRANSCRIBE_RECORDING_JOB_TYPE,
+    WORKSPACE_CLEANUP_JOB_TYPE,
 )
 
 
@@ -14,6 +15,7 @@ def test_register_builtin_handlers_is_explicit():
     worker.clear_handlers()
     try:
         assert worker.has_handler(SIMULATION_CLEANUP_JOB_TYPE) is False
+        assert worker.has_handler(WORKSPACE_CLEANUP_JOB_TYPE) is False
         assert worker.has_handler(DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE) is False
         assert worker.has_handler(DAY_CLOSE_ENFORCEMENT_JOB_TYPE) is False
         assert worker.has_handler(EVALUATION_RUN_JOB_TYPE) is False
@@ -24,6 +26,7 @@ def test_register_builtin_handlers_is_explicit():
         worker.register_builtin_handlers()
 
         assert worker.has_handler(SIMULATION_CLEANUP_JOB_TYPE) is True
+        assert worker.has_handler(WORKSPACE_CLEANUP_JOB_TYPE) is True
         assert worker.has_handler(DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE) is True
         assert worker.has_handler(DAY_CLOSE_ENFORCEMENT_JOB_TYPE) is True
         assert worker.has_handler(EVALUATION_RUN_JOB_TYPE) is True

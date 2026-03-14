@@ -37,3 +37,13 @@ class RepoOperations:
         owner, repo = split_full_name(repo_full_name)
         path = f"/repos/{owner}/{repo}/collaborators/{username}"
         return await self._request("DELETE", path, expect_body=False)
+
+    async def archive_repo(self, repo_full_name: str) -> dict:
+        owner, repo = split_full_name(repo_full_name)
+        path = f"/repos/{owner}/{repo}"
+        return await self._request("PATCH", path, json={"archived": True})
+
+    async def delete_repo(self, repo_full_name: str) -> dict:
+        owner, repo = split_full_name(repo_full_name)
+        path = f"/repos/{owner}/{repo}"
+        return await self._request("DELETE", path, expect_body=False)

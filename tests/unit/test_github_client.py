@@ -25,6 +25,10 @@ async def test_github_client_happy_paths():
             return httpx.Response(200, json={"ok": True})
         if request.method == "DELETE" and "/collaborators/" in request.url.path:
             return httpx.Response(204)
+        if request.method == "PATCH" and request.url.path == "/repos/org/repo":
+            return httpx.Response(200, json={"archived": True})
+        if request.method == "DELETE" and request.url.path == "/repos/org/repo":
+            return httpx.Response(204)
         if request.method == "POST" and "/dispatches" in request.url.path:
             return httpx.Response(204)
         if request.method == "GET" and "/branches/" in request.url.path:
@@ -54,6 +58,10 @@ async def test_github_client_happy_paths():
     assert collab["ok"] is True
     removed = await client.remove_collaborator("org/repo", "octocat")
     assert removed == {}
+    archived = await client.archive_repo("org/repo")
+    assert archived["archived"] is True
+    deleted = await client.delete_repo("org/repo")
+    assert deleted == {}
 
     # No exception raised on 204/expect_body False
     await client.trigger_workflow_dispatch(
@@ -239,6 +247,8 @@ async def test_github_client_misc_methods(monkeypatch):
         tree="tree-sha",
         parents=["parent-sha"],
     )
+    await client.archive_repo("owner/name")
+    await client.delete_repo("owner/name")
     await client.update_ref(
         "owner/name",
         ref="heads/main",
@@ -261,6 +271,14 @@ async def test_github_client_misc_methods(monkeypatch):
     assert any(path.endswith("/git/blobs") for path, _, _ in calls["post_json"])
     assert any(path.endswith("/git/trees") for path, _, _ in calls["post_json"])
     assert any(path.endswith("/git/commits") for path, _, _ in calls["post_json"])
+    assert any(
+        method == "PATCH" and path.endswith("/repos/owner/name")
+        for method, path, *_rest in calls["request"]
+    )
+    assert any(
+        method == "DELETE" and path.endswith("/repos/owner/name")
+        for method, path, *_rest in calls["request"]
+    )
     assert any(
         method == "PATCH" and path.endswith("/git/refs/heads/main")
         for method, path, *_rest in calls["request"]

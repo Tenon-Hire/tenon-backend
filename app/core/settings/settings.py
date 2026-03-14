@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     GITHUB_ACTIONS_WORKFLOW_FILE: str | None = None
     GITHUB_REPO_PREFIX: str | None = None
     GITHUB_CLEANUP_ENABLED: bool | None = None
+    WORKSPACE_RETENTION_DAYS: int | None = None
+    WORKSPACE_CLEANUP_MODE: str | None = None
+    WORKSPACE_DELETE_ENABLED: bool | None = None
     GITHUB_WEBHOOK_SECRET: str | None = None
     GITHUB_WEBHOOK_MAX_BODY_BYTES: int | None = None
 

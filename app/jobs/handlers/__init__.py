@@ -26,6 +26,10 @@ from app.jobs.handlers.transcribe_recording import (
     TRANSCRIBE_RECORDING_JOB_TYPE,
     handle_transcribe_recording,
 )
+from app.jobs.handlers.workspace_cleanup import (
+    WORKSPACE_CLEANUP_JOB_TYPE,
+    handle_workspace_cleanup,
+)
 
 __all__ = [
     "DAY_CLOSE_ENFORCEMENT_JOB_TYPE",
@@ -42,4 +46,6 @@ __all__ = [
     "handle_scenario_generation",
     "TRANSCRIBE_RECORDING_JOB_TYPE",
     "handle_transcribe_recording",
+    "WORKSPACE_CLEANUP_JOB_TYPE",
+    "handle_workspace_cleanup",
 ]
