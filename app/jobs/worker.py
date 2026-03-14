@@ -64,6 +64,7 @@ def register_builtin_handlers() -> None:
         SCENARIO_GENERATION_JOB_TYPE,
         SIMULATION_CLEANUP_JOB_TYPE,
         TRANSCRIBE_RECORDING_JOB_TYPE,
+        WORKSPACE_CLEANUP_JOB_TYPE,
         handle_day_close_enforcement,
         handle_day_close_finalize_text,
         handle_evaluation_run,
@@ -71,9 +72,11 @@ def register_builtin_handlers() -> None:
         handle_scenario_generation,
         handle_simulation_cleanup,
         handle_transcribe_recording,
+        handle_workspace_cleanup,
     )
 
     register_handler(SIMULATION_CLEANUP_JOB_TYPE, handle_simulation_cleanup)
+    register_handler(WORKSPACE_CLEANUP_JOB_TYPE, handle_workspace_cleanup)
     register_handler(DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE, handle_day_close_finalize_text)
     register_handler(DAY_CLOSE_ENFORCEMENT_JOB_TYPE, handle_day_close_enforcement)
     register_handler(EVALUATION_RUN_JOB_TYPE, handle_evaluation_run)

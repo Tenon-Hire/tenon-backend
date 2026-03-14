@@ -69,6 +69,9 @@ def test_github_settings_merge_flat_env():
         GITHUB_ACTIONS_WORKFLOW_FILE="ci.yml",
         GITHUB_REPO_PREFIX="prefix-",
         GITHUB_CLEANUP_ENABLED="True",
+        WORKSPACE_RETENTION_DAYS=45,
+        WORKSPACE_CLEANUP_MODE="delete",
+        WORKSPACE_DELETE_ENABLED="True",
         GITHUB_WEBHOOK_SECRET="webhook-secret",
         GITHUB_WEBHOOK_MAX_BODY_BYTES=12345,
     )
@@ -80,6 +83,9 @@ def test_github_settings_merge_flat_env():
     assert s.github.GITHUB_ACTIONS_WORKFLOW_FILE == "ci.yml"
     assert s.github.GITHUB_REPO_PREFIX == "prefix-"
     assert s.github.GITHUB_CLEANUP_ENABLED is True
+    assert s.github.WORKSPACE_RETENTION_DAYS == 45
+    assert s.github.WORKSPACE_CLEANUP_MODE == "delete"
+    assert s.github.WORKSPACE_DELETE_ENABLED is True
     assert s.github.GITHUB_WEBHOOK_SECRET == "webhook-secret"
     assert s.github.GITHUB_WEBHOOK_MAX_BODY_BYTES == 12345
 
@@ -231,6 +237,9 @@ def test_trusted_proxy_coercion_passthrough_other_types():
 def test_merge_legacy_prefers_env(monkeypatch):
     monkeypatch.setenv("TENON_GITHUB_TOKEN", "t0k3n")
     monkeypatch.setenv("TENON_GITHUB_ACTIONS_WORKFLOW_FILE", "ci.yml")
+    monkeypatch.setenv("TENON_WORKSPACE_RETENTION_DAYS", "15")
+    monkeypatch.setenv("TENON_WORKSPACE_CLEANUP_MODE", "archive")
+    monkeypatch.setenv("TENON_WORKSPACE_DELETE_ENABLED", "0")
     monkeypatch.setenv("TENON_GITHUB_WEBHOOK_SECRET", "merge-secret")
     monkeypatch.setenv("TENON_GITHUB_WEBHOOK_MAX_BODY_BYTES", "2048")
     monkeypatch.setenv("SMTP_PASSWORD", "supers3cret")
@@ -249,6 +258,9 @@ def test_merge_legacy_prefers_env(monkeypatch):
     assert merged["github"]["GITHUB_API_BASE"] == "https://api.github.com"
     assert merged["github"]["GITHUB_TOKEN"] == "t0k3n"
     assert merged["github"]["GITHUB_ACTIONS_WORKFLOW_FILE"] == "ci.yml"
+    assert merged["github"]["WORKSPACE_RETENTION_DAYS"] == "15"
+    assert merged["github"]["WORKSPACE_CLEANUP_MODE"] == "archive"
+    assert merged["github"]["WORKSPACE_DELETE_ENABLED"] == "0"
     assert merged["github"]["GITHUB_WEBHOOK_SECRET"] == "merge-secret"
     assert merged["github"]["GITHUB_WEBHOOK_MAX_BODY_BYTES"] == "2048"
     assert merged["email"]["SMTP_PASSWORD"] == "supers3cret"

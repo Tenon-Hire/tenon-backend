@@ -1,169 +1,165 @@
-# Issue #217: P2 GitHub Ops — Optional webhook endpoint for `workflow_run` completion to reduce polling
+## 1. Title
+P2 GitHub Ops: Retention cleanup job for workspace repos + collaborator revocation enforcement (#216)
 
-## Title
-Add signed GitHub `workflow_run.completed` webhook ingestion with deterministic mapping, durable artifact-parse enqueueing, and verified polling fallback.
+## 2. TL;DR
+- Added durable job type `workspace_cleanup` and wired it into the worker.
+- Cleanup execution order is explicit: collaborator revocation enforcement runs before retention cleanup.
+- Retention cleanup archives repos by default; delete is allowed only with explicit destructive opt-in.
+- Cleanup/revocation lifecycle state is canonical on `WorkspaceGroup` for grouped repos.
+- Legacy `Workspace` lifecycle fields remain for compatibility/fallback for ungrouped rows.
+- No new public endpoint was added.
 
-## TL;DR
-- Added signed webhook ingestion at `POST /api/github/webhooks`.
-- Added `workflow_run.completed` handling to persist run completion state.
-- Implemented deterministic mapping: exact `workflow_run_id` first, constrained safe fallback second.
-- Added durable async `github_workflow_artifact_parse` enqueueing with dedupe keying and existing parser reuse.
-- Added hardening and fail-closed controls: raw-body HMAC verify, size cap, limiter reuse, and `503` when secret is unset.
-- Polling fallback remains intact, and is now manually runtime-verified with authenticated flow evidence.
+## 3. Problem / Why
+Workspace repos and collaborator access can outlive their useful lifecycle when cleanup/revocation is not enforced durably. That creates avoidable GitHub footprint/cost and lingering access risk. Issue #216 adds durable, idempotent cleanup + revocation enforcement with explicit safety controls.
 
-## Problem / Why
-Polling-only completion detection adds latency, increases GitHub API load, and can make demo behavior flaky. A webhook completion signal reduces dependence on polling and improves update speed, while preserving existing polling as the fallback path when webhook delivery is unavailable.
+## 4. What changed
+- Job foundation integration:
+  - Added durable job type `workspace_cleanup`.
+  - Added enqueue/idempotency helpers in `app/services/submissions/workspace_cleanup_jobs.py`.
+  - Added worker handler `handle_workspace_cleanup` in `app/jobs/handlers/workspace_cleanup.py` and registered it in worker/handler registry.
+- Cleanup/revocation runtime behavior:
+  - Revocation enforcement executes first for targets that require it.
+  - Retention cleanup executes afterward when eligible and expired.
+  - Structured logging emits start/success/failure events for revocation and archive/delete operations.
+- GitHub integration:
+  - Added archive/delete repo client operations used by cleanup handler.
+  - Existing collaborator removal is reused for revocation enforcement.
+- Persistence/model updates:
+  - Added cleanup/revocation lifecycle columns on `workspace_groups` (canonical for grouped repos).
+  - Added/retained lifecycle columns on `workspaces` for compatibility/fallback ungrouped rows.
+  - Added migrations for both tables.
+- Config added:
+  - `TENON_WORKSPACE_RETENTION_DAYS`
+  - `TENON_WORKSPACE_CLEANUP_MODE`
+  - `TENON_WORKSPACE_DELETE_ENABLED`
 
-## What changed
-### 1. Webhook API endpoint
-- Added `POST /api/github/webhooks`.
-- Supported webhook path is `workflow_run` with `action=completed`.
-- Response behavior:
-  - `202 Accepted`: recognized accepted deliveries, including valid no-op outcomes (unknown/unsupported valid events, unmatched safe no-op, duplicate idempotent delivery).
-  - `401 Unauthorized`: missing/invalid signature.
-  - `400 Bad Request`: malformed/invalid payload shape.
-  - `413 Payload Too Large`: request body exceeds configured payload cap.
-  - `503 Service Unavailable`: webhook secret unset (fail-closed behavior).
+## 5. Behavior / semantics
+- Revocation is required when cutoff/day-close evidence exists (session present in day-audit evidence set).
+- Collaborator revocation runs before any archive/delete action.
+- Terminal revocation failure blocks cleanup for that target.
+- Transient GitHub failures are retryable and bubble to durable worker retry path.
+- Active sessions are skipped.
+- Retention anchor uses `candidate_session.completed_at` when present; otherwise repo record `created_at`.
+- Grouped and legacy duplicate references are deduped by candidate-session + repo identity.
+- Already-cleaned targets are a no-op on rerun (idempotent behavior).
+- Cleanup mode defaults to archive.
+- Delete requires both:
+  - `TENON_WORKSPACE_CLEANUP_MODE=delete`
+  - `TENON_WORKSPACE_DELETE_ENABLED=true`
 
-### 2. Signature verification and request hardening
-- Verifies `X-Hub-Signature-256` from raw request-body bytes (no JSON reserialization).
-- Uses HMAC SHA-256 with constant-time comparison (`hmac.compare_digest`).
-- Enforces payload-size cap via `TENON_GITHUB_WEBHOOK_MAX_BODY_BYTES`.
-- Reuses existing limiter protection for the webhook route.
-- Logs minimal structured metadata only (delivery id, event/action, mapping outcome, enqueue outcome, reason code).
-
-### 3. Deterministic workflow-run mapping
-- Exact `workflow_run_id` + repo full-name match is attempted first.
-- If exact match is unavailable, constrained fallback uses repo + head SHA on eligible non-terminal rows only.
-- Ambiguous fallback candidates are accepted as safe no-op (`202`) with no mutation.
-- Terminal/stale rows are excluded from fallback matching.
-
-### 4. Submission workflow completion persistence
-- Added/updated persisted workflow completion fields on submissions:
-  - `workflow_run_attempt`
-  - `workflow_run_status`
-  - `workflow_run_conclusion`
-  - `workflow_run_completed_at`
-- Migration added:
-  - `alembic/versions/202603130001_add_submission_workflow_completion_columns.py`
-
-### 5. Artifact parse trigger
-- Matched `workflow_run.completed` deliveries enqueue durable `github_workflow_artifact_parse` jobs.
-- Job handler reuses the existing Actions artifact parsing path.
-- Enqueue dedupe key is scoped to submission/workflow run/attempt:
-  - `github_workflow_artifact_parse:{submission_id}:{workflow_run_id}:{attempt}`
-
-### 6. Polling fallback remains
-- Existing polling path was not removed.
-- Webhook handling is additive, not a replacement.
-- Polling fallback was manually runtime-verified post-change, including authenticated polling/status flow against real localhost app + real Postgres.
-
-## Files changed
-- Router / config:
-  - `.env.example`
-  - `app/api/router_registry.py`
-  - `app/api/routers/github_webhooks.py`
-  - `app/core/settings/github.py`
-  - `app/core/settings/merge.py`
-  - `app/core/settings/settings.py`
-- Webhook integration:
-  - `app/integrations/github/webhooks/signature.py`
-  - `app/integrations/github/webhooks/handlers/workflow_run.py`
-  - `app/integrations/github/webhooks/__init__.py`
-  - `app/integrations/github/webhooks/handlers/__init__.py`
-- Jobs / worker wiring:
-  - `app/jobs/handlers/github_workflow_artifact_parse.py`
+## 6. Files changed
+- Job enqueue + idempotency:
+  - `app/services/submissions/workspace_cleanup_jobs.py`
+- Worker handler + registration:
+  - `app/jobs/handlers/workspace_cleanup.py`
   - `app/jobs/handlers/__init__.py`
   - `app/jobs/worker.py`
-- Repository / migration:
-  - `app/repositories/submissions/submission.py`
-  - `alembic/versions/202603130001_add_submission_workflow_completion_columns.py`
+- GitHub client:
+  - `app/integrations/github/client/repos.py`
+- Settings/config:
+  - `app/core/settings/github.py`
+  - `app/core/settings/settings.py`
+  - `app/core/settings/merge.py`
+  - `.env.example`
+- Data model + migrations:
+  - `app/repositories/github_native/workspaces/models.py`
+  - `alembic/versions/202603130002_add_workspace_cleanup_state_columns.py`
+  - `alembic/versions/202603130003_add_workspace_group_cleanup_state_columns.py`
 - Tests:
-  - `tests/integration/api/test_github_webhooks_api.py`
-  - `tests/unit/api/routers/test_github_webhooks.py`
-  - `tests/unit/integrations/github/webhooks/test_signature.py`
-  - `tests/unit/integrations/github/webhooks/handlers/test_workflow_run.py`
-  - `tests/unit/test_github_workflow_artifact_parse_handler.py`
+  - `tests/unit/test_workspace_cleanup_handler.py`
+  - `tests/integration/test_workspace_cleanup_job_integration.py`
+  - `tests/unit/test_workspace_cleanup_jobs.py`
+  - `tests/unit/test_workspace_cleanup_migrations_smoke.py`
+  - `tests/unit/test_github_client.py`
   - `tests/unit/test_job_handler_registration.py`
-  - `tests/unit/test_submissions_schema_columns.py`
-  - `tests/unit/test_config.py`
-  - `tests/factories/models.py`
 
-## Testing
-### Repo-native quality gate
-- `poetry run ruff check app tests`
-- `poetry run ruff format --check app tests`
-- `./precommit.sh`
-- Result: `1431 passed`
-- Coverage: `99.04%`
+## 7. Testing
+- Repo quality gate passed.
+- `./precommit.sh` passed.
+- Total coverage reached `99.01%`.
+- Migration smoke test passed.
 
-### Focused automated coverage added
-- Signature verification coverage for valid, missing, invalid, and malformed signature cases.
-- Webhook route edge-case coverage for `202`, `401`, `400`, `413`, and `503`.
-- Mapping logic coverage for exact-match precedence, fallback ambiguity no-op, and terminal/stale exclusion.
-- Duplicate delivery idempotency coverage to ensure single durable parse enqueue.
-- Artifact parse handler coverage for payload guards and persistence behavior.
-- Polling-related regression coverage to confirm webhook changes are additive.
+Representative high-signal test coverage includes:
+- Active-session skip behavior.
+- Revocation hard-stop behavior on terminal failures.
+- Rerun idempotency behavior.
+- Canonical grouped-state handling with duplicate legacy reference skip.
+- Archive and delete worker flows.
+- Transient revocation failure retry behavior.
 
-### Manual/runtime QA
-#### Main webhook runtime QA
-- Bundle path: `.qa/issue217/manual_qa_20260313_110833/`
-- Runtime method: real localhost `uvicorn` + real isolated Postgres.
-- Scenario coverage A-L (PASS):
-  - A: valid signed matched webhook updates submission/workspace and enqueues one parse job.
-  - B/C: invalid or missing signature returns `401` with no mutation.
-  - D/E: unknown/unsupported or unmatched valid payload returns `202` safe no-op.
-  - F: duplicate delivery is idempotent (single durable parse job).
-  - G: exact match precedence over fallback candidate.
-  - H/I: ambiguous fallback and terminal/stale fallback candidates are safe no-op.
-  - J: oversized payload returns `413`.
-  - K: secret-unset path fails closed with `503`.
-  - L: polling path still present/callable and existing polling tests pass.
-- Overall verdict: `PASS`.
+## 8. Manual QA / Runtime Verification
+### Runtime method
+- Real localhost backend:
+  - `poetry run uvicorn app.api.main:app --host 127.0.0.1 --port 8000`
+- Real Postgres database:
+  - `tenon_issue216_20260313t221241z`
+- Real durable worker path:
+  - `app.jobs.worker.run_once`
+- GitHub boundary:
+  - local HTTP stub via `TENON_GITHUB_API_BASE=http://127.0.0.1:9100`
 
-#### Supplemental polling fallback runtime QA
-- Bundle path: `.qa/issue217/supplemental_manual_qa_20260313_113936/`
-- Runtime method: real localhost app + real Postgres + real RS256 JWT auth validated via live JWKS endpoint.
-- Verified authenticated runtime flow:
-  - `GET /api/tasks/{task_id}/run/{run_id}` returned concrete polled run result.
-  - `GET /api/tasks/{task_id}/codespace/status` returned DB-backed persisted workflow state matching poll result.
-  - Postgres snapshots confirmed persisted workspace state alignment with polled response.
-- External dependency isolation nuance:
-  - Supplemental polling QA intentionally used a local fake GitHub HTTP boundary for deterministic external isolation.
-  - Tenon app/auth/router/DB behavior remained real and end-to-end over localhost HTTP.
-- Overall verdict: `PASS`.
+The Tenon backend/runtime/DB were real. GitHub operations were isolated behind a deterministic local stub.
 
-- Strongest verified scenarios across both bundles:
-  - Matched webhook update with exactly one durable parse job enqueue.
-  - Invalid/missing signature rejection.
-  - Duplicate delivery idempotency.
-  - Exact-match mapping precedence.
-  - Ambiguous/terminal fallback safety behavior.
-  - Payload-too-large and secret-unset fail-closed behavior.
-  - Authenticated live polling fallback proof after webhook changes.
+### Evidence path
+- `.qa/issue216/manual_qa_20260313T221241Z`
 
-## Acceptance criteria mapping
-- [x] Valid signed delivery updates matching run state in DB.
-- [x] Invalid signature is rejected (`401`).
-- [x] Artifact parse is triggered for completed workflow runs (`github_workflow_artifact_parse`).
-- [x] Unknown/unmatched but valid events are accepted safely (`202`) without mutation.
-- [x] Polling fallback remains functional and is manually QA-verified.
+Evidence bundle contains:
+- `report.md`
+- `commands.log`
+- `server.log`
+- `worker.log`
+- `db_scenario_*.sql`
+- `db_scenario_*_output.txt`
+- `github_stub_calls.jsonl`
+- `seed_summary.json`
 
-## Risks / limitations
-- Safe unmatched deliveries can still occur when exact workflow-run linkage is unavailable.
-- Delivery ID is logged for observability but not persisted for long-term audit/dedup analytics.
-- Supplemental polling QA intentionally stubbed the external GitHub HTTP boundary for deterministic isolation; proof remains focused on real Tenon app/auth/router/DB behavior.
+### Scenario summary
+All scenarios A-H passed:
+- **A** — archive success with revocation-before-cleanup
+- **B** — delete success with explicit opt-in
+- **C** — delete guard blocks destructive cleanup
+- **D** — active session is skipped
+- **E** — terminal revocation failure blocks cleanup
+- **F** — transient revocation failure retries safely, then succeeds
+- **G** — idempotent rerun is a no-op
+- **H** — canonical grouped repo state is used and duplicate legacy reference is skipped
 
-## Rollout / demo notes
-- Configure `TENON_GITHUB_WEBHOOK_SECRET`.
-- Configure GitHub webhook target `/api/github/webhooks` subscribed to `workflow_run`.
-- Trigger a workflow run and show faster completion-state updates.
-- Disable or unset webhook secret and demonstrate polling fallback still works.
+### Strongest proof points
+- Scenario A showed `remove_collaborator` before `archive_repo`.
+- Scenario B showed delete only when `TENON_WORKSPACE_DELETE_ENABLED=true`.
+- Scenario C showed no delete call with guard disabled.
+- Scenario D showed old but active sessions remain `pending`.
+- Scenario E showed terminal revocation failure prevents cleanup.
+- Scenario F showed retry-safe behavior after transient `502`.
+- Scenario H showed lifecycle state on `workspace_groups` while legacy duplicate `workspaces` row remained untouched.
 
-## Commands run
-- `poetry run ruff check app tests`
-- `poetry run ruff format --check app tests`
-- `./precommit.sh`
+### Final QA verdict
+- **Manual runtime QA verdict: PASS**
+- **Issue #216 is PR-ready from a runtime QA perspective**
 
-## Final status
-Issue #217 is PR-ready and manually QA-verified.
+## 9. Security / safety notes
+- Cleanup scope is DB-backed workspace records only; non-workspace repos are not targeted.
+- Delete is guarded by explicit config opt-in (`TENON_WORKSPACE_DELETE_ENABLED=true`).
+- Archive remains the default cleanup mode.
+- Revocation-before-cleanup ordering reduces residual collaborator access risk.
+- Logs are structured for observability and avoid token/secret leakage.
+- No new public endpoint was introduced.
+
+## 10. Risks / follow-ups
+- Periodic scheduling wiring (cron/scheduler trigger policy) remains operational follow-up beyond this implementation.
+- Legacy `Workspace` lifecycle columns are intentionally retained for compatibility/fallback while grouped canonical state resides on `WorkspaceGroup`.
+
+## 11. Rollout / demo checklist
+1. Seed/create candidate workspace repos tied to candidate sessions.
+2. Ensure cutoff/day-close evidence is present for revocation-required scenarios.
+3. Run durable `workspace_cleanup` job for the target company.
+4. Verify collaborator revocation execution and persisted lifecycle fields.
+5. Verify retention behavior under default archive mode.
+6. Verify delete behavior only with explicit delete mode + guard enabled.
+7. Rerun the job and verify idempotent no-op for already-cleaned targets.
+8. Verify grouped canonical behavior and legacy duplicate skip behavior.
+
+## 12. Final status
+Implementation complete, automated checks green, and runtime QA evidence recorded.
+
+Issue #216 is PR-ready.

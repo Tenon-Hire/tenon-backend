@@ -8,6 +8,15 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db.base import Base
 
+WORKSPACE_CLEANUP_STATUS_PENDING = "pending"
+WORKSPACE_CLEANUP_STATUS_ARCHIVED = "archived"
+WORKSPACE_CLEANUP_STATUS_DELETED = "deleted"
+WORKSPACE_CLEANUP_STATUS_FAILED = "failed"
+WORKSPACE_CLEANUP_TERMINAL_STATUSES = {
+    WORKSPACE_CLEANUP_STATUS_ARCHIVED,
+    WORKSPACE_CLEANUP_STATUS_DELETED,
+}
+
 
 class WorkspaceGroup(Base):
     """Canonical workspace repo metadata shared across related coding tasks."""
@@ -35,6 +44,21 @@ class WorkspaceGroup(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
+    cleanup_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    cleanup_attempted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    cleaned_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    cleanup_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retention_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    access_revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    access_revocation_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     candidate_session = relationship(
         "CandidateSession", back_populates="workspace_groups"
@@ -88,6 +112,21 @@ class Workspace(Base):
     codespace_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     codespace_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     codespace_state: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    cleanup_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    cleanup_attempted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    cleaned_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    cleanup_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retention_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    access_revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    access_revocation_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     candidate_session = relationship("CandidateSession", back_populates="workspaces")
     task = relationship("Task", back_populates="workspaces")
