@@ -8,6 +8,21 @@ import pytest
 from app.services.submissions import workspace_existing as ws_existing
 
 
+def test_serialize_no_bundle_details_handles_non_matching_inputs():
+    assert (
+        ws_existing._serialize_no_bundle_details(
+            SimpleNamespace(state="applied", details={"reason": "commit_created"})
+        )
+        is None
+    )
+    assert (
+        ws_existing._serialize_no_bundle_details(
+            SimpleNamespace(state="no_bundle", details=["bad-payload"])
+        )
+        is None
+    )
+
+
 @pytest.mark.asyncio
 async def test_ensure_existing_workspace_hydrates_missing_precommit(monkeypatch):
     existing = SimpleNamespace(
@@ -163,3 +178,56 @@ async def test_ensure_existing_workspace_records_no_bundle_details(monkeypatch):
         "state": "no_bundle",
         "templateKey": "template-default",
     }
+
+
+@pytest.mark.asyncio
+async def test_ensure_existing_workspace_returns_existing_when_no_updates(monkeypatch):
+    stable_details = json.dumps({"reason": "bundle_not_found", "state": "no_bundle"})
+    existing = SimpleNamespace(
+        repo_full_name="org/repo",
+        default_branch="main",
+        base_template_sha="base-sha",
+        precommit_sha=None,
+        precommit_details_json=stable_details,
+    )
+
+    async def _get_by_session_and_task(*_args, **_kwargs):
+        return existing
+
+    async def _apply_bundle(*_args, **_kwargs):
+        return SimpleNamespace(
+            state="no_bundle",
+            precommit_sha=None,
+            bundle_id=None,
+            details={"reason": "bundle_not_found"},
+        )
+
+    async def _set_precommit_sha(*_args, **_kwargs):
+        raise AssertionError("precommit_sha should not be updated")
+
+    async def _set_precommit_details(*_args, **_kwargs):
+        raise AssertionError("precommit_details_json should not be updated")
+
+    monkeypatch.setattr(
+        ws_existing.workspace_repo, "get_by_session_and_task", _get_by_session_and_task
+    )
+    monkeypatch.setattr(
+        ws_existing,
+        "apply_precommit_bundle_if_available",
+        _apply_bundle,
+    )
+    monkeypatch.setattr(
+        ws_existing.workspace_repo, "set_precommit_sha", _set_precommit_sha
+    )
+    monkeypatch.setattr(
+        ws_existing.workspace_repo, "set_precommit_details", _set_precommit_details
+    )
+
+    result = await ws_existing.ensure_existing_workspace(
+        object(),
+        candidate_session=SimpleNamespace(id=10, scenario_version_id=22),
+        task=SimpleNamespace(id=5, type="code"),
+        github_client=object(),
+        github_username=None,
+    )
+    assert result is existing

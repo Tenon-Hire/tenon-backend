@@ -4,6 +4,7 @@ from datetime import UTC, datetime, time
 
 import pytest
 
+import app.services.scheduling.day_windows as day_windows_module
 from app.services.scheduling.day_windows import (
     coerce_utc_datetime,
     derive_current_day_window,
@@ -170,6 +171,27 @@ def test_derive_day_windows_validates_bounds_and_overrides() -> None:
     assert windows[1]["windowEndAt"] == datetime(2026, 3, 11, 12, 0, tzinfo=UTC)
     assert windows[2]["windowStartAt"] == datetime(2026, 3, 12, 16, 0, tzinfo=UTC)
     assert windows[2]["windowEndAt"] == datetime(2026, 3, 12, 23, 0, tzinfo=UTC)
+
+
+def test_derive_day_windows_rejects_non_monotonic_utc_override_window(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        day_windows_module,
+        "_normalize_overrides",
+        lambda _overrides: {1: (time(hour=18, minute=0), time(hour=9, minute=0))},
+    )
+
+    with pytest.raises(ValueError):
+        derive_day_windows(
+            scheduled_start_at_utc=datetime(2026, 3, 10, 13, 0, tzinfo=UTC),
+            candidate_tz="America/New_York",
+            day_window_start_local=time(hour=9, minute=0),
+            day_window_end_local=time(hour=17, minute=0),
+            overrides={"1": {"startLocal": "18:00", "endLocal": "09:00"}},
+            overrides_enabled=True,
+            total_days=1,
+        )
 
 
 def test_derive_current_day_window_states() -> None:

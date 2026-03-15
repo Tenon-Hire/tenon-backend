@@ -104,6 +104,31 @@ async def test_fetch_detail_allows_same_company():
     assert row == expected
 
 
+@pytest.mark.asyncio
+async def test_fetch_detail_rejects_wrong_owner_without_company_scope():
+    expected = ("sub", "task", "cs", SimpleNamespace(company_id=7, created_by=99))
+
+    class DummyResult:
+        def __init__(self, val):
+            self.val = val
+
+        def first(self):
+            return self.val
+
+    class DummySession:
+        async def execute(self, *_a, **_k):
+            return DummyResult(expected)
+
+    with pytest.raises(Exception) as excinfo:
+        await svc.fetch_detail(
+            DummySession(),
+            submission_id=1,
+            recruiter_id=2,
+            recruiter_company_id=None,
+        )
+    assert excinfo.value.status_code == 404
+
+
 def test_parse_test_output_non_dict_json():
     assert svc.parse_test_output("[]") == "[]"
 

@@ -1,4 +1,5 @@
 from app.core.db.base import Base, TimestampMixin
+from app.repositories.admin_action_audits.models import AdminActionAudit
 from app.repositories.candidate_sessions.models import (
     CandidateDayAudit,
     CandidateSession,
@@ -24,6 +25,7 @@ __all__ = [
     "TimestampMixin",
     "CandidateSession",
     "CandidateDayAudit",
+    "AdminActionAudit",
     "Company",
     "EvaluationDayScore",
     "EvaluationRun",

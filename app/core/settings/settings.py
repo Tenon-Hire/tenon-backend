@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     MAX_REQUEST_BODY_BYTES: int = 1_048_576
     DEBUG_PERF: bool = False
     TRUSTED_PROXY_CIDRS: list[str] | str = Field(default_factory=list)
+    DEMO_MODE: bool = False
+    DEMO_ADMIN_ALLOWLIST_EMAILS: list[str] | str = Field(default_factory=list)
+    DEMO_ADMIN_ALLOWLIST_SUBJECTS: list[str] | str = Field(default_factory=list)
+    DEMO_ADMIN_ALLOWLIST_RECRUITER_IDS: list[int] | str = Field(default_factory=list)
+    DEMO_ADMIN_JOB_STALE_SECONDS: int = 900
     DEV_AUTH_BYPASS: str | None = Field(
         default=None,
         validation_alias=AliasChoices("DEV_AUTH_BYPASS", "TENON_DEV_AUTH_BYPASS"),
@@ -80,6 +85,36 @@ class Settings(BaseSettings):
     @classmethod
     def _coerce_trusted_proxy_cidrs(cls, value):
         return parse_env_list(value)
+
+    @field_validator(
+        "DEMO_ADMIN_ALLOWLIST_EMAILS",
+        "DEMO_ADMIN_ALLOWLIST_SUBJECTS",
+        mode="before",
+    )
+    @classmethod
+    def _coerce_demo_allowlists(cls, value):
+        return parse_env_list(value)
+
+    @field_validator("DEMO_ADMIN_ALLOWLIST_RECRUITER_IDS", mode="before")
+    @classmethod
+    def _coerce_demo_allowlist_recruiter_ids(cls, value):
+        parsed = parse_env_list(value)
+        if parsed in (None, "", []):
+            return []
+        if not isinstance(parsed, list):
+            parsed = [parsed]
+        normalized: list[int] = []
+        for item in parsed:
+            if isinstance(item, bool):
+                continue
+            if isinstance(item, int):
+                normalized.append(item)
+                continue
+            text = str(item).strip()
+            if not text or not text.isdigit():
+                continue
+            normalized.append(int(text))
+        return normalized
 
     @model_validator(mode="before")
     def _merge_legacy(cls, values: dict) -> dict:

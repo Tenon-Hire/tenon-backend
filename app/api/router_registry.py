@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from app.api.routers import (
+    admin_routes,
     admin_templates,
     auth,
     candidate_sessions,
@@ -23,6 +24,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(auth.router, prefix=f"{prefix}/auth", tags=["auth"])
     app.include_router(jobs.router, prefix=f"{prefix}", tags=["jobs"])
     app.include_router(admin_templates.router, prefix=f"{prefix}/admin", tags=["admin"])
+    app.include_router(admin_routes.router, prefix=f"{prefix}/admin", tags=["admin"])
     app.include_router(simulations.router, prefix=f"{prefix}", tags=["simulations"])
     app.include_router(
         candidate_sessions.router, prefix=f"{prefix}/candidate", tags=["candidate"]

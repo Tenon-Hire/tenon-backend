@@ -1,165 +1,152 @@
 ## 1. Title
-P2 GitHub Ops: Retention cleanup job for workspace repos + collaborator revocation enforcement (#216)
+P1 Demo Ops: Admin endpoints for candidate session reset, job requeue, and simulation fallback scenario (#219)
 
 ## 2. TL;DR
-- Added durable job type `workspace_cleanup` and wired it into the worker.
-- Cleanup execution order is explicit: collaborator revocation enforcement runs before retention cleanup.
-- Retention cleanup archives repos by default; delete is allowed only with explicit destructive opt-in.
-- Cleanup/revocation lifecycle state is canonical on `WorkspaceGroup` for grouped repos.
-- Legacy `Workspace` lifecycle fields remain for compatibility/fallback for ungrouped rows.
-- No new public endpoint was added.
+- Shipped three demo-ops admin endpoints under `/api/admin/*`:
+  - `POST /api/admin/candidate_sessions/{candidate_session_id}/reset`
+  - `POST /api/admin/jobs/{job_id}/requeue`
+  - `POST /api/admin/simulations/{simulation_id}/scenario/use_fallback`
+- Added centralized demo/admin gating dependency:
+  - demo mode off => `404`
+  - demo mode on + non-admin => `403`
+- Added `admin_action_audits` table + migration and wired audit writes for all admin actions.
+- Enforced constrained, auditable, idempotent behavior with explicit `409` unsafe-operation semantics.
 
-## 3. Problem / Why
-Workspace repos and collaborator access can outlive their useful lifecycle when cleanup/revocation is not enforced durably. That creates avoidable GitHub footprint/cost and lingering access risk. Issue #216 adds durable, idempotent cleanup + revocation enforcement with explicit safety controls.
+## 3. Why / problem
+Demo operations needed safe recovery paths for three failure classes: wedged candidate sessions, stuck jobs, and unusable scenario versions. The required capability is to recover without arbitrary DB mutation, preserve auditability, and avoid changing locked or already-pinned candidate scenario assignments.
 
 ## 4. What changed
-- Job foundation integration:
-  - Added durable job type `workspace_cleanup`.
-  - Added enqueue/idempotency helpers in `app/services/submissions/workspace_cleanup_jobs.py`.
-  - Added worker handler `handle_workspace_cleanup` in `app/jobs/handlers/workspace_cleanup.py` and registered it in worker/handler registry.
-- Cleanup/revocation runtime behavior:
-  - Revocation enforcement executes first for targets that require it.
-  - Retention cleanup executes afterward when eligible and expired.
-  - Structured logging emits start/success/failure events for revocation and archive/delete operations.
-- GitHub integration:
-  - Added archive/delete repo client operations used by cleanup handler.
-  - Existing collaborator removal is reused for revocation enforcement.
-- Persistence/model updates:
-  - Added cleanup/revocation lifecycle columns on `workspace_groups` (canonical for grouped repos).
-  - Added/retained lifecycle columns on `workspaces` for compatibility/fallback ungrouped rows.
-  - Added migrations for both tables.
-- Config added:
-  - `TENON_WORKSPACE_RETENTION_DAYS`
-  - `TENON_WORKSPACE_CLEANUP_MODE`
-  - `TENON_WORKSPACE_DELETE_ENABLED`
+- Centralized demo-mode + admin gating:
+  - Added `require_demo_mode_admin` in `app/api/dependencies/admin_demo.py`.
+  - Gating behavior is centralized and reused by all demo-ops endpoints.
+  - Admin auth supports both paths:
+    - claim path (`role=admin` or `tenon_roles`/roles-derived admin claim)
+    - allowlist path (email, subject, recruiter_id config allowlists)
+- Audit model/migration:
+  - Added `admin_action_audits` model/repository and migration `202603150001_add_admin_action_audits.py`.
+  - All admin ops write sanitized payloads (reason/flags/ids/status metadata only).
+- Reset endpoint:
+  - Implemented constrained state reset for candidate sessions via `reset_candidate_session`.
+  - Evaluated-session resets without override are blocked with `409 UNSAFE_OPERATION`.
+  - Supports dry-run validation mode without mutation/audit row writes.
+- Requeue endpoint:
+  - Implemented `requeue_job` for safe status transitions back to `queued`.
+  - Supports no-op idempotent requeue when already queued.
+  - Enforces stale-running/dead-letter safety checks when `force=false`; unsafe paths return `409`.
+- Fallback scenario endpoint:
+  - Implemented simulation-level fallback switch to active scenario for future invites only.
+  - Prevents unsafe fallback when simulation is terminated, scenario is ineligible, or approval is pending (`409`).
+  - Preserves existing invited-session pinning; only future invites use the switched active scenario.
+  - Iteration 2 bugfix: dry-run fallback path captures the resolved `scenarioVersionId` before rollback so dry-run response is correct and deterministic.
 
-## 5. Behavior / semantics
-- Revocation is required when cutoff/day-close evidence exists (session present in day-audit evidence set).
-- Collaborator revocation runs before any archive/delete action.
-- Terminal revocation failure blocks cleanup for that target.
-- Transient GitHub failures are retryable and bubble to durable worker retry path.
-- Active sessions are skipped.
-- Retention anchor uses `candidate_session.completed_at` when present; otherwise repo record `created_at`.
-- Grouped and legacy duplicate references are deduped by candidate-session + repo identity.
-- Already-cleaned targets are a no-op on rerun (idempotent behavior).
-- Cleanup mode defaults to archive.
-- Delete requires both:
-  - `TENON_WORKSPACE_CLEANUP_MODE=delete`
-  - `TENON_WORKSPACE_DELETE_ENABLED=true`
+## 5. API contracts
+- `POST /api/admin/candidate_sessions/{candidate_session_id}/reset`
+  - Request: `targetState`, `reason`, `overrideIfEvaluated=false` (default), `dryRun=false` (default)
+  - Response: `candidateSessionId`, `status` (`ok|dry_run`), `resetTo`, `auditId` (`null` on dry-run)
+  - Errors: `404` (demo off/target missing), `403` (not admin), `409` (`UNSAFE_OPERATION` for evaluated reset without override or invalid safe-reset conditions)
+- `POST /api/admin/jobs/{job_id}/requeue`
+  - Request: `reason`, `force=false` (default)
+  - Response: `jobId`, `previousStatus`, `newStatus`, `auditId`
+  - Errors: `404` (demo off/target missing), `403` (not admin), `409` (`UNSAFE_OPERATION` for unsafe requeue without `force`, or invalid force path)
+- `POST /api/admin/simulations/{simulation_id}/scenario/use_fallback`
+  - Request: `scenarioVersionId`, `applyTo` (`future_invites_only`), `reason`, `dryRun=false` (default)
+  - Response: `simulationId`, `activeScenarioVersionId`, `applyTo`, `auditId` (`null` on dry-run)
+  - Errors: `404` (demo off/missing objects), `403` (not admin), `409` (`UNSAFE_OPERATION` for ineligible fallback state, `SCENARIO_APPROVAL_PENDING` when pending scenario exists)
 
-## 6. Files changed
-- Job enqueue + idempotency:
-  - `app/services/submissions/workspace_cleanup_jobs.py`
-- Worker handler + registration:
-  - `app/jobs/handlers/workspace_cleanup.py`
-  - `app/jobs/handlers/__init__.py`
-  - `app/jobs/worker.py`
-- GitHub client:
-  - `app/integrations/github/client/repos.py`
-- Settings/config:
-  - `app/core/settings/github.py`
-  - `app/core/settings/settings.py`
-  - `app/core/settings/merge.py`
-  - `.env.example`
-- Data model + migrations:
-  - `app/repositories/github_native/workspaces/models.py`
-  - `alembic/versions/202603130002_add_workspace_cleanup_state_columns.py`
-  - `alembic/versions/202603130003_add_workspace_group_cleanup_state_columns.py`
-- Tests:
-  - `tests/unit/test_workspace_cleanup_handler.py`
-  - `tests/integration/test_workspace_cleanup_job_integration.py`
-  - `tests/unit/test_workspace_cleanup_jobs.py`
-  - `tests/unit/test_workspace_cleanup_migrations_smoke.py`
-  - `tests/unit/test_github_client.py`
-  - `tests/unit/test_job_handler_registration.py`
+## 6. Safety / security decisions
+- Demo mode is disabled by default (`TENON_DEMO_MODE` / `settings.DEMO_MODE` defaults false).
+- Access is guarded by both demo-mode and admin checks.
+- Admin authorization supports claim-based and allowlist-based paths.
+- Audit payloads are sanitized and do not store candidate PII fields (no candidate email/video/transcript payload data).
+- Endpoints expose constrained operations only; no arbitrary DB mutation interface was added.
+- Fallback switch does not mutate locked scenario content.
+- Already invited sessions are not rebound to a different scenario version.
 
-## 7. Testing
-- Repo quality gate passed.
-- `./precommit.sh` passed.
-- Total coverage reached `99.01%`.
-- Migration smoke test passed.
+## 7. Idempotency behavior
+- Requeueing an already `queued` job is a no-op `200` and leaves status unchanged.
+- Applying fallback with the same active scenario version is a no-op `200`.
+- Dry-run reset/fallback paths validate and return intent without mutating state or writing audit rows.
 
-Representative high-signal test coverage includes:
-- Active-session skip behavior.
-- Revocation hard-stop behavior on terminal failures.
-- Rerun idempotency behavior.
-- Canonical grouped-state handling with duplicate legacy reference skip.
-- Archive and delete worker flows.
-- Transient revocation failure retry behavior.
+## 8. Data model / migration notes
+- Added `admin_action_audits` table with:
+  - `id`, `actor_type`, `actor_id`, `action`, `target_type`, `target_id`, `payload_json`, `created_at`
+- Migration: `alembic/versions/202603150001_add_admin_action_audits.py`
+- Added indexes:
+  - `ix_admin_action_audits_created_at`
+  - `ix_admin_action_audits_action_created_at`
 
-## 8. Manual QA / Runtime Verification
-### Runtime method
-- Real localhost backend:
-  - `poetry run uvicorn app.api.main:app --host 127.0.0.1 --port 8000`
-- Real Postgres database:
-  - `tenon_issue216_20260313t221241z`
-- Real durable worker path:
-  - `app.jobs.worker.run_once`
-- GitHub boundary:
-  - local HTTP stub via `TENON_GITHUB_API_BASE=http://127.0.0.1:9100`
+## 9. Tests and validation
+- Final quality gate:
+  - `./precommit.sh` -> PASS
+  - `1500 passed`
+  - total coverage `99.02%` (coverage gate >=99% satisfied)
+  - `app/services/admin_ops_service.py` -> `100%`
+- Targeted integration coverage includes:
+  - demo-mode off returns `404`
+  - non-admin in demo mode returns `403`
+  - reset endpoint audit write + evaluated-session `409` block + dry-run non-mutation
+  - requeue flow from dead-letter to queued with worker processing to succeeded
+  - fallback switch for future invites with existing sessions staying pinned
+- Targeted unit coverage includes:
+  - admin dependency auth paths (claim + allowlist variants)
+  - stale-running and force requeue safety matrix
+  - fallback pending/ineligible/terminated `409` conditions
+  - sanitized audit payload behavior
 
-The Tenon backend/runtime/DB were real. GitHub operations were isolated behind a deterministic local stub.
+## 10. Manual QA / Runtime Verification
+- Verdict: PASS.
+- Runtime method:
+  - Real localhost FastAPI server on `127.0.0.1:8019`.
+  - Fresh dedicated Postgres DB: `tenon_issue219_manualqa_20260315t021621z`.
+  - Migration command used:
+    - `TENON_ENV=test TENON_DATABASE_URL=<async> TENON_DATABASE_URL_SYNC=<sync> poetry run alembic upgrade head`
+    - Succeeded through head including revision `202603150001`.
+  - Real HTTP calls to admin endpoints, direct Postgres verification (before/after snapshots), and real worker execution through the `app.jobs.worker.run_once` code path.
+- Evidence bundle:
+  - `.qa/issue219/manual_qa_20260315T021621Z/`
+  - Pointer file: `.qa/issue219/LATEST_EVIDENCE_PATH.txt`
+- Repo state during QA:
+  - Before QA: clean (`git status --short` empty).
+  - After QA: clean (`git status --short` empty).
+  - No tracked product files changed during QA.
+- Scenario summary:
+  - Demo mode / auth gating:
+    - Demo mode off: all three admin endpoints returned `404`.
+    - Demo mode on + non-admin: all three admin endpoints returned `403`.
+  - Reset endpoint:
+    - Dry-run returned `200` with no DB mutation and no audit row.
+    - Evaluated session reset without override returned `409`.
+    - Successful reset returned `200`, safely rewound session state, and inserted an audit row.
+  - Requeue endpoint:
+    - Unsafe fresh-running job returned `409`.
+    - Dead-letter job requeue returned `200`, transitioned to `queued`, and real worker execution completed it to `succeeded`.
+    - Queued-job requeue was a no-op `200`.
+    - Observed behavior: queued no-op requeue still writes an audit row.
+  - Fallback scenario endpoint:
+    - Dry-run returned `200` with no mutation and no audit row.
+    - Successful fallback switched simulation active scenario for future invites only.
+    - Existing invited session remained pinned to the old scenario version.
+    - New invite created after fallback pinned to the new scenario version.
+    - Pending-approval fallback attempt returned `409`.
+  - Audit payload sanitization:
+    - Verified sanitized payloads in Postgres audit rows.
+    - No candidate email / invite email / transcript / video / URL-like sensitive values found in inspected payloads.
+- Strongest proof points:
+  - Real HTTP calls proved endpoint hiding and admin authorization behavior (`404` / `403`).
+  - Reset safety was proven with dry-run non-mutation, evaluated-session `409`, and successful reset audit insertion.
+  - Requeue was proven end-to-end: admin API requeue -> `queued` -> real worker run -> `succeeded`.
+  - Fallback semantics were proven for future-invites-only behavior: existing invited session stayed pinned while a new invite pinned to the fallback scenario.
+  - Audit payload sanitization was verified directly in Postgres.
 
-### Evidence path
-- `.qa/issue216/manual_qa_20260313T221241Z`
+## 11. Risks / follow-ups
+- Optional session-level fallback endpoint (`/api/admin/candidate_sessions/{id}/scenario/use_fallback`) is intentionally deferred and not part of this PR.
+- Existing repo-wide limitation remains: full historical `alembic upgrade head` on SQLite can fail at an older unrelated migration; this issue’s migration is not the source of that limitation.
 
-Evidence bundle contains:
-- `report.md`
-- `commands.log`
-- `server.log`
-- `worker.log`
-- `db_scenario_*.sql`
-- `db_scenario_*_output.txt`
-- `github_stub_calls.jsonl`
-- `seed_summary.json`
+## 12. Rollout / demo checklist
+1. Force a demo job into a stuck/failed state and call requeue endpoint; verify it returns to `queued` and worker completes it.
+2. Switch a simulation to a known-good fallback scenario using `future_invites_only`; verify new invites pin to fallback and previously invited sessions remain pinned.
+3. Reset a wedged demo candidate session using constrained target state and verify it can proceed again.
 
-### Scenario summary
-All scenarios A-H passed:
-- **A** — archive success with revocation-before-cleanup
-- **B** — delete success with explicit opt-in
-- **C** — delete guard blocks destructive cleanup
-- **D** — active session is skipped
-- **E** — terminal revocation failure blocks cleanup
-- **F** — transient revocation failure retries safely, then succeeds
-- **G** — idempotent rerun is a no-op
-- **H** — canonical grouped repo state is used and duplicate legacy reference is skipped
-
-### Strongest proof points
-- Scenario A showed `remove_collaborator` before `archive_repo`.
-- Scenario B showed delete only when `TENON_WORKSPACE_DELETE_ENABLED=true`.
-- Scenario C showed no delete call with guard disabled.
-- Scenario D showed old but active sessions remain `pending`.
-- Scenario E showed terminal revocation failure prevents cleanup.
-- Scenario F showed retry-safe behavior after transient `502`.
-- Scenario H showed lifecycle state on `workspace_groups` while legacy duplicate `workspaces` row remained untouched.
-
-### Final QA verdict
-- **Manual runtime QA verdict: PASS**
-- **Issue #216 is PR-ready from a runtime QA perspective**
-
-## 9. Security / safety notes
-- Cleanup scope is DB-backed workspace records only; non-workspace repos are not targeted.
-- Delete is guarded by explicit config opt-in (`TENON_WORKSPACE_DELETE_ENABLED=true`).
-- Archive remains the default cleanup mode.
-- Revocation-before-cleanup ordering reduces residual collaborator access risk.
-- Logs are structured for observability and avoid token/secret leakage.
-- No new public endpoint was introduced.
-
-## 10. Risks / follow-ups
-- Periodic scheduling wiring (cron/scheduler trigger policy) remains operational follow-up beyond this implementation.
-- Legacy `Workspace` lifecycle columns are intentionally retained for compatibility/fallback while grouped canonical state resides on `WorkspaceGroup`.
-
-## 11. Rollout / demo checklist
-1. Seed/create candidate workspace repos tied to candidate sessions.
-2. Ensure cutoff/day-close evidence is present for revocation-required scenarios.
-3. Run durable `workspace_cleanup` job for the target company.
-4. Verify collaborator revocation execution and persisted lifecycle fields.
-5. Verify retention behavior under default archive mode.
-6. Verify delete behavior only with explicit delete mode + guard enabled.
-7. Rerun the job and verify idempotent no-op for already-cleaned targets.
-8. Verify grouped canonical behavior and legacy duplicate skip behavior.
-
-## 12. Final status
-Implementation complete, automated checks green, and runtime QA evidence recorded.
-
-Issue #216 is PR-ready.
+## 13. Notes for reviewers
+- Canonical router path is under `app/api/routers/admin_routes/*`.
+- Duplicate shim files under `app/api/routes/admin_routes/*` were removed; no parallel admin-routes shim path remains.
