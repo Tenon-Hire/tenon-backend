@@ -1,115 +1,87 @@
-# Issue #221: CSRF/CORS hardening for BFF routes with Origin/Referer enforcement
+# Docs: MVP1 Bias-Audit Readiness Pack (Rubric Transparency + Evidence Traceability + Disclosure Templates) (#220)
 
 ## TL;DR
-- Origin/Referer enforcement is now applied to cookie-bearing state-changing requests (`POST`, `PUT`, `PATCH`, `DELETE`) on protected API prefixes.
-- CORS posture is now strict outside `local/test`: explicit allowlist required, wildcard and regex loosening rejected.
-- CSRF violations return explicit `CSRF_ORIGIN_MISMATCH` payloads.
-- Mixed cookie+bearer requests no longer bypass cookie CSRF checks.
-- Default CSRF protected scope now follows `TENON_API_PREFIX` (typically `/api`).
-- Manual runtime QA passed on real localhost + fresh Postgres.
+- Adds a four-document MVP1 docs pack under `docs/mvp1/` for responsible AI demo/readiness conversations.
+- Covers candidate disclosure, evidence traceability, rubric transparency, and internal operator controls.
+- Wording is aligned to implemented backend models/routes/config keys and avoids speculative claims.
+- Explicitly preserves human decision boundaries: AI assists evaluation; people make final hiring decisions.
+- Keeps sensitive implementation details private (no proprietary prompt publication).
 
-## Problem / Why
-- Cookie-based browser/BFF traffic needs CSRF protection for state-changing requests.
-- Non-local CORS must reject wildcard/regex looseness and require explicit origins.
-- Default CSRF scope must point at real backend API routes, not inert `/api/backend`.
+## Why
+MVP1 includes AI-assisted evaluation, so demo and enterprise conversations need clear, conservative documentation for:
+- Rubric transparency (what is evaluated across days 1-5).
+- Evidence traceability (what evidence is stored and how runs are versioned).
+- Candidate disclosure (what AI does, what humans do, what is recorded).
+- Operator fairness/ops controls (pre-invite checks, cutoff controls, consent checks, rerun triggers, audit hygiene).
 
-## What changed
-- `app/api/middleware_http.py`
-  - CSRF middleware enforcement for `POST/PUT/PATCH/DELETE`.
-  - `Origin` validation with `Referer` fallback when `Origin` is missing.
-  - Enforcement scoped to cookie-bearing requests on protected path prefixes.
-  - Mixed cookie+bearer no longer bypasses CSRF.
-  - Default protected scope derived from `TENON_API_PREFIX`.
-- `app/core/settings/settings.py`
-  - Non-local CORS posture validation (explicit origins required; wildcard and regex rejected outside `local/test`).
-  - CSRF env parsing/default behavior for allowed origins and protected prefixes.
-- Tests
-  - Exact CSRF error contract assertions.
-  - Real route coverage for CSRF/CORS behavior.
-  - Logging hygiene checks for CSRF rejections.
-- Docs/env example
-  - Updated security notes and defaults for CSRF/CORS posture.
+This pack improves trust without over-claiming fairness guarantees or compliance certification, and stays grounded in current backend behavior.
 
-## Security posture / invariants
-- Protected state-changing requests with cookies must present an allowed `Origin` or allowed `Referer` origin.
-- Bearer-only requests without cookies are not subject to cookie CSRF checks.
-- Mixed cookie+bearer requests do not bypass CSRF.
-- Wildcard CORS and CORS origin regex are rejected outside `local/test`.
-- CSRF rejection logs exclude cookies and authorization headers.
-- These invariants were verified by both automated tests and manual runtime QA.
+## What Changed
+### `docs/mvp1/evaluation_disclosure.md`
+- Adds candidate-facing plain-language disclosure for AI-assisted evaluation and human oversight.
+- Documents day-level AI toggles and API-facing fields (`aiNoticeText`, `aiNoticeVersion`, `evalEnabledByDay`).
+- Documents persisted notice/consent metadata (`ai_notice_version`, `ai_notice_text`, `ai_eval_enabled_by_day`, consent fields).
+- States that AI does not make final hiring decisions and avoids bias/compliance automation claims.
 
-## Configuration changes
-- `TENON_CORS_ALLOW_ORIGINS`
-- `TENON_CORS_ALLOW_ORIGIN_REGEX`
-- `TENON_CSRF_ALLOWED_ORIGINS`
-- `TENON_CSRF_PROTECTED_PATH_PREFIXES`
-- Default protected scope follows `TENON_API_PREFIX` (typically `/api`).
+### `docs/mvp1/evidence_traceability.md`
+- Documents `EvaluationRun` and `EvaluationDayScore` storage model, lifecycle, and per-day evidence pointers.
+- Describes pointer kinds and constraints (`commit`, `diff`, `test`, `transcript` with `startMs`/`endMs`, `reflection`).
+- Explains cutoff integrity and immutable basis behavior (day-audit cutoff SHA capture, pinned basis refs, run fingerprinting, reruns as new records).
+- Maps implementation to issue-linked migrations/models/routes for #213, #204, #205, #218, plus #215 and #214 alignment.
 
-## Testing
-### Automated verification
-- `poetry run pytest tests/unit/test_csrf_cors_hardening.py -q --no-cov` -> PASS
-- `poetry run pytest -q` -> PASS
-- `poetry run ruff check .` -> PASS
-- `poetry run ruff format --check .` -> PASS
+### `docs/mvp1/rubric_transparency.md`
+- Provides high-level day-by-day rubric overview:
+- Day 1 design reasoning.
+- Day 2/3 code quality, correctness, tests.
+- Day 4 communication/explanation.
+- Day 5 reflection depth.
+- Explains rubric versioning across scenario versions, evaluation runs, and fit-profile response metadata.
+- Documents per-day AI disable behavior (`human_review_required`) and keeps proprietary prompt details undisclosed.
 
-Key tests:
-- `test_default_protected_prefix_covers_real_backend_route`
-- `test_protected_post_with_disallowed_origin_returns_csrf_error`
-- `test_protected_post_with_cookie_and_bearer_disallowed_origin_returns_csrf_error`
-- `test_bearer_only_requests_bypass_cookie_csrf_enforcement`
-- `test_csrf_rejection_logs_exclude_cookie_and_authorization`
-- Non-local CORS validation tests:
-  - `test_non_local_cors_rejects_wildcard_origins`
-  - `test_non_local_cors_rejects_origin_regex`
-  - `test_non_local_cors_requires_explicit_origins`
+### `docs/mvp1/operator_checklist.md`
+- Adds internal checklist for pre-invite controls, cutoff basis verification, and day-4 consent/media controls.
+- Includes rerun triggers after scenario/cutoff changes and confirms latest fit-profile run usage.
+- Adds manual override/audit controls to ensure operational traceability for admin/demo actions.
 
-### Manual runtime QA
-- Runtime method:
-  - Real localhost FastAPI server via uvicorn on `127.0.0.1:8016`.
-  - No ASGI fallback used.
-- Fresh Postgres DB:
-  - `tenon_issue221_manualqa_20260316_113447`
-- Environment posture:
-  - `TENON_ENV=staging`
-  - Explicit allowlist: `["https://frontend.tenon.ai"]`
-- Migrations:
-  - `alembic upgrade head` succeeded.
-  - Alembic version verified as `202603150002`.
-- Evidence bundle:
-  - `.qa/issue221/manual_qa_20260316_113447/`
+## Implementation Notes / Alignment
+- The pack is aligned to implemented backend naming and behavior, including models, migrations, service logic, and API payload fields.
+- Explicit issue alignment:
+- #213 (evaluation schema and fit-profile run/day-score model)
+- #204 (cutoff enforcement and day-audit write-once capture)
+- #205 (scenario versioning)
+- #218 (AI notice + per-day toggles)
+- #215 (media consent + retention controls)
+- #214 (fit-profile generation endpoints/pipeline)
+- Conservative boundaries are explicit:
+- No fairness-elimination or compliance-certification claims.
+- No proprietary prompt/template disclosure.
+- Final hiring decisions remain with people.
 
-Scenario outcomes:
-- A: bad `Origin` + cookie -> `403` with exact payload `{"error":"CSRF_ORIGIN_MISMATCH","message":"Request origin not allowed."}`
-- B: allowed `Origin` + cookie -> `204` (not CSRF-blocked)
-- C: allowed `Referer` + cookie -> `204` (not CSRF-blocked)
-- D1/D2: missing or bad `Referer` + cookie -> `403` with exact `CSRF_ORIGIN_MISMATCH` payload
-- E: cookie + bearer + bad `Origin` -> `403` with exact `CSRF_ORIGIN_MISMATCH` payload
-- F: bearer-only + bad `Origin` -> `204` (not CSRF-blocked)
-- G: allowed preflight -> `200`, includes `access-control-allow-origin: https://frontend.tenon.ai`
-- H: disallowed preflight -> `400 Bad Request`, body `Disallowed CORS origin`
-- I: wildcard CORS in non-local env -> startup/config validation failure
-- J: no sentinel cookie/bearer secret leakage in logs; CSRF rejection entries present
+## Testing / Validation
+Validation was performed with repository truth review plus shell sanity checks (manual, command-backed):
+- Model/field alignment checks via `rg`:
+- `EvaluationRun` / `EvaluationDayScore`, version fields, and run metadata in `app/repositories/evaluations/models.py`.
+- Cutoff audit fields and write-once flow in `app/repositories/candidate_sessions/*` and `app/jobs/handlers/day_close_enforcement.py`.
+- AI notice/toggle fields and API schema aliases in simulation/privacy routes and schemas.
+- Fit-profile route/service presence for generate/fetch endpoints.
+- Migration alignment checks via `ls alembic/versions | rg ...` for issue-linked migration IDs.
+- Required-concept checks across `docs/mvp1/*.md` via `rg` (`ai_notice_version`, `evalEnabledByDay`, `human_review_required`, `startMs/endMs`, `rubric_version`, `cutoff_commit_sha`, `basis_fingerprint`).
+- Prohibited-phrase sanity grep over docs (to catch accidental over-claims).
+- Tabs/trailing-whitespace checks via `rg` over `docs/mvp1/*.md` and `pr.md`.
+- Diff-scope check via `git diff --name-only` for this iteration.
 
-DB verification:
-- `SELECT 1` passed.
-- `current_database()` returned `tenon_issue221_manualqa_20260316_113447`.
-- `SELECT version_num FROM alembic_version` returned `202603150002`.
+Tooling note:
+- `pre-commit` and `markdownlint` are not installed in this sandbox (`command not found`), so validation here is manual + grep/sanity checks.
 
-## Risks / limitations
-- Backend auth dependencies are currently bearer-based.
-- CSRF protection here is aimed at cookie-bearing browser/BFF traffic hitting protected API routes.
-- Future non-browser clients that send cookies to protected state-changing endpoints will need valid `Origin`/`Referer` or explicit path scoping.
-- This PR does not implement CSRF tokens; it implements the MVP posture: Origin/Referer enforcement + strict CORS.
-- QA note: localhost verification used a persistent PTY-hosted uvicorn process because non-persistent background processes were torn down in the sandbox environment.
+## Risks / Limitations
+- “Final hiring decisions are made by people” is a policy/process boundary and documentation statement; this service is not itself a full hiring-decision engine.
+- “No manual overrides without audit entries” is primarily an operational control; out-of-band manual data edits are process-governed, not absolutely prevented by the docs alone.
 
-## Rollout / demo checklist
-- Configure explicit non-local allowlist origins.
-- Demonstrate fake-origin POST returns exact `403` payload (`CSRF_ORIGIN_MISMATCH`).
-- Demonstrate allowed `Origin`/`Referer` request succeeds.
-- Demonstrate disallowed CORS preflight fails.
-- Demonstrate bearer-only request still works.
+## Rollout / Demo Notes
+- Use `evaluation_disclosure.md` in candidate-facing AI usage explanations.
+- Use `evidence_traceability.md` to explain evidence lineage, versioning, and cutoff integrity.
+- Use `rubric_transparency.md` for day-by-day rubric framing without exposing prompts.
+- Use `operator_checklist.md` as the internal pre-demo/pre-review runbook for scenario/toggle/cutoff/consent/audit checks.
 
-## PR readiness verdict
-- Ready for PR raise.
-- Automated verification passed.
-- Manual runtime QA passed with artifact-backed evidence.
+## Status
+Ready for PR raise.
