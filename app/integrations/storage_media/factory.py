@@ -34,7 +34,12 @@ def get_storage_media_provider() -> StorageMediaProvider:
 def resolve_signed_url_ttl(expires_seconds: int | None = None) -> int:
     """Clamp a requested TTL to configured media bounds."""
     cfg = settings.storage_media
-    requested = expires_seconds or cfg.MEDIA_SIGNED_URL_EXPIRES_SECONDS
+    if expires_seconds is not None:
+        requested = expires_seconds
+    else:
+        requested = int(
+            cfg.MEDIA_SIGNED_URL_EXPIRES_SECONDS or cfg.SIGNED_URL_EXPIRY_SECONDS
+        )
     return clamp_expires_seconds(
         requested,
         min_seconds=cfg.MEDIA_SIGNED_URL_MIN_SECONDS,

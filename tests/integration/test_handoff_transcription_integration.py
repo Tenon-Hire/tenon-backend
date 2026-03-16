@@ -49,6 +49,8 @@ async def test_handoff_upload_complete_enqueue_and_worker_transcribes(
         simulation=sim,
         status="in_progress",
         with_default_schedule=True,
+        consent_version="mvp1",
+        ai_notice_version="mvp1",
     )
     candidate_session_id = candidate_session.id
     task_id = task.id

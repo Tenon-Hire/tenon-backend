@@ -14,10 +14,14 @@ async def test_media_tables_have_expected_columns(db_engine):
         submission_columns = await conn.run_sync(
             lambda sync_conn: inspect(sync_conn).get_columns("submissions")
         )
+        candidate_session_columns = await conn.run_sync(
+            lambda sync_conn: inspect(sync_conn).get_columns("candidate_sessions")
+        )
 
     recording_names = {col["name"] for col in recording_columns}
     transcript_names = {col["name"] for col in transcript_columns}
     submission_names = {col["name"] for col in submission_columns}
+    candidate_session_names = {col["name"] for col in candidate_session_columns}
 
     assert {
         "id",
@@ -27,6 +31,11 @@ async def test_media_tables_have_expected_columns(db_engine):
         "content_type",
         "bytes",
         "status",
+        "deleted_at",
+        "purged_at",
+        "consent_version",
+        "consent_timestamp",
+        "ai_notice_version",
         "created_at",
     }.issubset(recording_names)
 
@@ -38,7 +47,13 @@ async def test_media_tables_have_expected_columns(db_engine):
         "model_name",
         "last_error",
         "status",
+        "deleted_at",
         "created_at",
     }.issubset(transcript_names)
 
     assert {"recording_id"}.issubset(submission_names)
+    assert {
+        "consent_version",
+        "consent_timestamp",
+        "ai_notice_version",
+    }.issubset(candidate_session_names)

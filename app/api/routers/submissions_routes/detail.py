@@ -76,7 +76,7 @@ async def get_submission_detail_route(
     ):
         recording = None
 
-    if recording is not None:
+    if recording is not None and not recordings_repo.is_deleted_or_purged(recording):
         transcript = await transcripts_repo.get_by_recording_id(db, recording.id)
 
     recording_download_url = None

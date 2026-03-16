@@ -168,6 +168,9 @@ async def create_candidate_session(
     schedule_locked_at: datetime | None = None,
     with_default_schedule: bool = False,
     scenario_version_id: int | None = None,
+    consent_version: str | None = None,
+    consent_timestamp: datetime | None = None,
+    ai_notice_version: str | None = None,
 ) -> CandidateSession:
     token = token or secrets.token_urlsafe(16)
     expires_at = datetime.now(UTC) + timedelta(days=expires_in_days)
@@ -250,6 +253,14 @@ async def create_candidate_session(
         candidate_timezone=resolved_timezone,
         day_windows_json=resolved_day_windows,
         schedule_locked_at=schedule_locked_at,
+        consent_version=consent_version,
+        consent_timestamp=(consent_timestamp if consent_version is not None else None)
+        or (datetime.now(UTC) if consent_version is not None else None),
+        ai_notice_version=(
+            (ai_notice_version if ai_notice_version is not None else consent_version)
+            if consent_version is not None
+            else ai_notice_version
+        ),
     )
     session.add(cs)
     await session.flush()

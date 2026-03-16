@@ -87,6 +87,11 @@ class CandidateSession(Base):
     schedule_locked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    consent_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    consent_timestamp: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    ai_notice_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     simulation = relationship("Simulation", back_populates="candidate_sessions")
     scenario_version = relationship(

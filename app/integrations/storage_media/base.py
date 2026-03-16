@@ -68,6 +68,9 @@ class StorageMediaProvider(Protocol):
     def get_object_metadata(self, key: str) -> StorageObjectMetadata | None:
         ...
 
+    def delete_object(self, key: str) -> None:
+        ...
+
 
 __all__ = [
     "StorageObjectMetadata",

@@ -18,6 +18,7 @@ from app.repositories.evaluations.models import (
     EVALUATION_RUN_STATUS_COMPLETED,
     EVALUATION_RUN_STATUS_FAILED,
 )
+from app.repositories.recordings import repository as recordings_repo
 from app.repositories.submissions import fit_profile_repository
 from app.services.evaluations import evaluator as evaluator_service
 from app.services.evaluations import runs as evaluation_runs
@@ -231,6 +232,8 @@ async def _resolve_day4_transcript(
     recording: RecordingAsset | None = None
     if day4_submission is not None and isinstance(day4_submission.recording_id, int):
         recording = await db.get(RecordingAsset, day4_submission.recording_id)
+        if recordings_repo.is_deleted_or_purged(recording):
+            recording = None
 
     if recording is None and day4_task is not None:
         recording = (
@@ -244,13 +247,18 @@ async def _resolve_day4_transcript(
                 .limit(1)
             )
         ).scalar_one_or_none()
+        if recordings_repo.is_deleted_or_purged(recording):
+            recording = None
 
     if recording is None:
         return None, "transcript:missing"
 
     transcript = (
         await db.execute(
-            select(Transcript).where(Transcript.recording_id == recording.id)
+            select(Transcript).where(
+                Transcript.recording_id == recording.id,
+                Transcript.deleted_at.is_(None),
+            )
         )
     ).scalar_one_or_none()
     if transcript is None:

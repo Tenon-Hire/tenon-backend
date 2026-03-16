@@ -6,16 +6,21 @@ from fastapi import APIRouter, Depends, Path, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.admin_demo import DemoAdminActor, require_demo_mode_admin
+from app.api.dependencies.storage_media import get_media_storage_provider
 from app.core.db import get_session
+from app.integrations.storage_media import StorageMediaProvider
 from app.schemas.admin_ops import (
     CandidateSessionResetRequest,
     CandidateSessionResetResponse,
     JobRequeueRequest,
     JobRequeueResponse,
+    MediaRetentionPurgeRequest,
+    MediaRetentionPurgeResponse,
     SimulationFallbackRequest,
     SimulationFallbackResponse,
 )
 from app.services import admin_ops_service
+from app.services.media.privacy import purge_expired_media_assets
 
 router = APIRouter()
 
@@ -102,7 +107,37 @@ async def use_simulation_fallback(
     )
 
 
+@router.post(
+    "/media/purge",
+    response_model=MediaRetentionPurgeResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def purge_media_retention(
+    payload: MediaRetentionPurgeRequest,
+    db: Annotated[AsyncSession, Depends(get_session)],
+    actor: Annotated[DemoAdminActor, Depends(require_demo_mode_admin)],
+    storage_provider: Annotated[
+        StorageMediaProvider, Depends(get_media_storage_provider)
+    ],
+) -> MediaRetentionPurgeResponse:
+    del actor
+    result = await purge_expired_media_assets(
+        db,
+        storage_provider=storage_provider,
+        retention_days=payload.retentionDays,
+        batch_limit=payload.batchLimit,
+    )
+    return MediaRetentionPurgeResponse(
+        status="ok",
+        scannedCount=result.scanned_count,
+        purgedCount=result.purged_count,
+        failedCount=result.failed_count,
+        purgedRecordingIds=result.purged_recording_ids,
+    )
+
+
 __all__ = [
+    "purge_media_retention",
     "requeue_job",
     "reset_candidate_session",
     "router",

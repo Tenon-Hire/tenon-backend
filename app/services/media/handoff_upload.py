@@ -29,6 +29,7 @@ from app.services.media.keys import (
     build_recording_storage_key,
     parse_recording_public_id,
 )
+from app.services.media.privacy import require_media_consent
 from app.services.media.transcription_jobs import (
     TRANSCRIBE_RECORDING_JOB_TYPE,
     TRANSCRIBE_RECORDING_MAX_ATTEMPTS,
@@ -116,6 +117,7 @@ async def complete_handoff_upload(
     submission_service.ensure_task_belongs(task, candidate_session)
     _ensure_handoff_task(task.type)
     cs_service.require_active_window(candidate_session, task)
+    require_media_consent(candidate_session)
 
     try:
         recording_id = parse_recording_public_id(recording_id_value)
@@ -139,6 +141,13 @@ async def complete_handoff_upload(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized for this recording asset",
         )
+    if (
+        recording.consent_timestamp is None
+        and candidate_session.consent_timestamp is not None
+    ):
+        recording.consent_version = candidate_session.consent_version
+        recording.consent_timestamp = candidate_session.consent_timestamp
+        recording.ai_notice_version = candidate_session.ai_notice_version
 
     if recording.status in {
         RECORDING_ASSET_STATUS_UPLOADING,

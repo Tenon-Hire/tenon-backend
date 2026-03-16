@@ -50,6 +50,19 @@ class SimulationFallbackResponse(APIModel):
     auditId: str | None = None
 
 
+class MediaRetentionPurgeRequest(APIModel):
+    retentionDays: int | None = Field(default=None, gt=0)
+    batchLimit: int = Field(default=200, gt=0, le=1000)
+
+
+class MediaRetentionPurgeResponse(APIModel):
+    status: Literal["ok"]
+    scannedCount: int
+    purgedCount: int
+    failedCount: int
+    purgedRecordingIds: list[int]
+
+
 __all__ = [
     "AdminApplyTo",
     "AdminResetTargetState",
@@ -57,6 +70,8 @@ __all__ = [
     "CandidateSessionResetResponse",
     "JobRequeueRequest",
     "JobRequeueResponse",
+    "MediaRetentionPurgeRequest",
+    "MediaRetentionPurgeResponse",
     "SimulationFallbackRequest",
     "SimulationFallbackResponse",
 ]

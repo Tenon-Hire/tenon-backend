@@ -15,8 +15,10 @@ from app.integrations.transcription import (
 )
 from app.repositories.recordings import repository as recordings_repo
 from app.repositories.recordings.models import (
+    RECORDING_ASSET_STATUS_DELETED,
     RECORDING_ASSET_STATUS_FAILED,
     RECORDING_ASSET_STATUS_PROCESSING,
+    RECORDING_ASSET_STATUS_PURGED,
     RECORDING_ASSET_STATUS_READY,
 )
 from app.repositories.transcripts import repository as transcripts_repo
@@ -87,6 +89,8 @@ async def _mark_processing(recording_id: int) -> tuple[str, str] | None:
         recording = await recordings_repo.get_by_id_for_update(db, recording_id)
         if recording is None:
             return None
+        if recordings_repo.is_deleted_or_purged(recording):
+            return recording.status, TRANSCRIPT_STATUS_PENDING
 
         transcript, _ = await transcripts_repo.get_or_create_transcript(
             db,
@@ -116,6 +120,8 @@ async def _mark_failure(recording_id: int, *, reason: str) -> None:
     async with async_session_maker() as db:
         recording = await recordings_repo.get_by_id_for_update(db, recording_id)
         if recording is None:
+            return
+        if recordings_repo.is_deleted_or_purged(recording):
             return
 
         transcript, _ = await transcripts_repo.get_or_create_transcript(
@@ -148,6 +154,8 @@ async def _mark_ready(
     async with async_session_maker() as db:
         recording = await recordings_repo.get_by_id_for_update(db, recording_id)
         if recording is None:
+            return
+        if recordings_repo.is_deleted_or_purged(recording):
             return
 
         transcript, _ = await transcripts_repo.get_or_create_transcript(
@@ -192,6 +200,14 @@ async def handle_transcribe_recording(payload_json: dict[str, Any]) -> dict[str,
         }
 
     recording_status, transcript_status = processing_state
+    if recording_status in {
+        RECORDING_ASSET_STATUS_DELETED,
+        RECORDING_ASSET_STATUS_PURGED,
+    }:
+        return {
+            "status": "recording_unavailable",
+            "recordingId": recording_id,
+        }
     if (
         recording_status == RECORDING_ASSET_STATUS_READY
         and transcript_status == TRANSCRIPT_STATUS_READY
@@ -207,6 +223,11 @@ async def handle_transcribe_recording(payload_json: dict[str, Any]) -> dict[str,
             if recording is None:
                 return {
                     "status": "recording_not_found",
+                    "recordingId": recording_id,
+                }
+            if recordings_repo.is_deleted_or_purged(recording):
+                return {
+                    "status": "recording_unavailable",
                     "recordingId": recording_id,
                 }
             storage_key = recording.storage_key

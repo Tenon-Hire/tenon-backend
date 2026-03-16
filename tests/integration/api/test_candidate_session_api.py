@@ -307,6 +307,8 @@ async def test_current_task_keeps_day4_handoff_until_day5_window_opens(
         simulation=sim,
         status="in_progress",
         with_default_schedule=False,
+        consent_version="mvp1",
+        ai_notice_version="mvp1",
     )
     _set_day4_day5_transition_windows(cs, day5_open=False)
     await create_submission(async_session, candidate_session=cs, task=day1_task)
@@ -377,6 +379,8 @@ async def test_handoff_resubmission_allowed_while_day4_is_current_before_day5_op
         simulation=sim,
         status="in_progress",
         with_default_schedule=False,
+        consent_version="mvp1",
+        ai_notice_version="mvp1",
     )
     _set_day4_day5_transition_windows(cs, day5_open=False)
     await create_submission(async_session, candidate_session=cs, task=day1_task)

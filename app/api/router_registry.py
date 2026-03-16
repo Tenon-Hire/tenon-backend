@@ -11,6 +11,7 @@ from app.api.routers import (
     github_webhooks,
     health,
     jobs,
+    recordings,
     simulations,
     submissions,
     tasks_codespaces,
@@ -37,6 +38,7 @@ def register_routers(app: FastAPI) -> None:
         prefix=f"{prefix}",
         tags=["integration", "github"],
     )
+    app.include_router(recordings.router, prefix=f"{prefix}", tags=["recordings"])
     app.include_router(submissions.router, prefix=f"{prefix}")
     app.include_router(fit_profile.router, prefix=f"{prefix}", tags=["fit_profile"])
 

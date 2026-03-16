@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from sqlalchemy import (
     CheckConstraint,
+    DateTime,
     ForeignKey,
     Index,
     Integer,
@@ -17,6 +20,8 @@ RECORDING_ASSET_STATUS_UPLOADED = "uploaded"
 RECORDING_ASSET_STATUS_PROCESSING = "processing"
 RECORDING_ASSET_STATUS_READY = "ready"
 RECORDING_ASSET_STATUS_FAILED = "failed"
+RECORDING_ASSET_STATUS_DELETED = "deleted"
+RECORDING_ASSET_STATUS_PURGED = "purged"
 
 RECORDING_ASSET_STATUSES = (
     RECORDING_ASSET_STATUS_UPLOADING,
@@ -24,6 +29,8 @@ RECORDING_ASSET_STATUSES = (
     RECORDING_ASSET_STATUS_PROCESSING,
     RECORDING_ASSET_STATUS_READY,
     RECORDING_ASSET_STATUS_FAILED,
+    RECORDING_ASSET_STATUS_DELETED,
+    RECORDING_ASSET_STATUS_PURGED,
 )
 
 RECORDING_ASSET_STATUS_CHECK_CONSTRAINT_NAME = "ck_recording_assets_status"
@@ -73,6 +80,17 @@ class RecordingAsset(Base, TimestampMixin):
         default=RECORDING_ASSET_STATUS_UPLOADING,
         server_default=RECORDING_ASSET_STATUS_UPLOADING,
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    purged_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    consent_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    consent_timestamp: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    ai_notice_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     candidate_session = relationship("CandidateSession")
     task = relationship("Task")
@@ -86,6 +104,8 @@ __all__ = [
     "RECORDING_ASSET_STATUS_PROCESSING",
     "RECORDING_ASSET_STATUS_READY",
     "RECORDING_ASSET_STATUS_FAILED",
+    "RECORDING_ASSET_STATUS_DELETED",
+    "RECORDING_ASSET_STATUS_PURGED",
     "RECORDING_ASSET_STATUSES",
     "RECORDING_ASSET_STATUS_CHECK_CONSTRAINT_NAME",
     "RECORDING_ASSET_STORAGE_KEY_UNIQUE_CONSTRAINT_NAME",

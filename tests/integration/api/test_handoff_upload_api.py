@@ -48,6 +48,9 @@ def _fake_storage_provider() -> FakeStorageMediaProvider:
     return provider
 
 
+CONSENT_KWARGS = {"consent_version": "mvp1", "ai_notice_version": "mvp1"}
+
+
 def _set_closed_windows(candidate_session) -> None:
     now = datetime.now(UTC).replace(microsecond=0)
     window_start = now - timedelta(days=2)
@@ -225,6 +228,7 @@ async def test_handoff_upload_complete_is_idempotent_and_creates_transcript(
         simulation=sim,
         status="in_progress",
         with_default_schedule=True,
+        **CONSENT_KWARGS,
     )
     await async_session.commit()
     headers = candidate_header_factory(candidate_session)
@@ -322,6 +326,7 @@ async def test_handoff_status_returns_recording_and_transcript(
         simulation=sim,
         status="in_progress",
         with_default_schedule=True,
+        **CONSENT_KWARGS,
     )
     await async_session.commit()
     headers = candidate_header_factory(candidate_session)
@@ -386,6 +391,7 @@ async def test_handoff_status_uses_latest_attempt_when_resubmission_is_in_progre
         simulation=sim,
         status="in_progress",
         with_default_schedule=True,
+        **CONSENT_KWARGS,
     )
     await async_session.commit()
     headers = candidate_header_factory(candidate_session)
@@ -465,6 +471,7 @@ async def test_handoff_status_includes_transcript_text_and_segments_when_ready(
         simulation=sim,
         status="in_progress",
         with_default_schedule=True,
+        **CONSENT_KWARGS,
     )
     await async_session.commit()
     headers = candidate_header_factory(candidate_session)
@@ -546,6 +553,7 @@ async def test_handoff_status_is_candidate_scoped_and_does_not_leak_other_candid
         invite_email="status-a@test.com",
         status="in_progress",
         with_default_schedule=True,
+        **CONSENT_KWARGS,
     )
     candidate_session_b = await create_candidate_session(
         async_session,
@@ -630,6 +638,7 @@ async def test_handoff_status_storage_failure_degrades_to_null_download_url(
         simulation=sim,
         status="in_progress",
         with_default_schedule=True,
+        **CONSENT_KWARGS,
     )
     await async_session.commit()
     headers = candidate_header_factory(candidate_session)
@@ -783,6 +792,7 @@ async def test_handoff_status_remains_available_after_window_closes_for_submitte
         simulation=sim,
         status="in_progress",
         with_default_schedule=True,
+        **CONSENT_KWARGS,
     )
     await async_session.commit()
     headers = candidate_header_factory(candidate_session)
@@ -849,6 +859,7 @@ async def test_handoff_resubmission_replaces_submission_pointer_and_preserves_hi
         simulation=sim,
         status="in_progress",
         with_default_schedule=True,
+        **CONSENT_KWARGS,
     )
     await async_session.commit()
     headers = candidate_header_factory(candidate_session)
@@ -974,6 +985,7 @@ async def test_handoff_upload_complete_rejects_missing_uploaded_object(
         simulation=sim,
         status="in_progress",
         with_default_schedule=True,
+        **CONSENT_KWARGS,
     )
     await async_session.commit()
     headers = candidate_header_factory(candidate_session)
@@ -1012,6 +1024,7 @@ async def test_handoff_upload_complete_rejects_oversize_uploaded_object(
         simulation=sim,
         status="in_progress",
         with_default_schedule=True,
+        **CONSENT_KWARGS,
     )
     await async_session.commit()
     headers = candidate_header_factory(candidate_session)
@@ -1065,6 +1078,7 @@ async def test_handoff_upload_complete_rejects_size_mismatch(
         simulation=sim,
         status="in_progress",
         with_default_schedule=True,
+        **CONSENT_KWARGS,
     )
     await async_session.commit()
     headers = candidate_header_factory(candidate_session)
@@ -1119,6 +1133,7 @@ async def test_handoff_upload_complete_rejects_content_type_mismatch(
         simulation=sim,
         status="in_progress",
         with_default_schedule=True,
+        **CONSENT_KWARGS,
     )
     await async_session.commit()
     headers = candidate_header_factory(candidate_session)
@@ -1173,6 +1188,7 @@ async def test_handoff_upload_complete_storage_failure_maps_to_media_storage_una
         simulation=sim,
         status="in_progress",
         with_default_schedule=True,
+        **CONSENT_KWARGS,
     )
     await async_session.commit()
     headers = candidate_header_factory(candidate_session)
@@ -1218,6 +1234,7 @@ async def test_handoff_upload_complete_forbidden_for_other_candidate(
         invite_email="candidate-a@test.com",
         status="in_progress",
         with_default_schedule=True,
+        **CONSENT_KWARGS,
     )
     candidate_session_b = await create_candidate_session(
         async_session,
@@ -1225,6 +1242,7 @@ async def test_handoff_upload_complete_forbidden_for_other_candidate(
         invite_email="candidate-b@test.com",
         status="in_progress",
         with_default_schedule=True,
+        **CONSENT_KWARGS,
     )
     await async_session.commit()
 
@@ -1260,6 +1278,7 @@ async def test_handoff_upload_complete_missing_recording_returns_404(
         simulation=sim,
         status="in_progress",
         with_default_schedule=True,
+        **CONSENT_KWARGS,
     )
     await async_session.commit()
 

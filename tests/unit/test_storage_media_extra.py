@@ -235,6 +235,58 @@ def test_s3_provider_get_object_metadata_404_returns_none(monkeypatch):
     assert metadata is None
 
 
+def test_s3_provider_delete_object_handles_success_and_missing(monkeypatch):
+    provider = _build_s3_provider()
+
+    class _DeleteResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            del exc_type, exc, tb
+            return False
+
+    monkeypatch.setattr(
+        s3_module, "urlopen", lambda request, timeout: _DeleteResponse()
+    )
+    provider.delete_object("candidate-sessions/3/tasks/7/recordings/object.mp4")
+
+    def _raise_404(request, timeout):
+        del request, timeout
+        raise HTTPError(
+            url="https://example.com", code=404, msg="Not Found", hdrs=None, fp=None
+        )
+
+    monkeypatch.setattr(s3_module, "urlopen", _raise_404)
+    provider.delete_object("candidate-sessions/3/tasks/7/recordings/missing.mp4")
+
+
+def test_s3_provider_delete_object_error_paths(monkeypatch):
+    provider = _build_s3_provider()
+
+    def _raise_500(request, timeout):
+        del request, timeout
+        raise HTTPError(
+            url="https://example.com",
+            code=500,
+            msg="Internal Server Error",
+            hdrs=None,
+            fp=None,
+        )
+
+    monkeypatch.setattr(s3_module, "urlopen", _raise_500)
+    with pytest.raises(StorageMediaError):
+        provider.delete_object("candidate-sessions/3/tasks/7/recordings/object.mp4")
+
+    def _raise_oserror(request, timeout):
+        del request, timeout
+        raise OSError("network down")
+
+    monkeypatch.setattr(s3_module, "urlopen", _raise_oserror)
+    with pytest.raises(StorageMediaError):
+        provider.delete_object("candidate-sessions/3/tasks/7/recordings/object.mp4")
+
+
 def test_s3_provider_get_object_metadata_error_paths(monkeypatch):
     provider = _build_s3_provider()
 
@@ -302,6 +354,68 @@ def test_s3_provider_get_object_metadata_error_paths(monkeypatch):
     monkeypatch.setattr(s3_module, "urlopen", _raise_500)
     with pytest.raises(StorageMediaError):
         provider.get_object_metadata("candidate-sessions/9/tasks/9/recordings/demo.mp4")
+
+
+def test_s3_provider_get_object_metadata_negative_length_and_oserror(monkeypatch):
+    provider = _build_s3_provider()
+
+    class _NegativeLengthResponse:
+        def __init__(self):
+            self.headers = {"Content-Length": "-1", "Content-Type": "video/mp4"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            del exc_type, exc, tb
+            return False
+
+    monkeypatch.setattr(
+        s3_module, "urlopen", lambda request, timeout: _NegativeLengthResponse()
+    )
+    with pytest.raises(StorageMediaError):
+        provider.get_object_metadata("candidate-sessions/9/tasks/9/recordings/demo.mp4")
+
+    def _raise_oserror(request, timeout):
+        del request, timeout
+        raise OSError("socket closed")
+
+    monkeypatch.setattr(s3_module, "urlopen", _raise_oserror)
+    with pytest.raises(StorageMediaError):
+        provider.get_object_metadata("candidate-sessions/9/tasks/9/recordings/demo.mp4")
+
+
+def test_s3_provider_includes_session_token_when_configured():
+    provider = S3StorageMediaProvider(
+        endpoint="https://storage.example.com/base",
+        region="us-east-1",
+        bucket="media-bucket",
+        access_key_id="AKIA_TEST",
+        secret_access_key="secret_test_key",
+        session_token="session-token-value",
+    )
+    download_url = provider.create_signed_download_url(
+        "candidate-sessions/1/tasks/1/recordings/object.mp4",
+        120,
+    )
+    assert "X-Amz-Security-Token=session-token-value" in download_url
+
+
+def test_s3_provider_virtual_host_without_port():
+    provider = S3StorageMediaProvider(
+        endpoint="https://storage.example.com/base",
+        region="us-east-1",
+        bucket="media-bucket",
+        access_key_id="AKIA_TEST",
+        secret_access_key="secret_test_key",
+        use_path_style=False,
+    )
+    download_url = provider.create_signed_download_url(
+        "candidate-sessions/2/tasks/6/recordings/demo.webm",
+        120,
+    )
+    assert download_url.startswith("https://media-bucket.storage.example.com/")
+    assert "/base/candidate-sessions/2/tasks/6/recordings/demo.webm" in download_url
 
 
 def test_s3_provider_init_validates_required_configuration():

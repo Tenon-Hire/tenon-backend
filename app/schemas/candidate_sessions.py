@@ -101,6 +101,19 @@ class CandidateSessionScheduleResponse(APIModel):
     scheduleLockedAt: datetime
 
 
+class CandidatePrivacyConsentRequest(APIModel):
+    """Request payload for recording candidate media/privacy consent."""
+
+    noticeVersion: str = Field(..., min_length=1, max_length=100)
+    aiNoticeVersion: str | None = Field(default=None, min_length=1, max_length=100)
+
+
+class CandidatePrivacyConsentResponse(APIModel):
+    """Response payload for candidate privacy consent recording."""
+
+    status: Literal["consent_recorded"]
+
+
 class CandidateInviteListItem(APIModel):
     """Dashboard-friendly invite summary for candidates."""
 

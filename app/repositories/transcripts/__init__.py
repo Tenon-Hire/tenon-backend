@@ -10,6 +10,8 @@ from app.repositories.transcripts.repository import (
     create_transcript,
     get_by_recording_id,
     get_or_create_transcript,
+    hard_delete_by_recording_id,
+    mark_deleted,
     update_status,
     update_transcript,
 )
@@ -22,8 +24,10 @@ __all__ = [
     "TRANSCRIPT_STATUS_READY",
     "Transcript",
     "create_transcript",
+    "hard_delete_by_recording_id",
     "get_by_recording_id",
     "get_or_create_transcript",
+    "mark_deleted",
     "update_transcript",
     "update_status",
 ]

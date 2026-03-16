@@ -132,6 +132,27 @@ class S3StorageMediaProvider:
                 "Failed to inspect storage object metadata"
             ) from exc
 
+    def delete_object(self, key: str) -> None:
+        signed_delete_url = self._presign(
+            method="DELETE",
+            key=key,
+            expires_seconds=_METADATA_EXPIRES_SECONDS,
+            extra_headers={},
+        )
+        request = Request(signed_delete_url, method="DELETE")
+        try:
+            with urlopen(request, timeout=5):
+                return
+        except HTTPError as exc:
+            # S3 delete is idempotent; treat missing objects as already deleted.
+            if exc.code == 404:
+                return
+            raise StorageMediaError(
+                f"Failed to delete storage object (status={exc.code})"
+            ) from exc
+        except OSError as exc:
+            raise StorageMediaError("Failed to delete storage object") from exc
+
     def _presign(
         self,
         *,

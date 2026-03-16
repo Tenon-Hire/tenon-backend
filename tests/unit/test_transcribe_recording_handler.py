@@ -6,6 +6,7 @@ from app.integrations.transcription.base import TranscriptionResult
 from app.jobs.handlers import transcribe_recording as handler
 from app.repositories.recordings import repository as recordings_repo
 from app.repositories.recordings.models import (
+    RECORDING_ASSET_STATUS_DELETED,
     RECORDING_ASSET_STATUS_FAILED,
     RECORDING_ASSET_STATUS_PROCESSING,
     RECORDING_ASSET_STATUS_READY,
@@ -114,6 +115,36 @@ async def test_transcribe_recording_handler_invalid_payload_skips():
 async def test_transcribe_recording_handler_missing_recording_returns_not_found():
     result = await handler.handle_transcribe_recording({"recordingId": 9_999_999})
     assert result["status"] == "recording_not_found"
+
+
+@pytest.mark.asyncio
+async def test_transcribe_recording_handler_deleted_recording_is_unavailable(
+    async_session,
+):
+    recruiter = await create_recruiter(
+        async_session, email="transcribe-deleted@test.com"
+    )
+    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    task = _handoff_task(tasks)
+    candidate_session = await create_candidate_session(async_session, simulation=sim)
+    recording = await recordings_repo.create_recording_asset(
+        async_session,
+        candidate_session_id=candidate_session.id,
+        task_id=task.id,
+        storage_key=(
+            f"candidate-sessions/{candidate_session.id}/tasks/{task.id}/"
+            "recordings/transcribe-deleted.mp4"
+        ),
+        content_type="video/mp4",
+        bytes_count=1024,
+        status=RECORDING_ASSET_STATUS_DELETED,
+        commit=True,
+    )
+    recording.deleted_at = recording.created_at
+    await async_session.commit()
+
+    result = await handler.handle_transcribe_recording({"recordingId": recording.id})
+    assert result["status"] == "recording_unavailable"
 
 
 @pytest.mark.asyncio

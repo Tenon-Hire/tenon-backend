@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.transcripts.models import Transcript
@@ -11,8 +11,15 @@ from app.repositories.transcripts.models import Transcript
 _UNSET = object()
 
 
-async def get_by_recording_id(db: AsyncSession, recording_id: int) -> Transcript | None:
+async def get_by_recording_id(
+    db: AsyncSession,
+    recording_id: int,
+    *,
+    include_deleted: bool = False,
+) -> Transcript | None:
     stmt = select(Transcript).where(Transcript.recording_id == recording_id)
+    if not include_deleted:
+        stmt = stmt.where(Transcript.deleted_at.is_(None))
     return (await db.execute(stmt)).scalar_one_or_none()
 
 
@@ -53,7 +60,11 @@ async def get_or_create_transcript(
     status: str,
     commit: bool = True,
 ) -> tuple[Transcript, bool]:
-    existing = await get_by_recording_id(db, recording_id)
+    existing = await get_by_recording_id(
+        db,
+        recording_id,
+        include_deleted=True,
+    )
     if existing is not None:
         return existing, False
     created = await create_transcript(
@@ -111,10 +122,46 @@ async def update_transcript(
     return transcript
 
 
+async def mark_deleted(
+    db: AsyncSession,
+    *,
+    transcript: Transcript,
+    now: datetime | None = None,
+    commit: bool = True,
+) -> Transcript:
+    if transcript.deleted_at is None:
+        transcript.deleted_at = now or datetime.now(UTC)
+    transcript.text = None
+    transcript.segments_json = None
+    if commit:
+        await db.commit()
+        await db.refresh(transcript)
+    else:
+        await db.flush()
+    return transcript
+
+
+async def hard_delete_by_recording_id(
+    db: AsyncSession,
+    recording_id: int,
+    *,
+    commit: bool = True,
+) -> int:
+    result = await db.execute(
+        delete(Transcript).where(Transcript.recording_id == recording_id)
+    )
+    deleted_count = int(result.rowcount or 0)
+    if commit:
+        await db.commit()
+    return deleted_count
+
+
 __all__ = [
     "create_transcript",
+    "hard_delete_by_recording_id",
     "get_by_recording_id",
     "get_or_create_transcript",
+    "mark_deleted",
     "update_transcript",
     "update_status",
 ]

@@ -1,152 +1,168 @@
-## 1. Title
-P1 Demo Ops: Admin endpoints for candidate session reset, job requeue, and simulation fallback scenario (#219)
+## Title
+P2 Privacy/Compliance: Retention + consent + deletion workflows for media and candidate artifacts (#215)
 
-## 2. TL;DR
-- Shipped three demo-ops admin endpoints under `/api/admin/*`:
-  - `POST /api/admin/candidate_sessions/{candidate_session_id}/reset`
-  - `POST /api/admin/jobs/{job_id}/requeue`
-  - `POST /api/admin/simulations/{simulation_id}/scenario/use_fallback`
-- Added centralized demo/admin gating dependency:
-  - demo mode off => `404`
-  - demo mode on + non-admin => `403`
-- Added `admin_action_audits` table + migration and wired audit writes for all admin actions.
-- Enforced constrained, auditable, idempotent behavior with explicit `409` unsafe-operation semantics.
+## TL;DR
+- Shipped candidate consent endpoint + persistence (`consent_version`, `consent_timestamp`, optional `ai_notice_version`).
+- Enforced consent gate before Day 4 upload finalize (`409` if consent is missing).
+- Shipped candidate-owned, idempotent delete endpoint for recordings.
+- Blocked recruiter download URL/transcript access after delete or purge.
+- Added retention settings and MVP manual/admin purge path (`POST /api/admin/media/purge`).
+- Enforced short-lived signed URL TTL with bounded config validation/clamping.
+- Added privacy-safe logging for consent/delete/purge events without transcript text, signed URLs, or bearer payload leakage.
+- Manual/runtime QA verdict: PASS on real localhost FastAPI + fresh dedicated Postgres.
 
-## 3. Why / problem
-Demo operations needed safe recovery paths for three failure classes: wedged candidate sessions, stuck jobs, and unusable scenario versions. The required capability is to recover without arbitrary DB mutation, preserve auditability, and avoid changing locked or already-pinned candidate scenario assignments.
+## Why
+Day 4 uploads and transcripts introduced sensitive candidate artifacts. MVP required minimum viable privacy/compliance controls: explicit consent capture, deletion, retention enforcement, and short-lived signed URL access.
 
-## 4. What changed
-- Centralized demo-mode + admin gating:
-  - Added `require_demo_mode_admin` in `app/api/dependencies/admin_demo.py`.
-  - Gating behavior is centralized and reused by all demo-ops endpoints.
-  - Admin auth supports both paths:
-    - claim path (`role=admin` or `tenon_roles`/roles-derived admin claim)
-    - allowlist path (email, subject, recruiter_id config allowlists)
-- Audit model/migration:
-  - Added `admin_action_audits` model/repository and migration `202603150001_add_admin_action_audits.py`.
-  - All admin ops write sanitized payloads (reason/flags/ids/status metadata only).
-- Reset endpoint:
-  - Implemented constrained state reset for candidate sessions via `reset_candidate_session`.
-  - Evaluated-session resets without override are blocked with `409 UNSAFE_OPERATION`.
-  - Supports dry-run validation mode without mutation/audit row writes.
-- Requeue endpoint:
-  - Implemented `requeue_job` for safe status transitions back to `queued`.
-  - Supports no-op idempotent requeue when already queued.
-  - Enforces stale-running/dead-letter safety checks when `force=false`; unsafe paths return `409`.
-- Fallback scenario endpoint:
-  - Implemented simulation-level fallback switch to active scenario for future invites only.
-  - Prevents unsafe fallback when simulation is terminated, scenario is ineligible, or approval is pending (`409`).
-  - Preserves existing invited-session pinning; only future invites use the switched active scenario.
-  - Iteration 2 bugfix: dry-run fallback path captures the resolved `scenarioVersionId` before rollback so dry-run response is correct and deterministic.
+## What changed
+### Consent capture and enforcement
+- Added `POST /api/candidate/session/{candidate_session_id}/privacy/consent`.
+- Persisted consent on candidate sessions (`consent_version`, `consent_timestamp`, optional `ai_notice_version`).
+- Enforced consent before upload finalize; non-consented finalize is blocked with `409`.
+- Propagated consent metadata to recording rows during upload flow.
 
-## 5. API contracts
-- `POST /api/admin/candidate_sessions/{candidate_session_id}/reset`
-  - Request: `targetState`, `reason`, `overrideIfEvaluated=false` (default), `dryRun=false` (default)
-  - Response: `candidateSessionId`, `status` (`ok|dry_run`), `resetTo`, `auditId` (`null` on dry-run)
-  - Errors: `404` (demo off/target missing), `403` (not admin), `409` (`UNSAFE_OPERATION` for evaluated reset without override or invalid safe-reset conditions)
-- `POST /api/admin/jobs/{job_id}/requeue`
-  - Request: `reason`, `force=false` (default)
-  - Response: `jobId`, `previousStatus`, `newStatus`, `auditId`
-  - Errors: `404` (demo off/target missing), `403` (not admin), `409` (`UNSAFE_OPERATION` for unsafe requeue without `force`, or invalid force path)
-- `POST /api/admin/simulations/{simulation_id}/scenario/use_fallback`
-  - Request: `scenarioVersionId`, `applyTo` (`future_invites_only`), `reason`, `dryRun=false` (default)
-  - Response: `simulationId`, `activeScenarioVersionId`, `applyTo`, `auditId` (`null` on dry-run)
-  - Errors: `404` (demo off/missing objects), `403` (not admin), `409` (`UNSAFE_OPERATION` for ineligible fallback state, `SCENARIO_APPROVAL_PENDING` when pending scenario exists)
+### Candidate deletion workflow
+- Added `POST /api/recordings/{recording_id}/delete`.
+- Candidate ownership is enforced against the recording’s session.
+- Delete is soft and idempotent: sets `status=deleted` and `deleted_at`, returns `{ "status": "deleted" }` on repeat calls.
+- Transcript access is revoked on delete (transcript hidden from recruiter views, transcript payload cleared/marked deleted in DB).
 
-## 6. Safety / security decisions
-- Demo mode is disabled by default (`TENON_DEMO_MODE` / `settings.DEMO_MODE` defaults false).
-- Access is guarded by both demo-mode and admin checks.
-- Admin authorization supports claim-based and allowlist-based paths.
-- Audit payloads are sanitized and do not store candidate PII fields (no candidate email/video/transcript payload data).
-- Endpoints expose constrained operations only; no arbitrary DB mutation interface was added.
-- Fallback switch does not mutate locked scenario content.
-- Already invited sessions are not rebound to a different scenario version.
+### Signed URL enforcement
+- Signed URL expiry is mandatory and bounded by settings.
+- TTL uses clamp logic (`resolve_signed_url_ttl`) before URL generation.
+- Default config remains short-lived (`SIGNED_URL_EXPIRY_SECONDS=900`, upper bound `<=1800`).
+- Runtime QA config used stricter bounds (`SIGNED_URL_EXPIRY_SECONDS=120`, min `60`, max `300`) and observed `expiresIn=120`.
 
-## 7. Idempotency behavior
-- Requeueing an already `queued` job is a no-op `200` and leaves status unchanged.
-- Applying fallback with the same active scenario version is a no-op `200`.
-- Dry-run reset/fallback paths validate and return intent without mutating state or writing audit rows.
+### Recruiter access hardening
+- Existing recruiter company-ownership checks remain enforced.
+- Deleted/purged media no longer returns recruiter download URLs or transcript payloads.
+- Cross-company access remains forbidden.
 
-## 8. Data model / migration notes
-- Added `admin_action_audits` table with:
-  - `id`, `actor_type`, `actor_id`, `action`, `target_type`, `target_id`, `payload_json`, `created_at`
-- Migration: `alembic/versions/202603150001_add_admin_action_audits.py`
-- Added indexes:
-  - `ix_admin_action_audits_created_at`
-  - `ix_admin_action_audits_action_created_at`
+### Retention and purge
+- Added retention controls (`MEDIA_RETENTION_DAYS`, `MEDIA_DELETE_ENABLED`).
+- Added MVP manual/admin purge endpoint: `POST /api/admin/media/purge`.
+- Purge service removes storage object, hard-deletes transcript rows, and marks recordings `purged` with `purged_at`.
+- Retention cutoff is anchored to `recording_assets.created_at`.
 
-## 9. Tests and validation
-- Final quality gate:
-  - `./precommit.sh` -> PASS
-  - `1500 passed`
-  - total coverage `99.02%` (coverage gate >=99% satisfied)
-  - `app/services/admin_ops_service.py` -> `100%`
-- Targeted integration coverage includes:
-  - demo-mode off returns `404`
-  - non-admin in demo mode returns `403`
-  - reset endpoint audit write + evaluated-session `409` block + dry-run non-mutation
-  - requeue flow from dead-letter to queued with worker processing to succeeded
-  - fallback switch for future invites with existing sessions staying pinned
-- Targeted unit coverage includes:
-  - admin dependency auth paths (claim + allowlist variants)
-  - stale-running and force requeue safety matrix
-  - fallback pending/ineligible/terminated `409` conditions
-  - sanitized audit payload behavior
+### Observability / logging
+- Privacy events logged for consent recorded, recording deleted, purge executed.
+- Logging intentionally excludes transcript text, signed URLs, and sensitive bearer/token payloads.
 
-## 10. Manual QA / Runtime Verification
+### Tests and manual QA
+- Automated lint/test gates passed (details in Testing section).
+- Manual/runtime QA passed with artifact-backed HTTP + SQL evidence bundle.
+
+## API changes
+- `POST /api/candidate/session/{candidate_session_id}/privacy/consent`
+  - Payload:
+    ```json
+    { "noticeVersion": "mvp1" }
+    ```
+  - Response:
+    ```json
+    { "status": "consent_recorded" }
+    ```
+  - Notes: candidate-owned session required; consent version/timestamp (+ optional AI notice version) recorded.
+- `POST /api/recordings/{recording_id}/delete`
+  - Response:
+    ```json
+    { "status": "deleted" }
+    ```
+  - Notes: candidate-only, ownership enforced, idempotent.
+- `POST /api/admin/media/purge`
+  - Purpose: manual/admin-triggered retention purge path for MVP (not scheduler-driven in this issue).
+  - Notes: accepts retention/batch controls and returns purge counts/IDs.
+- Upload finalize now requires recorded consent.
+- Deleted/purged assets do not return recruiter download URLs or transcript payloads.
+
+## Data model / migration changes
+- Migration: `alembic/versions/202603150002_add_media_privacy_controls.py`.
+- Candidate session consent fields:
+  - `candidate_sessions.consent_version`
+  - `candidate_sessions.consent_timestamp`
+  - `candidate_sessions.ai_notice_version`
+- Recording delete/purge/consent fields:
+  - `recording_assets.deleted_at`
+  - `recording_assets.purged_at`
+  - `recording_assets.consent_version`
+  - `recording_assets.consent_timestamp`
+  - `recording_assets.ai_notice_version`
+- Transcript delete marker:
+  - `transcripts.deleted_at`
+- Recording status constraint expanded to include `deleted` and `purged`.
+
+## Security / compliance notes
+- Candidate delete is candidate-owned and enforced by ownership checks.
+- Unauthorized delete attempts return `403`.
+- Recruiters cannot delete candidate recordings; no recruiter/admin override-delete flow was added in this issue.
+- Cross-company recruiter access remains forbidden.
+- Deleted/purged assets cannot generate signed URLs.
+- Signed URLs are short-lived and bounded by enforced min/max config.
+- Logs exclude transcript text, signed URLs, and sensitive bearer/token payloads.
+
+## Retention behavior
+- Retention is anchored to `recording_assets.created_at`.
+- `MEDIA_RETENTION_DAYS` defines the window (default `45` days for MVP).
+- Purge is manual/admin-triggered for MVP (`POST /api/admin/media/purge`).
+- Purge marks recordings as `purged` (`purged_at`, and `deleted_at` when needed) and removes transcript rows.
+- HTTP QA evidence proves purge endpoint behavior and DB-side purge effects.
+- Explicit storage-object removal proof was verified via direct purge-service invocation using the same DB/config and fake provider; this was not overclaimed as HTTP-only proof.
+
+## Testing
+- `poetry run ruff format --check .` -> PASS
+- `poetry run ruff check .` -> PASS
+- `poetry run pytest -q` -> PASS
+- Final verified full-suite result: `1543 passed`
+- Coverage: `99.01%`
+
+## Manual QA / Runtime Verification
 - Verdict: PASS.
 - Runtime method:
-  - Real localhost FastAPI server on `127.0.0.1:8019`.
-  - Fresh dedicated Postgres DB: `tenon_issue219_manualqa_20260315t021621z`.
-  - Migration command used:
-    - `TENON_ENV=test TENON_DATABASE_URL=<async> TENON_DATABASE_URL_SYNC=<sync> poetry run alembic upgrade head`
-    - Succeeded through head including revision `202603150001`.
-  - Real HTTP calls to admin endpoints, direct Postgres verification (before/after snapshots), and real worker execution through the `app.jobs.worker.run_once` code path.
-- Evidence bundle:
-  - `.qa/issue219/manual_qa_20260315T021621Z/`
-  - Pointer file: `.qa/issue219/LATEST_EVIDENCE_PATH.txt`
-- Repo state during QA:
-  - Before QA: clean (`git status --short` empty).
-  - After QA: clean (`git status --short` empty).
-  - No tracked product files changed during QA.
-- Scenario summary:
-  - Demo mode / auth gating:
-    - Demo mode off: all three admin endpoints returned `404`.
-    - Demo mode on + non-admin: all three admin endpoints returned `403`.
-  - Reset endpoint:
-    - Dry-run returned `200` with no DB mutation and no audit row.
-    - Evaluated session reset without override returned `409`.
-    - Successful reset returned `200`, safely rewound session state, and inserted an audit row.
-  - Requeue endpoint:
-    - Unsafe fresh-running job returned `409`.
-    - Dead-letter job requeue returned `200`, transitioned to `queued`, and real worker execution completed it to `succeeded`.
-    - Queued-job requeue was a no-op `200`.
-    - Observed behavior: queued no-op requeue still writes an audit row.
-  - Fallback scenario endpoint:
-    - Dry-run returned `200` with no mutation and no audit row.
-    - Successful fallback switched simulation active scenario for future invites only.
-    - Existing invited session remained pinned to the old scenario version.
-    - New invite created after fallback pinned to the new scenario version.
-    - Pending-approval fallback attempt returned `409`.
-  - Audit payload sanitization:
-    - Verified sanitized payloads in Postgres audit rows.
-    - No candidate email / invite email / transcript / video / URL-like sensitive values found in inspected payloads.
-- Strongest proof points:
-  - Real HTTP calls proved endpoint hiding and admin authorization behavior (`404` / `403`).
-  - Reset safety was proven with dry-run non-mutation, evaluated-session `409`, and successful reset audit insertion.
-  - Requeue was proven end-to-end: admin API requeue -> `queued` -> real worker run -> `succeeded`.
-  - Fallback semantics were proven for future-invites-only behavior: existing invited session stayed pinned while a new invite pinned to the fallback scenario.
-  - Audit payload sanitization was verified directly in Postgres.
+  - Real FastAPI server on `127.0.0.1:8015`.
+  - Fresh dedicated Postgres DB: `tenon_issue215_manualqa_20260316_133908`.
+  - Migrations applied to head successfully (including `202603150002`).
+- Evidence bundle path:
+  - `.qa/issue215/manual_qa_20260316T133908Z/`
+- Real HTTP + SQL/runtime evidence captured for:
+  - Consent endpoint records consent fields.
+  - Finalize without consent is blocked (`409`).
+  - Consented finalize passes consent gate (then fails at expected downstream check: `422 Uploaded object not found` in fake-provider QA setup).
+  - Candidate delete is idempotent.
+  - Other-candidate delete attempt returns `403`.
+  - Recruiter delete attempt returns `403`.
+  - Recruiter access is removed after delete (`downloadUrl: null`, transcript hidden).
+  - Admin/manual purge path works (`purgedCount=1`; recruiter sees purged asset with no download/transcript).
+  - Signed URL TTL observed as short-lived (`expiresIn=120`).
+  - Privacy logging checks found no transcript/signed URL/token leakage.
 
-## 11. Risks / follow-ups
-- Optional session-level fallback endpoint (`/api/admin/candidate_sessions/{id}/scenario/use_fallback`) is intentionally deferred and not part of this PR.
-- Existing repo-wide limitation remains: full historical `alembic upgrade head` on SQLite can fail at an older unrelated migration; this issue’s migration is not the source of that limitation.
+## Important QA nuance
+- Candidate shorthand dev bearer tokens (`candidate:<email>`) were insufficient for candidate ownership checks in real HTTP QA because they lacked `email_verified`.
+- Manual QA used signed JWTs from a local mock JWKS for candidate-endpoint runtime verification.
+- This is a QA/runtime auth setup nuance, not a product-code blocker.
 
-## 12. Rollout / demo checklist
-1. Force a demo job into a stuck/failed state and call requeue endpoint; verify it returns to `queued` and worker completes it.
-2. Switch a simulation to a known-good fallback scenario using `future_invites_only`; verify new invites pin to fallback and previously invited sessions remain pinned.
-3. Reset a wedged demo candidate session using constrained target state and verify it can proceed again.
+## Logging nuance
+- Default server access logs in this run did not surface app-level privacy info events.
+- Privacy-event verification was completed via a runtime log probe against the same DB/runtime configuration.
 
-## 13. Notes for reviewers
-- Canonical router path is under `app/api/routers/admin_routes/*`.
-- Duplicate shim files under `app/api/routes/admin_routes/*` were removed; no parallel admin-routes shim path remains.
+## Acceptance criteria mapping
+1. Consent recorded before upload finalize: implemented via consent endpoint and verified with HTTP + SQL evidence (`A_*` consent artifacts).
+2. Upload blocked if consent not recorded: implemented and verified (`B_complete_blocked_without_consent_*` returned `409`).
+3. Deleted assets cannot generate download URLs: implemented and verified (post-delete recruiter response has `downloadUrl: null`).
+4. Recruiter cannot access deleted asset: implemented and verified (post-delete recruiter response hides transcript and URL).
+5. Retention purge path exists and removes storage objects: implemented with manual/admin purge endpoint + DB purge evidence; explicit storage removal proven via direct service invocation on same DB/config (`F_direct_service_*` artifacts).
+6. Signed URLs expire and are not long-lived: implemented and verified with bounded TTL config and observed runtime `expiresIn=120`.
+
+## Risks / rollout notes
+- Purge is manual/admin-triggered for MVP; no scheduled job wiring is included here.
+- QA runtime used fake storage provider.
+- No frontend contract changes in this issue.
+- No recruiter/admin override-delete flow was added (explicitly out of scope).
+
+## Demo / QA checklist
+1. Record consent via candidate consent endpoint.
+2. Verify consent fields in DB.
+3. Attempt upload finalize without consent and verify it is blocked.
+4. Delete video as the owning candidate (repeat delete to confirm idempotency).
+5. Verify recruiter playback/download access fails (`downloadUrl: null`, transcript hidden).
+6. Trigger admin purge in test environment.
+7. Confirm signed URL TTL is short-lived and bounded.

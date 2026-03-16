@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
     JSON,
     CheckConstraint,
+    DateTime,
     ForeignKey,
     Index,
     Integer,
@@ -70,6 +72,9 @@ class Transcript(Base, TimestampMixin):
         nullable=False,
         default=TRANSCRIPT_STATUS_PENDING,
         server_default=TRANSCRIPT_STATUS_PENDING,
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
 
     recording = relationship("RecordingAsset", back_populates="transcript")

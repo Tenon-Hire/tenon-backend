@@ -7,7 +7,10 @@ from app.api.routers.submissions_routes import detail as detail_route
 from app.core.errors import MEDIA_STORAGE_UNAVAILABLE
 from app.integrations.storage_media.base import StorageMediaError
 from app.repositories.recordings import repository as recordings_repo
-from app.repositories.recordings.models import RECORDING_ASSET_STATUS_UPLOADED
+from app.repositories.recordings.models import (
+    RECORDING_ASSET_STATUS_DELETED,
+    RECORDING_ASSET_STATUS_UPLOADED,
+)
 from app.repositories.transcripts import repository as transcripts_repo
 from app.repositories.transcripts.models import TRANSCRIPT_STATUS_READY
 from tests.factories import (
@@ -133,6 +136,65 @@ async def test_submission_detail_route_surfaces_storage_error(
     assert exc_info.value.status_code == 502
     assert exc_info.value.detail == "Media storage unavailable"
     assert getattr(exc_info.value, "error_code", None) == MEDIA_STORAGE_UNAVAILABLE
+
+
+@pytest.mark.asyncio
+async def test_submission_detail_route_hides_deleted_media_artifacts(async_session):
+    recruiter = await create_recruiter(
+        async_session,
+        email="detail-route-deleted@test.com",
+    )
+    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    task = _handoff_task(tasks)
+    candidate_session = await create_candidate_session(
+        async_session,
+        simulation=sim,
+        status="in_progress",
+    )
+    submission = await create_submission(
+        async_session,
+        candidate_session=candidate_session,
+        task=task,
+        content_text="handoff notes",
+    )
+    recording = await recordings_repo.create_recording_asset(
+        async_session,
+        candidate_session_id=candidate_session.id,
+        task_id=task.id,
+        storage_key=(
+            f"candidate-sessions/{candidate_session.id}/tasks/{task.id}/"
+            "recordings/deleted.mp4"
+        ),
+        content_type="video/mp4",
+        bytes_count=2048,
+        status=RECORDING_ASSET_STATUS_DELETED,
+        commit=True,
+    )
+    recording.deleted_at = recording.created_at
+    await transcripts_repo.create_transcript(
+        async_session,
+        recording_id=recording.id,
+        status=TRANSCRIPT_STATUS_READY,
+        text="secret transcript",
+        model_name="test-model",
+        commit=True,
+    )
+    submission.recording_id = recording.id
+    await async_session.commit()
+
+    payload = await detail_route.get_submission_detail_route(
+        submission_id=submission.id,
+        db=async_session,
+        user=recruiter,
+    )
+
+    assert payload.recording is not None
+    assert payload.recording.status == RECORDING_ASSET_STATUS_DELETED
+    assert payload.recording.downloadUrl is None
+    assert payload.transcript is None
+    assert payload.handoff is not None
+    assert payload.handoff.downloadUrl is None
+    assert payload.handoff.transcript is None
 
 
 @pytest.mark.asyncio
