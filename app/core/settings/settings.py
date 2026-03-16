@@ -57,6 +57,8 @@ class Settings(BaseSettings):
 
     CORS_ALLOW_ORIGINS: str | list[str] | None = None
     CORS_ALLOW_ORIGIN_REGEX: str | None = None
+    CSRF_ALLOWED_ORIGINS: list[str] | str = Field(default_factory=list)
+    CSRF_PROTECTED_PATH_PREFIXES: list[str] | str = Field(default_factory=list)
 
     GITHUB_API_BASE: str | None = None
     GITHUB_ORG: str | None = None
@@ -116,6 +118,13 @@ class Settings(BaseSettings):
             normalized.append(int(text))
         return normalized
 
+    @field_validator(
+        "CSRF_ALLOWED_ORIGINS", "CSRF_PROTECTED_PATH_PREFIXES", mode="before"
+    )
+    @classmethod
+    def _coerce_csrf_lists(cls, value):
+        return parse_env_list(value)
+
     @model_validator(mode="before")
     def _merge_legacy(cls, values: dict) -> dict:
         return merge_nested_settings(values)
@@ -132,6 +141,32 @@ class Settings(BaseSettings):
                 )
             if not (self.auth.AUTH0_API_AUDIENCE or "").strip():
                 raise ValueError("AUTH0_API_AUDIENCE must be set for Auth0 validation")
+        return self
+
+    @model_validator(mode="after")
+    def _validate_cors_posture(self):
+        env = str(self.ENV or "").lower()
+        if env in {"local", "test"}:
+            return self
+
+        raw_origins = getattr(self.cors, "CORS_ALLOW_ORIGINS", [])
+        if isinstance(raw_origins, str):
+            origins = [raw_origins.strip()] if raw_origins.strip() else []
+        elif isinstance(raw_origins, list | tuple | set):
+            origins = [str(item).strip() for item in raw_origins if str(item).strip()]
+        else:
+            origins = []
+
+        origin_regex = (self.cors.CORS_ALLOW_ORIGIN_REGEX or "").strip()
+        if origin_regex:
+            raise ValueError(
+                "CORS_ALLOW_ORIGIN_REGEX is not allowed outside local/test; "
+                "use explicit CORS_ALLOW_ORIGINS"
+            )
+        if not origins:
+            raise ValueError("CORS_ALLOW_ORIGINS must be configured outside local/test")
+        if any("*" in origin for origin in origins):
+            raise ValueError("Wildcard CORS origins are not allowed outside local/test")
         return self
 
     @property

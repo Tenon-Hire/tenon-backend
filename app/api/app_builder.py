@@ -8,6 +8,7 @@ from app.api.lifespan import lifespan
 from app.api.middleware import (
     configure_core_logging,
     configure_cors,
+    configure_csrf_protection,
     configure_perf_logging,
     configure_proxy_headers,
     configure_request_limits,
@@ -30,6 +31,7 @@ def create_app() -> FastAPI:
     configure_perf_logging(app)
     configure_proxy_headers(app)
     configure_request_limits(app)
+    configure_csrf_protection(app)
     configure_cors(app)
     register_routers(app)
     register_error_handlers(app)

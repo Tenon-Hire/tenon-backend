@@ -209,9 +209,46 @@ def test_settings_coerce_trusted_proxies_and_dev_bypass(monkeypatch):
         DATABASE_URL="sqlite:///x",
         AUTH0_DOMAIN="example.auth0.com",
         AUTH0_API_AUDIENCE="aud",
+        CORS_ALLOW_ORIGINS=["https://frontend.tenon.ai"],
         ENV="prod",
     )
     assert prod_settings.dev_auth_bypass_enabled is True
+
+
+def test_non_local_cors_rejects_wildcard_origins():
+    with pytest.raises(ValueError, match="Wildcard CORS origins"):
+        Settings(
+            _env_file=None,
+            ENV="prod",
+            AUTH0_DOMAIN="example.auth0.com",
+            AUTH0_API_AUDIENCE="aud",
+            CORS_ALLOW_ORIGINS=["*"],
+            CORS_ALLOW_ORIGIN_REGEX=None,
+        )
+
+
+def test_non_local_cors_rejects_origin_regex():
+    with pytest.raises(ValueError, match="CORS_ALLOW_ORIGIN_REGEX is not allowed"):
+        Settings(
+            _env_file=None,
+            ENV="staging",
+            AUTH0_DOMAIN="example.auth0.com",
+            AUTH0_API_AUDIENCE="aud",
+            CORS_ALLOW_ORIGINS=["https://frontend.tenon.ai"],
+            CORS_ALLOW_ORIGIN_REGEX=r"^https://.*\.tenon\.ai$",
+        )
+
+
+def test_non_local_cors_requires_explicit_origins():
+    with pytest.raises(ValueError, match="CORS_ALLOW_ORIGINS must be configured"):
+        Settings(
+            _env_file=None,
+            ENV="prod",
+            AUTH0_DOMAIN="example.auth0.com",
+            AUTH0_API_AUDIENCE="aud",
+            CORS_ALLOW_ORIGINS=[],
+            CORS_ALLOW_ORIGIN_REGEX=None,
+        )
 
 
 def test_to_async_url_passthrough_branch():
