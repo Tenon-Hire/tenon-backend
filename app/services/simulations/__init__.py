@@ -12,6 +12,12 @@ from app.repositories.simulations.simulation import (
 )
 from app.services.tasks.template_catalog import resolve_template_repo_full_name
 
+from .candidates_compare import (
+    derive_candidate_compare_status,
+    derive_fit_profile_status,
+    list_candidates_compare_summary,
+    require_simulation_compare_access,
+)
 from .cleanup_jobs import (
     SIMULATION_CLEANUP_JOB_TYPE,
     build_simulation_cleanup_payload,
@@ -71,6 +77,8 @@ __all__ = [
     "apply_status_transition",
     "build_simulation_cleanup_payload",
     "build_scenario_generation_payload",
+    "derive_candidate_compare_status",
+    "derive_fit_profile_status",
     "approve_scenario_version",
     "create_initial_scenario_version",
     "create_invite",
@@ -83,6 +91,7 @@ __all__ = [
     "invite_url",
     "lock_active_scenario_for_invites",
     "list_candidates_with_profile",
+    "list_candidates_compare_summary",
     "list_simulations",
     "normalize_simulation_status",
     "normalize_simulation_status_or_raise",
@@ -92,6 +101,7 @@ __all__ = [
     "require_owner_for_lifecycle",
     "require_owned_simulation",
     "require_owned_simulation_with_tasks",
+    "require_simulation_compare_access",
     "require_simulation_invitable",
     "resolve_template_repo_full_name",
     "scenario_repo",

@@ -1,87 +1,153 @@
-# Docs: MVP1 Bias-Audit Readiness Pack (Rubric Transparency + Evidence Traceability + Disclosure Templates) (#220)
+## 1. Title
+Issue #222: Recruiter Candidate Comparison API (table-ready simulation candidate summary rows)
 
-## TL;DR
-- Adds a four-document MVP1 docs pack under `docs/mvp1/` for responsible AI demo/readiness conversations.
-- Covers candidate disclosure, evidence traceability, rubric transparency, and internal operator controls.
-- Wording is aligned to implemented backend models/routes/config keys and avoids speculative claims.
-- Explicitly preserves human decision boundaries: AI assists evaluation; people make final hiring decisions.
-- Keeps sensitive implementation details private (no proprietary prompt publication).
+## 2. TL;DR
+Adds recruiter endpoint `GET /api/simulations/{simulation_id}/candidates/compare` that returns table-ready candidate summary rows for a simulation (status, fit-profile status, score/recommendation, day completion, display names) without fetching full fit-profile reports per candidate.
 
-## Why
-MVP1 includes AI-assisted evaluation, so demo and enterprise conversations need clear, conservative documentation for:
-- Rubric transparency (what is evaluated across days 1-5).
-- Evidence traceability (what evidence is stored and how runs are versioned).
-- Candidate disclosure (what AI does, what humans do, what is recorded).
-- Operator fairness/ops controls (pre-invite checks, cutoff controls, consent checks, rerun triggers, audit hygiene).
+## 3. Problem / Why
+- Recruiter compare table needed compact backend summaries per candidate session.
+- Fetching full fit-profile payloads per candidate is inefficient for compare-table rendering.
+- Endpoint had to be stable, tenant-safe, and owner-scoped.
 
-This pack improves trust without over-claiming fairness guarantees or compliance certification, and stays grounded in current backend behavior.
+## 4. What changed
+- Added endpoint: `GET /api/simulations/{simulation_id}/candidates/compare`.
+- Added compare-summary service/query logic in [`app/services/simulations/candidates_compare.py`](/Users/robelmelaku/Desktop/tenon-backend-wip/app/services/simulations/candidates_compare.py).
+- Added response schema/DTO in [`app/schemas/simulations_compare.py`](/Users/robelmelaku/Desktop/tenon-backend-wip/app/schemas/simulations_compare.py).
+- Added router logging (`simulationId`, `recruiterId`, `rowCount`, `latencyMs`) in [`app/api/routers/simulations_routes/candidates_compare.py`](/Users/robelmelaku/Desktop/tenon-backend-wip/app/api/routers/simulations_routes/candidates_compare.py).
+- Added tests covering schema/scoping/derivation/ordering/timestamps:
+  - [`tests/integration/api/test_simulations_candidates_compare_api.py`](/Users/robelmelaku/Desktop/tenon-backend-wip/tests/integration/api/test_simulations_candidates_compare_api.py)
+  - [`tests/unit/test_simulations_candidates_compare_service.py`](/Users/robelmelaku/Desktop/tenon-backend-wip/tests/unit/test_simulations_candidates_compare_service.py)
+  - [`tests/unit/test_recruiter_simulations_router.py`](/Users/robelmelaku/Desktop/tenon-backend-wip/tests/unit/test_recruiter_simulations_router.py)
+- Added manual QA evidence bundle under `.qa/issue222/manual_qa_20260316_213251/`.
 
-## What Changed
-### `docs/mvp1/evaluation_disclosure.md`
-- Adds candidate-facing plain-language disclosure for AI-assisted evaluation and human oversight.
-- Documents day-level AI toggles and API-facing fields (`aiNoticeText`, `aiNoticeVersion`, `evalEnabledByDay`).
-- Documents persisted notice/consent metadata (`ai_notice_version`, `ai_notice_text`, `ai_eval_enabled_by_day`, consent fields).
-- States that AI does not make final hiring decisions and avoids bias/compliance automation claims.
+## 5. API contract
+`GET /api/simulations/{simulation_id}/candidates/compare`
 
-### `docs/mvp1/evidence_traceability.md`
-- Documents `EvaluationRun` and `EvaluationDayScore` storage model, lifecycle, and per-day evidence pointers.
-- Describes pointer kinds and constraints (`commit`, `diff`, `test`, `transcript` with `startMs`/`endMs`, `reflection`).
-- Explains cutoff integrity and immutable basis behavior (day-audit cutoff SHA capture, pinned basis refs, run fingerprinting, reruns as new records).
-- Maps implementation to issue-linked migrations/models/routes for #213, #204, #205, #218, plus #215 and #214 alignment.
+Response:
+- `simulationId`
+- `candidates[]`
 
-### `docs/mvp1/rubric_transparency.md`
-- Provides high-level day-by-day rubric overview:
-- Day 1 design reasoning.
-- Day 2/3 code quality, correctness, tests.
-- Day 4 communication/explanation.
-- Day 5 reflection depth.
-- Explains rubric versioning across scenario versions, evaluation runs, and fit-profile response metadata.
-- Documents per-day AI disable behavior (`human_review_required`) and keeps proprietary prompt details undisclosed.
+Per candidate:
+- `candidateSessionId`
+- `candidateName`
+- `candidateDisplayName`
+- `status`
+- `fitProfileStatus`
+- `overallFitScore`
+- `recommendation`
+- `dayCompletion`
+- `updatedAt`
 
-### `docs/mvp1/operator_checklist.md`
-- Adds internal checklist for pre-invite controls, cutoff basis verification, and day-4 consent/media controls.
-- Includes rerun triggers after scenario/cutoff changes and confirms latest fit-profile run usage.
-- Adds manual override/audit controls to ensure operational traceability for admin/demo actions.
+Contract notes:
+- `overallFitScore` and `recommendation` are nullable.
+- `candidateName` and `candidateDisplayName` are non-null due to deterministic anonymized fallback when no usable real name exists.
 
-## Implementation Notes / Alignment
-- The pack is aligned to implemented backend naming and behavior, including models, migrations, service logic, and API payload fields.
-- Explicit issue alignment:
-- #213 (evaluation schema and fit-profile run/day-score model)
-- #204 (cutoff enforcement and day-audit write-once capture)
-- #205 (scenario versioning)
-- #218 (AI notice + per-day toggles)
-- #215 (media consent + retention controls)
-- #214 (fit-profile generation endpoints/pipeline)
-- Conservative boundaries are explicit:
-- No fairness-elimination or compliance-certification claims.
-- No proprietary prompt/template disclosure.
-- Final hiring decisions remain with people.
+## 6. Auth / scoping behavior
+- Recruiter-only endpoint (`ensure_recruiter`).
+- Owner-only + company-scoped simulation access enforcement.
+- `404` for unknown simulation.
+- `403` for forbidden access to an existing simulation.
 
-## Testing / Validation
-Validation was performed with repository truth review plus shell sanity checks (manual, command-backed):
-- Model/field alignment checks via `rg`:
-- `EvaluationRun` / `EvaluationDayScore`, version fields, and run metadata in `app/repositories/evaluations/models.py`.
-- Cutoff audit fields and write-once flow in `app/repositories/candidate_sessions/*` and `app/jobs/handlers/day_close_enforcement.py`.
-- AI notice/toggle fields and API schema aliases in simulation/privacy routes and schemas.
-- Fit-profile route/service presence for generate/fetch endpoints.
-- Migration alignment checks via `ls alembic/versions | rg ...` for issue-linked migration IDs.
-- Required-concept checks across `docs/mvp1/*.md` via `rg` (`ai_notice_version`, `evalEnabledByDay`, `human_review_required`, `startMs/endMs`, `rubric_version`, `cutoff_commit_sha`, `basis_fingerprint`).
-- Prohibited-phrase sanity grep over docs (to catch accidental over-claims).
-- Tabs/trailing-whitespace checks via `rg` over `docs/mvp1/*.md` and `pr.md`.
-- Diff-scope check via `git diff --name-only` for this iteration.
+## 7. Status + field derivation
+`fitProfileStatus` derivation:
+- `ready` when a ready fit/evaluation output exists (latest successful evaluation run or fit-profile generated timestamp).
+- `generating` when latest run is `pending`/`running` or an active evaluation job is queued/running.
+- `failed` when latest run is `failed` and no ready output exists.
+- `none` otherwise.
 
-Tooling note:
-- `pre-commit` and `markdownlint` are not installed in this sandbox (`command not found`), so validation here is manual + grep/sanity checks.
+Candidate `status` derivation:
+- `evaluated` when `fitProfileStatus == "ready"`.
+- `completed` when all day flags are complete, or candidate session completion indicators exist.
+- `in_progress` when partial day progress/session progress indicators exist.
+- `scheduled` otherwise.
 
-## Risks / Limitations
-- “Final hiring decisions are made by people” is a policy/process boundary and documentation statement; this service is not itself a full hiring-decision engine.
-- “No manual overrides without audit entries” is primarily an operational control; out-of-band manual data edits are process-governed, not absolutely prevented by the docs alone.
+`updatedAt` precedence:
+1. fit/eval timestamps
+2. candidate-session activity timestamps
+3. candidate-session created timestamp
+4. defensive UTC-now fallback only if no candidate-row timestamps exist
 
-## Rollout / Demo Notes
-- Use `evaluation_disclosure.md` in candidate-facing AI usage explanations.
-- Use `evidence_traceability.md` to explain evidence lineage, versioning, and cutoff integrity.
-- Use `rubric_transparency.md` for day-by-day rubric framing without exposing prompts.
-- Use `operator_checklist.md` as the internal pre-demo/pre-review runbook for scenario/toggle/cutoff/consent/audit checks.
+## 8. Ordering / rendering contract
+- Rows are ordered by `CandidateSession.id ASC`.
+- Trimmed real candidate name is preferred when present.
+- Deterministic anonymized fallback labels are used when no usable name exists (`Candidate A`, `Candidate B`, ...).
+- `candidateDisplayName` is the preferred UI field and currently mirrors `candidateName`.
 
-## Status
-Ready for PR raise.
+## 9. Performance notes
+- Compare endpoint uses a fixed small number of queries in the implemented path (access check, candidate summary, day-completion aggregate).
+- No N+1 per candidate in the implemented code path.
+- Reads summary/status fields only; no full fit-profile report blob loading.
+
+## 10. Testing / validation
+Commands run and passed for implementation validation:
+
+```bash
+poetry run ruff check app tests
+poetry run ruff format --check app tests
+poetry run pytest
+./precommit.sh
+```
+
+- Full repository suite passed.
+- Coverage reached `99.02%` (`coverage.xml` line-rate `0.9902`).
+- Precommit checks passed.
+
+## 11. Manual QA verification
+Manual runtime QA verdict: `PASS`.
+
+Environment:
+- Dedicated Postgres QA database: `tenon_issue222_qa_20260316_213251`.
+- Migrations run with: `poetry run alembic upgrade head`.
+- Local backend server started with: `poetry run uvicorn app.api.main:app --host 127.0.0.1 --port 8007`.
+- Real HTTP requests executed via `curl`.
+- DB verification executed via `psql`.
+
+Evidence bundle path:
+- `.qa/issue222/manual_qa_20260316_213251/`
+
+Key evidence files:
+- `README.md`
+- `verdict.json`
+- `responses/`
+- `sql/`
+- `server.log`
+- `commands.txt`
+- `commands_runtime_trace.txt`
+
+Scenarios passed:
+1. empty simulation -> `200`, `candidates: []`
+2. authorized owner compare -> `200`
+3. wrong company recruiter -> `403`
+4. same-company non-owner recruiter -> `403`
+5. unknown simulation -> `404`
+6. `updatedAt` precedence -> PASS
+7. `dayCompletion` correctness -> PASS
+
+Findings verified in manual QA:
+- Response schema keys were stable.
+- Ordering was deterministic by `candidateSessionId ASC`.
+- Real-name trimming worked (`"   Ada Lovelace   " -> "Ada Lovelace"`).
+- Anonymized fallback worked (`Candidate A`, etc.).
+- Evaluated candidate returned `overallFitScore=0.84` and `recommendation="hire"`.
+- Unevaluated candidates returned null fit fields.
+- Cross-simulation leakage check passed.
+- `updatedAt` matched candidate/eval timestamps, not simulation-level timestamps.
+- `dayCompletion` matched DB task/submission state.
+
+## 12. Risks / assumptions
+- `candidateName` and `candidateDisplayName` currently resolve to the same display value for compatibility.
+- `updatedAt` uses UTC-now only as a defensive last-resort fallback when no candidate-row timestamps exist.
+- `recommendation` is returned only when it matches allowed evaluator recommendation values.
+- Direct per-request SQL-count instrumentation was limited because `pg_stat_statements` was not fully usable in the local Postgres setup; N+1 risk was instead checked by fixed-query code-path review plus runtime endpoint behavior.
+
+## 13. Rollout / demo notes
+- Invite candidates under one simulation.
+- Generate fit profiles / evaluation runs.
+- Call compare endpoint.
+- Render returned rows directly in compare table without per-candidate fit-profile fetches.
+
+## 14. Ready for PR raise
+- Implementation complete.
+- Automated validation green.
+- Manual QA green.
+- Ready for PR raise.

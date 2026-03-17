@@ -2,6 +2,9 @@
 
 from app.api.routers.simulations_routes import rate_limits, router
 from app.api.routers.simulations_routes.candidates import list_simulation_candidates
+from app.api.routers.simulations_routes.candidates_compare import (
+    list_simulation_candidates_compare,
+)
 from app.api.routers.simulations_routes.create import create_simulation
 from app.api.routers.simulations_routes.detail import get_simulation_detail
 from app.api.routers.simulations_routes.invite_create import create_candidate_invite
@@ -38,6 +41,7 @@ __all__ = [
     "activate_simulation",
     "terminate_simulation",
     "list_simulation_candidates",
+    "list_simulation_candidates_compare",
     "list_simulations",
     "approve_scenario_version",
     "patch_scenario_version",
