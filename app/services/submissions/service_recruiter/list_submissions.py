@@ -30,6 +30,8 @@ async def list_submissions(
                 Submission.submitted_at,
                 Submission.code_repo_path,
                 Submission.workflow_run_id,
+                Submission.workflow_run_status,
+                Submission.workflow_run_conclusion,
                 Submission.commit_sha,
                 Submission.diff_summary_json,
                 Submission.tests_passed,

@@ -44,3 +44,38 @@ async def test_submissions_detail_403_when_wrong_company(async_client, async_ses
         headers={"x-dev-user-email": other.email},
     )
     assert res.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_submissions_list_includes_workflow_fields_without_missing_greenlet(
+    async_client, async_session
+):
+    owner = await create_recruiter(async_session, email="owner-list@sim.com")
+    sim, tasks = await create_simulation(async_session, created_by=owner)
+    cs = await create_candidate_session(
+        async_session, simulation=sim, status="in_progress"
+    )
+    handoff_task = next(task for task in tasks if task.type == "handoff")
+    await create_submission(
+        async_session,
+        candidate_session=cs,
+        task=handoff_task,
+        content_text="handoff submission",
+        workflow_run_id="987654",
+        workflow_run_status="COMPLETED",
+        workflow_run_conclusion="SUCCESS",
+    )
+    await async_session.commit()
+
+    res = await async_client.get(
+        f"/api/submissions?candidateSessionId={cs.id}",
+        headers={"x-dev-user-email": owner.email},
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert len(body["items"]) == 1
+    assert body["items"][0]["submissionId"] > 0
+    assert body["items"][0]["taskId"] == handoff_task.id
+    assert body["items"][0]["candidateSessionId"] == cs.id
+    assert body["items"][0]["testResults"]["runStatus"] == "completed"
+    assert body["items"][0]["testResults"]["conclusion"] == "success"
