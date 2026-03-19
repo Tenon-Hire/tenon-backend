@@ -332,6 +332,48 @@ async def test_provision_workspace_day3_requires_existing_coding_group(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_provision_workspace_day3_uses_existing_coding_group(monkeypatch):
+    candidate_session = SimpleNamespace(id=11)
+    task = SimpleNamespace(id=101, day_index=3, type="debug")
+    grouped_workspace = SimpleNamespace(id="ws-grouped")
+    calls = {"grouped": 0}
+
+    async def _session_uses_grouped_workspace(*_args, **_kwargs):
+        return True
+
+    async def _get_workspace_group(*_args, **_kwargs):
+        return SimpleNamespace(id="group-1")
+
+    async def _provision_grouped_workspace(*_args, **_kwargs):
+        calls["grouped"] += 1
+        return grouped_workspace
+
+    monkeypatch.setattr(
+        wc.workspace_repo,
+        "session_uses_grouped_workspace",
+        _session_uses_grouped_workspace,
+    )
+    monkeypatch.setattr(wc.workspace_repo, "get_workspace_group", _get_workspace_group)
+    monkeypatch.setattr(
+        wc, "_provision_grouped_workspace", _provision_grouped_workspace
+    )
+
+    result = await wc.provision_workspace(
+        object(),
+        candidate_session=candidate_session,
+        task=task,
+        github_client=object(),
+        github_username="octocat",
+        repo_prefix="pref-",
+        template_default_owner="org",
+        now=datetime.now(UTC),
+    )
+
+    assert result is grouped_workspace
+    assert calls["grouped"] == 1
+
+
+@pytest.mark.asyncio
 async def test_provision_workspace_coding_task_uses_legacy_path_when_grouping_disabled(
     monkeypatch,
 ):
@@ -555,6 +597,63 @@ async def test_provision_grouped_workspace_handles_duplicate_workspace_row(monke
 
 
 @pytest.mark.asyncio
+async def test_provision_grouped_workspace_duplicate_row_with_precommit_skips_bundle(
+    monkeypatch,
+):
+    db = _RollbackDB()
+    fallback = SimpleNamespace(
+        id="ws-fallback",
+        repo_full_name="org/coding",
+        default_branch="main",
+        base_template_sha="base",
+        precommit_sha="existing-precommit-sha",
+    )
+    group = SimpleNamespace(
+        id="group-1",
+        template_repo_full_name="org/template",
+        repo_full_name="org/coding",
+        default_branch="main",
+        base_template_sha="base",
+    )
+
+    async def _get_or_create_group(*_args, **_kwargs):
+        return group, 77
+
+    lookup_calls = {"count": 0}
+
+    async def _get_by_group(*_args, **_kwargs):
+        lookup_calls["count"] += 1
+        return None if lookup_calls["count"] == 1 else fallback
+
+    async def _create_workspace(*_args, **_kwargs):
+        raise IntegrityError("", {}, None)
+
+    async def _apply_bundle(*_args, **_kwargs):
+        raise AssertionError("bundle apply should be skipped when precommit is set")
+
+    monkeypatch.setattr(wc, "_get_or_create_workspace_group", _get_or_create_group)
+    monkeypatch.setattr(wc.workspace_repo, "get_by_workspace_group_id", _get_by_group)
+    monkeypatch.setattr(wc.workspace_repo, "create_workspace", _create_workspace)
+    monkeypatch.setattr(wc, "apply_precommit_bundle_if_available", _apply_bundle)
+
+    result = await wc._provision_grouped_workspace(
+        db,
+        candidate_session=SimpleNamespace(id=12),
+        task=SimpleNamespace(id=34),
+        workspace_key="coding",
+        github_client=object(),
+        github_username="octocat",
+        repo_prefix="pref-",
+        template_default_owner="org",
+        now=datetime.now(UTC),
+    )
+
+    assert result is fallback
+    assert db.rollback_calls == 1
+    assert lookup_calls["count"] == 2
+
+
+@pytest.mark.asyncio
 async def test_get_or_create_workspace_group_reuses_existing(monkeypatch):
     existing = SimpleNamespace(repo_full_name="org/coding")
     calls: list[tuple[str, str, str | None]] = []
@@ -700,3 +799,31 @@ async def test_get_or_create_workspace_group_propagates_non_422_github_error(
             now=datetime.now(UTC),
         )
     assert excinfo.value.status_code == 500
+
+
+@pytest.mark.asyncio
+async def test_get_or_create_workspace_group_re_raises_422_when_retry_lookup_missing(
+    monkeypatch,
+):
+    async def _get_workspace_group(*_args, **_kwargs):
+        return None
+
+    async def _generate_template_repo(**_kwargs):
+        raise GithubError("already exists", status_code=422)
+
+    monkeypatch.setattr(wc.workspace_repo, "get_workspace_group", _get_workspace_group)
+    monkeypatch.setattr(wc, "generate_template_repo", _generate_template_repo)
+
+    with pytest.raises(GithubError) as excinfo:
+        await wc._get_or_create_workspace_group(
+            object(),
+            candidate_session=SimpleNamespace(id=1),
+            task=SimpleNamespace(id=2),
+            workspace_key="coding",
+            github_client=object(),
+            github_username="octocat",
+            repo_prefix="pref-",
+            template_default_owner="org",
+            now=datetime.now(UTC),
+        )
+    assert excinfo.value.status_code == 422

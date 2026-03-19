@@ -753,6 +753,70 @@ async def test_upsert_submission_recording_pointer_handles_integrity_race(
 
 
 @pytest.mark.asyncio
+async def test_upsert_submission_recording_pointer_integrity_race_no_change(
+    async_session, monkeypatch
+):
+    task, _, candidate_session = await _setup_handoff_context(
+        async_session,
+        "service-upsert-race-no-change@test.com",
+    )
+    provider = FakeStorageMediaProvider()
+    first, _u1, _e1 = await init_handoff_upload(
+        async_session,
+        candidate_session=candidate_session,
+        task_id=task.id,
+        content_type="video/mp4",
+        size_bytes=1000,
+        filename="race-same.mp4",
+        storage_provider=provider,
+    )
+    existing = await create_submission(
+        async_session,
+        candidate_session=candidate_session,
+        task=task,
+        recording_id=first.id,
+    )
+
+    original_get = submissions_repo.get_by_candidate_session_task
+    state = {"count": 0}
+
+    async def _racy_get(
+        db,
+        *,
+        candidate_session_id: int,
+        task_id: int,
+        for_update: bool = False,
+    ):
+        state["count"] += 1
+        if state["count"] == 1:
+            return None
+        return await original_get(
+            db,
+            candidate_session_id=candidate_session_id,
+            task_id=task_id,
+            for_update=for_update,
+        )
+
+    async def _raise_integrity(*args, **kwargs):
+        del args, kwargs
+        raise IntegrityError("insert", {}, Exception("duplicate"))
+
+    monkeypatch.setattr(submissions_repo, "get_by_candidate_session_task", _racy_get)
+    monkeypatch.setattr(submissions_repo, "create_handoff_submission", _raise_integrity)
+
+    resolved, changed = await _upsert_submission_recording_pointer(
+        async_session,
+        candidate_session_id=candidate_session.id,
+        task_id=task.id,
+        recording_id=first.id,
+        submitted_at=datetime.now(UTC),
+    )
+    assert resolved.id == existing.id
+    assert changed is False
+    assert resolved.recording_id == first.id
+
+
+@pytest.mark.asyncio
 async def test_upsert_submission_recording_pointer_re_raises_when_fallback_missing(
     async_session, monkeypatch
 ):
@@ -808,3 +872,18 @@ async def test_resolve_company_id_raises_when_simulation_missing(async_session):
         )
     assert exc_info.value.status_code == 500
     assert exc_info.value.detail == "Simulation metadata unavailable"
+
+
+@pytest.mark.asyncio
+async def test_get_handoff_status_returns_none_when_no_recording(async_session):
+    task, _, candidate_session = await _setup_handoff_context(
+        async_session,
+        "service-status-empty@test.com",
+    )
+    recording, transcript = await get_handoff_status(
+        async_session,
+        candidate_session=candidate_session,
+        task_id=task.id,
+    )
+    assert recording is None
+    assert transcript is None
