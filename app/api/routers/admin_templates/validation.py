@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import HTTPException, status
 
 from app.services.tasks.template_catalog import (
-    ALLOWED_TEMPLATE_KEYS,
+    TemplateKeyError,
     validate_template_key,
 )
 
@@ -26,13 +26,18 @@ def validate_live_request(payload) -> tuple[list[str], int, int]:
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"templateKeys must include {MAX_LIVE_TEMPLATE_KEYS} or fewer items",
         )
-    invalid = [key for key in payload.templateKeys if key not in ALLOWED_TEMPLATE_KEYS]
+    template_keys: list[str] = []
+    invalid: list[str] = []
+    for key in payload.templateKeys:
+        try:
+            template_keys.append(validate_template_key(key))
+        except TemplateKeyError:
+            invalid.append(key)
     if invalid:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Invalid templateKeys: {', '.join(invalid)}",
         )
-    template_keys = [validate_template_key(key) for key in payload.templateKeys]
     timeout_seconds = max(1, min(payload.timeoutSeconds, 600))
     concurrency = max(1, min(payload.concurrency, 5))
     return template_keys, timeout_seconds, concurrency

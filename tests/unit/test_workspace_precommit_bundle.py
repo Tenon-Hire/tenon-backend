@@ -631,6 +631,45 @@ async def test_apply_precommit_bundle_recovers_after_ref_conflict(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_apply_precommit_bundle_ref_conflict_without_marker_reraises(monkeypatch):
+    async def _scenario(_db, _scenario_version_id):
+        return SimpleNamespace(template_key="template-default")
+
+    async def _bundle(_db, scenario_version_id: int, template_key: str):
+        return SimpleNamespace(
+            id=12,
+            content_sha256="abc",
+            base_template_sha=None,
+            patch_text=json.dumps(
+                {"files": [{"path": "README.md", "content": "# baseline\n"}]}
+            ),
+            storage_ref=None,
+        )
+
+    github_client = _BranchFailureGithub(
+        raise_update=GithubError("conflict", status_code=422),
+        commits_by_call=[[], []],
+    )
+    monkeypatch.setattr(precommit_service.scenario_repo, "get_by_id", _scenario)
+    monkeypatch.setattr(
+        precommit_service.bundle_repo, "get_ready_by_scenario_and_template", _bundle
+    )
+
+    with pytest.raises(GithubError) as excinfo:
+        await apply_precommit_bundle_if_available(
+            object(),
+            github_client=github_client,
+            candidate_session=SimpleNamespace(id=1, scenario_version_id=22),
+            task=SimpleNamespace(id=3, type="code"),
+            repo_full_name="org/workspace-repo",
+            default_branch="main",
+            base_template_sha="base-sha",
+            existing_precommit_sha=None,
+        )
+    assert excinfo.value.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_apply_precommit_bundle_propagates_ref_update_errors(monkeypatch):
     async def _scenario(_db, _scenario_version_id):
         return SimpleNamespace(template_key="template-default")
@@ -754,3 +793,22 @@ def test_parse_patch_entries_and_path_guards():
         with pytest.raises(ApiError) as bad_path_error:
             precommit_service._ensure_safe_repo_path(bad_path)
         assert bad_path_error.value.error_code == "PRECOMMIT_PATCH_UNSAFE_PATH"
+
+
+@pytest.mark.asyncio
+async def test_find_marker_commit_sha_skips_non_match_and_blank_sha():
+    marker = "tenon-marker"
+    client = _BranchFailureGithub(
+        commits=[
+            {"sha": "", "commit": {"message": f"contains {marker} but blank sha"}},
+            {"sha": "non-marker-sha", "commit": {"message": "no match here"}},
+        ]
+    )
+
+    resolved = await precommit_service._find_marker_commit_sha(
+        client,
+        repo_full_name="org/workspace-repo",
+        branch="main",
+        marker=marker,
+    )
+    assert resolved is None

@@ -1,30 +1,15 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
-from pathlib import Path
-from typing import Final
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.core.db.base import Base
 from app.core.settings import settings
-
-DEFAULT_SQLITE_URL: Final[
-    str
-] = f"sqlite+aiosqlite:///{Path(__file__).resolve().parents[3] / 'local.db'}"
-USING_SQLITE_FALLBACK = False
 
 
 def _create_engine():
-    global USING_SQLITE_FALLBACK
-    try:
-        db_url = settings.database.async_url
-    except ValueError:
-        db_url = DEFAULT_SQLITE_URL
-        USING_SQLITE_FALLBACK = True
-
     return create_async_engine(
-        db_url,
+        settings.database.async_url,
         echo=False,
         pool_pre_ping=True,
         future=True,
@@ -50,8 +35,5 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def init_db_if_needed() -> None:
-    """Create tables when using the sqlite fallback."""
-    if not USING_SQLITE_FALLBACK:
-        return
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    """No-op: local/test environments must run Alembic against PostgreSQL."""
+    return

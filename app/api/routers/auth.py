@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request, Response, status
 
 from app.core.auth import rate_limit
-from app.core.auth.current_user import get_current_user
+from app.core.auth.current_user import get_authenticated_user
 from app.domains import User
 from app.domains.users.schemas import UserRead
 
@@ -15,7 +15,7 @@ AUTH_ME_RATE_LIMIT = rate_limit.RateLimitRule(limit=60, window_seconds=60.0)
 @router.get("/me", response_model=UserRead)
 async def read_me(
     request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_authenticated_user)],
 ) -> User:
     """Return the currently authenticated user."""
     if rate_limit.rate_limit_enabled():

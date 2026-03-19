@@ -833,6 +833,26 @@ def test_parse_positive_int_helper_branches():
     assert scenario_service._parse_positive_int("3") == 3
 
 
+def test_raise_patch_validation_error_allows_missing_field():
+    with pytest.raises(ApiError) as excinfo:
+        scenario_service._raise_patch_validation_error("invalid payload")
+    assert excinfo.value.error_code == "SCENARIO_PATCH_INVALID"
+    assert excinfo.value.details == {}
+
+
+def test_build_edit_audit_payload_ignores_unchanged_fields():
+    payload = scenario_service._build_edit_audit_payload(
+        before={"storyline_md": "v1", "focus_notes": "same"},
+        after={"storyline_md": "v2", "focus_notes": "same"},
+        candidate_fields=["storyline_md", "focus_notes"],
+    )
+    assert payload == {
+        "changedFields": ["storyline_md"],
+        "before": {"storyline_md": "v1"},
+        "after": {"storyline_md": "v2"},
+    }
+
+
 @pytest.mark.parametrize(
     ("merged_state", "detail_fragment"),
     [
@@ -1153,6 +1173,28 @@ async def test_patch_scenario_version_not_found_and_editability_guards(async_ses
         .all()
     )
     assert scenario_status_generating_audits == []
+
+
+@pytest.mark.asyncio
+async def test_update_active_scenario_version_without_status_keeps_existing_status(
+    async_session,
+):
+    recruiter = await create_recruiter(
+        async_session, email="scenario-update-no-status@test.com"
+    )
+    sim, _tasks = await create_simulation(async_session, created_by=recruiter)
+    active = await async_session.get(ScenarioVersion, sim.active_scenario_version_id)
+    assert active is not None
+    assert active.status == "ready"
+
+    updated = await scenario_service.update_active_scenario_version(
+        async_session,
+        simulation_id=sim.id,
+        actor_user_id=recruiter.id,
+        updates={"focus_notes": "Updated without status field"},
+    )
+    assert updated.focus_notes == "Updated without status field"
+    assert updated.status == "ready"
 
 
 @pytest.mark.asyncio

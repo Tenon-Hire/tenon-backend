@@ -11,7 +11,7 @@ def normalize_sync_url(url: str) -> str:
 
 
 def to_async_url(url: str) -> str:
-    """Convert sync URL to asyncpg/aiosqlite URLs when needed."""
+    """Convert sync URLs to async driver URLs when needed."""
     if url.startswith("postgresql://") and "+asyncpg" not in url:
         return url.replace("postgresql://", "postgresql+asyncpg://", 1)
     if url.startswith("sqlite:///") and "+aiosqlite" not in url:

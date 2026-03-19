@@ -1,5 +1,6 @@
 import pytest
 
+from app.services.tasks import template_catalog as template_catalog_service
 from app.services.tasks.template_catalog import (
     ALLOWED_TEMPLATE_KEYS,
     DEFAULT_TEMPLATE_KEY,
@@ -94,3 +95,44 @@ def test_normalize_template_repo_value_invalid_key_and_custom_repo():
         normalize_template_repo_value("custom/repo", template_key="invalid-key")
         == "custom/repo"
     )
+
+
+def test_canonical_key_from_repo_handles_missing_and_late_match(monkeypatch):
+    monkeypatch.setattr(
+        template_catalog_service,
+        "TEMPLATE_CATALOG",
+        {
+            "first": {"repo_full_name": "org/first"},
+            "second": {"repo_full_name": "org/second"},
+        },
+    )
+
+    assert template_catalog_service._canonical_key_from_repo("org/second") == "second"
+    assert (
+        template_catalog_service._canonical_key_from_repo("org/does-not-exist") is None
+    )
+
+
+def test_build_template_key_aliases_skips_blank_repo_and_unknown_legacy_rewrite(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        template_catalog_service,
+        "TEMPLATE_CATALOG",
+        {
+            "python-fastapi": {
+                "repo_full_name": "tenon-hire-dev/tenon-template-python-fastapi"
+            },
+            "blank-repo": {"repo_full_name": "   "},
+        },
+    )
+    monkeypatch.setattr(
+        template_catalog_service,
+        "LEGACY_TEMPLATE_REPO_REWRITES",
+        {"legacy/repo": "tenon-hire-dev/non-existent-template"},
+    )
+
+    aliases = template_catalog_service._build_template_key_aliases()
+    assert aliases["python-fastapi"] == "python-fastapi"
+    assert aliases["blank-repo"] == "blank-repo"
+    assert "legacy/repo" not in aliases

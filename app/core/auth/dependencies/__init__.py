@@ -5,7 +5,7 @@ import sys
 from app.core.auth.principal import get_principal
 from app.core.settings import settings
 
-from .current_user import get_current_user
+from .current_user import get_authenticated_user, get_current_user
 from .db import lookup_user as _lookup_user
 from .dev_bypass import dev_bypass_user
 from .env import _env_name_base, env_name
@@ -24,6 +24,7 @@ __all__ = [
     "get_principal",
     "dev_bypass_user",
     "env_name",
+    "get_authenticated_user",
     "get_current_user",
     "settings",
     "sys",

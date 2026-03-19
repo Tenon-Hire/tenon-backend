@@ -15,12 +15,14 @@ from .dev_bypass import dev_bypass_user
 from .users import user_from_principal
 
 
-async def get_current_user(
+async def _resolve_current_user(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_session)],
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+    *,
+    require_recruiter: bool,
 ) -> User:
-    """Return the current user via dev bypass (local/test) or Auth0 JWT."""
+    """Resolve the current user via dev bypass (local/test) or Auth0 JWT."""
     dep_module = sys.modules.get("app.core.auth.dependencies")
     dev_bypass = getattr(dep_module, "_dev_bypass_user", dev_bypass_user)
     user_loader = getattr(dep_module, "_user_from_principal", user_from_principal)
@@ -30,10 +32,30 @@ async def get_current_user(
         return dev_user
 
     principal = await get_principal(credentials, request)
-    if "recruiter:access" not in principal.permissions:
+    if require_recruiter and "recruiter:access" not in principal.permissions:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Recruiter access required",
         )
 
     return await user_loader(principal, db)
+
+
+async def get_current_user(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_session)],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> User:
+    """Return the current recruiter-facing user."""
+    return await _resolve_current_user(request, db, credentials, require_recruiter=True)
+
+
+async def get_authenticated_user(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_session)],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> User:
+    """Return any authenticated user (recruiter or candidate)."""
+    return await _resolve_current_user(
+        request, db, credentials, require_recruiter=False
+    )

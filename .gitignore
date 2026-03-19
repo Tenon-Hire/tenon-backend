@@ -217,3 +217,12 @@ setEnvVar.sh
 issue.md
 AI_FLOW.md
 ai_flow_boot_script.sh
+
+# API Endpoints QA generated artifacts
+/qa_verifications/API-Endpoints-QA/api_qa_latest/
+
+# Service & Logic QA generated artifacts
+/qa_verifications/Service-Logic-QA/service_logic_qa_latest/
+
+# Database QA generated artifacts
+/qa_verifications/Database-Protocol-QA/db_protocol_qa_latest

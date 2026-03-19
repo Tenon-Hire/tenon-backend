@@ -35,13 +35,13 @@ FastAPI + Postgres backend for Tenon’s 5-day async simulations. Recruiters cre
 
 ## Typical Flow
 
-1) Recruiter authenticates → `POST /api/simulations` (seeds tasks) → `POST /api/simulations/{id}/invite` to generate token + pre-provision workspaces and send email.  
-2) Candidate opens invite with Auth0 login → claim via `/api/candidate/session/{token}` → fetch current task → for code/debug tasks call `/codespace/init`, work in Codespaces, `/run` to test, `/submit` to turn in.  
+1) Recruiter authenticates → `POST /api/simulations` (seeds tasks) → `POST /api/simulations/{id}/invite` to generate token + pre-provision workspaces and send email.
+2) Candidate opens invite with Auth0 login → claim via `/api/candidate/session/{token}` → fetch current task → for code/debug tasks call `/codespace/init`, work in Codespaces, `/run` to test, `/submit` to turn in.
 3) Recruiter reviews via `/api/submissions` list and `/api/submissions/{id}` detail (repo/workflow/commit/diff/test results).
 
 ## Configuration
 
-- Database: `TENON_DATABASE_URL`, `TENON_DATABASE_URL_SYNC` (SQLite fallback for local if unset).
+- Database: `TENON_DATABASE_URL`, `TENON_DATABASE_URL_SYNC` (PostgreSQL required for app runtime/Alembic; pytest defaults to in-memory SQLite).
 - Auth0: `TENON_AUTH0_DOMAIN` or `TENON_AUTH0_ISSUER`, `TENON_AUTH0_JWKS_URL`, `TENON_AUTH0_API_AUDIENCE`, `TENON_AUTH0_ALGORITHMS`, claim namespace/claim keys, leeway/cache TTL. App fails fast on missing issuer/audience outside tests. Dev bypass: `DEV_AUTH_BYPASS=1` allowed only with `ENV=local`.
 - GitHub: `TENON_GITHUB_API_BASE`, `TENON_GITHUB_ORG`, `TENON_GITHUB_TEMPLATE_OWNER`, `TENON_GITHUB_REPO_PREFIX`, `TENON_GITHUB_ACTIONS_WORKFLOW_FILE`, `TENON_GITHUB_TOKEN`, `TENON_GITHUB_CLEANUP_ENABLED` (placeholder).
 - App: `TENON_ENV`, `TENON_API_PREFIX`, `TENON_CANDIDATE_PORTAL_BASE_URL`, `TENON_MAX_REQUEST_BODY_BYTES`, `TENON_RATE_LIMIT_ENABLED`, `TENON_TRUSTED_PROXY_CIDRS`, `DEBUG_PERF`.

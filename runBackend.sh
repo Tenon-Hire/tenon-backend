@@ -68,11 +68,6 @@ fi
 echo "🌱 Seeding local recruiters..."
 export ENV=local
 export DEV_AUTH_BYPASS=1
-if [[ "${USE_SQLITE:-0}" == "1" ]]; then
-  export TENON_DATABASE_URL=""
-  export TENON_DATABASE_URL_SYNC=""
-  echo "ℹ️  USE_SQLITE=1: using sqlite fallback for local DB."
-fi
 source ./setEnvVar.sh
 
 $RUN python scripts/seed_local_recruiters.py

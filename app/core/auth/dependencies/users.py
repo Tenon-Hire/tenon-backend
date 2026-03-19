@@ -13,6 +13,14 @@ from .db import lookup_user as lookup_user_default
 from .modules import current_user_module
 
 
+def _role_from_principal(principal: Principal) -> str:
+    permissions = set(getattr(principal, "permissions", []) or [])
+    roles = {str(r).lower() for r in (getattr(principal, "roles", []) or [])}
+    if "candidate:access" in permissions or "candidate" in roles:
+        return "candidate"
+    return "recruiter"
+
+
 async def user_from_principal(principal: Principal, db: AsyncSession | None) -> User:
     # Prefer injected db; fall back to session maker for backward-compat.
     if db is None:
@@ -28,7 +36,7 @@ async def user_from_principal(principal: Principal, db: AsyncSession | None) -> 
         user = User(
             name=principal.name or principal.email.split("@")[0],
             email=principal.email,
-            role="recruiter",
+            role=_role_from_principal(principal),
             password_hash="",
         )
         db.add(user)

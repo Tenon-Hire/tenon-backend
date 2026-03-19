@@ -7,6 +7,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.core.env import env_name
+from app.core.settings import settings
 
 from .bearer import bearer_scheme
 from .builder import build_principal
@@ -15,6 +16,11 @@ from .model import Principal
 from .token_decoder import decode_credentials
 
 logger = logging.getLogger(__name__)
+
+
+def _is_local_client(request: Request) -> bool:
+    client_host = getattr(request.client, "host", "")
+    return client_host in {"127.0.0.1", "::1", "localhost"}
 
 
 async def get_principal(
@@ -42,8 +48,28 @@ async def get_principal(
         or ""
     ).strip() or None
 
-    # Reject shorthand/dev bearer tokens outside test to prevent auth bypass.
-    if parse_dev_principal_token(token) and env_name() != "test":
+    parsed_dev = parse_dev_principal_token(token)
+    if parsed_dev:
+        env = env_name()
+        if env == "test":
+            dev_principal = build_dev_principal(credentials)
+            if dev_principal:
+                return dev_principal
+        elif (
+            env == "local"
+            and settings.dev_auth_bypass_enabled
+            and _is_local_client(request)
+        ):
+            prefix, email = parsed_dev
+            claims = {
+                "sub": f"{prefix}:{email}",
+                "email": email,
+                "permissions": [f"{prefix}:access"],
+                "roles": [prefix],
+                "name": email,
+            }
+            return build_principal(claims)
+
         logger.warning(
             "auth_token_rejected",
             extra={

@@ -3,8 +3,8 @@
 This document summarizes implemented, partial, and planned behavior for the Tenon backend codebase as of this snapshot.
 
 ## Architecture Summary
-- **App entrypoint**: `app/main.py` → `app/api/app_builder.py` builds FastAPI app with middleware (CORS, proxy headers, request size limits, optional perf logging) and registers routers via `app/api/router_registry.py`. Startup runs `init_db_if_needed` for SQLite fallback (`app/api/lifespan.py`).
-- **Core**: settings/env (`app/core/settings/*`), DB (`app/core/db` async SQLAlchemy with SQLite fallback), auth/JWT/rate limits (`app/core/auth/*`), logging/redaction (`app/core/logging/*`), perf (`app/core/perf/*`), proxy/request limits (`app/core/proxy_headers.py`, `app/core/request_limits.py`).
+- **App entrypoint**: `app/main.py` → `app/api/app_builder.py` builds FastAPI app with middleware (CORS, proxy headers, request size limits, optional perf logging) and registers routers via `app/api/router_registry.py`. Startup calls `init_db_if_needed` (currently a no-op) via `app/api/lifespan.py`.
+- **Core**: settings/env (`app/core/settings/*`), DB (`app/core/db` async SQLAlchemy using configured PostgreSQL URLs), auth/JWT/rate limits (`app/core/auth/*`), logging/redaction (`app/core/logging/*`), perf (`app/core/perf/*`), proxy/request limits (`app/core/proxy_headers.py`, `app/core/request_limits.py`).
 - **Domains/Services** (business logic lives in `app/services/*`, re-exported under `app/domains/*`):
   - Simulations & tasks (`app/services/simulations/*`, `app/services/tasks/*`): create/list simulations, seed 5-day tasks, resolve templateKey→template repo.
   - Candidate sessions (`app/services/candidate_sessions/*`): invite token issuance/claim, ownership enforcement, progress snapshot, invite listings.
@@ -96,7 +96,7 @@ This document summarizes implemented, partial, and planned behavior for the Teno
 
 ## Environment & Configuration
 - Core: `TENON_ENV`, `TENON_API_PREFIX`, `TENON_MAX_REQUEST_BODY_BYTES`, `TENON_RATE_LIMIT_ENABLED`, `TENON_TRUSTED_PROXY_CIDRS`, `DEBUG_PERF`.
-- Database: `TENON_DATABASE_URL`, `TENON_DATABASE_URL_SYNC` (SQLite fallback local).
+- Database: `TENON_DATABASE_URL`, `TENON_DATABASE_URL_SYNC` (PostgreSQL for app runtime and Alembic; pytest defaults to SQLite in-memory unless `TEST_DATABASE_URL` is set).
 - Auth0: `TENON_AUTH0_DOMAIN`/`TENON_AUTH0_ISSUER`, `TENON_AUTH0_JWKS_URL`, `TENON_AUTH0_API_AUDIENCE`, `TENON_AUTH0_ALGORITHMS`, `TENON_AUTH0_CLAIM_NAMESPACE`, email/roles/permissions claim keys, `TENON_AUTH0_LEEWAY_SECONDS`, `TENON_AUTH0_JWKS_CACHE_TTL_SECONDS`. Dev bypass: `DEV_AUTH_BYPASS=1` (local only; app refuses non-local).
 - GitHub: `TENON_GITHUB_API_BASE`, `TENON_GITHUB_ORG`, `TENON_GITHUB_TEMPLATE_OWNER`, `TENON_GITHUB_REPO_PREFIX`, `TENON_GITHUB_ACTIONS_WORKFLOW_FILE`, `TENON_GITHUB_TOKEN`, `TENON_GITHUB_CLEANUP_ENABLED` (not used).
 - App: `TENON_CANDIDATE_PORTAL_BASE_URL`.
