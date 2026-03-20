@@ -27,8 +27,11 @@ async def dev_bypass_user(request: Request, db: AsyncSession | None):
     if env not in {"local", "test"} and not dev_bypass_env:
         return None
 
-    client_host = getattr(request.client, "host", "")
-    if client_host not in {"127.0.0.1", "::1"}:
+    client_host = (getattr(request.client, "host", "") or "").lower()
+    is_localhost = client_host in {"127.0.0.1", "::1", "localhost"} or client_host.startswith(
+        "::ffff:127.0.0.1"
+    )
+    if not is_localhost:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="DEV_AUTH_BYPASS only allowed from localhost",

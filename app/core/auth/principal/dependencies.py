@@ -19,8 +19,10 @@ logger = logging.getLogger(__name__)
 
 
 def _is_local_client(request: Request) -> bool:
-    client_host = getattr(request.client, "host", "")
-    return client_host in {"127.0.0.1", "::1", "localhost"}
+    client_host = (getattr(request.client, "host", "") or "").lower()
+    return client_host in {"127.0.0.1", "::1", "localhost"} or client_host.startswith(
+        "::ffff:127.0.0.1"
+    )
 
 
 async def get_principal(
