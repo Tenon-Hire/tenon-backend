@@ -42,7 +42,11 @@ def run_backfill(conn: sa.Connection) -> None:
         raw_status = str(_row_get(row, "status") or "")
         locked_at = None
         if raw_status in {"active_inviting", "terminated"}:
-            locked_at = _row_get(row, "activated_at") or _row_get(row, "terminated_at") or datetime.now(UTC)
+            locked_at = (
+                _row_get(row, "activated_at")
+                or _row_get(row, "terminated_at")
+                or datetime.now(UTC)
+            )
         storyline_md = (
             f"# {str(_row_get(row, 'title') or '').strip()}\n\n"
             f"Role: {str(_row_get(row, 'role') or '').strip()}\n"

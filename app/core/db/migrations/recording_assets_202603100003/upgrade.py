@@ -29,13 +29,23 @@ def _create_recording_assets_table(op, sa) -> None:
         sa.Column("storage_key", sa.String(length=1024), nullable=False),
         sa.Column("content_type", sa.String(length=255), nullable=False),
         sa.Column("bytes", sa.Integer(), nullable=False),
-        sa.Column("status", sa.String(length=50), nullable=False, server_default="uploading"),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "status", sa.String(length=50), nullable=False, server_default="uploading"
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.ForeignKeyConstraint(["candidate_session_id"], ["candidate_sessions.id"]),
         sa.ForeignKeyConstraint(["task_id"], ["tasks.id"]),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("storage_key", name=UQ_RECORDING_ASSETS_STORAGE_KEY),
-        sa.CheckConstraint("status IN ('uploading','uploaded','processing','ready','failed')", name=CK_RECORDING_ASSETS_STATUS),
+        sa.CheckConstraint(
+            "status IN ('uploading','uploaded','processing','ready','failed')",
+            name=CK_RECORDING_ASSETS_STATUS,
+        ),
     )
     op.create_index(
         IX_RECORDING_ASSETS_SESSION_TASK_CREATED,
@@ -65,12 +75,22 @@ def _create_transcripts_table(op, sa) -> None:
         sa.Column("text", sa.Text(), nullable=True),
         sa.Column("segments_json", sa.JSON(), nullable=True),
         sa.Column("model_name", sa.String(length=255), nullable=True),
-        sa.Column("status", sa.String(length=50), nullable=False, server_default="pending"),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "status", sa.String(length=50), nullable=False, server_default="pending"
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.ForeignKeyConstraint(["recording_id"], [f"{RECORDING_ASSETS_TABLE}.id"]),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("recording_id", name=UQ_TRANSCRIPTS_RECORDING_ID),
-        sa.CheckConstraint("status IN ('pending','processing','ready','failed')", name=CK_TRANSCRIPTS_STATUS),
+        sa.CheckConstraint(
+            "status IN ('pending','processing','ready','failed')",
+            name=CK_TRANSCRIPTS_STATUS,
+        ),
     )
     op.create_index(
         IX_TRANSCRIPTS_RECORDING_ID,

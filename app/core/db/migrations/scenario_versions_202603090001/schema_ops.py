@@ -28,9 +28,13 @@ def create_schema(op: object) -> None:
         sa.Column("model_version", sa.String(length=255), nullable=True),
         sa.Column("prompt_version", sa.String(length=255), nullable=True),
         sa.Column("rubric_version", sa.String(length=255), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now()
+        ),
         sa.Column("locked_at", sa.DateTime(timezone=True), nullable=True),
-        sa.CheckConstraint("status IN ('draft','ready','locked')", name="ck_scenario_versions_status"),
+        sa.CheckConstraint(
+            "status IN ('draft','ready','locked')", name="ck_scenario_versions_status"
+        ),
         sa.ForeignKeyConstraint(["simulation_id"], ["simulations.id"]),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
@@ -39,8 +43,16 @@ def create_schema(op: object) -> None:
             name="uq_scenario_versions_simulation_version_index",
         ),
     )
-    op.create_index("ix_scenario_versions_simulation_id", "scenario_versions", ["simulation_id"], unique=False)
-    op.add_column("simulations", sa.Column("active_scenario_version_id", sa.Integer(), nullable=True))
+    op.create_index(
+        "ix_scenario_versions_simulation_id",
+        "scenario_versions",
+        ["simulation_id"],
+        unique=False,
+    )
+    op.add_column(
+        "simulations",
+        sa.Column("active_scenario_version_id", sa.Integer(), nullable=True),
+    )
     op.create_foreign_key(
         "fk_simulations_active_scenario_version_id",
         "simulations",
@@ -48,7 +60,10 @@ def create_schema(op: object) -> None:
         ["active_scenario_version_id"],
         ["id"],
     )
-    op.add_column("candidate_sessions", sa.Column("scenario_version_id", sa.Integer(), nullable=True))
+    op.add_column(
+        "candidate_sessions",
+        sa.Column("scenario_version_id", sa.Integer(), nullable=True),
+    )
     op.create_foreign_key(
         "fk_candidate_sessions_scenario_version_id",
         "candidate_sessions",
@@ -65,7 +80,12 @@ def create_schema(op: object) -> None:
 
 
 def finalize_upgrade(op: object) -> None:
-    op.alter_column("candidate_sessions", "scenario_version_id", existing_type=sa.Integer(), nullable=False)
+    op.alter_column(
+        "candidate_sessions",
+        "scenario_version_id",
+        existing_type=sa.Integer(),
+        nullable=False,
+    )
     op.create_check_constraint(
         SIMULATION_ACTIVE_SCENARIO_REQUIRED_CHECK_NAME,
         "simulations",
@@ -74,12 +94,27 @@ def finalize_upgrade(op: object) -> None:
 
 
 def run_downgrade_schema(op: object) -> None:
-    op.drop_constraint(SIMULATION_ACTIVE_SCENARIO_REQUIRED_CHECK_NAME, "simulations", type_="check")
-    op.alter_column("candidate_sessions", "scenario_version_id", existing_type=sa.Integer(), nullable=True)
-    op.drop_index("ix_candidate_sessions_scenario_version_id", table_name="candidate_sessions")
-    op.drop_constraint("fk_candidate_sessions_scenario_version_id", "candidate_sessions", type_="foreignkey")
+    op.drop_constraint(
+        SIMULATION_ACTIVE_SCENARIO_REQUIRED_CHECK_NAME, "simulations", type_="check"
+    )
+    op.alter_column(
+        "candidate_sessions",
+        "scenario_version_id",
+        existing_type=sa.Integer(),
+        nullable=True,
+    )
+    op.drop_index(
+        "ix_candidate_sessions_scenario_version_id", table_name="candidate_sessions"
+    )
+    op.drop_constraint(
+        "fk_candidate_sessions_scenario_version_id",
+        "candidate_sessions",
+        type_="foreignkey",
+    )
     op.drop_column("candidate_sessions", "scenario_version_id")
-    op.drop_constraint("fk_simulations_active_scenario_version_id", "simulations", type_="foreignkey")
+    op.drop_constraint(
+        "fk_simulations_active_scenario_version_id", "simulations", type_="foreignkey"
+    )
     op.drop_column("simulations", "active_scenario_version_id")
     op.drop_index("ix_scenario_versions_simulation_id", table_name="scenario_versions")
     op.drop_table("scenario_versions")

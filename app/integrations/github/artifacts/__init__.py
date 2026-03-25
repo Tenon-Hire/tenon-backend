@@ -1,11 +1,17 @@
-from app.core.brand import TEST_ARTIFACT_NAMESPACE
-from app.integrations.github.artifacts.json_parser import (
+from app.integrations.github.artifacts.integrations_github_artifacts_json_parser_utils import (
     parse_any_json,
     parse_named_json,
 )
-from app.integrations.github.artifacts.junit_parser import parse_junit
-from app.integrations.github.artifacts.models import ParsedTestResults
-from app.integrations.github.artifacts.zip_parser import parse_test_results_zip
+from app.integrations.github.artifacts.integrations_github_artifacts_junit_parser_utils import (
+    parse_junit,
+)
+from app.integrations.github.artifacts.integrations_github_artifacts_models_model import (
+    ParsedTestResults,
+)
+from app.integrations.github.artifacts.integrations_github_artifacts_zip_parser_utils import (
+    parse_test_results_zip,
+)
+from app.shared.utils.shared_utils_brand_utils import TEST_ARTIFACT_NAMESPACE
 
 PREFERRED_ARTIFACT_NAMES = {TEST_ARTIFACT_NAMESPACE, "test-results", "junit"}
 

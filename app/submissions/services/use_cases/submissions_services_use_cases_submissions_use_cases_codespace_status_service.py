@@ -1,0 +1,42 @@
+from __future__ import annotations
+
+import json
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.candidates.candidate_sessions import services as cs_service
+from app.shared.database.shared_database_models_model import CandidateSession
+from app.submissions.constants.submissions_constants_submissions_exceptions_constants import (
+    WorkspaceMissing,
+)
+from app.submissions.services import (
+    submissions_services_submissions_candidate_service as submission_service,
+)
+from app.submissions.services.submissions_services_submissions_codespace_urls_service import (
+    ensure_canonical_workspace_url,
+)
+
+
+async def codespace_status(
+    db: AsyncSession, *, candidate_session: CandidateSession, task_id: int
+):
+    """Return Codespace/workflow status for a candidate task."""
+    task = await submission_service.load_task_or_404(db, task_id)
+    submission_service.ensure_task_belongs(task, candidate_session)
+    cs_service.require_active_window(candidate_session, task)
+
+    workspace = await submission_service.workspace_repo.get_by_session_and_task(
+        db, candidate_session_id=candidate_session.id, task_id=task.id
+    )
+    if workspace is None:
+        raise WorkspaceMissing(detail="Workspace not initialized", status_code=404)
+    last_test_summary = None
+    if workspace.last_test_summary_json:
+        try:
+            last_test_summary = json.loads(workspace.last_test_summary_json)
+        except ValueError:
+            last_test_summary = None
+    if not workspace.repo_full_name:
+        raise WorkspaceMissing(status_code=409)
+    codespace_url = await ensure_canonical_workspace_url(db, workspace)
+    return workspace, last_test_summary, codespace_url, task

@@ -38,24 +38,45 @@ def _resolve_phase(value: str) -> str:
     key = (value or "").strip().lower()
     if key in PHASE_ALIASES:
         return PHASE_ALIASES[key]
-    raise ValueError(f"Unsupported phase '{value}'. Allowed: {', '.join(sorted(PHASE_ALIASES))}")
+    raise ValueError(
+        f"Unsupported phase '{value}'. Allowed: {', '.join(sorted(PHASE_ALIASES))}"
+    )
 
 
 def _safe_label(value: str) -> str:
-    return "".join(ch if ch.isalnum() or ch in {"-", "_"} else "-" for ch in value).strip("-_").lower()
+    return (
+        "".join(ch if ch.isalnum() or ch in {"-", "_"} else "-" for ch in value)
+        .strip("-_")
+        .lower()
+    )
 
 
 def _git_value(args: list[str]) -> str | None:
     try:
-        output = subprocess.check_output(["git", *args], cwd=_repo_root(), stderr=subprocess.DEVNULL, text=True).strip()
+        output = subprocess.check_output(
+            ["git", *args], cwd=_repo_root(), stderr=subprocess.DEVNULL, text=True
+        ).strip()
     except Exception:
         return None
     return output or None
 
 
-def _resolve_artifacts(repo_root: Path, paths: list[str], globs: list[str]) -> list[Path]:
-    explicit = [(Path(raw).expanduser() if Path(raw).is_absolute() else (repo_root / raw).resolve()) for raw in paths]
-    globbed = [candidate.resolve() for pattern in globs for candidate in sorted(repo_root.glob(pattern))]
+def _resolve_artifacts(
+    repo_root: Path, paths: list[str], globs: list[str]
+) -> list[Path]:
+    explicit = [
+        (
+            Path(raw).expanduser()
+            if Path(raw).is_absolute()
+            else (repo_root / raw).resolve()
+        )
+        for raw in paths
+    ]
+    globbed = [
+        candidate.resolve()
+        for pattern in globs
+        for candidate in sorted(repo_root.glob(pattern))
+    ]
     resolved, seen = [], set()
     for path in [*explicit, *globbed]:
         if path not in seen:
@@ -65,7 +86,9 @@ def _resolve_artifacts(repo_root: Path, paths: list[str], globs: list[str]) -> l
 
 
 def _copy_artifact(repo_root: Path, src: Path, artifacts_dir: Path) -> str:
-    destination = artifacts_dir / (src.relative_to(repo_root) if src.is_relative_to(repo_root) else src.name)
+    destination = artifacts_dir / (
+        src.relative_to(repo_root) if src.is_relative_to(repo_root) else src.name
+    )
     if src.is_dir():
         shutil.copytree(src, destination, dirs_exist_ok=True)
     else:
@@ -74,7 +97,14 @@ def _copy_artifact(repo_root: Path, src: Path, artifacts_dir: Path) -> str:
     return str(destination)
 
 
-def create_run(*, phase_input: str, date_override: str | None, label: str | None, artifact_paths: list[str], artifact_globs: list[str]) -> HarnessResult:
+def create_run(
+    *,
+    phase_input: str,
+    date_override: str | None,
+    label: str | None,
+    artifact_paths: list[str],
+    artifact_globs: list[str],
+) -> HarnessResult:
     repo_root, phase = _repo_root(), _resolve_phase(phase_input)
     phase_dir = repo_root / "code-quality" / phase
     for phase_name in PHASES:
@@ -102,25 +132,47 @@ def create_run(*, phase_input: str, date_override: str | None, label: str | None
             skipped_paths.append(str(src))
 
     manifest_path = run_dir / "run_manifest.json"
-    manifest_path.write_text(json.dumps({
-        "phase": phase,
-        "runId": run_dir.name,
-        "runDate": run_date,
-        "createdAt": datetime.now().astimezone().isoformat(),
-        "createdBy": "scripts/code_quality_harness.py",
-        "git": {"branch": _git_value(["rev-parse", "--abbrev-ref", "HEAD"]), "commit": _git_value(["rev-parse", "HEAD"])},
-        "copiedArtifacts": copied_artifacts,
-        "skippedPaths": skipped_paths,
-    }, indent=2) + "\n", encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "phase": phase,
+                "runId": run_dir.name,
+                "runDate": run_date,
+                "createdAt": datetime.now().astimezone().isoformat(),
+                "createdBy": "scripts/code_quality_harness.py",
+                "git": {
+                    "branch": _git_value(["rev-parse", "--abbrev-ref", "HEAD"]),
+                    "commit": _git_value(["rev-parse", "HEAD"]),
+                },
+                "copiedArtifacts": copied_artifacts,
+                "skippedPaths": skipped_paths,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
-    return HarnessResult(phase=phase, run_directory=str(run_dir), manifest_path=str(manifest_path), copied_artifact_count=len(copied_artifacts), skipped_paths=skipped_paths)
+    return HarnessResult(
+        phase=phase,
+        run_directory=str(run_dir),
+        manifest_path=str(manifest_path),
+        copied_artifact_count=len(copied_artifacts),
+        skipped_paths=skipped_paths,
+    )
 
 
 def main() -> None:
     from code_quality_harness_args import parse_args
 
     args = parse_args()
-    result = create_run(phase_input=args.phase, date_override=args.date, label=args.label, artifact_paths=args.artifact, artifact_globs=args.artifact_glob)
+    result = create_run(
+        phase_input=args.phase,
+        date_override=args.date,
+        label=args.label,
+        artifact_paths=args.artifact,
+        artifact_globs=args.artifact_glob,
+    )
     print(json.dumps(asdict(result), indent=2))
 
 

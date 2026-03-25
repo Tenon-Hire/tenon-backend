@@ -13,7 +13,9 @@ def reconcile_recording_status_check(op: object, bind: sa.Connection) -> None:
         return
     names = check_names(bind, "recording_assets")
     if RECORDING_STATUS_CHECK_NAME in names:
-        op.drop_constraint(RECORDING_STATUS_CHECK_NAME, "recording_assets", type_="check")
+        op.drop_constraint(
+            RECORDING_STATUS_CHECK_NAME, "recording_assets", type_="check"
+        )
     op.create_check_constraint(
         RECORDING_STATUS_CHECK_NAME,
         "recording_assets",

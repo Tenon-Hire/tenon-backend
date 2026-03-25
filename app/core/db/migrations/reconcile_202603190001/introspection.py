@@ -16,7 +16,9 @@ def has_column(bind: sa.Connection, table_name: str, column_name: str) -> bool:
 
 def fk_names(bind: sa.Connection, table_name: str) -> set[str]:
     inspector = sa.inspect(bind)
-    return {fk["name"] for fk in inspector.get_foreign_keys(table_name) if fk.get("name")}
+    return {
+        fk["name"] for fk in inspector.get_foreign_keys(table_name) if fk.get("name")
+    }
 
 
 def index_names(bind: sa.Connection, table_name: str) -> set[str]:

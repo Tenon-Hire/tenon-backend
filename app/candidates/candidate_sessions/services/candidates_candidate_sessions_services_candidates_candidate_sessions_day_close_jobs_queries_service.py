@@ -1,0 +1,27 @@
+from __future__ import annotations
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.shared.database.shared_database_models_model import Task
+
+
+async def _load_tasks_for_day_indexes(
+    db: AsyncSession, *, simulation_id: int, day_indexes: set[int]
+) -> list[Task]:
+    return (
+        (
+            await db.execute(
+                select(Task)
+                .where(
+                    Task.simulation_id == simulation_id, Task.day_index.in_(day_indexes)
+                )
+                .order_by(Task.day_index.asc(), Task.id.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+
+__all__ = ["_load_tasks_for_day_indexes"]

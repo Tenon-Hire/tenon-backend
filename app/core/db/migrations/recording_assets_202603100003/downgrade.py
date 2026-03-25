@@ -17,5 +17,7 @@ def run_downgrade(op) -> None:
     op.drop_table(TRANSCRIPTS_TABLE)
     op.drop_index(IX_RECORDING_ASSETS_TASK_ID, table_name=RECORDING_ASSETS_TABLE)
     op.drop_index(IX_RECORDING_ASSETS_SESSION_ID, table_name=RECORDING_ASSETS_TABLE)
-    op.drop_index(IX_RECORDING_ASSETS_SESSION_TASK_CREATED, table_name=RECORDING_ASSETS_TABLE)
+    op.drop_index(
+        IX_RECORDING_ASSETS_SESSION_TASK_CREATED, table_name=RECORDING_ASSETS_TABLE
+    )
     op.drop_table(RECORDING_ASSETS_TABLE)

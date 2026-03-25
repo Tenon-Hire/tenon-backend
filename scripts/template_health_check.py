@@ -4,10 +4,12 @@ import argparse
 import asyncio
 import sys
 
-from app.core.settings import settings
+from app.config import settings
 from app.integrations.github import GithubClient
 from app.integrations.github.template_health import check_template_health
-from app.services.tasks.template_catalog_data import ALLOWED_TEMPLATE_KEYS
+from app.tasks.services.tasks_services_tasks_template_catalog_constants import (
+    ALLOWED_TEMPLATE_KEYS,
+)
 
 
 def _parse_args() -> argparse.Namespace:

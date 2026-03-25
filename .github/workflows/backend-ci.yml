@@ -138,22 +138,22 @@ jobs:
 
       - name: Run Perf Capture (required endpoints)
         run: >
-          poetry run python scripts/perf_capture_from_tests.py
+          poetry run python code-quality/performance/scripts/perf_capture_from_tests.py
           --output code-quality/performance/perf_hotpaths_capture.json
-          --tests tests/integration/api/test_admin_demo_ops.py tests/integration/api/test_candidate_invites.py tests/integration/api/test_candidate_session_schedule.py tests/integration/api/test_task_submit.py tests/integration/api/test_simulations_list.py
+          --tests tests/recruiters/routes/test_recruiters_admin_media_purge_routes.py tests/recruiters/routes/test_recruiters_simulations_routes.py tests/recruiters/routes/test_recruiters_simulations_invites_routes.py tests/candidates/routes/test_candidates_session_schedule_schedule_endpoint_persists_and_sends_emails_routes.py tests/candidates/routes/test_candidates_session_api_current_task_marks_complete_when_all_tasks_done_routes.py tests/candidates/routes/test_candidates_submissions_router_init_codespace_success_path_routes.py tests/candidates/routes/test_candidates_submissions_router_submit_task_code_path_routes.py
           --required-endpoints code-quality/performance/config/perf_required_endpoints.json
           --fail-on-missing-required
 
       - name: Run Perf Hotpath Load Scenarios
         run: >
-          poetry run python scripts/perf_hotpath_load.py
+          poetry run python code-quality/performance/scripts/perf_hotpath_load.py
           --output code-quality/performance/perf_hotpath_load_summary.json
           --markdown-output code-quality/performance/perf_hotpath_load_summary.md
           --scenario-manifest code-quality/performance/config/perf_load_scenarios.json
 
       - name: Enforce Perf Guardrails
         run: >
-          poetry run python scripts/perf_guardrails.py
+          poetry run python code-quality/performance/scripts/perf_guardrails.py
           --capture code-quality/performance/perf_hotpaths_capture.json
           --load-summary code-quality/performance/perf_hotpath_load_summary.json
           --budgets code-quality/performance/config/hotpath_query_budgets.json

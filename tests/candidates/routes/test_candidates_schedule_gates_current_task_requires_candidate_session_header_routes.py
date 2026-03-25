@@ -1,0 +1,28 @@
+from __future__ import annotations
+
+import pytest
+
+from tests.candidates.routes.candidates_schedule_gates_api_utils import *
+
+
+@pytest.mark.asyncio
+async def test_current_task_requires_candidate_session_header(
+    async_client, async_session
+):
+    recruiter = await create_recruiter(async_session, email="header-required@test.com")
+    sim, _tasks = await create_simulation(async_session, created_by=recruiter)
+    candidate_session = await create_candidate_session(
+        async_session,
+        simulation=sim,
+        invite_email="header-required-owner@example.com",
+        with_default_schedule=False,
+    )
+
+    response = await async_client.get(
+        f"/api/candidate/session/{candidate_session.id}/current_task",
+        headers={
+            "Authorization": "Bearer candidate:header-required-owner@example.com",
+        },
+    )
+    assert response.status_code == 401, response.text
+    assert response.json()["errorCode"] == "CANDIDATE_SESSION_HEADER_REQUIRED"

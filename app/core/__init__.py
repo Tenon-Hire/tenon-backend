@@ -1,1 +1,1 @@
-# Core layer for settings, auth, logging, and infrastructure adapters.
+"""Package marker preserving historical ``app.core.db.migrations`` imports."""

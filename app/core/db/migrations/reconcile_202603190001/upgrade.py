@@ -14,7 +14,9 @@ from .specs_constraints import FK_SPECS, INDEX_SPECS, WORKSPACES_GROUP_UNIQUE_NA
 
 def run_upgrade(op: object, bind: sa.Connection) -> None:
     for table_name, name, type_ in COLUMN_SPECS:
-        add_column_if_missing(op, bind, table_name, sa.Column(name, type_, nullable=True))
+        add_column_if_missing(
+            op, bind, table_name, sa.Column(name, type_, nullable=True)
+        )
 
     ensure_scenario_versions_backfill(bind)
 
@@ -41,7 +43,12 @@ def run_upgrade(op: object, bind: sa.Connection) -> None:
 
     unique_names = unique_constraint_names(bind, "workspaces")
     workspace_index_names = index_names(bind, "workspaces")
-    if WORKSPACES_GROUP_UNIQUE_NAME not in unique_names and WORKSPACES_GROUP_UNIQUE_NAME not in workspace_index_names:
-        op.create_unique_constraint(WORKSPACES_GROUP_UNIQUE_NAME, "workspaces", ["workspace_group_id"])
+    if (
+        WORKSPACES_GROUP_UNIQUE_NAME not in unique_names
+        and WORKSPACES_GROUP_UNIQUE_NAME not in workspace_index_names
+    ):
+        op.create_unique_constraint(
+            WORKSPACES_GROUP_UNIQUE_NAME, "workspaces", ["workspace_group_id"]
+        )
 
     reconcile_recording_status_check(op, bind)

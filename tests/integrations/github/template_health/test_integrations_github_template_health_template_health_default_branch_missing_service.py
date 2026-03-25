@@ -1,0 +1,23 @@
+from __future__ import annotations
+
+import pytest
+
+from tests.integrations.github.template_health.test_integrations_github_template_health_service_utils import *
+
+
+@pytest.mark.asyncio
+async def test_template_health_default_branch_missing():
+    class StubGithubClient:
+        async def get_repo(self, repo_full_name: str):
+            return {"default_branch": ""}
+
+    template_key = next(iter(TEMPLATE_CATALOG))
+    response = await check_template_health(
+        StubGithubClient(),
+        workflow_file="tenon-ci.yml",
+        mode="static",
+        template_keys=[template_key],
+    )
+    item = response.templates[0]
+    assert item.ok is False
+    assert "default_branch_missing" in item.errors

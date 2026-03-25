@@ -4,17 +4,20 @@ FastAPI + Postgres backend for Tenon’s 5-day async simulations. Recruiters cre
 
 ## GitHub-Native Execution
 
-- Template catalog source of truth: `app/services/tasks/template_catalog*.py` maps `templateKey` → template repo (`owner/name`) for day2/day3 code+debug tasks.
+- Template catalog source of truth: `app/tasks/services/tasks_services_tasks_template_catalog_service.py` maps `templateKey` → template repo (`owner/name`) for day2/day3 code+debug tasks.
 - Workflow expectations: `TENON_GITHUB_ACTIONS_WORKFLOW_FILE` must exist and support `workflow_dispatch`. Artifact contract: preferred artifact `tenon-test-results` (case-insensitive) containing `tenon-test-results.json` with `{passed, failed, total, stdout, stderr, summary?}`; fallback to any JSON with those keys, else JUnit XML.
 - Flow: backend provisions a workspace repo from the template → returns Codespaces deep link → triggers/polls Actions runs → parses artifacts → stores run/test/diff metadata on `Workspace` and `Submission`. Diff summary uses GitHub compare from `base_template_sha` → run head SHA. Last run/test summary cached on `Workspace`.
 
 ## Architecture & Folders
 
-- API app factory: `app/main.py`, `app/api/app_builder.py`; routers in `app/api/routers/*`; middleware in `app/api/middleware*.py`; error handlers in `app/api/errors/*`.
-- Core: settings/env `app/core/settings/*`, DB `app/core/db`, auth/JWT/rate limits `app/core/auth/*`, proxy/request-size/perf/logging middleware `app/core/proxy_headers.py`, `app/core/request_limits.py`, `app/core/perf/*`, `app/core/logging/*`.
-- Domains/Services: simulations/tasks `app/services/simulations/*`, `app/services/tasks/*`; candidate sessions `app/services/candidate_sessions/*`; submissions/workspaces/actions/diff `app/services/submissions/*`; presenters for recruiter views `app/domains/submissions/presenter/*`; notifications/email `app/services/notifications/*`.
+- Entrypoints: `app/main.py` and `app/api/main.py` (stable app import points).
+- Shared runtime bootstrap: app wiring/router/middleware/error handling in `app/shared/http/*`.
+- Config + shared infra: `app/config/*`; shared auth/db/jobs/logging/perf/types/utils in `app/shared/*`.
+- Domain-first packages: recruiter/admin `app/recruiters/*`; candidate sessions `app/candidates/*`; simulations `app/simulations/*`; tasks `app/tasks/*`; submissions/presentation `app/submissions/*`; evaluations `app/evaluations/*`; media/privacy/recordings/transcripts `app/media/*`; notifications `app/notifications/*`.
 - GitHub integration: REST client `app/integrations/github/client/*`; Actions runner + artifact parsing `app/integrations/github/actions_runner/*`, `app/integrations/github/artifacts/*`; template health checks `app/integrations/github/template_health/*`.
-- Data models: SQLAlchemy models under `app/repositories/*` for `Simulation`, `Task`, `CandidateSession`, `Workspace`, `Submission`, `FitProfile`, `User`, `Company`; migrations in `alembic/versions`.
+- Data models: SQLAlchemy models live under domain repositories (for example `app/submissions/repositories/*`, `app/simulations/repositories/*`, `app/candidates/.../repositories/*`) plus shared models in `app/shared/database/*`; migrations in `alembic/versions` with historical helpers preserved in `app/core/db/migrations/*`.
+- `app/core/__init__.py` and `app/core/db/__init__.py` are intentionally retained as package markers for those historical migration helper imports.
+- Lazy import compatibility exemptions: six package `__init__` modules retain lazy alias loading to avoid known circular import/runtime regressions; canonical exemption registry and resolver are in `app/shared/utils/shared_utils_lazy_module_aliases_utils.py`.
 
 ## Domain Glossary
 

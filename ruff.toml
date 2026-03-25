@@ -39,7 +39,7 @@ convention = "google"
 
 [lint.per-file-ignores]
 # Tests: docstrings/unused args are not worth fighting
-"tests/**/*.py" = ["D", "ARG"]
+"tests/**/*.py" = ["D", "ARG", "F401", "F403", "F405"]
 # Alembic: generated / verbose
 "alembic/**/*.py" = ["D", "ARG", "ERA"]
 

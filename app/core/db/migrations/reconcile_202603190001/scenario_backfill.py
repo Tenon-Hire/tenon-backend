@@ -51,7 +51,11 @@ def ensure_scenario_versions_backfill(bind: sa.Connection) -> None:
             ),
             {"simulation_id": simulation_id},
         ).scalar_one_or_none()
-        scenario_id = int(existing_id) if existing_id is not None else _create_v1(bind, scenario_versions, row)
+        scenario_id = (
+            int(existing_id)
+            if existing_id is not None
+            else _create_v1(bind, scenario_versions, row)
+        )
         bind.execute(
             sa.text(
                 "UPDATE simulations SET active_scenario_version_id = "
@@ -77,7 +81,9 @@ def _create_v1(
     raw_status = str(row.get("status") or "").strip()
     locked_at = None
     if raw_status in {"active_inviting", "terminated"}:
-        locked_at = row.get("activated_at") or row.get("terminated_at") or datetime.now(UTC)
+        locked_at = (
+            row.get("activated_at") or row.get("terminated_at") or datetime.now(UTC)
+        )
     storyline_md = (
         f"# {str(row.get('title') or '').strip()}\n\n"
         f"Role: {str(row.get('role') or '').strip()}\n"

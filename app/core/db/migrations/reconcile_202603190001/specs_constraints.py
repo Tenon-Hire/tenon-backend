@@ -22,7 +22,13 @@ FK_SPECS = (
         ["scenario_version_id"],
         ["id"],
     ),
-    ("submissions_recording_id_fkey", "submissions", "recording_assets", ["recording_id"], ["id"]),
+    (
+        "submissions_recording_id_fkey",
+        "submissions",
+        "recording_assets",
+        ["recording_id"],
+        ["id"],
+    ),
     (
         "workspaces_workspace_group_id_fkey",
         "workspaces",
@@ -33,7 +39,12 @@ FK_SPECS = (
 )
 
 INDEX_SPECS = (
-    ("ix_candidate_sessions_scenario_version_id", "candidate_sessions", ["scenario_version_id"], False),
+    (
+        "ix_candidate_sessions_scenario_version_id",
+        "candidate_sessions",
+        ["scenario_version_id"],
+        False,
+    ),
     ("ix_submissions_recording_id", "submissions", ["recording_id"], False),
 )
 
