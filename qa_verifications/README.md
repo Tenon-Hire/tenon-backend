@@ -1,36 +1,33 @@
 # QA Verifications
 
-This folder has three QA runners with one simple operating pattern:
+This directory contains QA runner scripts plus latest report snapshots.
 
-1. Run the runner script from `tenon-backend/`.
-2. The runner overwrites its `*_qa_latest/` folder.
-3. Each `*_qa_latest/` directory contains exactly:
-   - one report markdown file
-   - one `artifacts/` directory
+## Runners
 
-## Run Commands
+- API endpoints QA: `./qa_verifications/API-Endpoints-QA/run_api_qa.sh`
+- Database protocol QA: `./qa_verifications/Database-Protocol-QA/run_db_protocol_qa.sh`
+- Service logic QA: `./qa_verifications/Service-Logic-QA/run-service-logic-qa.sh`
 
-1. API endpoints QA  
-   `./qa_verifications/API-Endpoints-QA/run_api_qa.sh`
-2. Database protocol QA  
-   `./qa_verifications/Database-Protocol-QA/run_db_protocol_qa.sh`
-3. Service logic QA  
-   `./qa_verifications/Service-Logic-QA/run-service-logic-qa.sh`
+Each runner overwrites its `*_qa_latest/` directory on every run.
 
-All runners support `--help` for optional flags.
+## Latest Directory Contract
 
-## Uniform Artifact Contract
+Each `*_qa_latest/` directory contains:
 
-Each QA type now guarantees:
+- exactly one primary markdown report (`*_qa_report.md`)
+- optional `artifacts/` directory with logs/JSON/HTML outputs
 
-- `<type>_qa_report.md`: run summary with sections `Run Summary`, `Artifact Layout`, `Step Results`, `Timing`, `Failures`
-- `artifacts/`: all generated logs and QA-specific artifacts
+`artifacts/` is runtime-generated and may be excluded from source control. For that reason, report files should reference artifact paths as plain code paths (not required markdown links).
 
-Domain-specific artifacts remain under the same `*_qa_latest/` folder:
+## Generated Artifact References
 
-- API endpoints QA report: `api_endpoints_qa_report.md`
-  API artifacts: `artifacts/logs/`, `artifacts/newman_report.json`, optional `artifacts/newman_report.html`
-- Database protocol QA report: `db_protocol_qa_report.md`
-  Database artifacts: `artifacts/logs/`, `artifacts/sql/`, `artifacts/negative-checks.md`
-- Service logic QA report: `service_logic_qa_report.md`
-  Service artifacts: `artifacts/logs/`, `artifacts/coverage-existing.json`, optional `artifacts/coverage-combined.json`, `artifacts/strict-validation.txt`
+Canonical docs now also generate supporting artifacts under `code-quality/documentation/latest/artifacts/`:
+
+- `openapi_snapshot.json`
+- `api_endpoint_matrix.md`
+- `api_endpoint_matrix.json`
+- `docs_inventory.md`
+- `env_inventory.md`
+- `docstring_audit.json`
+
+QA reports can refer to these generated files when documenting cross-checks, but should not assume they are committed unless regenerated in the current branch.

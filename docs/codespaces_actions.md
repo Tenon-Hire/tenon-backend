@@ -4,7 +4,7 @@ Tenon now runs code tasks entirely on GitHub: template repositories per task, Co
 
 ## Template repositories
  - Each code/debug task sets `tasks.template_repo` to `owner/name`, resolved from `simulations.template_key` (API: `templateKey`).
-- The backend is the source of truth for this mapping (see `app/domains/tasks/template_catalog.py`); frontend should only pass the `templateKey`.
+- The backend is the source of truth for this mapping (see `app/tasks/services/tasks_services_tasks_template_catalog_service.py`); frontend should only pass the `templateKey`.
 - Available template keys -> repos:
   - Backend: `python-fastapi`, `node-express-ts`, `node-nest-ts`, `java-springboot`, `go-gin`, `dotnet-webapi`
   - Web full-stack: `monorepo-nextjs-nest`, `monorepo-nextjs-fastapi`, `monorepo-react-express`, `monorepo-react-springboot`

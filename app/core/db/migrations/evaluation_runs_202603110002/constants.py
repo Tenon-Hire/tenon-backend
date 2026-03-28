@@ -1,0 +1,13 @@
+from __future__ import annotations
+
+EVALUATION_RUNS_TABLE = "evaluation_runs"
+EVALUATION_DAY_SCORES_TABLE = "evaluation_day_scores"
+
+EVALUATION_RUNS_STATUS_CHECK = "ck_evaluation_runs_status"
+EVALUATION_RUNS_COMPLETED_AT_CHECK = "ck_evaluation_runs_completed_after_started"
+EVALUATION_DAY_SCORES_DAY_INDEX_CHECK = "ck_evaluation_day_scores_day_index"
+EVALUATION_DAY_SCORES_RUN_DAY_UNIQUE = "uq_evaluation_day_scores_run_day"
+
+IX_RUNS_SESSION_SCENARIO = "ix_evaluation_runs_candidate_session_scenario_version"
+IX_RUNS_SESSION_STARTED_AT = "ix_evaluation_runs_candidate_session_started_at"
+IX_DAY_SCORES_RUN_ID = "ix_evaluation_day_scores_run_id"

@@ -3,9 +3,11 @@ from __future__ import annotations
 import argparse
 import asyncio
 
-from app.core.db import async_session_maker
 from app.integrations.storage_media import get_storage_media_provider
-from app.services.media.privacy import purge_expired_media_assets
+from app.media.services.media_services_media_privacy_service import (
+    purge_expired_media_assets,
+)
+from app.shared.database import async_session_maker
 
 
 def _build_parser() -> argparse.ArgumentParser:

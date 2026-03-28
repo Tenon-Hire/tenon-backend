@@ -9,6 +9,9 @@ concurrency:
   group: backend-ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   PYTHONPATH: ${{ github.workspace }}
   ENV: ci
@@ -46,6 +49,95 @@ jobs:
 
       - name: Ruff format check
         run: poetry run ruff format --check .
+
+  docs-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect docs-quality toolkit
+        id: code_quality_docs
+        run: |
+          if [[ -f code-quality/documentation/scripts/docs_inventory.py ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip docs-quality (code-quality is gitignored)
+        if: steps.code_quality_docs.outputs.available != 'true'
+        run: echo "Skipping docs-quality checks because /code-quality is not tracked."
+
+      - name: Set PYTHONPATH
+        if: steps.code_quality_docs.outputs.available == 'true'
+        run: echo "PYTHONPATH=${PYTHONPATH}:$(pwd)" >> $GITHUB_ENV
+
+      - uses: actions/setup-python@v5
+        if: steps.code_quality_docs.outputs.available == 'true'
+        with:
+          python-version: "3.11"
+
+      - name: Upgrade pip
+        if: steps.code_quality_docs.outputs.available == 'true'
+        run: python -m pip install -U pip
+
+      - name: Install Poetry
+        if: steps.code_quality_docs.outputs.available == 'true'
+        run: python -m pip install poetry
+
+      - name: Install dependencies
+        if: steps.code_quality_docs.outputs.available == 'true'
+        run: poetry install --no-interaction --no-root
+
+      - name: Validate docs inventory
+        if: steps.code_quality_docs.outputs.available == 'true'
+        run: >
+          poetry run python code-quality/documentation/scripts/docs_inventory.py
+          --strict
+          --markdown-output code-quality/documentation/latest/artifacts/docs_inventory.md
+
+      - name: Validate env parity
+        if: steps.code_quality_docs.outputs.available == 'true'
+        run: >
+          poetry run python code-quality/documentation/scripts/docs_env_inventory.py
+          --strict
+          --markdown-output code-quality/documentation/latest/artifacts/env_inventory.md
+
+      - name: Regenerate OpenAPI and API docs with parity checks
+        if: steps.code_quality_docs.outputs.available == 'true'
+        run: >
+          poetry run python code-quality/documentation/scripts/docs_api_export.py
+          --strict
+          --verify-doc README.md docs/api.md
+
+      - name: Validate public docstring coverage
+        if: steps.code_quality_docs.outputs.available == 'true'
+        run: >
+          poetry run python code-quality/documentation/scripts/docs_docstring_audit.py
+          --include-module-docs
+          --strict
+          --json > code-quality/documentation/latest/artifacts/docstring_audit.json
+
+      - name: Fail on stale generated documentation artifacts
+        if: steps.code_quality_docs.outputs.available == 'true'
+        run: |
+          set -euo pipefail
+          tracked_paths=(
+            docs/api.md
+            code-quality/documentation/latest/artifacts/openapi_snapshot.json
+            code-quality/documentation/latest/artifacts/api_endpoint_matrix.md
+            code-quality/documentation/latest/artifacts/api_endpoint_matrix.json
+            code-quality/documentation/latest/artifacts/docs_inventory.md
+            code-quality/documentation/latest/artifacts/env_inventory.md
+            code-quality/documentation/latest/artifacts/docstring_audit.json
+          )
+          if [[ -n "$(git status --porcelain -- "${tracked_paths[@]}")" ]]; then
+            echo "Generated documentation artifacts are out of date or untracked."
+            git status --short -- "${tracked_paths[@]}"
+            git diff -- "${tracked_paths[@]}" || true
+            exit 1
+          fi
 
   test:
     runs-on: ubuntu-latest
@@ -93,3 +185,100 @@ jobs:
 
       - name: Run tests
         run: poetry run pytest
+
+  perf-hotpaths:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tenon_perf
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/tenon_perf
+      TENON_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/tenon_perf
+      TENON_DATABASE_URL_SYNC: postgresql://postgres:postgres@localhost:5432/tenon_perf
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect perf-hotpaths toolkit
+        id: code_quality_perf
+        run: |
+          if [[ -f code-quality/performance/scripts/perf_capture_from_tests.py ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip perf-hotpaths (code-quality is gitignored)
+        if: steps.code_quality_perf.outputs.available != 'true'
+        run: echo "Skipping perf-hotpaths checks because /code-quality is not tracked."
+
+      - name: Set PYTHONPATH
+        if: steps.code_quality_perf.outputs.available == 'true'
+        run: echo "PYTHONPATH=${PYTHONPATH}:$(pwd)" >> $GITHUB_ENV
+
+      - uses: actions/setup-python@v5
+        if: steps.code_quality_perf.outputs.available == 'true'
+        with:
+          python-version: "3.11"
+
+      - name: Upgrade pip
+        if: steps.code_quality_perf.outputs.available == 'true'
+        run: python -m pip install -U pip
+
+      - name: Install Poetry
+        if: steps.code_quality_perf.outputs.available == 'true'
+        run: python -m pip install poetry
+
+      - name: Install dependencies
+        if: steps.code_quality_perf.outputs.available == 'true'
+        run: poetry install --no-interaction --no-root
+
+      - name: Run Perf Capture (required endpoints)
+        if: steps.code_quality_perf.outputs.available == 'true'
+        run: >
+          poetry run python code-quality/performance/scripts/perf_capture_from_tests.py
+          --output code-quality/performance/perf_hotpaths_capture.json
+          --tests tests/recruiters/routes/test_recruiters_admin_media_purge_routes.py tests/recruiters/routes/test_recruiters_simulations_routes.py tests/recruiters/routes/test_recruiters_simulations_invites_routes.py tests/candidates/routes/test_candidates_session_schedule_schedule_endpoint_persists_and_sends_emails_routes.py tests/candidates/routes/test_candidates_session_api_current_task_marks_complete_when_all_tasks_done_routes.py tests/candidates/routes/test_candidates_submissions_router_init_codespace_success_path_routes.py tests/candidates/routes/test_candidates_submissions_router_submit_task_code_path_routes.py
+          --required-endpoints code-quality/performance/config/perf_required_endpoints.json
+          --fail-on-missing-required
+
+      - name: Run Perf Hotpath Load Scenarios
+        if: steps.code_quality_perf.outputs.available == 'true'
+        run: >
+          poetry run python code-quality/performance/scripts/perf_hotpath_load.py
+          --output code-quality/performance/perf_hotpath_load_summary.json
+          --markdown-output code-quality/performance/perf_hotpath_load_summary.md
+          --scenario-manifest code-quality/performance/config/perf_load_scenarios.json
+
+      - name: Enforce Perf Guardrails
+        if: steps.code_quality_perf.outputs.available == 'true'
+        run: >
+          poetry run python code-quality/performance/scripts/perf_guardrails.py
+          --capture code-quality/performance/perf_hotpaths_capture.json
+          --load-summary code-quality/performance/perf_hotpath_load_summary.json
+          --budgets code-quality/performance/config/hotpath_query_budgets.json
+          --output code-quality/performance/perf_hotpath_guardrails.json
+
+      - name: Upload Perf Artifacts
+        if: steps.code_quality_perf.outputs.available == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-hotpaths
+          path: |
+            code-quality/performance/perf_hotpaths_capture.json
+            code-quality/performance/perf_hotpath_load_summary.json
+            code-quality/performance/perf_hotpath_load_summary.md
+            code-quality/performance/perf_hotpath_guardrails.json

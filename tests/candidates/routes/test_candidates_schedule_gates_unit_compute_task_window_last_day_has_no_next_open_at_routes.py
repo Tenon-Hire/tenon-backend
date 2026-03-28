@@ -1,0 +1,23 @@
+from __future__ import annotations
+
+from tests.candidates.routes.candidates_schedule_gates_routes_utils import *
+
+
+def test_compute_task_window_last_day_has_no_next_open_at() -> None:
+    candidate_session = _session_with_windows()
+    candidate_session.day_windows_json = [
+        {
+            "dayIndex": 1,
+            "windowStartAt": "2026-03-10T13:00:00Z",
+            "windowEndAt": "2026-03-10T21:00:00Z",
+        }
+    ]
+    task = _task(day_index=1)
+
+    window = schedule_gates.compute_task_window(
+        candidate_session,
+        task,
+        now_utc=datetime(2026, 3, 10, 21, 0, tzinfo=UTC),
+    )
+    assert window.is_open is False
+    assert window.next_open_at is None

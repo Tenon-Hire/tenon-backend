@@ -85,29 +85,29 @@ Day 4 transcript data is persisted in `transcripts` (`text`, `segments_json`, `m
 - #213 Evaluation schema
   - `alembic/versions/202603110002_add_evaluation_runs_and_day_scores.py`
   - `alembic/versions/202603120001_expand_evaluation_runs_for_fit_profile.py`
-  - `app/repositories/evaluations/models.py`
+  - `app/evaluations/repositories/evaluations_repositories_evaluations_core_model.py`
 - #204 Cutoff enforcement
   - `alembic/versions/202603080004_add_day_audit_and_github_username.py`
-  - `app/jobs/handlers/day_close_enforcement.py`
-  - `app/repositories/candidate_sessions/repository_day_audits.py`
+  - `app/shared/jobs/handlers/shared_jobs_handlers_day_close_enforcement_handler.py`
+  - `app/candidates/candidate_sessions/repositories/candidates_candidate_sessions_repositories_candidates_candidate_sessions_day_audits_repository.py`
 - #205 ScenarioVersion
   - `alembic/versions/202603090001_add_scenario_versions_and_locking.py`
   - `alembic/versions/202603090002_add_pending_scenario_version_and_generating_status.py`
-  - `app/repositories/scenario_versions/models.py`
+  - `app/simulations/repositories/scenario_versions/simulations_repositories_scenario_versions_simulations_scenario_versions_model.py`
 - #218 AI notice + per-day toggles
   - `alembic/versions/202603040001_add_simulation_context_columns.py`
   - `alembic/versions/202603120003_backfill_simulation_ai_config_defaults.py`
-  - `app/repositories/simulations/simulation.py`
-  - `app/schemas/simulations.py`
+  - `app/simulations/repositories/simulations_repositories_simulations_simulation_model.py`
+  - `app/simulations/schemas/simulations_schemas_simulations_core_schema.py`
 
 Additional alignment dependencies:
 
 - #215 Media consent + retention:
   - `alembic/versions/202603150002_add_media_privacy_controls.py`
-  - `app/api/routers/candidate_sessions_routes/privacy.py`
-  - `app/services/media/privacy.py`
-  - `app/services/media/handoff_upload.py`
+  - `app/candidates/routes/candidate_sessions_routes/candidates_routes_candidate_sessions_routes_candidates_candidate_sessions_routes_privacy_routes.py`
+  - `app/media/services/media_services_media_privacy_service.py`
+  - `app/media/services/media_services_media_handoff_upload_service.py`
 - #214 Fit profile generation:
-  - `app/api/routers/fit_profile.py`
-  - `app/services/evaluations/fit_profile_api.py`
-  - `app/services/evaluations/fit_profile_pipeline.py`
+  - `app/evaluations/routes/evaluations_routes_evaluations_fit_profile_routes.py`
+  - `app/evaluations/services/evaluations_services_evaluations_fit_profile_api_service.py`
+  - `app/evaluations/services/evaluations_services_evaluations_fit_profile_pipeline_service.py`

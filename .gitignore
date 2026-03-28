@@ -45,6 +45,7 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
+coverage.json
 *.cover
 *.py.cover
 .hypothesis/
@@ -136,6 +137,7 @@ celerybeat.pid
 
 # Environments
 .env
+.env.*
 .envrc
 .venv
 env/
@@ -186,7 +188,7 @@ cython_debug/
 #  that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
 #  and can be added to the global gitignore or merged into this file. However, if you prefer, 
 #  you could uncomment the following to ignore the entire vscode folder
-# .vscode/
+.vscode/
 
 # Ruff stuff:
 .ruff_cache/
@@ -218,6 +220,10 @@ issue.md
 AI_FLOW.md
 ai_flow_boot_script.sh
 
+# Generated quality artifacts
+code-quality/performance/passes/**/artifacts/
+qa_verifications/**/artifacts/
+
 # API Endpoints QA generated artifacts
 /qa_verifications/API-Endpoints-QA/api_qa_latest/
 
@@ -226,3 +232,6 @@ ai_flow_boot_script.sh
 
 # Database QA generated artifacts
 /qa_verifications/Database-Protocol-QA/db_protocol_qa_latest
+
+# Code Quality generated artifacts
+/code-quality

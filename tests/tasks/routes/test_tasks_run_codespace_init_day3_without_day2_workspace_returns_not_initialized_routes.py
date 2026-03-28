@@ -1,0 +1,39 @@
+from __future__ import annotations
+
+import pytest
+
+from tests.tasks.routes.test_tasks_run_api_utils import *
+
+
+@pytest.mark.asyncio
+async def test_codespace_init_day3_without_day2_workspace_returns_not_initialized(
+    async_client, async_session, candidate_header_factory, actions_stubber
+):
+    actions_stubber()
+    recruiter = await create_recruiter(async_session, email="day3-no-day2@sim.com")
+    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    cs = await create_candidate_session(
+        async_session,
+        simulation=sim,
+        status="in_progress",
+        with_default_schedule=True,
+    )
+    await create_submission(
+        async_session, candidate_session=cs, task=tasks[0], content_text="day1"
+    )
+    await create_submission(
+        async_session, candidate_session=cs, task=tasks[1], content_text="day2"
+    )
+    await async_session.commit()
+
+    headers = candidate_header_factory(cs)
+    resp = await async_client.post(
+        f"/api/tasks/{tasks[2].id}/codespace/init",
+        headers=headers,
+        json={"githubUsername": "octocat"},
+    )
+
+    assert resp.status_code == 400, resp.text
+    body = resp.json()
+    assert body["errorCode"] == "WORKSPACE_NOT_INITIALIZED"
+    assert "day 2" in body["detail"].lower()

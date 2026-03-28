@@ -179,17 +179,29 @@ branch_min = float(os.environ["BRANCH_MIN"])
 report_path = Path(os.environ["STRICT_REPORT_FILE"])
 
 cov = json.loads(coverage_path.read_text())
-service_prefix = "app/services/"
+service_scope = "app/**/services/**"
+
+
+def is_service_file(path: str) -> bool:
+    p = Path(path)
+    return (
+        p.suffix == ".py"
+        and len(p.parts) >= 3
+        and p.parts[0] == "app"
+        and "services" in p.parts[1:]
+    )
+
+
 service_files = {
     file_path: file_data
     for file_path, file_data in cov.get("files", {}).items()
-    if file_path.startswith(service_prefix)
+    if is_service_file(file_path)
 }
 if not service_files:
     report_path.write_text(
         "strict_status=fail\n"
         "reason=no_service_files_in_coverage\n"
-        "hint=Coverage JSON must include app/services/** files.\n"
+        "hint=Coverage JSON must include app/**/services/** files.\n"
     )
     raise SystemExit(20)
 
@@ -213,7 +225,7 @@ if branch_pct < branch_min:
     report_path.write_text(
         "strict_status=fail\n"
         "reason=service_branch_coverage_below_threshold\n"
-        "scope=app/services/**\n"
+        f"scope={service_scope}\n"
         f"branch_pct={branch_pct:.2f}\n"
         f"branch_min={branch_min:.2f}\n"
         f"covered_branches={covered_branches}\n"
@@ -242,28 +254,33 @@ if service_missing_lines:
     report_path.write_text("\n".join(lines) + "\n")
     raise SystemExit(23)
 
-service_root = backend_root / "app" / "services"
+service_roots = sorted((backend_root / "app").rglob("services"))
 unexecuted_public_functions = []
+seen_service_files = set()
 
-for py_path in sorted(service_root.rglob("*.py")):
-    rel = py_path.relative_to(backend_root).as_posix()
-    module = ast.parse(py_path.read_text(encoding="utf-8"), filename=str(py_path))
-    public_funcs = [
-        node.name
-        for node in module.body
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-        and not node.name.startswith("_")
-    ]
-    if not public_funcs:
-        continue
+for service_root in service_roots:
+    for py_path in sorted(service_root.rglob("*.py")):
+        rel = py_path.relative_to(backend_root).as_posix()
+        if rel in seen_service_files:
+            continue
+        seen_service_files.add(rel)
+        module = ast.parse(py_path.read_text(encoding="utf-8"), filename=str(py_path))
+        public_funcs = [
+            node.name
+            for node in module.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and not node.name.startswith("_")
+        ]
+        if not public_funcs:
+            continue
 
-    cov_file = cov.get("files", {}).get(rel, {})
-    fn_cov = cov_file.get("functions", {})
-    for fn_name in public_funcs:
-        summary = (fn_cov.get(fn_name) or {}).get("summary") or {}
-        covered_lines = int(summary.get("covered_lines", 0) or 0)
-        if covered_lines <= 0:
-            unexecuted_public_functions.append((rel, fn_name))
+        cov_file = cov.get("files", {}).get(rel, {})
+        fn_cov = cov_file.get("functions", {})
+        for fn_name in public_funcs:
+            summary = (fn_cov.get(fn_name) or {}).get("summary") or {}
+            covered_lines = int(summary.get("covered_lines", 0) or 0)
+            if covered_lines <= 0:
+                unexecuted_public_functions.append((rel, fn_name))
 
 if unexecuted_public_functions:
     lines = [
@@ -280,7 +297,7 @@ if unexecuted_public_functions:
 
 report_path.write_text(
     "strict_status=pass\n"
-    "scope=app/services/**\n"
+    f"scope={service_scope}\n"
     f"branch_pct={branch_pct:.2f}\n"
     f"branch_min={branch_min:.2f}\n"
     f"covered_branches={covered_branches}\n"

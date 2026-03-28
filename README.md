@@ -1,66 +1,213 @@
 # Tenon Backend
 
-FastAPI + Postgres backend for Tenon’s 5-day async simulations. Recruiters create simulations and invites; candidates authenticate via Auth0, work in GitHub (template repos + Codespaces + Actions), and recruiters review submissions with repo/workflow/commit/diff/test metadata.
+FastAPI + PostgreSQL backend for Tenon's async simulation platform. Recruiters create and manage simulations, candidates complete session tasks, and GitHub-native workflows capture code/debug execution artifacts for recruiter review.
 
-## GitHub-Native Execution
+## Overview
 
-- Template catalog source of truth: `app/services/tasks/template_catalog*.py` maps `templateKey` → template repo (`owner/name`) for day2/day3 code+debug tasks.
-- Workflow expectations: `TENON_GITHUB_ACTIONS_WORKFLOW_FILE` must exist and support `workflow_dispatch`. Artifact contract: preferred artifact `tenon-test-results` (case-insensitive) containing `tenon-test-results.json` with `{passed, failed, total, stdout, stderr, summary?}`; fallback to any JSON with those keys, else JUnit XML.
-- Flow: backend provisions a workspace repo from the template → returns Codespaces deep link → triggers/polls Actions runs → parses artifacts → stores run/test/diff metadata on `Workspace` and `Submission`. Diff summary uses GitHub compare from `base_template_sha` → run head SHA. Last run/test summary cached on `Workspace`.
+- Domain modules: simulations, candidate sessions, tasks, submissions, evaluations, media, notifications, recruiters/admin, and shared runtime infrastructure.
+- GitHub-native flow: workspace repo provisioning from templates, Codespaces init/status, Actions run dispatch/polling, artifact parsing, and persisted run/test/diff metadata.
+- Auth model: bearer-token principal model with recruiter/candidate permission gates, plus admin key and demo admin dependency paths.
+- Current API surface: 46 HTTP endpoints (generated from live OpenAPI).
 
-## Architecture & Folders
+## Stack (Poetry Constraints)
 
-- API app factory: `app/main.py`, `app/api/app_builder.py`; routers in `app/api/routers/*`; middleware in `app/api/middleware*.py`; error handlers in `app/api/errors/*`.
-- Core: settings/env `app/core/settings/*`, DB `app/core/db`, auth/JWT/rate limits `app/core/auth/*`, proxy/request-size/perf/logging middleware `app/core/proxy_headers.py`, `app/core/request_limits.py`, `app/core/perf/*`, `app/core/logging/*`.
-- Domains/Services: simulations/tasks `app/services/simulations/*`, `app/services/tasks/*`; candidate sessions `app/services/candidate_sessions/*`; submissions/workspaces/actions/diff `app/services/submissions/*`; presenters for recruiter views `app/domains/submissions/presenter/*`; notifications/email `app/services/notifications/*`.
-- GitHub integration: REST client `app/integrations/github/client/*`; Actions runner + artifact parsing `app/integrations/github/actions_runner/*`, `app/integrations/github/artifacts/*`; template health checks `app/integrations/github/template_health/*`.
-- Data models: SQLAlchemy models under `app/repositories/*` for `Simulation`, `Task`, `CandidateSession`, `Workspace`, `Submission`, `FitProfile`, `User`, `Company`; migrations in `alembic/versions`.
+| Component | Version Constraint |
+|---|---|
+| Python | `^3.11` |
+| FastAPI | `^0.109.0` |
+| Uvicorn | `^0.27.0` (`standard` extras) |
+| SQLAlchemy | `^2.0.25` |
+| asyncpg | `^0.29.0` |
+| psycopg2-binary | `^2.9.9` |
+| Alembic | `^1.13.1` |
+| pydantic-settings | `^2.1.0` |
+| python-jose (`cryptography`) | `^3.5.0` |
+| python-dotenv | `^1.0.0` |
+| email-validator | `^2.3.0` |
+| greenlet | `^3.3.0` |
 
-## Domain Glossary
+Dev/test tools: `pytest`, `pytest-asyncio`, `pytest-cov`, `httpx`, `ruff`, `black`, `hypothesis`, `aiosqlite`.
 
-- Simulation: recruiter-owned scenario with role/techStack/focus/templateKey.
-- Task: daily assignment; types drive validation (`design`, `code`, `debug`, `handoff`, `documentation`); code/debug tasks carry template_repo.
-- Candidate Session: invite with token, status, expiry, invite email, Auth0 bindings, invite email delivery metadata.
-- Workspace: GitHub repo generated per candidate+task; stores default branch, base_template_sha, last run/test summary, codespace URL.
-- Submission: final turn-in per task with contentText, repo path, commit/workflow ids, test counts/output, diff_summary_json, last_run_at.
-- FitProfile: placeholder model for future AI evaluation output (not generated today).
+## Prerequisites
 
-## API Overview
+- Python `3.11+`
+- Poetry
+- PostgreSQL (for local app runtime and Alembic migrations)
+- Optional for QA workflows:
+  - Node.js + Newman for API QA runner
+  - Local GitHub credentials/token for template/workspace flows
 
-- Auth/Health: `GET /health`; `GET /api/auth/me`; `POST /api/auth/logout`.
-- Recruiter (recruiter:access): `GET/POST /api/simulations`; `GET /api/simulations/{id}`; `GET /api/simulations/{id}/candidates`; `POST /api/simulations/{id}/invite`; `POST /api/simulations/{id}/candidates/{csId}/invite/resend`; `GET /api/submissions`; `GET /api/submissions/{id}`.
-- Candidate (candidate:access + invite token): `GET /api/candidate/session/{token}` and `POST /claim`; `GET /api/candidate/session/{id}/current_task`; `GET /api/candidate/invites`.
-- GitHub-native tasks (candidate:access + `x-candidate-session-id`): `POST /api/tasks/{taskId}/codespace/init`; `GET /api/tasks/{taskId}/codespace/status`; `POST /api/tasks/{taskId}/run`; `GET /api/tasks/{taskId}/run/{runId}`; `POST /api/tasks/{taskId}/submit`.
-- Admin (X-Admin-Key): `GET /api/admin/templates/health?mode=static`; `POST /api/admin/templates/health/run`.
+## Setup
 
-## Typical Flow
+1. Install dependencies.
 
-1) Recruiter authenticates → `POST /api/simulations` (seeds tasks) → `POST /api/simulations/{id}/invite` to generate token + pre-provision workspaces and send email.
-2) Candidate opens invite with Auth0 login → claim via `/api/candidate/session/{token}` → fetch current task → for code/debug tasks call `/codespace/init`, work in Codespaces, `/run` to test, `/submit` to turn in.
-3) Recruiter reviews via `/api/submissions` list and `/api/submissions/{id}` detail (repo/workflow/commit/diff/test results).
+```bash
+poetry install
+```
 
-## Configuration
+2. Configure local environment values in `.env`.
 
-- Database: `TENON_DATABASE_URL`, `TENON_DATABASE_URL_SYNC` (PostgreSQL required for app runtime/Alembic; pytest defaults to in-memory SQLite).
-- Auth0: `TENON_AUTH0_DOMAIN` or `TENON_AUTH0_ISSUER`, `TENON_AUTH0_JWKS_URL`, `TENON_AUTH0_API_AUDIENCE`, `TENON_AUTH0_ALGORITHMS`, claim namespace/claim keys, leeway/cache TTL. App fails fast on missing issuer/audience outside tests. Dev bypass: `DEV_AUTH_BYPASS=1` allowed only with `ENV=local`.
-- GitHub: `TENON_GITHUB_API_BASE`, `TENON_GITHUB_ORG`, `TENON_GITHUB_TEMPLATE_OWNER`, `TENON_GITHUB_REPO_PREFIX`, `TENON_GITHUB_ACTIONS_WORKFLOW_FILE`, `TENON_GITHUB_TOKEN`, `TENON_GITHUB_CLEANUP_ENABLED` (placeholder).
-- App: `TENON_ENV`, `TENON_API_PREFIX`, `TENON_CANDIDATE_PORTAL_BASE_URL`, `TENON_MAX_REQUEST_BODY_BYTES`, `TENON_RATE_LIMIT_ENABLED`, `TENON_TRUSTED_PROXY_CIDRS`, `DEBUG_PERF`.
-- Security (CSRF/CORS): set explicit `TENON_CORS_ALLOW_ORIGINS`; outside `local/test`, wildcard origins and `TENON_CORS_ALLOW_ORIGIN_REGEX` are rejected at startup. Cookie-bearing state-changing requests on `TENON_CSRF_PROTECTED_PATH_PREFIXES` (defaults to `TENON_API_PREFIX`, typically `/api`) must include allowed `Origin` or fallback `Referer` matching `TENON_CSRF_ALLOWED_ORIGINS` (defaults to CORS allowlist). Bearer-only requests without cookies are not subject to cookie CSRF checks.
-- Email: `TENON_EMAIL_PROVIDER` (console/resend/sendgrid/smtp), `TENON_EMAIL_FROM`, provider keys (`TENON_RESEND_API_KEY`, `SENDGRID_API_KEY`, `SMTP_*`).
-- Admin: `TENON_ADMIN_API_KEY`. Security: redact tokens in logs; never log GitHub/Auth0 secrets; rotate if leaked. Rate limiter is in-memory per process—use shared store before multi-instance deploys.
+```bash
+# edit .env and set required values for your machine
+```
 
-## Local Development
+3. Apply database migrations.
 
-- Install: `poetry install`; optionally `source ./setEnvVar.sh` to load defaults.
-- Run: `poetry run uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000` or `./runBackend.sh`.
-- Migrations: `poetry run alembic upgrade head`.
-- Seed dev recruiters: `ENV=local DEV_AUTH_BYPASS=1 poetry run python scripts/seed_local_recruiters.py`.
-- Tests: `poetry run pytest` (see `tests/README.md`).
-- Dev auth: recruiter bearer `recruiter:email@example.com` or `x-dev-user-email` when `DEV_AUTH_BYPASS=1`; candidate routes expect Auth0-style candidate bearer plus `x-candidate-session-id`.
+```bash
+poetry run alembic upgrade head
+```
 
-## Roadmap (planned/not shipped)
+4. Start API server.
 
-- AI scenario/rubric generation and FitProfile reports.
-- Background jobs, webhook ingestion/GitHub App auth, repo cleanup.
-- Day4 media upload + transcription; Day5 structured documentation intake.
-- Structured logging/monitoring/analytics/admin metrics; production deploy hardening (disable dev bypass).
+```bash
+poetry run uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+5. Smoke check.
+
+```bash
+curl -s http://localhost:8000/health
+```
+
+## Environment
+
+Canonical env keys are summarized below by primary group.
+
+| Group | Primary Keys |
+|---|---|
+| Core runtime | `TENON_ENV`, `TENON_API_PREFIX`, `DEV_AUTH_BYPASS`, `TENON_DEV_AUTH_BYPASS`, `TENON_RATE_LIMIT_ENABLED`, `TENON_MAX_REQUEST_BODY_BYTES` |
+| Perf / diagnostics | `TENON_DEBUG_PERF`, `TENON_PERF_SPANS_ENABLED`, `TENON_PERF_SQL_FINGERPRINTS_ENABLED`, `TENON_PERF_SPAN_SAMPLE_RATE` |
+| Demo/admin mode | `TENON_DEMO_MODE`, `TENON_SCENARIO_DEMO_MODE`, `TENON_DEMO_ADMIN_ALLOWLIST_*` |
+| Database | `TENON_DATABASE_URL`, `TENON_DATABASE_URL_SYNC` |
+| Auth0 | `TENON_AUTH0_*` |
+| CORS / CSRF | `TENON_CORS_ALLOW_*`, `TENON_CSRF_*` |
+| GitHub | `TENON_GITHUB_*`, `TENON_WORKSPACE_*` |
+| Scenario provider creds | `TENON_OPENAI_API_KEY`, `TENON_ANTHROPIC_API_KEY` |
+| Media | `TENON_MEDIA_*`, `TENON_SIGNED_URL_EXPIRY_SECONDS` |
+| Email | `TENON_EMAIL_PROVIDER`, `TENON_EMAIL_FROM`, `TENON_RESEND_API_KEY`, `SENDGRID_API_KEY`, `SMTP_*` |
+| Admin key | `TENON_ADMIN_API_KEY` |
+
+## Project Structure
+
+| Path | Responsibility |
+|---|---|
+| `app/api/main.py` | App entrypoint wiring and exported `app` |
+| `app/shared/http/*` | App builder, middleware, router registry, error handlers |
+| `app/config/*` | Environment settings models/validators/merge behavior |
+| `app/simulations/*` | Simulation lifecycle, invites, scenario versions, compare views |
+| `app/candidates/*` | Candidate session resolve/claim/schedule/privacy/current-task flows |
+| `app/tasks/*` | Codespace/run/submit/draft/handoff route orchestration |
+| `app/submissions/*` | Workspace provisioning, run persistence, recruiter presentation |
+| `app/evaluations/*` | Fit-profile API, evaluators, evaluation repositories |
+| `app/media/*` | Recording/transcript storage + privacy services |
+| `app/recruiters/*` | Recruiter admin/template and demo admin operations |
+| `app/shared/jobs/*` | Durable job models, handlers, worker services |
+| `alembic/` | DB migrations |
+| `docs/` | Canonical architecture/API documentation |
+| `qa_verifications/` | QA runner scripts and latest generated QA reports |
+| `scripts/` | Operational tooling, docs audits/exports |
+
+## API Overview (46 Endpoints)
+
+### Health / Auth
+
+- `GET /health`
+- `GET /api/auth/me`
+- `POST /api/auth/logout`
+
+### Admin Templates / Demo Admin Ops
+
+- `GET /api/admin/templates/health`
+- `POST /api/admin/templates/health/run`
+- `POST /api/admin/candidate_sessions/{candidate_session_id}/reset`
+- `POST /api/admin/jobs/{job_id}/requeue`
+- `POST /api/admin/simulations/{simulation_id}/scenario/use_fallback`
+- `POST /api/admin/media/purge`
+
+### Recruiter Simulation + Submission APIs
+
+- `GET /api/simulations`
+- `POST /api/simulations`
+- `GET /api/simulations/{simulation_id}`
+- `PUT /api/simulations/{simulation_id}`
+- `POST /api/simulations/{simulation_id}/invite`
+- `POST /api/simulations/{simulation_id}/candidates/{candidate_session_id}/invite/resend`
+- `GET /api/simulations/{simulation_id}/candidates`
+- `GET /api/simulations/{simulation_id}/candidates/compare`
+- `POST /api/simulations/{simulation_id}/activate`
+- `POST /api/simulations/{simulation_id}/terminate`
+- `POST /api/simulations/{simulation_id}/scenario/regenerate`
+- `POST /api/simulations/{simulation_id}/scenario/{scenario_version_id}/approve`
+- `PATCH /api/simulations/{simulation_id}/scenario/active`
+- `PATCH /api/simulations/{simulation_id}/scenario/{scenario_version_id}`
+- `GET /api/submissions`
+- `GET /api/submissions/{submission_id}`
+- `GET /api/candidate_sessions/{candidate_session_id}/fit_profile`
+- `POST /api/candidate_sessions/{candidate_session_id}/fit_profile/generate`
+
+### Candidate Session APIs
+
+- `GET /api/candidate/session/{token}`
+- `POST /api/candidate/session/{token}/claim`
+- `POST /api/candidate/session/{token}/schedule`
+- `GET /api/candidate/session/{candidate_session_id}/current_task`
+- `GET /api/candidate/invites`
+- `POST /api/candidate/session/{candidate_session_id}/privacy/consent`
+
+### Candidate Task Execution / Draft / Handoff APIs
+
+- `POST /api/tasks/{task_id}/codespace/init`
+- `GET /api/tasks/{task_id}/codespace/status`
+- `POST /api/tasks/{task_id}/run`
+- `GET /api/tasks/{task_id}/run/{run_id}`
+- `POST /api/tasks/{task_id}/submit`
+- `GET /api/tasks/{task_id}/draft`
+- `PUT /api/tasks/{task_id}/draft`
+- `POST /api/tasks/{task_id}/handoff/upload/init`
+- `POST /api/tasks/{task_id}/handoff/upload/complete`
+- `GET /api/tasks/{task_id}/handoff/status`
+- `POST /api/recordings/{recording_id}/delete`
+
+### Webhooks / Jobs
+
+- `POST /api/github/webhooks`
+- `GET /api/jobs/{job_id}`
+
+Detailed schema-level API docs are generated at [`docs/api.md`](docs/api.md).
+
+## Architecture Decisions
+
+- Domain-first package organization with thin entrypoints and shared runtime composition (`app/shared/http`).
+- Settings use pydantic-settings with merge compatibility for nested legacy env structures.
+- Recruiter/candidate authorization is dependency-based; admin template endpoints use explicit API key dependency.
+- GitHub integration keeps transport/client/actions/artifact parsing concerns separated for testability.
+- Durable job status uses polling endpoints plus worker handlers for async side effects.
+
+## Tests and Verification
+
+Run full test suite:
+
+```bash
+poetry run pytest
+```
+
+Docs verification/tooling commands:
+
+```bash
+poetry run python code-quality/documentation/scripts/docs_inventory.py --strict --markdown-output code-quality/documentation/latest/artifacts/docs_inventory.md
+poetry run python code-quality/documentation/scripts/docs_env_inventory.py --strict --markdown-output code-quality/documentation/latest/artifacts/env_inventory.md
+poetry run python code-quality/documentation/scripts/docs_api_export.py --strict --verify-doc README.md docs/api.md
+poetry run python code-quality/documentation/scripts/docs_docstring_audit.py --include-module-docs --strict --json > code-quality/documentation/latest/artifacts/docstring_audit.json
+git status --porcelain -- docs/api.md code-quality/documentation/latest/artifacts/openapi_snapshot.json code-quality/documentation/latest/artifacts/api_endpoint_matrix.md code-quality/documentation/latest/artifacts/api_endpoint_matrix.json code-quality/documentation/latest/artifacts/docs_inventory.md code-quality/documentation/latest/artifacts/env_inventory.md code-quality/documentation/latest/artifacts/docstring_audit.json
+```
+
+The `git status --porcelain` command should output nothing when generated docs are current.
+
+## Deployment Notes
+
+- Use PostgreSQL for runtime and migrations.
+- Set strict CORS and CSRF origins in non-local environments.
+- Keep `DEV_AUTH_BYPASS` disabled outside local development.
+- Configure GitHub token/workflow/webhook secret for GitHub-native features.
+- Configure real email provider credentials before enabling invite/schedule notifications.
+- Rotate and protect all Auth0/GitHub/email/admin secrets; do not commit real values.

@@ -1,0 +1,71 @@
+from __future__ import annotations
+
+import pytest
+
+from tests.shared.jobs.handlers.shared_jobs_handlers_day_close_finalize_text_utils import *
+
+
+@pytest.mark.asyncio
+async def test_finalize_is_idempotent_when_run_twice(async_session, monkeypatch):
+    recruiter = await create_recruiter(
+        async_session, email="finalize-idempotent@test.com"
+    )
+    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    candidate_session = await create_candidate_session(
+        async_session,
+        simulation=simulation,
+        status="in_progress",
+        with_default_schedule=False,
+    )
+    await async_session.commit()
+
+    window_end_by_day = await _set_fully_closed_schedule(
+        async_session,
+        candidate_session=candidate_session,
+    )
+    day1_task = tasks[0]
+
+    await task_drafts_repo.upsert_draft(
+        async_session,
+        candidate_session_id=candidate_session.id,
+        task_id=day1_task.id,
+        content_text="idempotent draft",
+        content_json={"v": 1},
+    )
+
+    monkeypatch.setattr(
+        finalize_handler,
+        "async_session_maker",
+        _session_maker(async_session),
+    )
+    first = await finalize_handler.handle_day_close_finalize_text(
+        _payload(
+            candidate_session_id=candidate_session.id,
+            task_id=day1_task.id,
+            day_index=1,
+            window_end_at=window_end_by_day[1],
+        )
+    )
+    second = await finalize_handler.handle_day_close_finalize_text(
+        _payload(
+            candidate_session_id=candidate_session.id,
+            task_id=day1_task.id,
+            day_index=1,
+            window_end_at=window_end_by_day[1],
+        )
+    )
+
+    assert first["status"] == "created_submission"
+    assert second["status"] == "no_op_existing_submission"
+
+    submission_count = (
+        await async_session.execute(
+            select(func.count())
+            .select_from(Submission)
+            .where(
+                Submission.candidate_session_id == candidate_session.id,
+                Submission.task_id == day1_task.id,
+            )
+        )
+    ).scalar_one()
+    assert submission_count == 1
