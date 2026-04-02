@@ -7,7 +7,7 @@ from tests.shared.http.routes.shared_http_auth_permissions_utils import *
 
 @pytest.mark.asyncio
 async def test_namespaced_permissions_allow_recruiter_route(
-    async_client, monkeypatch, override_dependencies
+    async_client, async_session, monkeypatch, override_dependencies
 ):
     def decode(_token: str):
         email_claim = settings.auth.AUTH0_EMAIL_CLAIM
@@ -19,6 +19,7 @@ async def test_namespaced_permissions_allow_recruiter_route(
         }
 
     monkeypatch.setattr(auth0_module, "decode_auth0_token", decode)
+    await create_recruiter(async_session, email="r@test.com")
     with override_dependencies({get_current_user: security_deps.get_current_user}):
         res = await async_client.get(
             "/api/simulations",

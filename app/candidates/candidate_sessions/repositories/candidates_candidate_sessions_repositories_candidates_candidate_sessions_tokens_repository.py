@@ -29,7 +29,10 @@ def _build_get_by_token_stmt(token: str) -> Select:
             CandidateSession.token == token,
             _not_terminated_simulation_clause(),
         )
-        .options(joinedload(CandidateSession.simulation))
+        .options(
+            joinedload(CandidateSession.simulation),
+            joinedload(CandidateSession.scenario_version),
+        )
     )
 
 

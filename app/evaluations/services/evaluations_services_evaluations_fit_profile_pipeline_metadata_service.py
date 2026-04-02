@@ -53,6 +53,7 @@ def _build_run_metadata(
     enabled_days: list[int],
     requested_by_user_id: int | None,
     job_id: str | None,
+    ai_policy_snapshot_digest: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], str, str, str]:
     basis_refs = _build_basis_references(
         scenario_version_id=context.candidate_session.scenario_version_id,
@@ -69,6 +70,7 @@ def _build_run_metadata(
             "simulationId": context.simulation.id,
             "scenarioVersionId": context.candidate_session.scenario_version_id,
             "basis": basis_refs,
+            "aiPolicySnapshotDigest": ai_policy_snapshot_digest,
         }
     )
     (
@@ -86,6 +88,7 @@ def _build_run_metadata(
         "enabledDayIndexes": enabled_days,
         "basisRefs": basis_refs,
         "requestedByUserId": requested_by_user_id,
+        "aiPolicySnapshotDigest": ai_policy_snapshot_digest,
     }
     return (
         run_metadata,

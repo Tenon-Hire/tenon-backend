@@ -46,8 +46,13 @@ async def test_update_simulation_omitted_ai_preserves_existing(
     )
     assert update_res.status_code == 200, update_res.text
     body = update_res.json()
-    assert body["ai"] == {
-        "noticeVersion": "mvp9",
-        "noticeText": "Custom notice",
-        "evalEnabledByDay": {"1": True, "2": False, "3": True, "4": True, "5": False},
+    assert body["ai"]["noticeVersion"] == "mvp9"
+    assert body["ai"]["noticeText"] == "Custom notice"
+    assert body["ai"]["evalEnabledByDay"] == {
+        "1": True,
+        "2": False,
+        "3": True,
+        "4": True,
+        "5": False,
     }
+    assert body["ai"]["changesPendingRegeneration"] is False

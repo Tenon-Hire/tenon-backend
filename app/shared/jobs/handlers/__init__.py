@@ -1,6 +1,7 @@
 import app.shared.jobs.handlers.shared_jobs_handlers_day_close_enforcement_handler as day_close_enforcement
 import app.shared.jobs.handlers.shared_jobs_handlers_day_close_enforcement_helpers_handler as day_close_enforcement_helpers
 import app.shared.jobs.handlers.shared_jobs_handlers_day_close_enforcement_runtime_handler as day_close_enforcement_runtime
+import app.shared.jobs.handlers.shared_jobs_handlers_codespace_specializer_handler as codespace_specializer
 import app.shared.jobs.handlers.shared_jobs_handlers_day_close_finalize_text_handler as day_close_finalize_text
 import app.shared.jobs.handlers.shared_jobs_handlers_day_close_finalize_text_parsing_handler as day_close_finalize_text_parsing
 import app.shared.jobs.handlers.shared_jobs_handlers_day_close_finalize_text_queries_handler as day_close_finalize_text_queries
@@ -31,6 +32,10 @@ import app.shared.jobs.handlers.shared_jobs_handlers_workspace_cleanup_utils as 
 from app.shared.jobs.handlers.shared_jobs_handlers_day_close_enforcement_handler import (
     DAY_CLOSE_ENFORCEMENT_JOB_TYPE,
     handle_day_close_enforcement,
+)
+from app.shared.jobs.handlers.shared_jobs_handlers_codespace_specializer_handler import (
+    CODESPACE_SPECIALIZER_JOB_TYPE,
+    handle_codespace_specializer,
 )
 from app.shared.jobs.handlers.shared_jobs_handlers_day_close_finalize_text_handler import (
     DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE,
@@ -64,6 +69,8 @@ from app.shared.jobs.handlers.shared_jobs_handlers_workspace_cleanup_handler imp
 __all__ = [
     "DAY_CLOSE_ENFORCEMENT_JOB_TYPE",
     "handle_day_close_enforcement",
+    "CODESPACE_SPECIALIZER_JOB_TYPE",
+    "handle_codespace_specializer",
     "DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE",
     "handle_day_close_finalize_text",
     "EVALUATION_RUN_JOB_TYPE",
@@ -81,6 +88,7 @@ __all__ = [
     "day_close_enforcement",
     "day_close_enforcement_helpers",
     "day_close_enforcement_runtime",
+    "codespace_specializer",
     "day_close_finalize_text",
     "day_close_finalize_text_parsing",
     "day_close_finalize_text_queries",

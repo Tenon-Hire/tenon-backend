@@ -5,6 +5,9 @@ from types import SimpleNamespace
 import pytest
 
 from app.shared.http.routes import simulations as recruiter_sims
+from app.simulations.services import (
+    simulations_services_simulations_invite_workflow_service as invite_workflow,
+)
 
 
 def _request(host: str = "127.0.0.1"):
@@ -40,7 +43,7 @@ async def test_create_candidate_invite_happy_path(monkeypatch):
         )
 
     async def _lock_active_scenario_for_invites(db, simulation_id, now):
-        return SimpleNamespace(id=777)
+        return SimpleNamespace(id=777, template_key="python-fastapi")
 
     async def _create_or_resend_invite(
         db, simulation_id, payload, now, scenario_version_id=None
@@ -53,6 +56,9 @@ async def test_create_candidate_invite_happy_path(monkeypatch):
 
     async def _ensure_workspace(*_args, **_kwargs):
         return SimpleNamespace(id="ws")
+
+    async def _ensure_bundle(*_args, **_kwargs):
+        return None
 
     monkeypatch.setattr(recruiter_sims, "ensure_recruiter_or_none", lambda _u: None)
     monkeypatch.setattr(
@@ -73,6 +79,11 @@ async def test_create_candidate_invite_happy_path(monkeypatch):
     )
     monkeypatch.setattr(
         recruiter_sims.submission_service, "ensure_workspace", _ensure_workspace
+    )
+    monkeypatch.setattr(
+        invite_workflow.codespace_specializer,
+        "ensure_precommit_bundle_ready_for_invites",
+        _ensure_bundle,
     )
     monkeypatch.setattr(
         recruiter_sims.sim_service,

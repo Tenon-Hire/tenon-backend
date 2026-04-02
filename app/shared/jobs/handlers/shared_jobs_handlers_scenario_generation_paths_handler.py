@@ -19,6 +19,8 @@ def _apply_generated_fields(target_scenario, *, simulation, generated):
     target_scenario.storyline_md = generated.storyline_md
     target_scenario.task_prompts_json = generated.task_prompts_json
     target_scenario.rubric_json = generated.rubric_json
+    target_scenario.codespace_spec_json = generated.codespace_spec_json
+    target_scenario.ai_policy_snapshot_json = generated.ai_policy_snapshot_json
     target_scenario.focus_notes = simulation.focus or ""
     target_scenario.template_key = simulation.template_key
     target_scenario.tech_stack = simulation.tech_stack

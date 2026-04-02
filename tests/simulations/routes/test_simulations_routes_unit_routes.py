@@ -6,6 +6,9 @@ from app.integrations.github.client import GithubError
 from app.shared.auth import rate_limit
 from app.shared.http import shared_http_error_utils as error_utils
 from app.shared.http.routes import simulations
+from app.simulations.services import (
+    simulations_services_simulations_invite_workflow_service as invite_workflow,
+)
 from app.simulations import services as sim_service
 
 
@@ -62,13 +65,16 @@ async def test_create_candidate_invite_github_error(monkeypatch):
     monkeypatch.setattr(rate_limit, "rate_limit_enabled", lambda: False)
     task = SimpleNamespace(id=2, day_index=2, type="code", template_repo="owner/repo")
 
+    async def _ensure_bundle(*_args, **_kwargs):
+        return None
+
     async def fake_require(db, simulation_id, user_id):
         return SimpleNamespace(id=1, title="t", role="r", status="active_inviting"), [
             task
         ]
 
     async def fake_lock(db, simulation_id, now):
-        return SimpleNamespace(id=11)
+        return SimpleNamespace(id=11, template_key="python-fastapi")
 
     async def fake_create(db, simulation_id, payload, now, scenario_version_id=None):
         return SimpleNamespace(id=10, token="tok"), "created"
@@ -83,6 +89,11 @@ async def test_create_candidate_invite_github_error(monkeypatch):
     monkeypatch.setattr(sim_service, "create_or_resend_invite", fake_create)
     monkeypatch.setattr(
         simulations.submission_service, "ensure_workspace", fail_workspace
+    )
+    monkeypatch.setattr(
+        invite_workflow.codespace_specializer,
+        "ensure_precommit_bundle_ready_for_invites",
+        _ensure_bundle,
     )
     with pytest.raises(error_utils.ApiError) as excinfo:
         await simulations.create_candidate_invite(

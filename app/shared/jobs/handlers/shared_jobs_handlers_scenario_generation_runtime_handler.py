@@ -7,6 +7,8 @@ from time import perf_counter
 
 from sqlalchemy import select
 
+from app.ai import build_ai_policy_snapshot
+from app.shared.database.shared_database_models_model import Company
 from app.shared.database.shared_database_models_model import Simulation, Task
 from app.simulations.repositories.simulations_repositories_simulations_simulation_model import (
     SIMULATION_STATUS_ACTIVE_INVITING,
@@ -80,10 +82,30 @@ async def handle_scenario_generation_impl(
         )
         if not tasks:
             raise RuntimeError("scenario_generation_missing_seeded_tasks")
+        company_prompt_overrides_json = await db.scalar(
+            select(Company.ai_prompt_overrides_json).where(
+                Company.id == simulation.company_id
+            )
+        )
+        ai_policy_snapshot_json = build_ai_policy_snapshot(
+            simulation=simulation,
+            company_prompt_overrides_json=company_prompt_overrides_json,
+            simulation_prompt_overrides_json=getattr(
+                simulation, "ai_prompt_overrides_json", None
+            ),
+        )
         generated = generate_scenario_payload(
             role=simulation.role,
             tech_stack=simulation.tech_stack,
             template_key=simulation.template_key,
+            scenario_template=simulation.scenario_template,
+            focus=simulation.focus,
+            company_context=simulation.company_context,
+            company_prompt_overrides_json=company_prompt_overrides_json,
+            simulation_prompt_overrides_json=getattr(
+                simulation, "ai_prompt_overrides_json", None
+            ),
+            ai_policy_snapshot_json=ai_policy_snapshot_json,
         )
         if requested_scenario_version_id is not None:
             early, scenario_version_id = await apply_requested_scenario_version(

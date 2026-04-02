@@ -73,13 +73,28 @@ def build_simulation_ai_config(
     notice_version: str | None,
     notice_text: str | None,
     eval_enabled_by_day: Any,
+    prompt_overrides_json: Any = None,
+    prompt_pack_version: str | None = None,
+    changes_pending_regeneration: bool | None = None,
+    active_scenario_snapshot: Any = None,
+    pending_scenario_snapshot: Any = None,
 ) -> SimulationAIConfig | None:
     """Build simulation ai config."""
-    return build_simulation_ai_config_with_resolver(
+    resolved = resolve_simulation_ai_fields(
         notice_version=notice_version,
         notice_text=notice_text,
         eval_enabled_by_day=eval_enabled_by_day,
-        resolver=resolve_simulation_ai_fields,
+    )
+    return build_simulation_ai_config_with_resolver(
+        notice_version=resolved[0],
+        notice_text=resolved[1],
+        eval_enabled_by_day=resolved[2],
+        prompt_overrides_json=prompt_overrides_json,
+        prompt_pack_version=prompt_pack_version,
+        changes_pending_regeneration=changes_pending_regeneration,
+        active_scenario_snapshot=active_scenario_snapshot,
+        pending_scenario_snapshot=pending_scenario_snapshot,
+        resolver=lambda **_kwargs: resolved,
     )
 
 

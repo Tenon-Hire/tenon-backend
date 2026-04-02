@@ -15,6 +15,7 @@ async def test_simulation_routes_execute_service_calls(monkeypatch):
         tech_stack="Python",
         seniority="Mid",
         focus="API",
+        company_id=7,
         template_key="python-fastapi",
         scenario_template="default-5day-node-postgres",
         status="ready_for_review",
@@ -60,25 +61,44 @@ async def test_simulation_routes_execute_service_calls(monkeypatch):
     monkeypatch.setattr(
         sim_detail_route,
         "render_simulation_detail",
-        lambda _sim, _tasks, _active: {
+        lambda _sim, _tasks, _active, **_kwargs: {
             "id": _sim.id,
             "title": _sim.title,
             "tasks": _tasks,
         },
     )
+    async def _load_pending(*_a, **_k):
+        return None
+
+    async def _resolve_bundle(*_a, **_k):
+        return None
+
+    monkeypatch.setattr(sim_detail_route, "_load_scenario_version", _load_pending)
+    monkeypatch.setattr(
+        sim_detail_route,
+        "build_ai_policy_snapshot",
+        lambda **_kwargs: {"promptPackVersion": "tenon-ai-pack-v1"},
+    )
+    monkeypatch.setattr(sim_detail_route, "_resolve_bundle_status", _resolve_bundle)
     monkeypatch.setattr(sim_list_route.sim_service, "list_simulations", _list_sims)
+
+    class _DbStub:
+        async def scalar(self, *_args, **_kwargs):
+            return None
+
+    db = _DbStub()
 
     created = await sim_create_route.create_simulation(
         payload=SimpleNamespace(),
-        db=object(),
+        db=db,
         user=user,
     )
     detail = await sim_detail_route.get_simulation_detail(
         simulation_id=sim.id,
-        db=object(),
+        db=db,
         user=user,
     )
-    listed = await sim_list_route.list_simulations(db=object(), user=user)
+    listed = await sim_list_route.list_simulations(db=db, user=user)
     assert created.id == sim.id
     assert detail["id"] == sim.id
     assert listed[0].numCandidates == 2

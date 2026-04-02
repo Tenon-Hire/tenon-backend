@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import contains_eager
+from sqlalchemy.orm import contains_eager, joinedload
 from sqlalchemy.sql import Select
 
 from app.shared.database.shared_database_models_model import CandidateSession
@@ -29,7 +29,10 @@ def _build_get_by_id_stmt(session_id: int) -> Select:
             CandidateSession.id == session_id,
             _not_terminated_simulation_clause(),
         )
-        .options(contains_eager(CandidateSession.simulation))
+        .options(
+            contains_eager(CandidateSession.simulation),
+            joinedload(CandidateSession.scenario_version),
+        )
     )
 
 

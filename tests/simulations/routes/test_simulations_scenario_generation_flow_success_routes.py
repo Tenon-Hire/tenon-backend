@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy import select
 
+from app.ai import PROMPT_PACK_VERSION
 from app.shared.database.shared_database_models_model import (
     Job,
     ScenarioVersion,
@@ -84,7 +85,7 @@ async def test_scenario_generation_job_creates_v1_and_updates_detail_read(
         and isinstance(scenario_v1.rubric_json, dict)
     )
     assert scenario_v1.model_name == "template_catalog_fallback"
-    assert scenario_v1.prompt_version == "scenario-generation-v1"
+    assert scenario_v1.prompt_version == f"{PROMPT_PACK_VERSION}:prestart"
     assert len(task_rows) == 5
     assert all((task.description or "").strip() for task in task_rows)
     assert all(task.max_score is not None for task in task_rows)

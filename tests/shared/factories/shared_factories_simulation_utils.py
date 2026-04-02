@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai import build_ai_policy_snapshot
 from app.shared.database.shared_database_models_model import (
     ScenarioVersion,
     Simulation,
@@ -97,6 +98,7 @@ async def create_simulation(
         template_key=sim.template_key,
         tech_stack=sim.tech_stack,
         seniority=sim.seniority,
+        ai_policy_snapshot_json=build_ai_policy_snapshot(simulation=sim),
     )
     session.add(scenario_version)
     await session.flush()

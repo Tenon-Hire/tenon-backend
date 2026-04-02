@@ -52,6 +52,7 @@ async def create_simulation(
             notice_version=getattr(sim, "ai_notice_version", None),
             notice_text=getattr(sim, "ai_notice_text", None),
             eval_enabled_by_day=getattr(sim, "ai_eval_enabled_by_day", None),
+            prompt_overrides_json=getattr(sim, "ai_prompt_overrides_json", None),
         ),
         templateKey=sim.template_key,
         status=sim_service.normalize_simulation_status_or_raise(raw_status),

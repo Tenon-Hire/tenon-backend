@@ -40,6 +40,11 @@ class EvaluationInputBundle:
     rubric_version: str
     disabled_day_indexes: list[int]
     day_inputs: list[DayEvaluationInput]
+    simulation_context_json: dict[str, Any] | None = None
+    ai_policy_snapshot_json: dict[str, Any] | None = None
+    ai_policy_snapshot_digest: str | None = None
+    company_prompt_overrides_json: dict[str, Any] | None = None
+    simulation_prompt_overrides_json: dict[str, Any] | None = None
 
 
 @dataclass(slots=True)

@@ -96,4 +96,8 @@ async def test_simulation_context_round_trips_on_create_and_detail(
     assert detail["seniority"] == "mid"
     assert detail["focus"] == payload["focus"]
     assert detail["companyContext"] == payload["companyContext"]
-    assert detail["ai"] == payload["ai"]
+    assert detail["ai"]["noticeVersion"] == payload["ai"]["noticeVersion"]
+    assert detail["ai"]["noticeText"] == payload["ai"]["noticeText"]
+    assert detail["ai"]["evalEnabledByDay"] == payload["ai"]["evalEnabledByDay"]
+    assert detail["ai"]["promptPackVersion"] == "tenon-ai-pack-v1"
+    assert detail["ai"]["changesPendingRegeneration"] is False

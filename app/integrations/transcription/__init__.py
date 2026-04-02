@@ -9,9 +9,13 @@ from app.integrations.transcription.integrations_transcription_factory_client im
 from app.integrations.transcription.integrations_transcription_fake_provider_client import (
     FakeTranscriptionProvider,
 )
+from app.integrations.transcription.integrations_transcription_openai_provider_client import (
+    OpenAITranscriptionProvider,
+)
 
 __all__ = [
     "FakeTranscriptionProvider",
+    "OpenAITranscriptionProvider",
     "TranscriptionProvider",
     "TranscriptionProviderError",
     "TranscriptionResult",

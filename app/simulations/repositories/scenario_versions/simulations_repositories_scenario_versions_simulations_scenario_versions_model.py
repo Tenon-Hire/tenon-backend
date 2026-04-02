@@ -74,6 +74,14 @@ class ScenarioVersion(Base, TimestampMixin):
         nullable=False,
         default=dict,
     )
+    codespace_spec_json: Mapped[dict | list | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
+    ai_policy_snapshot_json: Mapped[dict | list | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
     focus_notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
     template_key: Mapped[str] = mapped_column(String(255), nullable=False)
     tech_stack: Mapped[str] = mapped_column(String(255), nullable=False)

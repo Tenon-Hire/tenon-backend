@@ -2,8 +2,21 @@
 
 from __future__ import annotations
 
+import json
 import logging
+from typing import Any
 
+from app.ai import (
+    build_required_snapshot_prompt,
+    require_agent_policy_snapshot,
+    require_agent_runtime,
+    require_ai_policy_snapshot,
+)
+from app.integrations.scenario_generation import (
+    ScenarioGenerationProviderError,
+    ScenarioGenerationProviderRequest,
+    get_scenario_generation_provider,
+)
 from app.simulations.services.simulations_services_simulations_scenario_generation_constants import (
     SCENARIO_GENERATION_JOB_TYPE,
     SCENARIO_PROMPT_VERSION,
@@ -53,30 +66,107 @@ def _template_display_name(template_key: str) -> str:
 
 
 def build_deterministic_template_scenario(
-    *, role: str, tech_stack: str, template_key: str
+    *,
+    role: str,
+    tech_stack: str,
+    template_key: str,
+    ai_policy_snapshot_json: dict[str, Any] | None = None,
 ) -> GeneratedScenarioPayload:
     """Build deterministic template scenario."""
     return _build_deterministic_impl(
         role=role,
         tech_stack=tech_stack,
         template_key=template_key,
+        ai_policy_snapshot_json=ai_policy_snapshot_json,
         pick=_pick,
         template_display_name=_template_display_name,
     )
 
 
 def _generate_with_llm(
-    *, role: str, tech_stack: str, template_key: str
+    *,
+    role: str,
+    tech_stack: str,
+    template_key: str,
+    scenario_template: str | None = None,
+    focus: str | None = None,
+    company_context: dict[str, Any] | None = None,
+    company_prompt_overrides_json: dict[str, Any] | None = None,
+    simulation_prompt_overrides_json: dict[str, Any] | None = None,
+    ai_policy_snapshot_json: dict[str, Any] | None = None,
 ) -> GeneratedScenarioPayload:
+    require_ai_policy_snapshot(ai_policy_snapshot_json)
+    run_context_md = (
+        f"Role: {role}\n"
+        f"Tech stack: {tech_stack}\n"
+        f"Template key: {template_key}\n"
+        f"Scenario template: {(scenario_template or '').strip() or 'default-5day'}"
+    )
+    system_prompt, rubric_prompt = build_required_snapshot_prompt(
+        snapshot_json=ai_policy_snapshot_json,
+        agent_key="prestart",
+        run_context_md=run_context_md,
+    )
+    user_prompt = json.dumps(
+        {
+            "role": role,
+            "techStack": tech_stack,
+            "templateKey": template_key,
+            "scenarioTemplate": (scenario_template or "").strip() or None,
+            "focus": (focus or "").strip() or None,
+            "companyContext": company_context or None,
+            "rubricGuidance": rubric_prompt,
+        },
+        indent=2,
+        sort_keys=True,
+    )
+    runtime = require_agent_runtime(ai_policy_snapshot_json, "prestart")
+    provider = get_scenario_generation_provider(str(runtime["provider"]))
+    snapshot_agent = require_agent_policy_snapshot(ai_policy_snapshot_json, "prestart")
+    request = ScenarioGenerationProviderRequest(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        model=str(runtime["model"]),
+    )
+    try:
+        response = provider.generate_scenario(request=request)
+    except ScenarioGenerationProviderError as exc:
+        raise RuntimeError(str(exc)) from exc
     logger.info(
-        "scenario_generation_llm_not_implemented",
+        "scenario_generation_llm_completed",
         extra={"role": role, "techStack": tech_stack, "templateKey": template_key},
     )
-    raise RuntimeError("llm_generation_not_implemented")
+    return GeneratedScenarioPayload(
+        storyline_md=response.result.storyline_md,
+        task_prompts_json=[
+            prompt.model_dump()
+            for prompt in response.result.task_prompts_json
+        ],
+        rubric_json=dict(response.result.rubric_json),
+        codespace_spec_json=response.result.codespace_spec_json.model_dump(),
+        ai_policy_snapshot_json=ai_policy_snapshot_json,
+        metadata=ScenarioGenerationMetadata(
+            source=SCENARIO_SOURCE_LLM,
+            model_name=response.model_name,
+            model_version=response.model_version,
+            prompt_version=str(snapshot_agent["promptVersion"]),
+            rubric_version=str(snapshot_agent["rubricVersion"]),
+            template_key=template_key,
+        ),
+    )
 
 
 def generate_scenario_payload(
-    *, role: str, tech_stack: str, template_key: str
+    *,
+    role: str,
+    tech_stack: str,
+    template_key: str,
+    scenario_template: str | None = None,
+    focus: str | None = None,
+    company_context: dict[str, Any] | None = None,
+    company_prompt_overrides_json: dict[str, Any] | None = None,
+    simulation_prompt_overrides_json: dict[str, Any] | None = None,
+    ai_policy_snapshot_json: dict[str, Any] | None = None,
 ) -> GeneratedScenarioPayload:
     """Generate scenario payload."""
     return _generate_payload_impl(
@@ -87,6 +177,12 @@ def generate_scenario_payload(
         generate_with_llm=_generate_with_llm,
         build_fallback=build_deterministic_template_scenario,
         logger=logger,
+        scenario_template=scenario_template,
+        focus=focus,
+        company_context=company_context,
+        company_prompt_overrides_json=company_prompt_overrides_json,
+        simulation_prompt_overrides_json=simulation_prompt_overrides_json,
+        ai_policy_snapshot_json=ai_policy_snapshot_json,
     )
 
 

@@ -10,6 +10,7 @@ async def test_regenerate_rate_limited_in_prod(
     async_client, async_session, auth_header_factory, monkeypatch
 ):
     monkeypatch.setattr(settings, "ENV", "prod")
+    monkeypatch.setattr(settings, "SCENARIO_GENERATION_RUNTIME_MODE", "test")
     sim_routes.rate_limit.limiter.reset()
     original_rule = sim_routes.SCENARIO_REGENERATE_RATE_LIMIT
     sim_routes.SCENARIO_REGENERATE_RATE_LIMIT = sim_routes.rate_limit.RateLimitRule(

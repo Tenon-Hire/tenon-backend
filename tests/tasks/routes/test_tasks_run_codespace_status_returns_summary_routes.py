@@ -45,8 +45,8 @@ async def test_codespace_status_returns_summary(
     data = resp.json()
     assert data == {
         "repoFullName": "org/status-repo",
-        "repoUrl": "https://github.com/org/status-repo",
         "codespaceUrl": "https://codespaces.new/org/status-repo?quickstart=1",
+        "codespaceState": None,
         "defaultBranch": "main",
         "baseTemplateSha": "base",
         "precommitSha": None,

@@ -1,0 +1,40 @@
+{
+  "version": "tenon-ai-pack-v1",
+  "agents": {
+    "prestart": {
+      "policyFile": "tenon-prestart-background-information-creator-brain.md",
+      "schemaFile": "scenario_generation_output.schema.json",
+      "outputModel": "ScenarioGenerationOutput"
+    },
+    "codespace": {
+      "policyFile": "tenon-codespace-specializer-brain.md",
+      "schemaFile": "codespace_patch_proposal.schema.json",
+      "outputModel": "CodespacePatchProposal"
+    },
+    "day1": {
+      "policyFile": "tenon-day-1-rubric.md",
+      "schemaFile": "day_reviewer_output.schema.json",
+      "outputModel": "DayReviewerOutput"
+    },
+    "day23": {
+      "policyFile": "tenon-day-2&3-rubric.md",
+      "schemaFile": "day_reviewer_output.schema.json",
+      "outputModel": "DayReviewerOutput"
+    },
+    "day4": {
+      "policyFile": "tenon-day-4-rubric.md",
+      "schemaFile": "day_reviewer_output.schema.json",
+      "outputModel": "DayReviewerOutput"
+    },
+    "day5": {
+      "policyFile": "tenon-day-5-rubric.md",
+      "schemaFile": "day_reviewer_output.schema.json",
+      "outputModel": "DayReviewerOutput"
+    },
+    "fitProfile": {
+      "policyFile": "tenon-assessment-provider-rubric.md",
+      "schemaFile": "aggregated_fit_profile_output.schema.json",
+      "outputModel": "AggregatedFitProfileOutput"
+    }
+  }
+}

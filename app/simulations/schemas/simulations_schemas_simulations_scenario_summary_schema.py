@@ -7,6 +7,9 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from app.simulations.schemas.simulations_schemas_simulations_ai_models_schema import (
+    SimulationAIAgentRuntimeSummary,
+)
 from app.shared.types.shared_types_types_model import SimulationStatus
 
 
@@ -37,6 +40,10 @@ class SimulationDetailScenario(ScenarioStateSummary):
     modelVersion: str | None = None
     promptVersion: str | None = None
     rubricVersion: str | None = None
+    aiPolicySnapshotDigest: str | None = None
+    aiPromptPackVersion: str | None = None
+    precommitBundleStatus: str | None = None
+    agentRuntimeSummary: list[SimulationAIAgentRuntimeSummary] | None = None
 
 
 class ScenarioRegenerateResponse(BaseModel):

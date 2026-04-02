@@ -1,0 +1,112 @@
+{
+  "$defs": {
+    "EvidencePointer": {
+      "additionalProperties": false,
+      "description": "Evidence reference returned by reviewer models.",
+      "properties": {
+        "dayIndex": {
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Dayindex",
+          "type": "integer"
+        },
+        "kind": {
+          "enum": [
+            "submission",
+            "diff",
+            "transcript",
+            "tests",
+            "rubric"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "quote": {
+          "anyOf": [
+            {
+              "maxLength": 1500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quote"
+        },
+        "ref": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "ref",
+        "dayIndex"
+      ],
+      "title": "EvidencePointer",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Strict output contract for each per-day reviewer model.",
+  "properties": {
+    "dayIndex": {
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Dayindex",
+      "type": "integer"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/EvidencePointer"
+      },
+      "maxItems": 20,
+      "title": "Evidence",
+      "type": "array"
+    },
+    "risks": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 8,
+      "title": "Risks",
+      "type": "array"
+    },
+    "rubricBreakdown": {
+      "additionalProperties": true,
+      "title": "Rubricbreakdown",
+      "type": "object"
+    },
+    "score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Score",
+      "type": "number"
+    },
+    "strengths": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 8,
+      "title": "Strengths",
+      "type": "array"
+    },
+    "summary": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "dayIndex",
+    "score",
+    "summary",
+    "rubricBreakdown"
+  ],
+  "title": "DayReviewerOutput",
+  "type": "object"
+}

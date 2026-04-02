@@ -1,0 +1,31 @@
+{
+  "additionalProperties": false,
+  "description": "Strict output contract for the codespace specializer agent.",
+  "properties": {
+    "commit_message": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Commit Message",
+      "type": "string"
+    },
+    "plan_md": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "title": "Plan Md",
+      "type": "string"
+    },
+    "unified_diff": {
+      "maxLength": 500000,
+      "minLength": 1,
+      "title": "Unified Diff",
+      "type": "string"
+    }
+  },
+  "required": [
+    "plan_md",
+    "commit_message",
+    "unified_diff"
+  ],
+  "title": "CodespacePatchProposal",
+  "type": "object"
+}

@@ -41,7 +41,7 @@ async def test_scenario_generation_failure_marks_job_failed_and_keeps_generating
     monkeypatch.setattr(
         scenario_handler,
         "generate_scenario_payload",
-        lambda *, role, tech_stack, template_key: (_ for _ in ()).throw(
+        lambda **_kwargs: (_ for _ in ()).throw(
             RuntimeError("forced scenario generation failure")
         ),
     )

@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.ai import build_ai_policy_snapshot
 from app.shared.http.routes import candidate_sessions
 from tests.candidates.routes.test_candidates_sessions_router_routes import (
     StubSession,
@@ -17,6 +18,14 @@ from tests.candidates.routes.test_candidates_sessions_router_routes import (
 async def test_claim_route_uses_claim_service(monkeypatch):
     stub_db = StubSession()
     expires_at = datetime.now(UTC)
+    simulation = SimpleNamespace(
+        id=10,
+        title="Sim",
+        role="Backend",
+        ai_notice_version="mvp1",
+        ai_notice_text="AI assistance may be used for evaluation support.",
+        ai_eval_enabled_by_day={"1": True, "2": True, "3": True, "4": True, "5": True},
+    )
     cs = SimpleNamespace(
         id=3,
         status="in_progress",
@@ -24,7 +33,10 @@ async def test_claim_route_uses_claim_service(monkeypatch):
         completed_at=None,
         started_at=expires_at,
         candidate_name="Jane",
-        simulation=SimpleNamespace(id=10, title="Sim", role="Backend"),
+        simulation=simulation,
+        scenario_version=SimpleNamespace(
+            ai_policy_snapshot_json=build_ai_policy_snapshot(simulation=simulation)
+        ),
     )
 
     async def _verify(db, token, principal, now):

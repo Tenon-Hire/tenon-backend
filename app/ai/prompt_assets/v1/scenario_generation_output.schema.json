@@ -1,0 +1,153 @@
+{
+  "$defs": {
+    "CodespaceSpec": {
+      "additionalProperties": false,
+      "description": "Structured repository specialization spec emitted by prestart generation.",
+      "properties": {
+        "acceptance_criteria": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Acceptance Criteria",
+          "type": "array"
+        },
+        "candidate_goal": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Candidate Goal",
+          "type": "string"
+        },
+        "repo_adjustments": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Repo Adjustments",
+          "type": "array"
+        },
+        "summary": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "target_files": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 25,
+          "title": "Target Files",
+          "type": "array"
+        },
+        "task_kind": {
+          "default": "feature",
+          "enum": [
+            "feature",
+            "bugfix",
+            "debug",
+            "migration",
+            "optimization"
+          ],
+          "title": "Task Kind",
+          "type": "string"
+        },
+        "test_command": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Test Command"
+        },
+        "test_focus": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Test Focus",
+          "type": "array"
+        }
+      },
+      "required": [
+        "summary",
+        "candidate_goal",
+        "acceptance_criteria"
+      ],
+      "title": "CodespaceSpec",
+      "type": "object"
+    },
+    "ScenarioTaskPrompt": {
+      "additionalProperties": false,
+      "description": "Per-day scenario prompt payload that maps onto seeded task rows.",
+      "properties": {
+        "dayIndex": {
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Dayindex",
+          "type": "integer"
+        },
+        "description": {
+          "maxLength": 10000,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dayIndex",
+        "title",
+        "description"
+      ],
+      "title": "ScenarioTaskPrompt",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Strict output contract for the prestart creator agent.",
+  "properties": {
+    "codespace_spec_json": {
+      "$ref": "#/$defs/CodespaceSpec"
+    },
+    "rubric_json": {
+      "additionalProperties": true,
+      "title": "Rubric Json",
+      "type": "object"
+    },
+    "storyline_md": {
+      "maxLength": 40000,
+      "minLength": 1,
+      "title": "Storyline Md",
+      "type": "string"
+    },
+    "task_prompts_json": {
+      "items": {
+        "$ref": "#/$defs/ScenarioTaskPrompt"
+      },
+      "maxItems": 5,
+      "minItems": 5,
+      "title": "Task Prompts Json",
+      "type": "array"
+    }
+  },
+  "required": [
+    "storyline_md",
+    "task_prompts_json",
+    "rubric_json",
+    "codespace_spec_json"
+  ],
+  "title": "ScenarioGenerationOutput",
+  "type": "object"
+}

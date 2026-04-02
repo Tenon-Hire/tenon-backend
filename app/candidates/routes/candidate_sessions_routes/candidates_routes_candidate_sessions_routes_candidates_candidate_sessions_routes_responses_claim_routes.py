@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.ai import require_candidate_settings_from_snapshot
 from app.candidates.candidate_sessions import services as cs_service
 from app.candidates.candidate_sessions.services.candidates_candidate_sessions_services_candidates_candidate_sessions_schedule_fields_service import (
     schedule_payload_for_candidate_session,
@@ -12,11 +13,6 @@ from app.candidates.routes.candidate_sessions_routes.candidates_routes_candidate
 from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_core_schema import (
     CandidateSessionResolveResponse,
 )
-from app.simulations.schemas.simulations_schemas_simulations_core_schema import (
-    resolve_simulation_ai_fields,
-)
-
-
 def render_claim_response(
     cs, *, resolve_simulation_summary
 ) -> CandidateSessionResolveResponse:
@@ -27,14 +23,14 @@ def render_claim_response(
     include_content_sections = cs_service.is_schedule_started_for_content(
         cs, now=now_utc
     )
+    scenario_version = getattr(cs, "__dict__", {}).get("scenario_version")
     (
         ai_notice_version,
         ai_notice_text,
         eval_enabled_by_day,
-    ) = resolve_simulation_ai_fields(
-        notice_version=getattr(cs.simulation, "ai_notice_version", None),
-        notice_text=getattr(cs.simulation, "ai_notice_text", None),
-        eval_enabled_by_day=getattr(cs.simulation, "ai_eval_enabled_by_day", None),
+    ) = require_candidate_settings_from_snapshot(
+        getattr(scenario_version, "ai_policy_snapshot_json", None),
+        scenario_version_id=getattr(cs, "scenario_version_id", None),
     )
     return CandidateSessionResolveResponse(
         candidateSessionId=cs.id,

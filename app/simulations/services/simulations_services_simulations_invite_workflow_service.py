@@ -10,6 +10,7 @@ from app.integrations.github import GithubClient
 from app.notifications.services import service as notification_service
 from app.simulations import services as sim_service
 from app.simulations.services import (
+    simulations_services_simulations_codespace_specializer_service as codespace_specializer,
     simulations_services_simulations_invite_preprovision_service as invite_preprovision,
 )
 
@@ -57,6 +58,12 @@ async def create_candidate_invite_workflow(
             simulation_id=simulation_id,
             now=now,
         )
+    await codespace_specializer.ensure_precommit_bundle_ready_for_invites(
+        db,
+        simulation=sim,
+        scenario_version=scenario_version,
+        tasks=tasks,
+    )
     cs, outcome = await sim_service.create_or_resend_invite(
         db,
         simulation_id,

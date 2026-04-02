@@ -7,6 +7,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from app.ai import normalize_prompt_override_payload
 from app.simulations.constants.simulations_constants_simulations_ai_config_constants import (
     AI_NOTICE_DEFAULT_TEXT,
     AI_NOTICE_DEFAULT_VERSION,
@@ -24,6 +25,11 @@ def build_simulation_ai_config_with_resolver(
     notice_version: str | None,
     notice_text: str | None,
     eval_enabled_by_day: Any,
+    prompt_overrides_json: Any = None,
+    prompt_pack_version: str | None = None,
+    changes_pending_regeneration: bool | None = None,
+    active_scenario_snapshot: Any = None,
+    pending_scenario_snapshot: Any = None,
     resolver: Resolver,
 ) -> SimulationAIConfig | None:
     """Build simulation ai config with resolver."""
@@ -38,6 +44,13 @@ def build_simulation_ai_config_with_resolver(
                 "noticeVersion": resolved_notice_version,
                 "noticeText": resolved_notice_text,
                 "evalEnabledByDay": resolved_eval,
+                "promptOverrides": normalize_prompt_override_payload(
+                    prompt_overrides_json
+                ),
+                "promptPackVersion": prompt_pack_version,
+                "changesPendingRegeneration": changes_pending_regeneration,
+                "activeScenarioSnapshot": active_scenario_snapshot,
+                "pendingScenarioSnapshot": pending_scenario_snapshot,
             }
         )
     except ValidationError:
@@ -46,6 +59,13 @@ def build_simulation_ai_config_with_resolver(
                 "noticeVersion": AI_NOTICE_DEFAULT_VERSION,
                 "noticeText": AI_NOTICE_DEFAULT_TEXT,
                 "evalEnabledByDay": default_ai_eval_enabled_by_day(),
+                "promptOverrides": normalize_prompt_override_payload(
+                    prompt_overrides_json
+                ),
+                "promptPackVersion": prompt_pack_version,
+                "changesPendingRegeneration": changes_pending_regeneration,
+                "activeScenarioSnapshot": active_scenario_snapshot,
+                "pendingScenarioSnapshot": pending_scenario_snapshot,
             }
         )
 

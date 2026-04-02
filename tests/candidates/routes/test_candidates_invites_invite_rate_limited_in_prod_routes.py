@@ -11,6 +11,8 @@ async def test_invite_rate_limited_in_prod(
 ):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
     monkeypatch.setattr(settings, "ENV", "prod")
+    monkeypatch.setattr(settings, "SCENARIO_GENERATION_RUNTIME_MODE", "test")
+    monkeypatch.setattr(settings, "CODESPACE_SPECIALIZER_RUNTIME_MODE", "test")
     sim_routes.rate_limit.limiter.reset()
     original_rule = sim_routes.INVITE_CREATE_RATE_LIMIT
     sim_routes.INVITE_CREATE_RATE_LIMIT = sim_routes.rate_limit.RateLimitRule(

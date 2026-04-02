@@ -59,8 +59,8 @@ async def test_codespace_init_response_shape_no_bundle(
     body = resp.json()
     assert body == {
         "repoFullName": "org/init-shape-repo",
-        "repoUrl": "https://github.com/org/init-shape-repo",
         "codespaceUrl": "https://codespaces.new/org/init-shape-repo?quickstart=1",
+        "codespaceState": None,
         "defaultBranch": "main",
         "baseTemplateSha": "base-sha-shape",
         "precommitSha": None,

@@ -15,6 +15,7 @@ from app.tasks.routes import (
 
 from . import (
     shared_http_routes_auth_routes,
+    shared_http_routes_companies_routes,
     shared_http_routes_health_routes,
     shared_http_routes_jobs_routes,
 )
@@ -26,6 +27,7 @@ __all__ = [
     "admin_routes",
     "admin_templates",
     "shared_http_routes_auth_routes",
+    "shared_http_routes_companies_routes",
     "candidate_sessions",
     "fit_profile",
     "github_webhooks",

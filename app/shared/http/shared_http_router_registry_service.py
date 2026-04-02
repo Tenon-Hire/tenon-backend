@@ -9,6 +9,7 @@ from app.shared.http.routes import (
     admin_routes,
     admin_templates,
     candidate_sessions,
+    shared_http_routes_companies_routes as companies,
     fit_profile,
     github_webhooks,
     recordings,
@@ -26,6 +27,7 @@ def register_routers(app: FastAPI) -> None:
     prefix = settings.API_PREFIX
     app.include_router(health.router, prefix="", tags=["health"])
     app.include_router(auth.router, prefix=f"{prefix}/auth", tags=["auth"])
+    app.include_router(companies.router, prefix=f"{prefix}", tags=["companies"])
     app.include_router(jobs.router, prefix=f"{prefix}", tags=["jobs"])
     app.include_router(admin_templates.router, prefix=f"{prefix}/admin", tags=["admin"])
     app.include_router(admin_routes.router, prefix=f"{prefix}/admin", tags=["admin"])

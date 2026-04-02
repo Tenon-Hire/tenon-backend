@@ -8,6 +8,7 @@ from typing import Any
 from app.simulations.schemas.simulations_schemas_simulations_core_schema import (
     normalize_eval_enabled_by_day,
 )
+from app.ai import normalize_prompt_override_payload
 
 
 def extract_company_context(payload: Any) -> dict[str, Any] | None:
@@ -26,15 +27,16 @@ def extract_company_context(payload: Any) -> dict[str, Any] | None:
 
 def extract_ai_fields(
     payload: Any,
-) -> tuple[str | None, str | None, dict[str, bool] | None]:
+) -> tuple[str | None, str | None, dict[str, bool] | None, dict | None]:
     """Extract ai fields."""
     raw_ai = getattr(payload, "ai", None)
     if raw_ai is None:
-        return None, None, None
+        return None, None, None, None
     if isinstance(raw_ai, dict):
         notice_version = raw_ai.get("noticeVersion")
         notice_text = raw_ai.get("noticeText")
         eval_by_day = raw_ai.get("evalEnabledByDay")
+        prompt_overrides = raw_ai.get("promptOverrides")
     else:
         notice_version = getattr(raw_ai, "notice_version", None) or getattr(
             raw_ai, "noticeVersion", None
@@ -45,10 +47,14 @@ def extract_ai_fields(
         eval_by_day = getattr(raw_ai, "eval_enabled_by_day", None) or getattr(
             raw_ai, "evalEnabledByDay", None
         )
+        prompt_overrides = getattr(raw_ai, "prompt_overrides", None) or getattr(
+            raw_ai, "promptOverrides", None
+        )
     return (
         notice_version,
         notice_text,
         normalize_eval_enabled_by_day(eval_by_day, strict=False),
+        normalize_prompt_override_payload(prompt_overrides),
     )
 
 

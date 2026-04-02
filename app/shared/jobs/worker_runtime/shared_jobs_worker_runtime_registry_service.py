@@ -40,6 +40,7 @@ def get_handler(job_type: str) -> JobHandler | None:
 def register_builtin_handlers() -> None:
     """Execute register builtin handlers."""
     from app.shared.jobs.handlers import (
+        CODESPACE_SPECIALIZER_JOB_TYPE,
         DAY_CLOSE_ENFORCEMENT_JOB_TYPE,
         DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE,
         EVALUATION_RUN_JOB_TYPE,
@@ -48,6 +49,7 @@ def register_builtin_handlers() -> None:
         SIMULATION_CLEANUP_JOB_TYPE,
         TRANSCRIBE_RECORDING_JOB_TYPE,
         WORKSPACE_CLEANUP_JOB_TYPE,
+        handle_codespace_specializer,
         handle_day_close_enforcement,
         handle_day_close_finalize_text,
         handle_evaluation_run,
@@ -58,6 +60,7 @@ def register_builtin_handlers() -> None:
         handle_workspace_cleanup,
     )
 
+    register_handler(CODESPACE_SPECIALIZER_JOB_TYPE, handle_codespace_specializer)
     register_handler(SIMULATION_CLEANUP_JOB_TYPE, handle_simulation_cleanup)
     register_handler(WORKSPACE_CLEANUP_JOB_TYPE, handle_workspace_cleanup)
     register_handler(DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE, handle_day_close_finalize_text)

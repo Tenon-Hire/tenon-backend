@@ -28,9 +28,12 @@ def build_simulation_for_create(
     """Build simulation for create."""
     template_key = resolve_template_key(payload)
     started_at = datetime.now(UTC)
-    ai_notice_version, ai_notice_text, ai_eval_enabled_by_day = extract_ai_fields(
-        payload
-    )
+    (
+        ai_notice_version,
+        ai_notice_text,
+        ai_eval_enabled_by_day,
+        ai_prompt_overrides_json,
+    ) = extract_ai_fields(payload)
     (
         resolved_notice_version,
         resolved_notice_text,
@@ -55,6 +58,7 @@ def build_simulation_for_create(
         seniority=normalized_seniority or raw_seniority,
         focus=payload.focus,
         company_context=extract_company_context(payload),
+        ai_prompt_overrides_json=ai_prompt_overrides_json,
         ai_notice_version=resolved_notice_version,
         ai_notice_text=resolved_notice_text,
         ai_eval_enabled_by_day=resolved_eval_by_day,

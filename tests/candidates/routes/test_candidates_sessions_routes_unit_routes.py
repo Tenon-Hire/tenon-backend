@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import Request
 
+from app.ai import build_ai_policy_snapshot
 from app.shared.auth import rate_limit
 from app.shared.http.routes import candidate_sessions
 
@@ -54,6 +55,14 @@ async def test_candidate_session_rate_limits(monkeypatch):
         claims={},
         permissions=["candidate:access"],
     )
+    simulation = SimpleNamespace(
+        id=2,
+        title="T",
+        role="R",
+        ai_notice_version="mvp1",
+        ai_notice_text="AI assistance may be used for evaluation support.",
+        ai_eval_enabled_by_day={"1": True, "2": True, "3": True, "4": True, "5": True},
+    )
     cs_obj = SimpleNamespace(
         id=1,
         status="in_progress",
@@ -61,7 +70,10 @@ async def test_candidate_session_rate_limits(monkeypatch):
         started_at=None,
         completed_at=None,
         candidate_name="Name",
-        simulation=SimpleNamespace(id=2, title="T", role="R"),
+        simulation=simulation,
+        scenario_version=SimpleNamespace(
+            ai_policy_snapshot_json=build_ai_policy_snapshot(simulation=simulation)
+        ),
     )
 
     async def fake_claim(db, token, principal, now):

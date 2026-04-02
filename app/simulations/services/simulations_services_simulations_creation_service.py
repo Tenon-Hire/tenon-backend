@@ -43,7 +43,7 @@ def _extract_company_context(payload: Any) -> dict[str, Any] | None:
 
 def _extract_ai_fields(
     payload: Any,
-) -> tuple[str | None, str | None, dict[str, bool] | None]:
+) -> tuple[str | None, str | None, dict[str, bool] | None, dict | None]:
     return extract_ai_fields(payload)
 
 

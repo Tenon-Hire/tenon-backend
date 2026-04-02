@@ -5,6 +5,12 @@ from __future__ import annotations
 from time import perf_counter
 from typing import Any
 
+from app.ai import (
+    compute_ai_policy_snapshot_digest,
+    require_agent_policy_snapshot,
+    require_agent_runtime,
+    require_candidate_settings_from_snapshot,
+)
 from app.evaluations.services.evaluations_services_evaluations_fit_profile_pipeline_constants_service import (
     DEFAULT_EVALUATION_MODEL_NAME,
     DEFAULT_EVALUATION_MODEL_VERSION,
@@ -76,9 +82,18 @@ async def process_evaluation_run_job_impl(
                 "candidateSessionId": session_id,
             }
 
-        enabled_days, disabled_days = _normalize_day_toggles(
-            context.simulation.ai_eval_enabled_by_day
+        ai_policy_snapshot_json = getattr(
+            context.scenario_version, "ai_policy_snapshot_json", None
         )
+        (
+            _snapshot_notice_version,
+            _snapshot_notice_text,
+            snapshot_eval_enabled_by_day,
+        ) = require_candidate_settings_from_snapshot(
+            ai_policy_snapshot_json,
+            scenario_version_id=context.candidate_session.scenario_version_id,
+        )
+        enabled_days, disabled_days = _normalize_day_toggles(snapshot_eval_enabled_by_day)
         tasks = await deps["_tasks_by_day"](db, simulation_id=context.simulation.id)
         submissions = await deps["_submissions_by_day"](
             db,
@@ -94,6 +109,7 @@ async def process_evaluation_run_job_impl(
             day4_task=tasks.get(4),
             day4_submission=submissions.get(4),
         )
+
         day_inputs = _build_day_inputs(
             tasks_by_day=tasks,
             submissions_by_day=submissions,
@@ -116,6 +132,9 @@ async def process_evaluation_run_job_impl(
             enabled_days=enabled_days,
             requested_by_user_id=user_id,
             job_id=job_id,
+            ai_policy_snapshot_digest=compute_ai_policy_snapshot_digest(
+                ai_policy_snapshot_json
+            ),
         )
         run, terminal_response = await _get_or_start_run(
             db=db,
@@ -135,15 +154,49 @@ async def process_evaluation_run_job_impl(
         if terminal_response is not None:
             return terminal_response
 
+        aggregator_snapshot = require_agent_policy_snapshot(
+            ai_policy_snapshot_json,
+            "fitProfile",
+            scenario_version_id=context.candidate_session.scenario_version_id,
+        )
+        aggregator_runtime = require_agent_runtime(
+            ai_policy_snapshot_json,
+            "fitProfile",
+            scenario_version_id=context.candidate_session.scenario_version_id,
+        )
         bundle = deps["evaluator_service"].EvaluationInputBundle(
             candidate_session_id=context.candidate_session.id,
             scenario_version_id=context.candidate_session.scenario_version_id,
-            model_name=DEFAULT_EVALUATION_MODEL_NAME,
-            model_version=DEFAULT_EVALUATION_MODEL_VERSION,
-            prompt_version=DEFAULT_EVALUATION_PROMPT_VERSION,
+            model_name=str(aggregator_runtime["model"]) or DEFAULT_EVALUATION_MODEL_NAME,
+            model_version=(
+                str(aggregator_runtime["model"]) or DEFAULT_EVALUATION_MODEL_VERSION
+            ),
+            prompt_version=(
+                str(aggregator_snapshot["promptVersion"])
+                or DEFAULT_EVALUATION_PROMPT_VERSION
+            ),
             rubric_version=rubric_version,
             disabled_day_indexes=disabled_days,
             day_inputs=day_inputs,
+            simulation_context_json={
+                "simulationId": context.simulation.id,
+                "title": getattr(context.simulation, "title", None),
+                "role": getattr(context.simulation, "role", None),
+                "techStack": getattr(context.simulation, "tech_stack", None),
+                "seniority": getattr(context.simulation, "seniority", None),
+                "templateKey": getattr(context.simulation, "template_key", None),
+                "focus": getattr(context.simulation, "focus", None),
+                "companyContext": getattr(context.simulation, "company_context", None),
+                "storylineMd": getattr(context.scenario_version, "storyline_md", None),
+                "rubricJson": getattr(context.scenario_version, "rubric_json", None),
+                "codespaceSpecJson": getattr(
+                    context.scenario_version, "codespace_spec_json", None
+                ),
+            },
+            ai_policy_snapshot_json=ai_policy_snapshot_json,
+            ai_policy_snapshot_digest=compute_ai_policy_snapshot_digest(
+                ai_policy_snapshot_json
+            ),
         )
         try:
             completed_run = await _evaluate_and_finalize_run(

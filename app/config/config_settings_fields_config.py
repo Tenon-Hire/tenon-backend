@@ -38,11 +38,68 @@ class SettingsFields(BaseSettings):
     DEMO_ADMIN_ALLOWLIST_SUBJECTS: list[str] | str = Field(default_factory=list)
     DEMO_ADMIN_ALLOWLIST_RECRUITER_IDS: list[int] | str = Field(default_factory=list)
     DEMO_ADMIN_JOB_STALE_SECONDS: int = 900
+    AI_RUNTIME_MODE: str = "real"
     DEV_AUTH_BYPASS: str | None = Field(
         default=None,
         validation_alias=AliasChoices("DEV_AUTH_BYPASS", "TENON_DEV_AUTH_BYPASS"),
     )
     SCHEDULE_DAY_WINDOW_OVERRIDES_ENABLED: bool = False
+    OPENAI_API_KEY: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("OPENAI_API_KEY", "TENON_OPENAI_API_KEY"),
+    )
+    ANTHROPIC_API_KEY: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("ANTHROPIC_API_KEY", "TENON_ANTHROPIC_API_KEY"),
+    )
+
+    SCENARIO_GENERATION_RUNTIME_MODE: str | None = None
+    SCENARIO_GENERATION_PROVIDER: str = "anthropic"
+    SCENARIO_GENERATION_MODEL: str = "claude-opus-4-6"
+    SCENARIO_GENERATION_TIMEOUT_SECONDS: int = 120
+    SCENARIO_GENERATION_MAX_RETRIES: int = 2
+
+    CODESPACE_SPECIALIZER_RUNTIME_MODE: str | None = None
+    CODESPACE_SPECIALIZER_PROVIDER: str = "openai"
+    CODESPACE_SPECIALIZER_MODEL: str = "gpt-5-codex"
+    CODESPACE_SPECIALIZER_TIMEOUT_SECONDS: int = 180
+    CODESPACE_SPECIALIZER_MAX_RETRIES: int = 2
+
+    FIT_PROFILE_DAY1_RUNTIME_MODE: str | None = None
+    FIT_PROFILE_DAY1_PROVIDER: str = "anthropic"
+    FIT_PROFILE_DAY1_MODEL: str = "claude-opus-4-6"
+    FIT_PROFILE_DAY1_TIMEOUT_SECONDS: int = 90
+    FIT_PROFILE_DAY1_MAX_RETRIES: int = 2
+
+    FIT_PROFILE_DAY23_RUNTIME_MODE: str | None = None
+    FIT_PROFILE_DAY23_PROVIDER: str = "openai"
+    FIT_PROFILE_DAY23_MODEL: str = "gpt-5-codex"
+    FIT_PROFILE_DAY23_TIMEOUT_SECONDS: int = 120
+    FIT_PROFILE_DAY23_MAX_RETRIES: int = 2
+
+    FIT_PROFILE_DAY4_RUNTIME_MODE: str | None = None
+    FIT_PROFILE_DAY4_PROVIDER: str = "anthropic"
+    FIT_PROFILE_DAY4_MODEL: str = "claude-sonnet-4-6"
+    FIT_PROFILE_DAY4_TIMEOUT_SECONDS: int = 90
+    FIT_PROFILE_DAY4_MAX_RETRIES: int = 2
+
+    FIT_PROFILE_DAY5_RUNTIME_MODE: str | None = None
+    FIT_PROFILE_DAY5_PROVIDER: str = "anthropic"
+    FIT_PROFILE_DAY5_MODEL: str = "claude-sonnet-4-6"
+    FIT_PROFILE_DAY5_TIMEOUT_SECONDS: int = 90
+    FIT_PROFILE_DAY5_MAX_RETRIES: int = 2
+
+    FIT_PROFILE_AGGREGATOR_RUNTIME_MODE: str | None = None
+    FIT_PROFILE_AGGREGATOR_PROVIDER: str = "openai"
+    FIT_PROFILE_AGGREGATOR_MODEL: str = "gpt-5.2"
+    FIT_PROFILE_AGGREGATOR_TIMEOUT_SECONDS: int = 90
+    FIT_PROFILE_AGGREGATOR_MAX_RETRIES: int = 2
+
+    TRANSCRIPTION_RUNTIME_MODE: str | None = None
+    TRANSCRIPTION_PROVIDER: str = "openai"
+    TRANSCRIPTION_MODEL: str = "gpt-4o-transcribe"
+    TRANSCRIPTION_TIMEOUT_SECONDS: int = 180
+    TRANSCRIPTION_MAX_RETRIES: int = 2
 
     DATABASE_URL: str | None = None
     DATABASE_URL_SYNC: str | None = None

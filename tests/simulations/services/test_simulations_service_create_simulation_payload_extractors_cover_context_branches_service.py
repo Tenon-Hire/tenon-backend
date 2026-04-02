@@ -19,6 +19,7 @@ def test_create_simulation_payload_extractors_cover_context_branches():
         "mvp1",
         "Notice",
         {"1": True},
+        None,
     )
 
     payload_with_object = SimpleNamespace(
@@ -39,6 +40,7 @@ def test_create_simulation_payload_extractors_cover_context_branches():
         "mvp2",
         "Fallback",
         {"2": False},
+        None,
     )
 
     payload_with_unsupported_company_context = SimpleNamespace(

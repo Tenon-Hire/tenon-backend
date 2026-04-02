@@ -37,6 +37,8 @@ def clone_pending_scenario(
         storyline_md=active.storyline_md,
         task_prompts_json=copy.deepcopy(active.task_prompts_json),
         rubric_json=copy.deepcopy(active.rubric_json),
+        codespace_spec_json=copy.deepcopy(active.codespace_spec_json),
+        ai_policy_snapshot_json=copy.deepcopy(active.ai_policy_snapshot_json),
         focus_notes=active.focus_notes,
         template_key=active.template_key,
         tech_stack=active.tech_stack,

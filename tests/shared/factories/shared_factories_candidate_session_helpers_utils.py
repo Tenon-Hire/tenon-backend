@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai import build_ai_policy_snapshot
 from app.candidates.candidate_sessions.services.scheduling.candidates_candidate_sessions_services_scheduling_candidates_candidate_sessions_scheduling_day_windows_service import (
     serialize_day_windows,
 )
@@ -73,6 +74,7 @@ async def _resolve_candidate_session_scenario_version_id(
             template_key=simulation.template_key,
             tech_stack=simulation.tech_stack,
             seniority=simulation.seniority,
+            ai_policy_snapshot_json=build_ai_policy_snapshot(simulation=simulation),
         )
         session.add(existing)
         await session.flush()

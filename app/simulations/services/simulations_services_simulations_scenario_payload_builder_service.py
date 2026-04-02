@@ -35,6 +35,7 @@ def build_scenario_generation_payload(simulation: Any) -> dict[str, Any]:
         notice_version=getattr(simulation, "ai_notice_version", None),
         notice_text=getattr(simulation, "ai_notice_text", None),
         eval_enabled_by_day=getattr(simulation, "ai_eval_enabled_by_day", None),
+        prompt_overrides_json=getattr(simulation, "ai_prompt_overrides_json", None),
     )
     if ai_config is not None:
         recruiter_context["ai"] = ai_config.model_dump(by_alias=True)

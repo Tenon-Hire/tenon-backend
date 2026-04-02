@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import logging
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai import build_ai_policy_snapshot
 from app.shared.database.shared_database_models_model import (
+    Company,
     ScenarioVersion,
     Simulation,
     Task,
@@ -32,6 +35,9 @@ async def create_initial_scenario_version(
     tasks: list[Task],
 ) -> ScenarioVersion:
     """Create initial scenario version."""
+    company_prompt_overrides_json = await db.scalar(
+        select(Company.ai_prompt_overrides_json).where(Company.id == simulation.company_id)
+    )
     scenario_version = ScenarioVersion(
         simulation_id=simulation.id,
         version_index=1,
@@ -43,6 +49,13 @@ async def create_initial_scenario_version(
         template_key=simulation.template_key,
         tech_stack=simulation.tech_stack,
         seniority=simulation.seniority,
+        ai_policy_snapshot_json=build_ai_policy_snapshot(
+            simulation=simulation,
+            company_prompt_overrides_json=company_prompt_overrides_json,
+            simulation_prompt_overrides_json=getattr(
+                simulation, "ai_prompt_overrides_json", None
+            ),
+        ),
     )
     db.add(scenario_version)
     await db.flush()

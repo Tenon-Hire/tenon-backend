@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+from app.ai import build_ai_policy_snapshot
 from app.evaluations.repositories import (
     EVALUATION_RUN_STATUS_COMPLETED,
     EVALUATION_RUN_STATUS_FAILED,
@@ -54,10 +55,21 @@ def _session_maker_for(db):
 
 def _setup_pipeline_process_job_happy_path(monkeypatch):
     db = SimpleNamespace(commit=AsyncMock())
+    simulation = SimpleNamespace(
+        id=70,
+        company_id=80,
+        ai_notice_version="mvp1",
+        ai_notice_text="AI assistance may be used for evaluation support.",
+        ai_eval_enabled_by_day={"1": True, "2": True, "3": True, "4": True, "5": True},
+    )
+    ai_policy_snapshot_json = build_ai_policy_snapshot(simulation=simulation)
     context = SimpleNamespace(
         candidate_session=SimpleNamespace(id=50, scenario_version_id=60),
-        simulation=SimpleNamespace(id=70, company_id=80, ai_eval_enabled_by_day={}),
-        scenario_version=SimpleNamespace(rubric_version="rubric-vx"),
+        simulation=simulation,
+        scenario_version=SimpleNamespace(
+            rubric_version="rubric-vx",
+            ai_policy_snapshot_json=ai_policy_snapshot_json,
+        ),
     )
     evaluator = SimpleNamespace(
         evaluate=AsyncMock(

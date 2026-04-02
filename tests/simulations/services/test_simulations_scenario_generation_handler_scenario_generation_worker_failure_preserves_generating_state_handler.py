@@ -19,7 +19,7 @@ async def test_scenario_generation_worker_failure_preserves_generating_state(
     job.max_attempts = 1
     await async_session.commit()
 
-    def _explode(*, role: str, tech_stack: str, template_key: str):
+    def _explode(**_kwargs):
         raise RuntimeError("forced scenario generation failure")
 
     monkeypatch.setattr(scenario_handler, "generate_scenario_payload", _explode)

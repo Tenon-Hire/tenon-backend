@@ -54,8 +54,8 @@ class CodespaceInitResponse(APIModel):
     """Represent codespace init response data and behavior."""
 
     repoFullName: str
-    repoUrl: str
     codespaceUrl: str
+    codespaceState: str | None = None
     defaultBranch: str | None = None
     baseTemplateSha: str | None = None
     precommitSha: str | None = None
@@ -66,8 +66,8 @@ class CodespaceStatusResponse(APIModel):
     """Represent codespace status response data and behavior."""
 
     repoFullName: str
-    repoUrl: str
     codespaceUrl: str | None = None
+    codespaceState: str | None = None
     defaultBranch: str | None = None
     baseTemplateSha: str | None = None
     precommitSha: str | None = None
