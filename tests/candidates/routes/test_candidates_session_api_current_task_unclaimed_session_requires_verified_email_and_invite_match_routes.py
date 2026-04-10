@@ -9,11 +9,13 @@ from tests.candidates.routes.candidates_session_api_utils import *
 async def test_current_task_unclaimed_session_requires_verified_email_and_invite_match(
     async_client, async_session, override_dependencies
 ):
-    recruiter = await create_recruiter(async_session, email="unclaimed-id@test.com")
-    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="unclaimed-id@test.com"
+    )
+    sim, _ = await create_trial(async_session, created_by=talent_partner)
     cs = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         invite_email="owner@example.com",
         with_default_schedule=True,
     )

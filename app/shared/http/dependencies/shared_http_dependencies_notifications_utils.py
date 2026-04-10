@@ -19,12 +19,12 @@ from app.notifications.services.notifications_services_notifications_email_sende
 
 def _build_provider() -> EmailProvider:
     email_cfg = settings.email
-    provider_name = (email_cfg.TENON_EMAIL_PROVIDER or "console").strip().lower()
-    sender = email_cfg.TENON_EMAIL_FROM or "Tenon <notifications@tenon.com>"
+    provider_name = (email_cfg.WINOE_EMAIL_PROVIDER or "console").strip().lower()
+    sender = email_cfg.WINOE_EMAIL_FROM or "Winoe <notifications@winoe.com>"
 
     if provider_name == "resend":
         return ResendEmailProvider(
-            email_cfg.TENON_RESEND_API_KEY, sender=sender, transport=None
+            email_cfg.WINOE_RESEND_API_KEY, sender=sender, transport=None
         )
     if provider_name == "sendgrid":
         return SendGridEmailProvider(
@@ -47,5 +47,5 @@ def _build_provider() -> EmailProvider:
 def get_email_service() -> EmailService:
     """Build a singleton EmailService using configured provider."""
     provider = _build_provider()
-    sender = settings.email.TENON_EMAIL_FROM or "Tenon <notifications@tenon.com>"
+    sender = settings.email.WINOE_EMAIL_FROM or "Winoe <notifications@winoe.com>"
     return EmailService(provider, sender=sender, max_attempts=2)

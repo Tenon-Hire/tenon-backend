@@ -6,5 +6,5 @@ from __future__ import annotations
 def build_workflow_fallbacks(workflow_file: str) -> list[str]:
     """Build workflow fallbacks."""
     return list(
-        dict.fromkeys([workflow_file, "tenon-ci.yml", ".github/workflows/tenon-ci.yml"])
+        dict.fromkeys([workflow_file, "winoe-ci.yml", ".github/workflows/winoe-ci.yml"])
     )

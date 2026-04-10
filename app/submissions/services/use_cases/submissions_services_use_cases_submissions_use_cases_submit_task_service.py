@@ -88,7 +88,7 @@ async def submit_task(
         await notification_service.enqueue_candidate_completed_notification(
             db,
             candidate_session_id=candidate_session.id,
-            simulation_id=candidate_session.simulation_id,
+            trial_id=candidate_session.trial_id,
             commit=True,
         )
     if draft_finalized:

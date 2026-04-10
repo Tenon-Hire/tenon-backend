@@ -43,21 +43,19 @@ def test_reconcile_introspection_helpers_collect_names(monkeypatch):
         get_foreign_keys=lambda _table: [{"name": "fk_a"}, {"name": None}],
         get_indexes=lambda _table: [{"name": "ix_a"}, {"name": None}],
         get_check_constraints=lambda _table: [{"name": "ck_a"}, {"name": None}],
-        get_table_names=lambda: ["simulations", "scenario_versions"],
+        get_table_names=lambda: ["trials", "scenario_versions"],
         get_unique_constraints=lambda _table: [{"name": "uq_a"}, {"name": None}],
     )
     monkeypatch.setattr(reconcile_introspection.sa, "inspect", lambda _bind: inspector)
     bind = object()
 
-    assert reconcile_introspection.column_names(bind, "simulations") == {"id", "status"}
-    assert reconcile_introspection.has_column(bind, "simulations", "status") is True
-    assert reconcile_introspection.fk_names(bind, "simulations") == {"fk_a"}
-    assert reconcile_introspection.index_names(bind, "simulations") == {"ix_a"}
-    assert reconcile_introspection.check_names(bind, "simulations") == {"ck_a"}
+    assert reconcile_introspection.column_names(bind, "trials") == {"id", "status"}
+    assert reconcile_introspection.has_column(bind, "trials", "status") is True
+    assert reconcile_introspection.fk_names(bind, "trials") == {"fk_a"}
+    assert reconcile_introspection.index_names(bind, "trials") == {"ix_a"}
+    assert reconcile_introspection.check_names(bind, "trials") == {"ck_a"}
     assert reconcile_introspection.table_exists(bind, "scenario_versions") is True
-    assert reconcile_introspection.unique_constraint_names(bind, "simulations") == {
-        "uq_a"
-    }
+    assert reconcile_introspection.unique_constraint_names(bind, "trials") == {"uq_a"}
 
 
 def test_reconcile_safe_ops_add_only_when_missing(monkeypatch):
@@ -187,7 +185,9 @@ class _ScenarioBackfillBind:
         self, statement: object, params: dict[str, int] | None = None
     ) -> object:
         sql = statement.text if hasattr(statement, "text") else str(statement)
-        if "FROM simulations" in sql and "scenario_template" in sql:
+        if (
+            "FROM trials" in sql or "FROM simulations" in sql
+        ) and "scenario_template" in sql:
             return _MappingsResult(
                 [
                     {
@@ -222,12 +222,15 @@ class _ScenarioBackfillBind:
             )
         if "SELECT id FROM scenario_versions" in sql:
             assert params is not None
-            return _ScalarResult(None if params["simulation_id"] == 1 else 222)
-        if "UPDATE simulations SET active_scenario_version_id" in sql:
+            return _ScalarResult(None if params["trial_id"] == 1 else 222)
+        if (
+            "UPDATE trials SET active_scenario_version_id" in sql
+            or "UPDATE simulations SET active_scenario_version_id" in sql
+        ):
             assert params is not None
             self.updates.append(
                 {
-                    "simulation_id": params["simulation_id"],
+                    "trial_id": params["trial_id"],
                     "scenario_id": params["scenario_id"],
                 }
             )
@@ -247,8 +250,13 @@ def test_reconcile_ensure_scenario_versions_backfill_guard_clauses(monkeypatch):
     monkeypatch.setattr(reconcile_scenario_backfill, "table_exists", lambda *_: True)
     monkeypatch.setattr(
         reconcile_scenario_backfill,
+        "resolve_trial_parent_table_name",
+        lambda _bind: "trials",
+    )
+    monkeypatch.setattr(
+        reconcile_scenario_backfill,
         "has_column",
-        lambda _bind, table, _col: table != "simulations",
+        lambda _bind, table, _col: table != "trials",
     )
     reconcile_scenario_backfill.ensure_scenario_versions_backfill(bind)
     assert not bind.updates
@@ -266,6 +274,16 @@ def test_reconcile_ensure_scenario_versions_backfill_updates_active_ids(monkeypa
     bind = _ScenarioBackfillBind()
     monkeypatch.setattr(reconcile_scenario_backfill, "table_exists", lambda *_: True)
     monkeypatch.setattr(reconcile_scenario_backfill, "has_column", lambda *_: True)
+    monkeypatch.setattr(
+        reconcile_scenario_backfill,
+        "resolve_trial_parent_table_name",
+        lambda _bind: "trials",
+    )
+    monkeypatch.setattr(
+        reconcile_scenario_backfill,
+        "resolve_candidate_session_parent_column_name",
+        lambda _bind: "trial_id",
+    )
     create_calls: list[int] = []
 
     def _fake_create_v1(_bind, _table, row):
@@ -277,8 +295,35 @@ def test_reconcile_ensure_scenario_versions_backfill_updates_active_ids(monkeypa
 
     assert create_calls == [1]
     assert bind.updates == [
-        {"simulation_id": 1, "scenario_id": 900},
-        {"simulation_id": 2, "scenario_id": 222},
+        {"trial_id": 1, "scenario_id": 900},
+        {"trial_id": 2, "scenario_id": 222},
+    ]
+    assert bind.final_update_called is True
+
+
+def test_reconcile_ensure_scenario_versions_backfill_supports_legacy_simulations(
+    monkeypatch,
+):
+    bind = _ScenarioBackfillBind()
+    monkeypatch.setattr(reconcile_scenario_backfill, "table_exists", lambda *_: True)
+    monkeypatch.setattr(reconcile_scenario_backfill, "has_column", lambda *_: True)
+    monkeypatch.setattr(
+        reconcile_scenario_backfill,
+        "resolve_trial_parent_table_name",
+        lambda _bind: "simulations",
+    )
+    monkeypatch.setattr(
+        reconcile_scenario_backfill,
+        "resolve_candidate_session_parent_column_name",
+        lambda _bind: "simulation_id",
+    )
+    monkeypatch.setattr(reconcile_scenario_backfill, "_create_v1", lambda *_: 900)
+
+    reconcile_scenario_backfill.ensure_scenario_versions_backfill(bind)
+
+    assert bind.updates == [
+        {"trial_id": 1, "scenario_id": 900},
+        {"trial_id": 2, "scenario_id": 222},
     ]
     assert bind.final_update_called is True
 
@@ -290,7 +335,7 @@ def test_reconcile_create_v1_inserts_expected_locked_row():
         "scenario_versions",
         metadata,
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column("simulation_id", sa.Integer(), nullable=False),
+        sa.Column("trial_id", sa.Integer(), nullable=False),
         sa.Column("version_index", sa.Integer(), nullable=False),
         sa.Column("status", sa.String(), nullable=False),
         sa.Column("storyline_md", sa.Text(), nullable=False),
@@ -326,7 +371,7 @@ def test_reconcile_create_v1_inserts_expected_locked_row():
         stored = conn.execute(sa.select(scenario_versions)).mappings().one()
 
     assert created_id == 1
-    assert stored["simulation_id"] == 7
+    assert stored["trial_id"] == 7
     assert stored["status"] == "locked"
     assert stored["template_key"] == reconcile_constants.DEFAULT_TEMPLATE_KEY
     assert stored["locked_at"] is not None
@@ -339,7 +384,7 @@ def test_reconcile_create_v1_inserts_ready_row_for_non_terminal_status():
         "scenario_versions",
         metadata,
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column("simulation_id", sa.Integer(), nullable=False),
+        sa.Column("trial_id", sa.Integer(), nullable=False),
         sa.Column("version_index", sa.Integer(), nullable=False),
         sa.Column("status", sa.String(), nullable=False),
         sa.Column("storyline_md", sa.Text(), nullable=False),
@@ -375,7 +420,7 @@ def test_reconcile_create_v1_inserts_ready_row_for_non_terminal_status():
         stored = conn.execute(sa.select(scenario_versions)).mappings().one()
 
     assert created_id == 1
-    assert stored["simulation_id"] == 8
+    assert stored["trial_id"] == 8
     assert stored["status"] == "ready"
     assert stored["template_key"] == "custom-template"
     assert stored["locked_at"] is None
@@ -392,6 +437,11 @@ def test_reconcile_run_upgrade_delegates_specs_and_unique_constraint(monkeypatch
         "status": 0,
     }
 
+    monkeypatch.setattr(
+        reconcile_upgrade,
+        "resolve_trial_parent_table_name",
+        lambda _bind: "simulations",
+    )
     monkeypatch.setattr(
         reconcile_upgrade,
         "add_column_if_missing",
@@ -430,8 +480,8 @@ def test_reconcile_run_upgrade_delegates_specs_and_unique_constraint(monkeypatch
 
     reconcile_upgrade.run_upgrade(op, bind)
 
-    assert seen["columns"] == len(reconcile_upgrade.COLUMN_SPECS)
-    assert seen["fks"] == len(reconcile_upgrade.FK_SPECS)
+    assert seen["columns"] == len(reconcile_upgrade.build_column_specs("simulations"))
+    assert seen["fks"] == len(reconcile_upgrade.build_fk_specs("simulations"))
     assert seen["indexes"] == len(reconcile_upgrade.INDEX_SPECS)
     assert seen["backfill"] == 1
     assert seen["status"] == 1
@@ -442,6 +492,11 @@ def test_reconcile_run_upgrade_skips_unique_constraint_when_present(monkeypatch)
     op = _RecordingOp()
     bind = object()
 
+    monkeypatch.setattr(
+        reconcile_upgrade,
+        "resolve_trial_parent_table_name",
+        lambda _bind: "trials",
+    )
     monkeypatch.setattr(
         reconcile_upgrade, "add_column_if_missing", lambda *_args, **_kwargs: None
     )

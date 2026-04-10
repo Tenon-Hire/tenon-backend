@@ -19,8 +19,8 @@ from app.media.repositories.transcripts import repository as transcripts_repo
 from app.shared.jobs.handlers import transcribe_recording as handler
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 

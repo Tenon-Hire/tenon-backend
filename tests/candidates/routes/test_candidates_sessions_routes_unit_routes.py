@@ -55,7 +55,7 @@ async def test_candidate_session_rate_limits(monkeypatch):
         claims={},
         permissions=["candidate:access"],
     )
-    simulation = SimpleNamespace(
+    trial = SimpleNamespace(
         id=2,
         title="T",
         role="R",
@@ -70,9 +70,9 @@ async def test_candidate_session_rate_limits(monkeypatch):
         started_at=None,
         completed_at=None,
         candidate_name="Name",
-        simulation=simulation,
+        trial=trial,
         scenario_version=SimpleNamespace(
-            ai_policy_snapshot_json=build_ai_policy_snapshot(simulation=simulation)
+            ai_policy_snapshot_json=build_ai_policy_snapshot(trial=trial)
         ),
     )
 

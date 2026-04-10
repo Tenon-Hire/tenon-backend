@@ -11,7 +11,7 @@ async def test_day_close_enforcement_missing_github_username_retries_and_skips_a
     monkeypatch,
 ):
     (
-        simulation,
+        trial,
         candidate_session,
         _day2_task,
         _cutoff_at,
@@ -26,7 +26,7 @@ async def test_day_close_enforcement_missing_github_username_retries_and_skips_a
         job_type=DAY_CLOSE_ENFORCEMENT_JOB_TYPE,
         idempotency_key=day_close_enforcement_idempotency_key(candidate_session.id, 2),
         payload_json=payload,
-        company_id=simulation.company_id,
+        company_id=trial.company_id,
         candidate_session_id=candidate_session.id,
         max_attempts=2,
         next_run_at=now,

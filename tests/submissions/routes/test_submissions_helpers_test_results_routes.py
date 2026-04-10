@@ -53,7 +53,7 @@ def test_build_test_results_redacts_tokens_and_marks_timeout():
     )
     assert result["status"] == "failed"
     assert result["timeout"] is True
-    assert result["artifactName"] == "tenon-test-results"
+    assert result["artifactName"] == "winoe-test-results"
     assert result["stdoutTruncated"] is True
     assert result["stderrTruncated"] is True
     assert "[redacted" in (result["output"]["stdout"] or "")

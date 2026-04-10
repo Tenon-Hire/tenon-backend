@@ -9,9 +9,11 @@ from tests.candidates.routes.candidates_session_api_utils import *
 async def test_current_task_revalidates_claimed_sub_each_request(
     async_client, async_session, override_dependencies
 ):
-    recruiter = await create_recruiter(async_session, email="claimed-sub@test.com")
-    sim, _ = await create_simulation(async_session, created_by=recruiter)
-    cs = await create_candidate_session(async_session, simulation=sim)
+    talent_partner = await create_talent_partner(
+        async_session, email="claimed-sub@test.com"
+    )
+    sim, _ = await create_trial(async_session, created_by=talent_partner)
+    cs = await create_candidate_session(async_session, trial=sim)
 
     claim = await async_client.post(
         f"/api/candidate/session/{cs.token}/claim",

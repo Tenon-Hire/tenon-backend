@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-PRECOMMIT_MARKER_PREFIX = "tenon-precommit-bundle"
+PRECOMMIT_MARKER_PREFIX = "winoe-precommit-bundle"
 MAX_MARKER_SCAN_COMMITS = 50
 DEFAULT_PRECOMMIT_BRANCH = "main"
 

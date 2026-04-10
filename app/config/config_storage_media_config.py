@@ -16,7 +16,7 @@ class StorageMediaSettings(BaseSettings):
 
     MEDIA_STORAGE_PROVIDER: str = "fake"
     MEDIA_FAKE_BASE_URL: str = "http://localhost:8000/api/recordings/storage/fake"
-    MEDIA_FAKE_ROOT_DIR: str = "/tmp/tenon-ai-media"
+    MEDIA_FAKE_ROOT_DIR: str = "/tmp/winoe-ai-media"
     MEDIA_FAKE_SIGNING_SECRET: str = "fake-storage-secret"
 
     MEDIA_S3_ENDPOINT: str = ""

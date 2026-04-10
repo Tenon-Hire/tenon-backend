@@ -17,7 +17,7 @@ from app.shared.types.shared_types_types_model import CandidateSessionStatus
 
 
 class CandidateInviteRequest(APIModel):
-    """Schema for inviting a candidate to a simulation."""
+    """Schema for inviting a candidate to a trial."""
 
     candidateName: str = Field(..., min_length=1, max_length=255)
     inviteEmail: EmailStr
@@ -50,12 +50,12 @@ class CandidateInviteListItem(APIModel):
     """Dashboard-friendly invite summary for candidates."""
 
     candidateSessionId: int
-    simulationId: int
-    simulationTitle: str
+    trialId: int
+    trialTitle: str
     role: str
     companyName: str | None
-    recruiterName: str | None = None
-    recruiterEmail: str | None = None
+    talentPartnerName: str | None = None
+    talentPartnerEmail: str | None = None
     status: CandidateSessionStatus
     progress: ProgressSummary
     lastActivityAt: datetime | None

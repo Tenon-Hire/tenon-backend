@@ -1,8 +1,8 @@
-"""Aggregated recruiter submissions router."""
+"""Aggregated Talent Partner submissions router."""
 
 from fastapi import APIRouter
 
-from app.shared.auth.shared_auth_roles_utils import ensure_recruiter
+from app.shared.auth.shared_auth_roles_utils import ensure_talent_partner
 from app.submissions.presentation import build_diff_url as _build_diff_url
 from app.submissions.presentation import (
     build_test_results as _build_test_results,
@@ -21,11 +21,13 @@ from app.submissions.routes.submissions_routes_submissions_helpers_routes import
     get_submission_detail,
     list_submissions,
 )
-from app.submissions.services import service_recruiter as recruiter_sub_service
+from app.submissions.services import (
+    service_talent_partner as talent_partner_sub_service,
+)
 
 router = APIRouter()
 router.include_router(submissions_router)
-_derive_test_status = recruiter_sub_service.derive_test_status
+_derive_test_status = talent_partner_sub_service.derive_test_status
 
 
 __all__ = [
@@ -36,8 +38,8 @@ __all__ = [
     "_redact_text",
     "_truncate_output",
     "_derive_test_status",
-    "recruiter_sub_service",
-    "ensure_recruiter",
+    "talent_partner_sub_service",
+    "ensure_talent_partner",
     "get_submission_detail",
     "list_submissions",
 ]

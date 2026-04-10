@@ -7,10 +7,12 @@ from tests.media.services.media_privacy_service_utils import *
 
 @pytest.mark.asyncio
 async def test_purge_expired_media_assets_removes_storage_and_transcript(async_session):
-    recruiter = await create_recruiter(async_session, email="privacy-purge@test.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="privacy-purge@test.com"
+    )
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     task = _handoff_task(tasks)
-    candidate_session = await create_candidate_session(async_session, simulation=sim)
+    candidate_session = await create_candidate_session(async_session, trial=sim)
 
     now = datetime.now(UTC).replace(microsecond=0)
     old_created_at = now - timedelta(days=20)

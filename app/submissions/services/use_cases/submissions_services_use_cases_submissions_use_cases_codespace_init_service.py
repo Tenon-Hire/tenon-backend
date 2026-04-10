@@ -34,8 +34,8 @@ async def _validate_codespace_request_with_legacy_fallback(
         return await validate_codespace_request(db, candidate_session, task_id)
     except HTTPException as exc:
         # Backward-compatible path for legacy/unit harnesses that do not seed
-        # simulation tasks but still monkeypatch task/progress helpers.
-        if exc.status_code != 500 or str(exc.detail) != "Simulation has no tasks":
+        # trial tasks but still monkeypatch task/progress helpers.
+        if exc.status_code != 500 or str(exc.detail) != "Trial has no tasks":
             raise
         task = await submission_service.load_task_or_404(db, task_id)
         submission_service.ensure_task_belongs(task, candidate_session)

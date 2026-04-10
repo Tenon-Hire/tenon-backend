@@ -14,7 +14,7 @@ async def test_protected_post_without_origin_allows_matching_referer(monkeypatch
         response = await client.post(
             "/api/demo",
             headers={
-                "Referer": "https://frontend.tenon.ai/dashboard",
+                "Referer": "https://frontend.winoe.ai/dashboard",
                 "Cookie": "session=abc",
             },
         )

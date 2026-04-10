@@ -16,11 +16,11 @@ from app.evaluations.services.evaluations_services_evaluations_evaluator_models_
     DayEvaluationResult,
     EvaluationInputBundle,
     EvaluationResult,
-    FitProfileEvaluator,
+    WinoeReportEvaluator,
 )
 from app.evaluations.services.evaluations_services_evaluations_evaluator_runtime_service import (
-    DeterministicFitProfileEvaluator,
-    get_fit_profile_evaluator,
+    DeterministicWinoeReportEvaluator,
+    get_winoe_report_evaluator,
 )
 from app.evaluations.services.evaluations_services_evaluations_evaluator_scoring_service import (
     _recommendation_from_score,
@@ -30,11 +30,11 @@ from app.evaluations.services.evaluations_services_evaluations_evaluator_scoring
 __all__ = [
     "DayEvaluationInput",
     "DayEvaluationResult",
-    "DeterministicFitProfileEvaluator",
+    "DeterministicWinoeReportEvaluator",
     "EvaluationInputBundle",
     "EvaluationResult",
-    "FitProfileEvaluator",
-    "get_fit_profile_evaluator",
+    "WinoeReportEvaluator",
+    "get_winoe_report_evaluator",
     "_build_day_evidence",
     "_recommendation_from_score",
     "_safe_int",

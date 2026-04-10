@@ -7,7 +7,7 @@ from sqlalchemy import select
 from app.shared.database.shared_database_models_model import (
     CandidateDayAudit,
     CandidateSession,
-    Simulation,
+    Trial,
     Workspace,
     WorkspaceGroup,
 )
@@ -25,25 +25,25 @@ async def _list_company_cleanup_targets(
 ) -> list[_WorkspaceCleanupTarget]:
     grouped_rows = (
         await db.execute(
-            select(WorkspaceGroup, CandidateSession, Simulation)
+            select(WorkspaceGroup, CandidateSession, Trial)
             .join(
                 CandidateSession,
                 CandidateSession.id == WorkspaceGroup.candidate_session_id,
             )
-            .join(Simulation, Simulation.id == CandidateSession.simulation_id)
-            .where(Simulation.company_id == company_id)
+            .join(Trial, Trial.id == CandidateSession.trial_id)
+            .where(Trial.company_id == company_id)
             .order_by(WorkspaceGroup.created_at.asc(), WorkspaceGroup.id.asc())
         )
     ).all()
     legacy_rows = (
         await db.execute(
-            select(Workspace, CandidateSession, Simulation)
+            select(Workspace, CandidateSession, Trial)
             .join(
                 CandidateSession, CandidateSession.id == Workspace.candidate_session_id
             )
-            .join(Simulation, Simulation.id == CandidateSession.simulation_id)
+            .join(Trial, Trial.id == CandidateSession.trial_id)
             .where(
-                Simulation.company_id == company_id,
+                Trial.company_id == company_id,
                 Workspace.workspace_group_id.is_(None),
             )
             .order_by(Workspace.created_at.asc(), Workspace.id.asc())
@@ -52,7 +52,7 @@ async def _list_company_cleanup_targets(
 
     targets: list[_WorkspaceCleanupTarget] = []
     seen_repo_keys: set[tuple[int, str]] = set()
-    for record, candidate_session, simulation in [*grouped_rows, *legacy_rows]:
+    for record, candidate_session, trial in [*grouped_rows, *legacy_rows]:
         fallback_prefix = (
             "workspace_group" if isinstance(record, WorkspaceGroup) else "workspace"
         )
@@ -68,7 +68,7 @@ async def _list_company_cleanup_targets(
             _WorkspaceCleanupTarget(
                 record=record,
                 candidate_session=candidate_session,
-                simulation=simulation,
+                trial=trial,
             )
         )
 

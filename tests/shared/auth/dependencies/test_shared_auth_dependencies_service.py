@@ -7,12 +7,12 @@ from tests.shared.auth.dependencies.shared_auth_dependencies_utils import (
     ctx_maker,
     make_request,
 )
-from tests.shared.factories import create_recruiter
+from tests.shared.factories import create_talent_partner
 
 
 @pytest.mark.asyncio
 async def test_dev_bypass_allows_local_requests(async_session, monkeypatch):
-    user = await create_recruiter(async_session, email="dev@local.test")
+    user = await create_talent_partner(async_session, email="dev@local.test")
     monkeypatch.setattr(dependencies, "_env_name", lambda: "local")
     result = await dependencies._dev_bypass_user(
         make_request({"x-dev-user-email": user.email}), async_session
@@ -22,7 +22,7 @@ async def test_dev_bypass_allows_local_requests(async_session, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_dev_bypass_rejects_non_localhost(async_session, monkeypatch):
-    user = await create_recruiter(async_session, email="remote@local.test")
+    user = await create_talent_partner(async_session, email="remote@local.test")
     monkeypatch.setattr(dependencies, "_env_name", lambda: "local")
     with pytest.raises(Exception) as excinfo:
         await dependencies._dev_bypass_user(

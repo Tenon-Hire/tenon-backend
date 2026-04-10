@@ -21,12 +21,12 @@ async def test_require_candidate_principal_allows_candidate():
 @pytest.mark.asyncio
 async def test_require_candidate_principal_rejects_missing_permission():
     principal = Principal(
-        sub="auth0|recruiter1",
-        email="recruiter@example.com",
-        name="recruiter",
+        sub="auth0|talent_partner1",
+        email="talent_partner@example.com",
+        name="talent_partner",
         roles=[],
-        permissions=["recruiter:access"],
-        claims={"sub": "auth0|recruiter1", "email": "recruiter@example.com"},
+        permissions=["talent_partner:access"],
+        claims={"sub": "auth0|talent_partner1", "email": "talent_partner@example.com"},
     )
     with pytest.raises(Exception) as excinfo:
         await candidate_access.require_candidate_principal(principal)

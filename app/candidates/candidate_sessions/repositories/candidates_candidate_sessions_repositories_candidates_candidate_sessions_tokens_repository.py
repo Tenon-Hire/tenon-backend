@@ -8,29 +8,29 @@ from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.sql import Select
 
 from app.shared.database.shared_database_models_model import CandidateSession
-from app.simulations.repositories.simulations_repositories_simulations_simulation_model import (
-    SIMULATION_STATUS_TERMINATED,
-    Simulation,
+from app.trials.repositories.trials_repositories_trials_trial_model import (
+    TRIAL_STATUS_TERMINATED,
+    Trial,
 )
 
 
-def _not_terminated_simulation_clause():
+def _not_terminated_trial_clause():
     return or_(
-        Simulation.status.is_(None),
-        Simulation.status != SIMULATION_STATUS_TERMINATED,
+        Trial.status.is_(None),
+        Trial.status != TRIAL_STATUS_TERMINATED,
     )
 
 
 def _build_get_by_token_stmt(token: str) -> Select:
     return (
         select(CandidateSession)
-        .join(CandidateSession.simulation)
+        .join(CandidateSession.trial)
         .where(
             CandidateSession.token == token,
-            _not_terminated_simulation_clause(),
+            _not_terminated_trial_clause(),
         )
         .options(
-            joinedload(CandidateSession.simulation),
+            joinedload(CandidateSession.trial),
             joinedload(CandidateSession.scenario_version),
         )
     )
@@ -62,14 +62,12 @@ async def list_for_email(
     """Return for email."""
     stmt = (
         select(CandidateSession)
-        .join(Simulation, Simulation.id == CandidateSession.simulation_id)
+        .join(Trial, Trial.id == CandidateSession.trial_id)
         .where(func.lower(CandidateSession.invite_email) == func.lower(email))
-        .options(
-            selectinload(CandidateSession.simulation).selectinload(Simulation.company)
-        )
+        .options(selectinload(CandidateSession.trial).selectinload(Trial.company))
     )
     if not include_terminated:
-        stmt = stmt.where(_not_terminated_simulation_clause())
+        stmt = stmt.where(_not_terminated_trial_clause())
     res = await db.execute(stmt)
     return list(res.scalars().unique().all())
 

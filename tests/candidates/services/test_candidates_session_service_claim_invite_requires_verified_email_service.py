@@ -7,9 +7,11 @@ from tests.candidates.services.candidates_session_service_utils import *
 
 @pytest.mark.asyncio
 async def test_claim_invite_requires_verified_email(async_session):
-    recruiter = await create_recruiter(async_session, email="verify-req@sim.com")
-    sim, _ = await create_simulation(async_session, created_by=recruiter)
-    cs = await create_candidate_session(async_session, simulation=sim)
+    talent_partner = await create_talent_partner(
+        async_session, email="verify-req@sim.com"
+    )
+    sim, _ = await create_trial(async_session, created_by=talent_partner)
+    cs = await create_candidate_session(async_session, trial=sim)
     principal = _principal(cs.invite_email, email_verified=False)
 
     with pytest.raises(HTTPException) as excinfo:

@@ -14,8 +14,8 @@ from app.notifications.services.notifications_services_notifications_schedule_se
 )
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 
@@ -30,27 +30,27 @@ async def test_send_schedule_confirmation_emails_incomplete_schedule(async_sessi
         invite_email="candidate@test.com",
         candidate_name="Candidate",
     )
-    simulation = SimpleNamespace(
-        title="Simulation",
+    trial = SimpleNamespace(
+        title="Trial",
         role="Backend",
         day_window_start_local=time(hour=9, minute=0),
         day_window_end_local=time(hour=17, minute=0),
         created_by=None,
     )
 
-    candidate_result, recruiter_result = await send_schedule_confirmation_emails(
+    candidate_result, talent_partner_result = await send_schedule_confirmation_emails(
         async_session,
         candidate_session=candidate_session,
-        simulation=simulation,
+        trial=trial,
         email_service=email_service,
     )
     assert candidate_result.status == "failed"
-    assert recruiter_result is None
+    assert talent_partner_result is None
     assert provider.sent == []
 
 
 @pytest.mark.asyncio
-async def test_send_schedule_confirmation_emails_without_recruiter(async_session):
+async def test_send_schedule_confirmation_emails_without_talent_partner(async_session):
     provider = MemoryEmailProvider()
     email_service = EmailService(provider, sender="noreply@test.com")
     candidate_session = SimpleNamespace(
@@ -60,33 +60,37 @@ async def test_send_schedule_confirmation_emails_without_recruiter(async_session
         invite_email="candidate@test.com",
         candidate_name="Candidate",
     )
-    simulation = SimpleNamespace(
-        title="Simulation",
+    trial = SimpleNamespace(
+        title="Trial",
         role="Backend",
         day_window_start_local=time(hour=9, minute=0),
         day_window_end_local=time(hour=17, minute=0),
         created_by=None,
     )
 
-    candidate_result, recruiter_result = await send_schedule_confirmation_emails(
+    candidate_result, talent_partner_result = await send_schedule_confirmation_emails(
         async_session,
         candidate_session=candidate_session,
-        simulation=simulation,
+        trial=trial,
         email_service=email_service,
     )
     assert candidate_result.status == "sent"
-    assert recruiter_result is None
+    assert talent_partner_result is None
     assert len(provider.sent) == 1
     assert provider.sent[0].to == "candidate@test.com"
 
 
 @pytest.mark.asyncio
-async def test_send_schedule_confirmation_emails_candidate_and_recruiter(async_session):
-    recruiter = await create_recruiter(async_session, email="recruiter-sched@test.com")
-    simulation, _tasks = await create_simulation(async_session, created_by=recruiter)
+async def test_send_schedule_confirmation_emails_candidate_and_talent_partner(
+    async_session,
+):
+    talent_partner = await create_talent_partner(
+        async_session, email="talent_partner-sched@test.com"
+    )
+    trial, _tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         invite_email="candidate-sched@test.com",
         candidate_email="candidate-sched@test.com",
     )
@@ -97,17 +101,17 @@ async def test_send_schedule_confirmation_emails_candidate_and_recruiter(async_s
     provider = MemoryEmailProvider()
     email_service = EmailService(provider, sender="noreply@test.com")
 
-    candidate_result, recruiter_result = await send_schedule_confirmation_emails(
+    candidate_result, talent_partner_result = await send_schedule_confirmation_emails(
         async_session,
         candidate_session=candidate_session,
-        simulation=simulation,
+        trial=trial,
         email_service=email_service,
         correlation_id="req-123",
     )
     assert candidate_result.status == "sent"
-    assert recruiter_result is not None
-    assert recruiter_result.status == "sent"
+    assert talent_partner_result is not None
+    assert talent_partner_result.status == "sent"
     assert len(provider.sent) == 2
     recipients = {message.to for message in provider.sent}
     assert "candidate-sched@test.com" in recipients
-    assert "recruiter-sched@test.com" in recipients
+    assert "talent_partner-sched@test.com" in recipients

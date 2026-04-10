@@ -72,7 +72,7 @@ async def schedule_candidate_session_impl(
         raise
     changed = require_claimed_ownership(candidate_session, principal)
     schedule_created = False
-    simulation_for_email = None
+    trial_for_email = None
     if getattr(candidate_session, "schedule_locked_at", None) is not None:
         changed = (
             await backfill_locked_schedule(
@@ -85,7 +85,7 @@ async def schedule_candidate_session_impl(
         )
     else:
         try:
-            simulation_for_email = await set_new_schedule(
+            trial_for_email = await set_new_schedule(
                 db,
                 candidate_session=candidate_session,
                 scheduled_start_at_utc=scheduled_start_at_utc,
@@ -115,7 +115,7 @@ async def schedule_candidate_session_impl(
             await send_schedule_confirmation_emails(
                 db,
                 candidate_session=candidate_session,
-                simulation=simulation_for_email,
+                trial=trial_for_email,
                 email_service=email_service,
                 correlation_id=correlation_id,
             )

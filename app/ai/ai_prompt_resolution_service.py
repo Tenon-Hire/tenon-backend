@@ -1,4 +1,4 @@
-"""Prompt resolution helpers for system, company, simulation, and run context layers."""
+"""Prompt resolution helpers for system, company, trial, and run context layers."""
 
 from __future__ import annotations
 
@@ -30,10 +30,10 @@ def resolve_prompt_layers(
     base_instructions_md: str,
     base_rubric_md: str,
     company_overrides_json: Mapping[str, Any] | None = None,
-    simulation_overrides_json: Mapping[str, Any] | None = None,
+    trial_overrides_json: Mapping[str, Any] | None = None,
     run_context_md: str | None = None,
 ) -> tuple[str, str]:
-    """Resolve system base -> company -> simulation -> run context prompt order."""
+    """Resolve system base -> company -> trial -> run context prompt order."""
     sections: list[str] = []
     rubric_sections: list[str] = []
 
@@ -48,14 +48,14 @@ def resolve_prompt_layers(
         company_overrides_json,
         key=key,
     )
-    simulation_instructions, simulation_rubric = _read_override_markdown(
-        simulation_overrides_json,
+    trial_instructions, trial_rubric = _read_override_markdown(
+        trial_overrides_json,
         key=key,
     )
     _append(sections, "Company Override", company_instructions)
     _append(rubric_sections, "Company Override", company_rubric)
-    _append(sections, "Simulation Override", simulation_instructions)
-    _append(rubric_sections, "Simulation Override", simulation_rubric)
+    _append(sections, "Trial Override", trial_instructions)
+    _append(rubric_sections, "Trial Override", trial_rubric)
     _append(sections, "Run Context", run_context_md)
 
     return "\n\n".join(sections).strip(), "\n\n".join(rubric_sections).strip()
@@ -67,7 +67,7 @@ def append_run_context_to_resolved_prompt(
     resolved_rubric_md: str,
     run_context_md: str | None = None,
 ) -> tuple[str, str]:
-    """Append run context onto already-resolved base/company/simulation prompt text."""
+    """Append run context onto already-resolved base/company/trial prompt text."""
     sections = [resolved_instructions_md.strip()]
     rubric_sections = [resolved_rubric_md.strip()] if resolved_rubric_md.strip() else []
     if isinstance(run_context_md, str) and run_context_md.strip():

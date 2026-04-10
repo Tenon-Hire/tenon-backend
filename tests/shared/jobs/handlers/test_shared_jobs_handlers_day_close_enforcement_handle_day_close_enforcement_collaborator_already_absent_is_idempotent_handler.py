@@ -11,7 +11,7 @@ async def test_handle_day_close_enforcement_collaborator_already_absent_is_idemp
     monkeypatch,
 ):
     (
-        _simulation,
+        _trial,
         candidate_session,
         _day2_task,
         _cutoff_at,

@@ -5,8 +5,8 @@ from tests.shared.middleware.shared_http_csrf_cors_hardening_test_utils import *
 
 def test_csrf_helpers_cover_edge_cases(monkeypatch):
     assert middleware_http._coerce_string_list(object()) == []
-    assert middleware_http._coerce_string_list(" https://frontend.tenon.ai ") == [
-        "https://frontend.tenon.ai"
+    assert middleware_http._coerce_string_list(" https://frontend.winoe.ai ") == [
+        "https://frontend.winoe.ai"
     ]
     assert middleware_http._normalize_path_prefix("api/backend/") == "/api/backend"
     assert middleware_http._normalize_path_prefix("/") == "/"

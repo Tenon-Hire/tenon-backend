@@ -50,8 +50,8 @@ async def _window_gate_or_reschedule(
             "dayIndex": task.day_index,
         }
     if now < window_end_at:
-        simulation = candidate_session.simulation
-        company_id = getattr(simulation, "company_id", None)
+        trial = candidate_session.trial
+        company_id = getattr(trial, "company_id", None)
         if company_id is None:
             raise RuntimeError("company_id required to reschedule")
         payload = build_day_close_finalize_text_payload(

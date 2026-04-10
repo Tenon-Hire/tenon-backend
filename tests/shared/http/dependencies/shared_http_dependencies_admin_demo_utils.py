@@ -18,7 +18,7 @@ def principal(
         email=email,
         name="admin",
         roles=roles or [],
-        permissions=["recruiter:access"],
+        permissions=["talent_partner:access"],
         claims=payload,
     )
 
@@ -53,11 +53,11 @@ def patch_demo_settings(
     demo_mode: bool = True,
     emails=None,
     subjects=None,
-    recruiter_ids=None,
+    talent_partner_ids=None,
 ):
     monkeypatch.setattr(settings, "DEMO_MODE", demo_mode)
     monkeypatch.setattr(settings, "DEMO_ADMIN_ALLOWLIST_EMAILS", emails or [])
     monkeypatch.setattr(settings, "DEMO_ADMIN_ALLOWLIST_SUBJECTS", subjects or [])
     monkeypatch.setattr(
-        settings, "DEMO_ADMIN_ALLOWLIST_RECRUITER_IDS", recruiter_ids or []
+        settings, "DEMO_ADMIN_ALLOWLIST_TALENT_PARTNER_IDS", talent_partner_ids or []
     )

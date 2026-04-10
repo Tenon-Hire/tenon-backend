@@ -23,7 +23,7 @@ from app.notifications.services.notifications_services_notifications_invite_time
 )
 from app.shared.database.shared_database_models_model import (
     CandidateSession,
-    Simulation,
+    Trial,
 )
 
 
@@ -31,7 +31,7 @@ async def send_invite_email(
     db: AsyncSession,
     *,
     candidate_session: CandidateSession,
-    simulation: Simulation,
+    trial: Trial,
     invite_url: str,
     email_service: EmailService,
     now: datetime | None = None,
@@ -44,7 +44,7 @@ async def send_invite_email(
     result = await dispatch_invite_email(
         email_service,
         candidate_session=candidate_session,
-        simulation=simulation,
+        trial=trial,
         invite_url=invite_url,
     )
     return await record_send_result(db, candidate_session, resolved_now, result)

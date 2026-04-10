@@ -11,7 +11,7 @@ async def test_handle_day_close_enforcement_persists_cutoff_and_revokes_collabor
     monkeypatch,
 ):
     (
-        _simulation,
+        _trial,
         candidate_session,
         day2_task,
         cutoff_at,

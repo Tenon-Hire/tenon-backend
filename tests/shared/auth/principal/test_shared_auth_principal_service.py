@@ -25,56 +25,56 @@ def test_extract_principal_missing_email_claim_config(monkeypatch):
 
 
 def test_permissions_from_namespaced_claim(monkeypatch):
-    monkeypatch.setattr(settings.auth, "AUTH0_EMAIL_CLAIM", "https://tenon.ai/email")
+    monkeypatch.setattr(settings.auth, "AUTH0_EMAIL_CLAIM", "https://winoe.ai/email")
     monkeypatch.setattr(
-        settings.auth, "AUTH0_PERMISSIONS_CLAIM", "https://tenon.ai/permissions"
+        settings.auth, "AUTH0_PERMISSIONS_CLAIM", "https://winoe.ai/permissions"
     )
     claims = {
         "sub": "auth0|abc",
-        "https://tenon.ai/email": "jane@example.com",
-        "https://tenon.ai/permissions": ["candidate:access"],
+        "https://winoe.ai/email": "jane@example.com",
+        "https://winoe.ai/permissions": ["candidate:access"],
     }
     p = principal._extract_principal(claims)  # type: ignore[attr-defined]
     assert "candidate:access" in p.permissions
 
 
 def test_permissions_from_namespaced_string_claim(monkeypatch):
-    monkeypatch.setattr(settings.auth, "AUTH0_EMAIL_CLAIM", "https://tenon.ai/email")
+    monkeypatch.setattr(settings.auth, "AUTH0_EMAIL_CLAIM", "https://winoe.ai/email")
     claims = {
         "sub": "auth0|abc",
-        "https://tenon.ai/email": "jane@example.com",
-        "https://tenon.ai/permissions_str": "candidate:access recruiter:access",
+        "https://winoe.ai/email": "jane@example.com",
+        "https://winoe.ai/permissions_str": "candidate:access talent_partner:access",
     }
     p = principal._extract_principal(claims)  # type: ignore[attr-defined]
     assert "candidate:access" in p.permissions
-    assert "recruiter:access" in p.permissions
+    assert "talent_partner:access" in p.permissions
 
 
 def test_permissions_from_roles_mapping(monkeypatch):
-    monkeypatch.setattr(settings.auth, "AUTH0_EMAIL_CLAIM", "https://tenon.ai/email")
-    monkeypatch.setattr(settings.auth, "AUTH0_ROLES_CLAIM", "https://tenon.ai/roles")
+    monkeypatch.setattr(settings.auth, "AUTH0_EMAIL_CLAIM", "https://winoe.ai/email")
+    monkeypatch.setattr(settings.auth, "AUTH0_ROLES_CLAIM", "https://winoe.ai/roles")
     claims = {
         "sub": "auth0|abc",
-        "https://tenon.ai/email": "recruiter@example.com",
-        "https://tenon.ai/roles": ["senior-recruiter"],
+        "https://winoe.ai/email": "talent_partner@example.com",
+        "https://winoe.ai/roles": ["senior-talent_partner"],
     }
     p = principal._extract_principal(claims)  # type: ignore[attr-defined]
-    assert "recruiter:access" in p.permissions
+    assert "talent_partner:access" in p.permissions
 
 
 def test_extract_principal_supports_url_claim_keys(monkeypatch):
-    monkeypatch.setattr(settings.auth, "AUTH0_EMAIL_CLAIM", "https://tenon.ai/email")
+    monkeypatch.setattr(settings.auth, "AUTH0_EMAIL_CLAIM", "https://winoe.ai/email")
     monkeypatch.setattr(
-        settings.auth, "AUTH0_PERMISSIONS_CLAIM", "https://tenon.ai/permissions"
+        settings.auth, "AUTH0_PERMISSIONS_CLAIM", "https://winoe.ai/permissions"
     )
     claims = {
-        "sub": "auth0|tenon123",
-        "https://tenon.ai/email": "x@y.com",
-        "https://tenon.ai/permissions": ["recruiter:access"],
+        "sub": "auth0|winoe123",
+        "https://winoe.ai/email": "x@y.com",
+        "https://winoe.ai/permissions": ["talent_partner:access"],
     }
     p = principal._extract_principal(claims)  # type: ignore[attr-defined]
     assert p.email == "x@y.com"
-    assert "recruiter:access" in p.permissions
+    assert "talent_partner:access" in p.permissions
 
 
 @pytest.mark.asyncio

@@ -9,13 +9,13 @@ from tests.candidates.routes.candidates_schedule_gates_api_utils import *
 async def test_submit_invalid_schedule_returns_schedule_invalid_window(
     async_client, async_session, candidate_header_factory
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="submit-invalid-window@test.com"
     )
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         with_default_schedule=False,
     )
     candidate_session.scheduled_start_at = datetime.now(UTC) - timedelta(days=1)

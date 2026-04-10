@@ -90,7 +90,7 @@ class EvaluationRun(Base):
     rubric_version: Mapped[str] = mapped_column(String(255), nullable=False)
     job_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     basis_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    overall_fit_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    overall_winoe_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     recommendation: Mapped[str | None] = mapped_column(String(32), nullable=True)
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     generated_at: Mapped[datetime | None] = mapped_column(

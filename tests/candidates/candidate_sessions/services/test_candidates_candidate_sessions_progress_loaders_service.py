@@ -41,7 +41,7 @@ async def test_load_tasks_with_completion_state_skips_none_submission_ids():
 
     tasks, completed_ids = await progress_loaders.load_tasks_with_completion_state(
         db,
-        simulation_id=123,
+        trial_id=123,
         candidate_session_id=456,
     )
 

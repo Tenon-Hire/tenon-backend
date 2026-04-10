@@ -11,16 +11,16 @@ import app.shared.jobs.handlers.shared_jobs_handlers_evaluation_run_handler as e
 import app.shared.jobs.handlers.shared_jobs_handlers_github_workflow_artifact_parse_handler as github_workflow_artifact_parse
 import app.shared.jobs.handlers.shared_jobs_handlers_github_workflow_artifact_parse_payload_handler as github_workflow_artifact_parse_payload
 import app.shared.jobs.handlers.shared_jobs_handlers_github_workflow_artifact_parse_persist_handler as github_workflow_artifact_parse_persist
-import app.shared.jobs.handlers.shared_jobs_handlers_notifications_recruiter_updates_handler as notifications_recruiter_updates
+import app.shared.jobs.handlers.shared_jobs_handlers_notifications_talent_partner_updates_handler as notifications_talent_partner_updates
 import app.shared.jobs.handlers.shared_jobs_handlers_scenario_generation_handler as scenario_generation
 import app.shared.jobs.handlers.shared_jobs_handlers_scenario_generation_parse_handler as scenario_generation_parse
 import app.shared.jobs.handlers.shared_jobs_handlers_scenario_generation_paths_handler as scenario_generation_paths
 import app.shared.jobs.handlers.shared_jobs_handlers_scenario_generation_runtime_handler as scenario_generation_runtime
-import app.shared.jobs.handlers.shared_jobs_handlers_simulation_cleanup_handler as simulation_cleanup
 import app.shared.jobs.handlers.shared_jobs_handlers_transcribe_recording_handler as transcribe_recording
 import app.shared.jobs.handlers.shared_jobs_handlers_transcribe_recording_helpers_handler as transcribe_recording_helpers
 import app.shared.jobs.handlers.shared_jobs_handlers_transcribe_recording_runtime_handler as transcribe_recording_runtime
 import app.shared.jobs.handlers.shared_jobs_handlers_transcribe_recording_state_handler as transcribe_recording_state
+import app.shared.jobs.handlers.shared_jobs_handlers_trial_cleanup_handler as trial_cleanup
 import app.shared.jobs.handlers.shared_jobs_handlers_workspace_cleanup_handler as workspace_cleanup
 import app.shared.jobs.handlers.shared_jobs_handlers_workspace_cleanup_processing_handler as workspace_cleanup_processing
 import app.shared.jobs.handlers.shared_jobs_handlers_workspace_cleanup_processing_status_handler as workspace_cleanup_processing_status
@@ -50,23 +50,23 @@ from app.shared.jobs.handlers.shared_jobs_handlers_github_workflow_artifact_pars
     GITHUB_WORKFLOW_ARTIFACT_PARSE_JOB_TYPE,
     handle_github_workflow_artifact_parse,
 )
-from app.shared.jobs.handlers.shared_jobs_handlers_notifications_recruiter_updates_handler import (
+from app.shared.jobs.handlers.shared_jobs_handlers_notifications_talent_partner_updates_handler import (
     CANDIDATE_COMPLETED_NOTIFICATION_JOB_TYPE,
-    FIT_PROFILE_READY_NOTIFICATION_JOB_TYPE,
+    WINOE_REPORT_READY_NOTIFICATION_JOB_TYPE,
     handle_candidate_completed_notification,
-    handle_fit_profile_ready_notification,
+    handle_winoe_report_ready_notification,
 )
 from app.shared.jobs.handlers.shared_jobs_handlers_scenario_generation_handler import (
     SCENARIO_GENERATION_JOB_TYPE,
     handle_scenario_generation,
 )
-from app.shared.jobs.handlers.shared_jobs_handlers_simulation_cleanup_handler import (
-    SIMULATION_CLEANUP_JOB_TYPE,
-    handle_simulation_cleanup,
-)
 from app.shared.jobs.handlers.shared_jobs_handlers_transcribe_recording_handler import (
     TRANSCRIBE_RECORDING_JOB_TYPE,
     handle_transcribe_recording,
+)
+from app.shared.jobs.handlers.shared_jobs_handlers_trial_cleanup_handler import (
+    TRIAL_CLEANUP_JOB_TYPE,
+    handle_trial_cleanup,
 )
 from app.shared.jobs.handlers.shared_jobs_handlers_workspace_cleanup_handler import (
     WORKSPACE_CLEANUP_JOB_TYPE,
@@ -85,11 +85,11 @@ __all__ = [
     "GITHUB_WORKFLOW_ARTIFACT_PARSE_JOB_TYPE",
     "handle_github_workflow_artifact_parse",
     "CANDIDATE_COMPLETED_NOTIFICATION_JOB_TYPE",
-    "FIT_PROFILE_READY_NOTIFICATION_JOB_TYPE",
+    "WINOE_REPORT_READY_NOTIFICATION_JOB_TYPE",
     "handle_candidate_completed_notification",
-    "handle_fit_profile_ready_notification",
-    "SIMULATION_CLEANUP_JOB_TYPE",
-    "handle_simulation_cleanup",
+    "handle_winoe_report_ready_notification",
+    "TRIAL_CLEANUP_JOB_TYPE",
+    "handle_trial_cleanup",
     "SCENARIO_GENERATION_JOB_TYPE",
     "handle_scenario_generation",
     "TRANSCRIBE_RECORDING_JOB_TYPE",
@@ -109,12 +109,12 @@ __all__ = [
     "github_workflow_artifact_parse",
     "github_workflow_artifact_parse_payload",
     "github_workflow_artifact_parse_persist",
-    "notifications_recruiter_updates",
+    "notifications_talent_partner_updates",
     "scenario_generation",
     "scenario_generation_parse",
     "scenario_generation_paths",
     "scenario_generation_runtime",
-    "simulation_cleanup",
+    "trial_cleanup",
     "transcribe_recording",
     "transcribe_recording_helpers",
     "transcribe_recording_runtime",

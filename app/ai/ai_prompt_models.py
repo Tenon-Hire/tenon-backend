@@ -1,4 +1,4 @@
-"""Prompt override models shared across AI-backed Tenon features."""
+"""Prompt override models shared across AI-backed Winoe features."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ AI_PROMPT_OVERRIDE_KEYS = (
     "day23",
     "day4",
     "day5",
-    "fitProfile",
+    "winoeReport",
 )
 AI_AGENT_KEYS = AI_PROMPT_OVERRIDE_KEYS
 _MAX_OVERRIDE_MARKDOWN_CHARS = 40_000
@@ -48,7 +48,7 @@ class AgentPromptOverride(BaseModel):
 
 
 class PromptOverrideSet(BaseModel):
-    """Fixed-key override container persisted on companies and simulations."""
+    """Fixed-key override container persisted on companies and trials."""
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
@@ -58,13 +58,13 @@ class PromptOverrideSet(BaseModel):
     day23: AgentPromptOverride | None = None
     day4: AgentPromptOverride | None = None
     day5: AgentPromptOverride | None = None
-    fit_profile: AgentPromptOverride | None = Field(default=None, alias="fitProfile")
+    winoe_report: AgentPromptOverride | None = Field(default=None, alias="winoeReport")
 
     @model_serializer(mode="plain")
     def _serialize(self) -> dict[str, dict[str, str]]:
         data: dict[str, dict[str, str]] = {}
         for key in AI_PROMPT_OVERRIDE_KEYS:
-            field_name = "fit_profile" if key == "fitProfile" else key
+            field_name = "winoe_report" if key == "winoeReport" else key
             value = getattr(self, field_name, None)
             if value is not None:
                 data[key] = value.model_dump(by_alias=True, exclude_none=True)
@@ -105,7 +105,7 @@ def merge_prompt_override_payloads(
     merged = normalize_prompt_override_payload(fallback) or {}
     fields_set = getattr(incoming_model, "model_fields_set", set()) or set()
     for field_name in fields_set:
-        key = "fitProfile" if field_name == "fit_profile" else field_name
+        key = "winoeReport" if field_name == "winoe_report" else field_name
         value = getattr(incoming_model, field_name)
         if value is None:
             merged.pop(key, None)

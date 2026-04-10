@@ -14,12 +14,12 @@ async def test_preflight_allowed_origin_succeeds(monkeypatch):
         response = await client.options(
             "/api/demo",
             headers={
-                "Origin": "https://frontend.tenon.ai",
+                "Origin": "https://frontend.winoe.ai",
                 "Access-Control-Request-Method": "POST",
             },
         )
 
     assert response.status_code == 200
     assert (
-        response.headers["access-control-allow-origin"] == "https://frontend.tenon.ai"
+        response.headers["access-control-allow-origin"] == "https://frontend.winoe.ai"
     )

@@ -1,60 +1,60 @@
-diff --git a/app/api/routers/simulations_routes/create.py b/app/api/routers/simulations_routes/create.py
+diff --git a/app/api/routers/trials_routes/create.py b/app/api/routers/trials_routes/create.py
 index 3f65fec..6982eec 100644
---- a/app/api/routers/simulations_routes/create.py
-+++ b/app/api/routers/simulations_routes/create.py
-@@ -14,6 +14,9 @@ from app.domains.simulations.schemas import (
-     SimulationCreate,
-     SimulationCreateResponse,
+--- a/app/api/routers/trials_routes/create.py
++++ b/app/api/routers/trials_routes/create.py
+@@ -14,6 +14,9 @@ from app.domains.trials.schemas import (
+     TrialCreate,
+     TrialCreateResponse,
      TaskOut,
-+    build_simulation_ai_config,
-+    build_simulation_company_context,
++    build_trial_ai_config,
++    build_trial_company_context,
 +    normalize_role_level,
  )
  
- router = APIRouter(prefix="/simulations")
-@@ -38,8 +41,16 @@ async def create_simulation(
+ router = APIRouter(prefix="/trials")
+@@ -38,8 +41,16 @@ async def create_trial(
          title=sim.title,
          role=sim.role,
          techStack=sim.tech_stack,
 -        seniority=sim.seniority,
 +        seniority=normalize_role_level(sim.seniority) or sim.seniority,
          focus=sim.focus,
-+        companyContext=build_simulation_company_context(
++        companyContext=build_trial_company_context(
 +            getattr(sim, "company_context", None)
 +        ),
-+        ai=build_simulation_ai_config(
++        ai=build_trial_ai_config(
 +            notice_version=getattr(sim, "ai_notice_version", None),
 +            notice_text=getattr(sim, "ai_notice_text", None),
 +            eval_enabled_by_day=getattr(sim, "ai_eval_enabled_by_day", None),
 +        ),
          templateKey=sim.template_key,
-         status=sim_service.normalize_simulation_status_or_raise(raw_status),
+         status=sim_service.normalize_trial_status_or_raise(raw_status),
          generatingAt=getattr(sim, "generating_at", None),
-diff --git a/app/api/routers/simulations_routes/detail_render.py b/app/api/routers/simulations_routes/detail_render.py
+diff --git a/app/api/routers/trials_routes/detail_render.py b/app/api/routers/trials_routes/detail_render.py
 index 58898aa..b7ecdc2 100644
---- a/app/api/routers/simulations_routes/detail_render.py
-+++ b/app/api/routers/simulations_routes/detail_render.py
-@@ -5,6 +5,9 @@ from app.domains.simulations.schemas import (
+--- a/app/api/routers/trials_routes/detail_render.py
++++ b/app/api/routers/trials_routes/detail_render.py
+@@ -5,6 +5,9 @@ from app.domains.trials.schemas import (
      ScenarioVersionSummary,
-     SimulationDetailResponse,
-     SimulationDetailTask,
-+    build_simulation_ai_config,
-+    build_simulation_company_context,
+     TrialDetailResponse,
+     TrialDetailTask,
++    build_trial_ai_config,
++    build_trial_company_context,
 +    normalize_role_level,
  )
  
  
-@@ -16,8 +19,17 @@ def render_simulation_detail(sim, tasks) -> SimulationDetailResponse:
+@@ -16,8 +19,17 @@ def render_trial_detail(sim, tasks) -> TrialDetailResponse:
          title=sim.title,
          templateKey=sim.template_key,
          role=sim.role,
 +        seniority=normalize_role_level(getattr(sim, "seniority", None)),
          techStack=sim.tech_stack,
          focus=sim.focus,
-+        companyContext=build_simulation_company_context(
++        companyContext=build_trial_company_context(
 +            getattr(sim, "company_context", None)
 +        ),
-+        ai=build_simulation_ai_config(
++        ai=build_trial_ai_config(
 +            notice_version=getattr(sim, "ai_notice_version", None),
 +            notice_text=getattr(sim, "ai_notice_text", None),
 +            eval_enabled_by_day=getattr(sim, "ai_eval_enabled_by_day", None),
@@ -62,46 +62,46 @@ index 58898aa..b7ecdc2 100644
          scenario=sim.scenario_template,
          status=status_value,
          generatingAt=getattr(sim, "generating_at", None),
-diff --git a/app/api/routers/simulations_routes/list_simulations.py b/app/api/routers/simulations_routes/list_simulations.py
+diff --git a/app/api/routers/trials_routes/list_trials.py b/app/api/routers/trials_routes/list_trials.py
 index 607747a..a45a292 100644
---- a/app/api/routers/simulations_routes/list_simulations.py
-+++ b/app/api/routers/simulations_routes/list_simulations.py
+--- a/app/api/routers/trials_routes/list_trials.py
++++ b/app/api/routers/trials_routes/list_trials.py
 @@ -9,7 +9,13 @@ from app.core.auth.current_user import get_current_user
- from app.core.auth.roles import ensure_recruiter_or_none
+ from app.core.auth.roles import ensure_talent_partner_or_none
  from app.core.db import get_session
- from app.domains.simulations import service as sim_service
--from app.domains.simulations.schemas import ScenarioVersionSummary, SimulationListItem
-+from app.domains.simulations.schemas import (
+ from app.domains.trials import service as sim_service
+-from app.domains.trials.schemas import ScenarioVersionSummary, TrialListItem
++from app.domains.trials.schemas import (
 +    ScenarioVersionSummary,
-+    SimulationListItem,
-+    build_simulation_ai_config,
-+    build_simulation_company_context,
++    TrialListItem,
++    build_trial_ai_config,
++    build_trial_company_context,
 +    normalize_role_level,
 +)
  
- router = APIRouter(prefix="/simulations")
+ router = APIRouter(prefix="/trials")
  
-@@ -31,6 +37,16 @@ async def list_simulations(
+@@ -31,6 +37,16 @@ async def list_trials(
              title=sim.title,
              role=sim.role,
              techStack=sim.tech_stack,
 +            seniority=normalize_role_level(getattr(sim, "seniority", None))
 +            or getattr(sim, "seniority", None),
-+            companyContext=build_simulation_company_context(
++            companyContext=build_trial_company_context(
 +                getattr(sim, "company_context", None)
 +            ),
-+            ai=build_simulation_ai_config(
++            ai=build_trial_ai_config(
 +                notice_version=getattr(sim, "ai_notice_version", None),
 +                notice_text=getattr(sim, "ai_notice_text", None),
 +                eval_enabled_by_day=getattr(sim, "ai_eval_enabled_by_day", None),
 +            ),
              templateKey=sim.template_key,
-             status=sim_service.normalize_simulation_status_or_raise(
+             status=sim_service.normalize_trial_status_or_raise(
                  getattr(sim, "status", None)
-diff --git a/app/repositories/simulations/simulation.py b/app/repositories/simulations/simulation.py
+diff --git a/app/repositories/trials/trial.py b/app/repositories/trials/trial.py
 index 23da5f0..3a45ce2 100644
---- a/app/repositories/simulations/simulation.py
-+++ b/app/repositories/simulations/simulation.py
+--- a/app/repositories/trials/trial.py
++++ b/app/repositories/trials/trial.py
 @@ -1,6 +1,15 @@
  from datetime import datetime
 +from typing import Any
@@ -119,7 +119,7 @@ index 23da5f0..3a45ce2 100644
  from sqlalchemy.orm import Mapped, mapped_column, relationship
  
  from app.core.db.base import Base, TimestampMixin
-@@ -57,6 +66,12 @@ class Simulation(Base, TimestampMixin):
+@@ -57,6 +66,12 @@ class Trial(Base, TimestampMixin):
      focus: Mapped[str] = mapped_column(
          Text, nullable=False, server_default="", default=""
      )
@@ -132,10 +132,10 @@ index 23da5f0..3a45ce2 100644
  
      created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
      status: Mapped[str] = mapped_column(
-diff --git a/app/schemas/simulations.py b/app/schemas/simulations.py
+diff --git a/app/schemas/trials.py b/app/schemas/trials.py
 index eeb27c1..4aa871e 100644
---- a/app/schemas/simulations.py
-+++ b/app/schemas/simulations.py
+--- a/app/schemas/trials.py
++++ b/app/schemas/trials.py
 @@ -1,8 +1,20 @@
  from __future__ import annotations
  
@@ -157,18 +157,18 @@ index eeb27c1..4aa871e 100644
 +    model_serializer,
 +)
  
- from app.domains.common.types import SimulationStatus, TaskType
+ from app.domains.common.types import TrialStatus, TaskType
  from app.domains.tasks.schemas_public import TaskPublic
 @@ -23,22 +35,206 @@ __all__ = [
-     "SimulationActivateResponse",
-     "SimulationTerminateResponse",
+     "TrialActivateResponse",
+     "TrialTerminateResponse",
      "ScenarioVersionSummary",
-+    "SimulationCompanyContext",
-+    "SimulationAIConfig",
++    "TrialCompanyContext",
++    "TrialAIConfig",
 +    "normalize_role_level",
 +    "normalize_eval_enabled_by_day",
-+    "build_simulation_ai_config",
-+    "build_simulation_company_context",
++    "build_trial_ai_config",
++    "build_trial_company_context",
      "TaskPublic",
  ]
  
@@ -225,7 +225,7 @@ index eeb27c1..4aa871e 100644
 +    return normalized
 +
 +
-+class SimulationCompanyContext(BaseModel):
++class TrialCompanyContext(BaseModel):
 +    """Allowlisted company context passed to scenario generation."""
 +
 +    model_config = ConfigDict(extra="forbid", populate_by_name=True)
@@ -252,8 +252,8 @@ index eeb27c1..4aa871e 100644
 +        return data
 +
 +
-+class SimulationAIConfig(BaseModel):
-+    """AI notice/toggle controls for a simulation."""
++class TrialAIConfig(BaseModel):
++    """AI notice/toggle controls for a trial."""
 +
 +    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 +
@@ -291,23 +291,23 @@ index eeb27c1..4aa871e 100644
 +        return data
 +
 +
-+def build_simulation_company_context(
++def build_trial_company_context(
 +    value: Any,
-+) -> SimulationCompanyContext | None:
++) -> TrialCompanyContext | None:
 +    if not isinstance(value, Mapping):
 +        return None
 +    try:
-+        return SimulationCompanyContext.model_validate(dict(value))
++        return TrialCompanyContext.model_validate(dict(value))
 +    except ValidationError:
 +        return None
 +
 +
-+def build_simulation_ai_config(
++def build_trial_ai_config(
 +    *,
 +    notice_version: str | None,
 +    notice_text: str | None,
 +    eval_enabled_by_day: Any,
-+) -> SimulationAIConfig | None:
++) -> TrialAIConfig | None:
 +    normalized_eval = normalize_eval_enabled_by_day(eval_enabled_by_day, strict=False)
 +    if notice_version is None and notice_text is None and normalized_eval is None:
 +        return None
@@ -320,13 +320,13 @@ index eeb27c1..4aa871e 100644
 +    if normalized_eval is not None:
 +        payload["evalEnabledByDay"] = normalized_eval
 +    try:
-+        return SimulationAIConfig.model_validate(payload)
++        return TrialAIConfig.model_validate(payload)
 +    except ValidationError:
 +        return None
 +
  
- class SimulationCreate(BaseModel):
-     """Payload for creating a simulation."""
+ class TrialCreate(BaseModel):
+     """Payload for creating a trial."""
  
 +    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 +
@@ -347,11 +347,11 @@ index eeb27c1..4aa871e 100644
 +        max_length=MAX_FOCUS_NOTES_CHARS,
 +        validation_alias=AliasChoices("focus", "focusNotes", "focus_notes"),
 +    )
-+    company_context: SimulationCompanyContext | None = Field(
++    company_context: TrialCompanyContext | None = Field(
 +        default=None,
 +        alias="companyContext",
 +    )
-+    ai: SimulationAIConfig | None = None
++    ai: TrialAIConfig | None = None
      templateKey: str = Field(
          DEFAULT_TEMPLATE_KEY, min_length=1, max_length=255, description="Template key"
      )
@@ -368,72 +368,72 @@ index eeb27c1..4aa871e 100644
      @field_validator("templateKey")
      @classmethod
      def _validate_template_key(cls, value: str) -> str:
-@@ -77,6 +273,8 @@ class SimulationCreateResponse(BaseModel):
+@@ -77,6 +273,8 @@ class TrialCreateResponse(BaseModel):
      techStack: str
      seniority: str
      focus: str
-+    companyContext: SimulationCompanyContext | None = None
-+    ai: SimulationAIConfig | None = None
++    companyContext: TrialCompanyContext | None = None
++    ai: TrialAIConfig | None = None
      templateKey: str
-     status: SimulationStatus
+     status: TrialStatus
      generatingAt: datetime | None = None
-@@ -96,6 +294,9 @@ class SimulationListItem(BaseModel):
+@@ -96,6 +294,9 @@ class TrialListItem(BaseModel):
      title: str
      role: str
      techStack: str
 +    seniority: str | None = None
-+    companyContext: SimulationCompanyContext | None = None
-+    ai: SimulationAIConfig | None = None
++    companyContext: TrialCompanyContext | None = None
++    ai: TrialAIConfig | None = None
      templateKey: str
-     status: SimulationStatus
+     status: TrialStatus
      activatedAt: datetime | None = None
-@@ -146,8 +347,11 @@ class SimulationDetailResponse(BaseModel):
+@@ -146,8 +347,11 @@ class TrialDetailResponse(BaseModel):
      title: str | None = None
      templateKey: str | None = None
      role: str | None = None
 +    seniority: str | None = None
      techStack: str | list[str] | None = None
      focus: str | list[str] | None = None
-+    companyContext: SimulationCompanyContext | None = None
-+    ai: SimulationAIConfig | None = None
++    companyContext: TrialCompanyContext | None = None
++    ai: TrialAIConfig | None = None
      scenario: str | None = None
-     status: SimulationStatus
+     status: TrialStatus
      generatingAt: datetime | None = None
-diff --git a/app/services/simulations/__init__.py b/app/services/simulations/__init__.py
+diff --git a/app/services/trials/__init__.py b/app/services/trials/__init__.py
 index 8b78f98..99a3372 100644
---- a/app/services/simulations/__init__.py
-+++ b/app/services/simulations/__init__.py
+--- a/app/services/trials/__init__.py
++++ b/app/services/trials/__init__.py
 @@ -27,6 +27,7 @@ from .lifecycle import (
  )
- from .listing import list_candidates_with_profile, list_simulations
- from .ownership import require_owned_simulation, require_owned_simulation_with_tasks
+ from .listing import list_candidates_with_profile, list_trials
+ from .ownership import require_owned_trial, require_owned_trial_with_tasks
 +from .scenario_payload_builder import build_scenario_generation_payload
  from .task_templates import _template_repo_for_task
  from .template_keys import ApiError
  from .urls import invite_url
 @@ -45,6 +46,7 @@ __all__ = [
      "_template_repo_for_task",
-     "activate_simulation",
+     "activate_trial",
      "apply_status_transition",
 +    "build_scenario_generation_payload",
      "create_invite",
      "create_or_resend_invite",
-     "create_simulation_with_tasks",
-diff --git a/app/services/simulations/creation.py b/app/services/simulations/creation.py
+     "create_trial_with_tasks",
+diff --git a/app/services/trials/creation.py b/app/services/trials/creation.py
 index b778f64..84a4f8e 100644
---- a/app/services/simulations/creation.py
-+++ b/app/services/simulations/creation.py
+--- a/app/services/trials/creation.py
++++ b/app/services/trials/creation.py
 @@ -6,6 +6,10 @@ from typing import Any
  from sqlalchemy.ext.asyncio import AsyncSession
  
- from app.domains import Simulation, Task
-+from app.domains.simulations.schemas import (
+ from app.domains import Trial, Task
++from app.domains.trials.schemas import (
 +    normalize_eval_enabled_by_day,
 +    normalize_role_level,
 +)
- from app.repositories.simulations.simulation import (
-     SIMULATION_STATUS_GENERATING,
-     SIMULATION_STATUS_READY_FOR_REVIEW,
+ from app.repositories.trials.trial import (
+     TRIAL_STATUS_GENERATING,
+     TRIAL_STATUS_READY_FOR_REVIEW,
 @@ -16,17 +20,67 @@ from .task_seed import seed_default_tasks
  from .template_keys import resolve_template_key
  
@@ -477,9 +477,9 @@ index b778f64..84a4f8e 100644
 +    return notice_version, notice_text, normalized_eval
 +
 +
- async def create_simulation_with_tasks(
+ async def create_trial_with_tasks(
      db: AsyncSession, payload: Any, user: Any
- ) -> tuple[Simulation, list[Task]]:
+ ) -> tuple[Trial, list[Task]]:
      template_key = resolve_template_key(payload)
      started_at = datetime.now(UTC)
 +    company_context = _extract_company_context(payload)
@@ -489,7 +489,7 @@ index b778f64..84a4f8e 100644
 +    raw_seniority = getattr(payload, "seniority", None)
 +    normalized_seniority = normalize_role_level(raw_seniority)
 +    seniority_value = normalized_seniority or raw_seniority
-     sim = Simulation(
+     sim = Trial(
          title=payload.title,
          role=payload.role,
 -        tech_stack=payload.techStack,
@@ -504,23 +504,23 @@ index b778f64..84a4f8e 100644
          scenario_template="default-5day-node-postgres",
          company_id=user.company_id,
          created_by=user.id,
-diff --git a/tests/api/test_simulations_detail.py b/tests/api/test_simulations_detail.py
+diff --git a/tests/api/test_trials_detail.py b/tests/api/test_trials_detail.py
 index 4ebd1e4..69573e5 100644
---- a/tests/api/test_simulations_detail.py
-+++ b/tests/api/test_simulations_detail.py
-@@ -42,6 +42,57 @@ async def test_get_simulation_detail_happy_path(
+--- a/tests/api/test_trials_detail.py
++++ b/tests/api/test_trials_detail.py
+@@ -42,6 +42,57 @@ async def test_get_trial_detail_happy_path(
      assert "maxScore" not in day1
  
  
 +@pytest.mark.asyncio
-+async def test_simulation_context_round_trips_on_create_and_detail(
++async def test_trial_context_round_trips_on_create_and_detail(
 +    async_client, async_session, auth_header_factory
 +):
-+    recruiter = await create_recruiter(
++    talent_partner = await create_talent_partner(
 +        async_session, email="context-detail@example.com"
 +    )
 +    payload = {
-+        "title": "Frontend Simulation",
++        "title": "Frontend Trial",
 +        "role": "Frontend Engineer",
 +        "techStack": "react-nextjs",
 +        "seniority": "mid",
@@ -540,9 +540,9 @@ index 4ebd1e4..69573e5 100644
 +    }
 +
 +    create_res = await async_client.post(
-+        "/api/simulations",
++        "/api/trials",
 +        json=payload,
-+        headers=auth_header_factory(recruiter),
++        headers=auth_header_factory(talent_partner),
 +    )
 +    assert create_res.status_code == 201, create_res.text
 +    created = create_res.json()
@@ -552,8 +552,8 @@ index 4ebd1e4..69573e5 100644
 +    assert created["ai"] == payload["ai"]
 +
 +    detail_res = await async_client.get(
-+        f"/api/simulations/{created['id']}",
-+        headers=auth_header_factory(recruiter),
++        f"/api/trials/{created['id']}",
++        headers=auth_header_factory(talent_partner),
 +    )
 +    assert detail_res.status_code == 200, detail_res.text
 +    detail = detail_res.json()
@@ -564,18 +564,18 @@ index 4ebd1e4..69573e5 100644
 +
 +
  @pytest.mark.asyncio
- async def test_get_simulation_detail_not_found(
+ async def test_get_trial_detail_not_found(
      async_client, async_session, auth_header_factory
-diff --git a/tests/api/test_simulations_list.py b/tests/api/test_simulations_list.py
+diff --git a/tests/api/test_trials_list.py b/tests/api/test_trials_list.py
 index e736b6c..c2d7db8 100644
---- a/tests/api/test_simulations_list.py
-+++ b/tests/api/test_simulations_list.py
-@@ -123,6 +123,39 @@ async def test_list_simulations_candidate_counts(authed_client, async_session):
+--- a/tests/api/test_trials_list.py
++++ b/tests/api/test_trials_list.py
+@@ -123,6 +123,39 @@ async def test_list_trials_candidate_counts(authed_client, async_session):
      assert item["numCandidates"] == 2
  
  
 +@pytest.mark.asyncio
-+async def test_list_simulations_includes_seniority_and_ai_eval_summary(authed_client):
++async def test_list_trials_includes_seniority_and_ai_eval_summary(authed_client):
 +    payload = {
 +        "title": "Sim With AI Settings",
 +        "role": "Frontend Engineer",
@@ -594,11 +594,11 @@ index e736b6c..c2d7db8 100644
 +            },
 +        },
 +    }
-+    create_res = await authed_client.post("/api/simulations", json=payload)
++    create_res = await authed_client.post("/api/trials", json=payload)
 +    assert create_res.status_code == 201, create_res.text
 +    sim_id = create_res.json()["id"]
 +
-+    list_res = await authed_client.get("/api/simulations")
++    list_res = await authed_client.get("/api/trials")
 +    assert list_res.status_code == 200, list_res.text
 +    item = next(x for x in list_res.json() if x["id"] == sim_id)
 +    assert item["seniority"] == "mid"
@@ -608,13 +608,13 @@ index e736b6c..c2d7db8 100644
 +
 +
  @pytest.mark.asyncio
- async def test_list_simulations_does_not_show_other_users(authed_client, async_session):
+ async def test_list_trials_does_not_show_other_users(authed_client, async_session):
      other_company = Company(name="OtherCo")
 diff --git a/tests/factories/models.py b/tests/factories/models.py
 index cea9ab7..cea4bc5 100644
 --- a/tests/factories/models.py
 +++ b/tests/factories/models.py
-@@ -61,6 +61,10 @@ async def create_simulation(
+@@ -61,6 +61,10 @@ async def create_trial(
      seniority: str = "Mid",
      focus: str = "Deliver a backend feature over 5 days",
      template_key: str = DEFAULT_TEMPLATE_KEY,
@@ -622,10 +622,10 @@ index cea9ab7..cea4bc5 100644
 +    ai_notice_version: str | None = None,
 +    ai_notice_text: str | None = None,
 +    ai_eval_enabled_by_day: dict[str, bool] | None = None,
- ) -> tuple[Simulation, list[Task]]:
-     sim = Simulation(
+ ) -> tuple[Trial, list[Task]]:
+     sim = Trial(
          company_id=created_by.company_id,
-@@ -74,6 +78,10 @@ async def create_simulation(
+@@ -74,6 +78,10 @@ async def create_trial(
          status="active_inviting",
          activated_at=datetime.now(UTC),
          template_key=template_key,
@@ -636,31 +636,31 @@ index cea9ab7..cea4bc5 100644
      )
      session.add(sim)
      await session.flush()
-diff --git a/tests/unit/test_simulations_schemas.py b/tests/unit/test_simulations_schemas.py
+diff --git a/tests/unit/test_trials_schemas.py b/tests/unit/test_trials_schemas.py
 index 8e51791..9309d03 100644
---- a/tests/unit/test_simulations_schemas.py
-+++ b/tests/unit/test_simulations_schemas.py
+--- a/tests/unit/test_trials_schemas.py
++++ b/tests/unit/test_trials_schemas.py
 @@ -1,4 +1,12 @@
--from app.domains.simulations.schemas import SimulationDetailTask
+-from app.domains.trials.schemas import TrialDetailTask
 +import pytest
 +
-+from app.domains.simulations.schemas import (
-+    SimulationDetailTask,
-+    build_simulation_ai_config,
-+    build_simulation_company_context,
++from app.domains.trials.schemas import (
++    TrialDetailTask,
++    build_trial_ai_config,
++    build_trial_company_context,
 +    normalize_eval_enabled_by_day,
 +    normalize_role_level,
 +)
  
  
- def test_simulation_detail_task_serializes_optional_fields():
-@@ -17,3 +25,24 @@ def test_simulation_detail_task_serializes_optional_fields():
+ def test_trial_detail_task_serializes_optional_fields():
+@@ -17,3 +25,24 @@ def test_trial_detail_task_serializes_optional_fields():
      assert serialized["maxScore"] == 10
      assert serialized["preProvisioned"] is True
      assert serialized["templateRepoFullName"] == "org/repo"
 +
 +
-+def test_simulation_schema_helpers_cover_edge_cases():
++def test_trial_schema_helpers_cover_edge_cases():
 +    assert normalize_role_level(None) is None
 +    assert normalize_role_level("   ") is None
 +
@@ -670,32 +670,32 @@ index 8e51791..9309d03 100644
 +    assert normalize_eval_enabled_by_day("not-a-map", strict=False) is None
 +    assert normalize_eval_enabled_by_day({"1": "yes", "9": True}, strict=False) == {}
 +
-+    assert build_simulation_company_context({"unknown": "x"}) is None
++    assert build_trial_company_context({"unknown": "x"}) is None
 +    assert (
-+        build_simulation_ai_config(
++        build_trial_ai_config(
 +            notice_version="",
 +            notice_text=None,
 +            eval_enabled_by_day={"1": True},
 +        )
 +        is None
 +    )
-diff --git a/tests/unit/test_simulations_service.py b/tests/unit/test_simulations_service.py
+diff --git a/tests/unit/test_trials_service.py b/tests/unit/test_trials_service.py
 index fef8c5b..64de643 100644
---- a/tests/unit/test_simulations_service.py
-+++ b/tests/unit/test_simulations_service.py
+--- a/tests/unit/test_trials_service.py
++++ b/tests/unit/test_trials_service.py
 @@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
  from app.domains import CandidateSession
  from app.domains.common.types import CANDIDATE_SESSION_STATUS_COMPLETED
- from app.domains.simulations import service as sim_service
-+from app.services.simulations import creation as sim_creation
- from tests.factories import create_recruiter, create_simulation
+ from app.domains.trials import service as sim_service
++from app.services.trials import creation as sim_creation
+ from tests.factories import create_talent_partner, create_trial
  
  
 @@ -44,6 +45,45 @@ def test_invite_url_uses_portal_base(monkeypatch):
      assert sim_service.invite_url("abc") == "https://portal.test/candidate/session/abc"
  
  
-+def test_create_simulation_payload_extractors_cover_context_branches():
++def test_create_trial_payload_extractors_cover_context_branches():
 +    payload_with_dicts = SimpleNamespace(
 +        companyContext={"domain": "social"},
 +        ai={

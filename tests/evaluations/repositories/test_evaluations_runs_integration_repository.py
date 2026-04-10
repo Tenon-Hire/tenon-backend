@@ -10,20 +10,20 @@ from app.evaluations.repositories.evaluations_repositories_evaluations_core_mode
 )
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 
 async def _seed_candidate_session(async_session):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session,
         email="eval-integration@test.com",
     )
-    simulation, _tasks = await create_simulation(async_session, created_by=recruiter)
+    trial, _tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         status="completed",
     )
     await async_session.commit()

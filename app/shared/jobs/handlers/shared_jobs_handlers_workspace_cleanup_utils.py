@@ -9,8 +9,8 @@ from app.config import settings
 from app.integrations.github import GithubError
 from app.shared.jobs.handlers.shared_jobs_handlers_workspace_cleanup_types_handler import (
     _SESSION_TERMINAL_STATUSES,
-    _SIMULATION_TERMINAL_STATUSES,
     _TRANSIENT_GITHUB_STATUS_CODES,
+    _TRIAL_TERMINAL_STATUSES,
     WORKSPACE_CLEANUP_TERMINAL_STATUSES,
     WorkspaceCleanupRecord,
     _WorkspaceCleanupConfig,
@@ -80,14 +80,14 @@ def _retention_expired(*, now: datetime, expires_at: datetime) -> bool:
     return now > expires_at
 
 
-def _retention_cleanup_eligible(*, candidate_session, simulation) -> bool:
+def _retention_cleanup_eligible(*, candidate_session, trial) -> bool:
     session_status = (candidate_session.status or "").strip().lower()
-    simulation_status = (simulation.status or "").strip().lower()
+    trial_status = (trial.status or "").strip().lower()
     if candidate_session.completed_at is not None:
         return True
     if session_status in _SESSION_TERMINAL_STATUSES:
         return True
-    return simulation_status in _SIMULATION_TERMINAL_STATUSES
+    return trial_status in _TRIAL_TERMINAL_STATUSES
 
 
 def _cleanup_target_repo_key(

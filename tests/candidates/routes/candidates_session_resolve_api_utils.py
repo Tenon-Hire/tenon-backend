@@ -13,20 +13,22 @@ from app.shared.database.shared_database_models_model import (
 )
 from tests.candidates.routes.candidates_session_resolve_flow_api_utils import (
     _apply_schedule,
-    _create_simulation,
+    _create_trial,
 )
 
 
-async def _seed_recruiter(async_session, email: str = "recruiter1@tenon.com") -> User:
+async def _seed_talent_partner(
+    async_session, email: str = "talent_partner1@winoe.com"
+) -> User:
     company = Company(name="TestCo")
     async_session.add(company)
     await async_session.commit()
     await async_session.refresh(company)
 
     user = User(
-        name="Recruiter One",
+        name="TalentPartner One",
         email=email,
-        role="recruiter",
+        role="talent_partner",
         company_id=company.id,
         password_hash="",
     )
@@ -39,14 +41,14 @@ async def _seed_recruiter(async_session, email: str = "recruiter1@tenon.com") ->
 async def _invite_candidate(
     async_client,
     sim_id: int,
-    recruiter_email: str,
+    talent_partner_email: str,
     invite_email: str = "jane@example.com",
 ) -> dict:
     payload = {"candidateName": "Jane Doe", "inviteEmail": invite_email}
     res = await async_client.post(
-        f"/api/simulations/{sim_id}/invite",
+        f"/api/trials/{sim_id}/invite",
         json=payload,
-        headers={"x-dev-user-email": recruiter_email},
+        headers={"x-dev-user-email": talent_partner_email},
     )
     assert res.status_code == 200, res.text
     return res.json()

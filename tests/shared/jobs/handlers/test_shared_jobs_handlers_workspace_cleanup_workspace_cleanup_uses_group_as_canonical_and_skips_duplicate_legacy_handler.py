@@ -10,14 +10,14 @@ async def test_workspace_cleanup_uses_group_as_canonical_and_skips_duplicate_leg
     async_session,
     monkeypatch,
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session,
         email=f"workspace-cleanup-canonical-{uuid4().hex}@test.com",
     )
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         status="completed",
         with_default_schedule=True,
     )
@@ -84,7 +84,7 @@ async def test_workspace_cleanup_uses_group_as_canonical_and_skips_duplicate_leg
     monkeypatch.setattr(cleanup_handler, "get_github_client", lambda: github_client)
 
     result = await cleanup_handler.handle_workspace_cleanup(
-        {"companyId": simulation.company_id}
+        {"companyId": trial.company_id}
     )
 
     await async_session.refresh(group)

@@ -10,11 +10,11 @@ async def test_current_task_completed_after_all_tasks(
     async_client, async_session, monkeypatch
 ):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
-    recruiter_email = "recruiter1@tenon.com"
-    await _seed_recruiter(async_session, recruiter_email)
+    talent_partner_email = "talent_partner1@winoe.com"
+    await _seed_talent_partner(async_session, talent_partner_email)
 
-    sim_id = await _create_simulation(async_client, async_session, recruiter_email)
-    invite = await _invite_candidate(async_client, sim_id, recruiter_email)
+    sim_id = await _create_trial(async_client, async_session, talent_partner_email)
+    invite = await _invite_candidate(async_client, sim_id, talent_partner_email)
 
     await _claim(async_client, invite["token"], "jane@example.com")
     cs_id = invite["candidateSessionId"]
@@ -29,7 +29,7 @@ async def test_current_task_completed_after_all_tasks(
     )
 
     tasks = (
-        (await async_session.execute(select(Task).where(Task.simulation_id == sim_id)))
+        (await async_session.execute(select(Task).where(Task.trial_id == sim_id)))
         .scalars()
         .all()
     )

@@ -8,15 +8,15 @@ from typing import Annotated, Any, Literal
 from pydantic import Field
 
 from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_windows_schema import (
-    CandidateSimulationSummary,
+    CandidateTrialSummary,
     DayWindow,
 )
 from app.shared.types.shared_types_base_model import APIModel
 from app.shared.types.shared_types_types_model import CandidateSessionStatus
-from app.submissions.schemas.submissions_schemas_submissions_recruiter_base_schema import (
-    RecruiterRecordingAssetOut,
-    RecruiterTestResultsOut,
-    RecruiterTranscriptOut,
+from app.submissions.schemas.submissions_schemas_submissions_talent_partner_base_schema import (
+    TalentPartnerRecordingAssetOut,
+    TalentPartnerTestResultsOut,
+    TalentPartnerTranscriptOut,
 )
 
 
@@ -50,7 +50,7 @@ class CandidateReviewWorkspaceArtifact(APIModel):
     commitUrl: str | None = None
     diffUrl: str | None = None
     diffSummary: dict[str, object] | str | None = None
-    testResults: RecruiterTestResultsOut | None = None
+    testResults: TalentPartnerTestResultsOut | None = None
 
 
 class CandidateReviewPresentationArtifact(APIModel):
@@ -62,8 +62,8 @@ class CandidateReviewPresentationArtifact(APIModel):
     taskType: str
     title: str
     submittedAt: datetime
-    recording: RecruiterRecordingAssetOut | None = None
-    transcript: RecruiterTranscriptOut | None = None
+    recording: TalentPartnerRecordingAssetOut | None = None
+    transcript: TalentPartnerTranscriptOut | None = None
 
 
 CandidateReviewDayArtifact = Annotated[
@@ -80,7 +80,7 @@ class CandidateCompletedReviewResponse(APIModel):
     candidateSessionId: int
     status: CandidateSessionStatus
     completedAt: datetime
-    simulation: CandidateSimulationSummary
+    trial: CandidateTrialSummary
     candidateTimezone: str | None = None
     dayWindows: list[DayWindow] = Field(default_factory=list)
     artifacts: list[CandidateReviewDayArtifact] = Field(default_factory=list)

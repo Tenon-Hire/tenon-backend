@@ -19,8 +19,8 @@ def build_permissions(claims: dict, roles: list[str]) -> list[str]:
             ]
     if not permissions and roles:
         lowered = [r.lower() for r in roles]
-        if any("recruiter" in r for r in lowered):
-            permissions.append("recruiter:access")
+        if any("talent_partner" in r for r in lowered):
+            permissions.append("talent_partner:access")
         if any("candidate" in r for r in lowered):
             permissions.append("candidate:access")
     return permissions

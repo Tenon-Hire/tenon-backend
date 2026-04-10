@@ -1,13 +1,13 @@
 from app.submissions.constants.submissions_constants_submissions_exceptions_constants import (
-    SimulationComplete,
     SubmissionConflict,
     SubmissionOrderError,
     SubmissionValidationError,
+    TrialComplete,
     WorkspaceMissing,
 )
 
 __all__ = [
-    "SimulationComplete",
+    "TrialComplete",
     "SubmissionConflict",
     "SubmissionOrderError",
     "SubmissionValidationError",

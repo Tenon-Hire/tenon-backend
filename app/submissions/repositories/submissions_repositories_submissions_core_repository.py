@@ -14,7 +14,7 @@ from .submissions_repositories_submissions_handoff_write_repository import (
 from .submissions_repositories_submissions_lookup_repository import (
     find_duplicate,
     get_by_candidate_session_task,
-    simulation_template,
+    trial_template,
 )
 
 
@@ -42,7 +42,7 @@ __all__ = [
     "create_handoff_submission",
     "find_duplicate",
     "get_by_candidate_session_task",
-    "simulation_template",
+    "trial_template",
     "update_handoff_submission",
     "upsert_handoff_submission",
 ]

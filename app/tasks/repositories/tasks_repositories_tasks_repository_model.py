@@ -7,15 +7,13 @@ from app.shared.database.shared_database_base_model import Base
 
 
 class Task(Base):
-    """Task definition assigned within a simulation."""
+    """Task definition assigned within a trial."""
 
     __tablename__ = "tasks"
-    __table_args__ = (
-        Index("ix_tasks_simulation_day_index", "simulation_id", "day_index"),
-    )
+    __table_args__ = (Index("ix_tasks_trial_day_index", "trial_id", "day_index"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    simulation_id: Mapped[int] = mapped_column(ForeignKey("simulations.id"))
+    trial_id: Mapped[int] = mapped_column(ForeignKey("trials.id"))
     day_index: Mapped[int] = mapped_column(Integer)
     type: Mapped[str] = mapped_column(String(50))  # design, code, debug, documentation
     title: Mapped[str] = mapped_column(String(255))
@@ -25,6 +23,6 @@ class Task(Base):
     template_repo: Mapped[str | None] = mapped_column(String(255))
     max_score: Mapped[int | None] = mapped_column(Integer)
 
-    simulation = relationship("Simulation", back_populates="tasks")
+    trial = relationship("Trial", back_populates="tasks")
     submissions = relationship("Submission", back_populates="task")
     workspaces = relationship("Workspace", back_populates="task")

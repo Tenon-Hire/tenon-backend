@@ -10,11 +10,11 @@ async def test_current_task_pre_start_returns_schedule_not_started(
     async_client, async_session, monkeypatch
 ):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
-    recruiter_email = "recruiter-prestart@tenon.com"
-    await _seed_recruiter(async_session, recruiter_email)
+    talent_partner_email = "talent_partner-prestart@winoe.com"
+    await _seed_talent_partner(async_session, talent_partner_email)
 
-    sim_id = await _create_simulation(async_client, async_session, recruiter_email)
-    invite = await _invite_candidate(async_client, sim_id, recruiter_email)
+    sim_id = await _create_trial(async_client, async_session, talent_partner_email)
+    invite = await _invite_candidate(async_client, sim_id, talent_partner_email)
     await _claim(async_client, invite["token"], "jane@example.com")
     cs_id = invite["candidateSessionId"]
 
@@ -35,7 +35,7 @@ async def test_current_task_pre_start_returns_schedule_not_started(
     )
     assert res.status_code == 409, res.text
     body = res.json()
-    assert body["detail"] == "Simulation has not started yet."
+    assert body["detail"] == "Trial has not started yet."
     assert body["errorCode"] == "SCHEDULE_NOT_STARTED"
     assert body["retryable"] is True
     assert body["details"]["startAt"] == scheduled_start.isoformat().replace(

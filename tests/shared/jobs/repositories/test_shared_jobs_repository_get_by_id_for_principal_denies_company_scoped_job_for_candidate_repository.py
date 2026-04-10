@@ -9,21 +9,21 @@ from tests.shared.jobs.repositories.shared_jobs_repository_utils import *
 async def test_get_by_id_for_principal_denies_company_scoped_job_for_candidate(
     async_session,
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="jobs-owner-company-scoped@test.com"
     )
-    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    sim, _ = await create_trial(async_session, created_by=talent_partner)
     cs = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         invite_email="jobs-candidate-company-scoped@test.com",
     )
     job = await jobs_repo.create_or_get_idempotent(
         async_session,
         job_type="scenario_generation",
         idempotency_key="idem-company-scoped",
-        payload_json={"simulationId": sim.id},
-        company_id=recruiter.company_id,
+        payload_json={"trialId": sim.id},
+        company_id=talent_partner.company_id,
         candidate_session_id=None,
     )
 

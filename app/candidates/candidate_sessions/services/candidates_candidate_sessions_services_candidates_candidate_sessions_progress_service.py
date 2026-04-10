@@ -30,12 +30,12 @@ from app.shared.database.shared_database_models_model import CandidateSession, T
 from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
 
 
-async def load_tasks(db: AsyncSession, simulation_id: int) -> list[Task]:
+async def load_tasks(db: AsyncSession, trial_id: int) -> list[Task]:
     """Load tasks."""
     return await _load_tasks(
         db,
-        simulation_id,
-        tasks_for_simulation=cs_repo.tasks_for_simulation,
+        trial_id,
+        tasks_for_trial=cs_repo.tasks_for_trial,
     )
 
 
@@ -80,7 +80,7 @@ async def progress_snapshot(
     else:
         task_list, completed_ids = await load_tasks_with_completion_state(
             db,
-            simulation_id=candidate_session.simulation_id,
+            trial_id=candidate_session.trial_id,
             candidate_session_id=candidate_session.id,
         )
     current = compute_current_task(task_list, completed_ids)

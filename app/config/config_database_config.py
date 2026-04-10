@@ -14,7 +14,7 @@ class DatabaseSettings(BaseSettings):
     DATABASE_URL: str = Field(default="")
     DATABASE_URL_SYNC: str = Field(default="")
 
-    model_config = SettingsConfigDict(extra="ignore", env_prefix="TENON_")
+    model_config = SettingsConfigDict(extra="ignore", env_prefix="WINOE_")
 
     @property
     def sync_url(self) -> str:

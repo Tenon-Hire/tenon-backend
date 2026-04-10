@@ -88,7 +88,7 @@ def test_sqlalchemy_listeners_early_return_paths(monkeypatch):
             return None
 
     monkeypatch.setattr(perf, "_perf_ctx", DummyPerfCtx())
-    ctx_start = SimpleNamespace(_tenon_perf_start=time.perf_counter())
+    ctx_start = SimpleNamespace(_winoe_perf_start=time.perf_counter())
     captured["after_cursor_execute"](None, None, None, None, ctx_start, None)
 
 

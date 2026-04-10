@@ -8,9 +8,9 @@ from app.config.config_settings_validators_config import SettingsValidationMixin
 from tests.config.config_test_utils import *
 
 
-def test_coerce_demo_allowlist_recruiter_ids_handles_scalar_and_mixed_values():
-    assert Settings._coerce_demo_allowlist_recruiter_ids(7) == [7]
-    assert Settings._coerce_demo_allowlist_recruiter_ids(
+def test_coerce_demo_allowlist_talent_partner_ids_handles_scalar_and_mixed_values():
+    assert Settings._coerce_demo_allowlist_talent_partner_ids(7) == [7]
+    assert Settings._coerce_demo_allowlist_talent_partner_ids(
         [True, 5, " 9 ", "abc", ""]
     ) == [
         5,
@@ -27,7 +27,7 @@ def test_validate_cors_posture_accepts_non_empty_string_origin():
     dummy = SimpleNamespace(
         ENV="prod",
         cors=SimpleNamespace(
-            CORS_ALLOW_ORIGINS=" https://frontend.tenon.ai ",
+            CORS_ALLOW_ORIGINS=" https://frontend.winoe.ai ",
             CORS_ALLOW_ORIGIN_REGEX=None,
         ),
     )

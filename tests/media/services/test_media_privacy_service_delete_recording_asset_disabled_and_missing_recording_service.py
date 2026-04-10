@@ -10,12 +10,12 @@ async def test_delete_recording_asset_disabled_and_missing_recording(
     async_session,
     monkeypatch,
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session,
         email="privacy-delete-disabled@test.com",
     )
-    sim, _tasks = await create_simulation(async_session, created_by=recruiter)
-    candidate_session = await create_candidate_session(async_session, simulation=sim)
+    sim, _tasks = await create_trial(async_session, created_by=talent_partner)
+    candidate_session = await create_candidate_session(async_session, trial=sim)
 
     monkeypatch.setattr(settings.storage_media, "MEDIA_DELETE_ENABLED", False)
     with pytest.raises(HTTPException) as disabled_exc:

@@ -10,12 +10,14 @@ async def test_handle_day_close_enforcement_skips_non_code_task(
     async_session,
     monkeypatch,
 ):
-    recruiter = await create_recruiter(async_session, email="non-code-task@test.com")
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="non-code-task@test.com"
+    )
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     day1_task = next(task for task in tasks if task.day_index == 1)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         status="in_progress",
     )
     await async_session.commit()

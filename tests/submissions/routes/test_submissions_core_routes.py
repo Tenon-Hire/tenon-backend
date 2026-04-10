@@ -2,18 +2,21 @@ import pytest
 
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
     create_submission,
+    create_talent_partner,
+    create_trial,
 )
 
 
 @pytest.mark.asyncio
-async def test_submissions_list_forbidden_for_non_recruiter(
+async def test_submissions_list_forbidden_for_non_talent_partner(
     async_client, async_session
 ):
-    user = await create_recruiter(
-        async_session, email="nonrecruiter@sim.com", name="NR", company_name="NR Co"
+    user = await create_talent_partner(
+        async_session,
+        email="nontalent_partner@sim.com",
+        name="NR",
+        company_name="NR Co",
     )
     user.role = "candidate"
     await async_session.commit()
@@ -26,12 +29,10 @@ async def test_submissions_list_forbidden_for_non_recruiter(
 
 @pytest.mark.asyncio
 async def test_submissions_detail_403_when_wrong_company(async_client, async_session):
-    owner = await create_recruiter(async_session, email="owner@sim.com")
-    other = await create_recruiter(async_session, email="other@sim.com")
-    sim, tasks = await create_simulation(async_session, created_by=owner)
-    cs = await create_candidate_session(
-        async_session, simulation=sim, status="in_progress"
-    )
+    owner = await create_talent_partner(async_session, email="owner@sim.com")
+    other = await create_talent_partner(async_session, email="other@sim.com")
+    sim, tasks = await create_trial(async_session, created_by=owner)
+    cs = await create_candidate_session(async_session, trial=sim, status="in_progress")
     sub = await create_submission(
         async_session,
         candidate_session=cs,
@@ -50,11 +51,9 @@ async def test_submissions_detail_403_when_wrong_company(async_client, async_ses
 async def test_submissions_list_includes_workflow_fields_without_missing_greenlet(
     async_client, async_session
 ):
-    owner = await create_recruiter(async_session, email="owner-list@sim.com")
-    sim, tasks = await create_simulation(async_session, created_by=owner)
-    cs = await create_candidate_session(
-        async_session, simulation=sim, status="in_progress"
-    )
+    owner = await create_talent_partner(async_session, email="owner-list@sim.com")
+    sim, tasks = await create_trial(async_session, created_by=owner)
+    cs = await create_candidate_session(async_session, trial=sim, status="in_progress")
     handoff_task = next(task for task in tasks if task.type == "handoff")
     await create_submission(
         async_session,

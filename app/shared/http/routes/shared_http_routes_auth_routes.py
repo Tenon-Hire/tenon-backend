@@ -9,10 +9,6 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.recruiters.schemas.recruiters_schemas_recruiters_users_schema import (
-    RecruiterOnboardingWrite,
-    UserRead,
-)
 from app.shared.auth import rate_limit
 from app.shared.auth.shared_auth_current_user_utils import (
     get_authenticated_user,
@@ -20,6 +16,10 @@ from app.shared.auth.shared_auth_current_user_utils import (
 )
 from app.shared.database import get_session
 from app.shared.database.shared_database_models_model import Company, User
+from app.talent_partners.schemas.talent_partners_schemas_talent_partners_users_schema import (
+    TalentPartnerOnboardingWrite,
+    UserRead,
+)
 
 router = APIRouter()
 
@@ -53,7 +53,7 @@ async def _get_company_name(db: AsyncSession, company_id: int | None) -> str | N
 
 def _build_user_read(user: User, company_name: str | None) -> UserRead:
     onboarding_complete = (
-        getattr(user, "role", None) != "recruiter"
+        getattr(user, "role", None) != "talent_partner"
         or getattr(user, "company_id", None) is not None
     )
     return UserRead(
@@ -89,7 +89,7 @@ async def _create_or_get_company(db: AsyncSession, company_name: str) -> Company
     "/me",
     response_model=UserRead,
     summary="Read Me",
-    description="Return the authenticated recruiter profile for the caller.",
+    description="Return the authenticated Talent Partner profile for the caller.",
     responses={
         status.HTTP_401_UNAUTHORIZED: {"description": "Authentication required."},
         status.HTTP_429_TOO_MANY_REQUESTS: {"description": "Rate limit exceeded."},
@@ -111,31 +111,31 @@ async def read_me(
 
 
 @router.post(
-    "/recruiter-onboarding",
+    "/talent-partner-onboarding",
     response_model=UserRead,
-    summary="Complete Recruiter Onboarding",
-    description="Create or attach the recruiter's company and finalize app onboarding.",
+    summary="Complete TalentPartner Onboarding",
+    description="Create or attach the Talent Partner's company and finalize app onboarding.",
     responses={
         status.HTTP_401_UNAUTHORIZED: {"description": "Authentication required."},
-        status.HTTP_403_FORBIDDEN: {"description": "Recruiter access required."},
+        status.HTTP_403_FORBIDDEN: {"description": "Talent Partner access required."},
         status.HTTP_422_UNPROCESSABLE_ENTITY: {
             "description": "Invalid onboarding payload."
         },
     },
 )
-async def complete_recruiter_onboarding(
-    payload: RecruiterOnboardingWrite,
+async def complete_talent_partner_onboarding(
+    payload: TalentPartnerOnboardingWrite,
     db: Annotated[AsyncSession, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> UserRead:
-    """Finalize recruiter onboarding with name and company assignment."""
-    if getattr(current_user, "role", None) != "recruiter":
+    """Finalize Talent Partner onboarding with name and company assignment."""
+    if getattr(current_user, "role", None) != "talent_partner":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Recruiter access required",
+            detail="Talent Partner access required",
         )
 
-    recruiter_name = _normalize_required_text(
+    talent_partner_name = _normalize_required_text(
         payload.name,
         field_name="name",
         max_chars=MAX_USER_NAME_CHARS,
@@ -147,7 +147,7 @@ async def complete_recruiter_onboarding(
     )
 
     company = await _create_or_get_company(db, company_name)
-    current_user.name = recruiter_name
+    current_user.name = talent_partner_name
     current_user.company_id = company.id
     await db.commit()
     await db.refresh(current_user)

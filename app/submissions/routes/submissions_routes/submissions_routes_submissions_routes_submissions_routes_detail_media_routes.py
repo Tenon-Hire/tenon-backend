@@ -42,7 +42,7 @@ async def resolve_media_payload(
     sub,
     task,
     cs,
-    recruiter_id: int,
+    talent_partner_id: int,
     logger: logging.Logger,
     provider_factory=None,
     signed_url_ttl_resolver=None,
@@ -55,7 +55,7 @@ async def resolve_media_payload(
     recording_download_url = _resolve_download_url(
         recording=recording,
         sub=sub,
-        recruiter_id=recruiter_id,
+        talent_partner_id=talent_partner_id,
         logger=logger,
         provider_factory=provider_factory,
         signed_url_ttl_resolver=signed_url_ttl_resolver,
@@ -100,7 +100,7 @@ def _resolve_download_url(
     *,
     recording,
     sub,
-    recruiter_id: int,
+    talent_partner_id: int,
     logger: logging.Logger,
     provider_factory,
     signed_url_ttl_resolver,
@@ -122,10 +122,10 @@ def _resolve_download_url(
             retryable=True,
         ) from exc
     logger.info(
-        "Recording download URL generated recordingId=%s submissionId=%s recruiterId=%s expiresInSeconds=%s",
+        "Recording download URL generated recordingId=%s submissionId=%s talentPartnerId=%s expiresInSeconds=%s",
         recording.id,
         sub.id,
-        recruiter_id,
+        talent_partner_id,
         expires_seconds,
     )
     return download_url

@@ -29,7 +29,7 @@ from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_sch
     CandidateSessionScheduleResponse,
 )
 from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_windows_schema import (
-    CandidateSimulationSummary,
+    CandidateTrialSummary,
     CurrentDayWindow,
     DayWindow,
 )
@@ -52,7 +52,7 @@ __all__ = [
     "CandidateSessionResolveResponse",
     "CandidateSessionScheduleRequest",
     "CandidateSessionScheduleResponse",
-    "CandidateSimulationSummary",
+    "CandidateTrialSummary",
     "CurrentDayWindow",
     "CurrentTaskResponse",
     "CurrentTaskWindow",

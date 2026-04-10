@@ -88,4 +88,4 @@ async def test_run_live_check_artifact_error_and_expired(monkeypatch):
         default_branch="main",
         timeout_seconds=1,
     )
-    assert "artifact_legacy_name_simuhire" in result.errors
+    assert "artifact_legacy_name_winoe" in result.errors

@@ -23,7 +23,7 @@ class AuthSettings(BaseSettings):
     AUTH0_EMAIL_CLAIM: str = ""
     AUTH0_ROLES_CLAIM: str = ""
     AUTH0_PERMISSIONS_CLAIM: str = ""
-    model_config = SettingsConfigDict(extra="ignore", env_prefix="TENON_")
+    model_config = SettingsConfigDict(extra="ignore", env_prefix="WINOE_")
 
     @property
     def issuer(self) -> str:

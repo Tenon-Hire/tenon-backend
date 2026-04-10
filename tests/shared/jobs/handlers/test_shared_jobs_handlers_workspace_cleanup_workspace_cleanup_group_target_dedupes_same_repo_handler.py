@@ -7,14 +7,14 @@ from tests.shared.jobs.handlers.shared_jobs_handlers_workspace_cleanup_utils imp
 
 @pytest.mark.asyncio
 async def test_workspace_cleanup_group_target_dedupes_same_repo(async_session):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session,
         email=f"workspace-cleanup-group-dedupe-{uuid4().hex}@test.com",
     )
-    simulation, _tasks = await create_simulation(async_session, created_by=recruiter)
+    trial, _tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         status="completed",
         with_default_schedule=True,
     )
@@ -43,6 +43,6 @@ async def test_workspace_cleanup_group_target_dedupes_same_repo(async_session):
 
     targets = await cleanup_handler._list_company_cleanup_targets(
         async_session,
-        company_id=simulation.company_id,
+        company_id=trial.company_id,
     )
     assert len(targets) == 1

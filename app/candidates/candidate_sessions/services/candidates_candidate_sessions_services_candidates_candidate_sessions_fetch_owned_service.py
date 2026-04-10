@@ -28,7 +28,7 @@ async def fetch_owned_session(
         changed = apply_auth_updates(cs, principal, now=now) or changed
         if changed:
             await db.commit()
-            await db.refresh(cs, attribute_names=["simulation", "scenario_version"])
+            await db.refresh(cs, attribute_names=["trial", "scenario_version"])
         return cs
 
     changed = False
@@ -43,7 +43,7 @@ async def fetch_owned_session(
         changed = apply_auth_updates(cs, principal, now=now) or changed
     if changed:
         await db.commit()
-        await db.refresh(cs, attribute_names=["simulation", "scenario_version"])
+        await db.refresh(cs, attribute_names=["trial", "scenario_version"])
     return cs
 
 

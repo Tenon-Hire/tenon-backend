@@ -29,14 +29,14 @@ class SubmissionOrderError(ApiError):
         )
 
 
-class SimulationComplete(ApiError):
-    """Raised when the simulation is already complete."""
+class TrialComplete(ApiError):
+    """Raised when the trial is already complete."""
 
-    def __init__(self, detail: str = "Simulation already completed"):
+    def __init__(self, detail: str = "Trial already completed"):
         super().__init__(
             status_code=status.HTTP_409_CONFLICT,
             detail=detail,
-            error_code="SIMULATION_COMPLETED",
+            error_code="TRIAL_COMPLETED",
             retryable=False,
         )
 

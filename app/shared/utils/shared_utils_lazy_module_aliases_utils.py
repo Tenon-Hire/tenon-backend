@@ -11,9 +11,9 @@ LAZY_MODULE_ALIAS_EXEMPTIONS: dict[str, str] = {
         "Eager alias imports trigger candidate-session repository/model cycles "
         "during startup and pytest bootstrap."
     ),
-    "app.simulations.repositories": (
-        "Eager alias imports trigger simulations/scenario repository cycles "
-        "while simulation models initialize."
+    "app.trials.repositories": (
+        "Eager alias imports trigger trials/scenario repository cycles "
+        "while trial models initialize."
     ),
     "app.shared.jobs": (
         "Eager alias imports create worker-runtime and handler/repository import "

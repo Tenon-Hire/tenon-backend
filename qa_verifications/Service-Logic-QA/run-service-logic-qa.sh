@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ###############################################################################
-# Tenon AI - Service & Logic QA Runner
+# Winoe AI - Service & Logic QA Runner
 #
 # Runs backend service/logic QA in the required order:
 #   1) Existing tests (no coverage addopts)

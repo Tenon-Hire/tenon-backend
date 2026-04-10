@@ -18,21 +18,21 @@ from app.evaluations.services.evaluations_services_evaluations_evaluator_models_
     DayEvaluationResult,
     EvaluationInputBundle,
     EvaluationResult,
-    FitProfileEvaluator,
+    WinoeReportEvaluator,
 )
 from app.evaluations.services.evaluations_services_evaluations_evaluator_scoring_service import (
     _recommendation_from_score,
     _score_for_day,
 )
-from app.integrations.fit_profile_review import (
-    FitProfileAggregateRequest,
-    FitProfileDayReviewRequest,
-    get_fit_profile_review_provider,
+from app.integrations.winoe_report_review import (
+    WinoeReportAggregateRequest,
+    WinoeReportDayReviewRequest,
+    get_winoe_report_review_provider,
 )
 
 
-class DeterministicFitProfileEvaluator:
-    """Represent deterministic fit profile evaluator data and behavior."""
+class DeterministicWinoeReportEvaluator:
+    """Represent deterministic winoe report evaluator data and behavior."""
 
     async def evaluate(self, bundle: EvaluationInputBundle) -> EvaluationResult:
         """Execute evaluate."""
@@ -74,7 +74,7 @@ class DeterministicFitProfileEvaluator:
             report_day_scores=report_day_scores,
         )
         return EvaluationResult(
-            overall_fit_score=float(report_json["overallFitScore"]),
+            overall_winoe_score=float(report_json["overallWinoeScore"]),
             recommendation=str(report_json["recommendation"]),
             confidence=float(report_json["confidence"]),
             day_results=day_results,
@@ -82,8 +82,8 @@ class DeterministicFitProfileEvaluator:
         )
 
 
-class LiveFitProfileEvaluator:
-    """Provider-backed fit profile evaluator with per-day reviewer orchestration."""
+class LiveWinoeReportEvaluator:
+    """Provider-backed winoe report evaluator with per-day reviewer orchestration."""
 
     async def evaluate(self, bundle: EvaluationInputBundle) -> EvaluationResult:
         """Execute evaluate."""
@@ -130,7 +130,7 @@ class LiveFitProfileEvaluator:
                     run_context_md=run_context_md,
                     scenario_version_id=bundle.scenario_version_id,
                 )
-                request = FitProfileDayReviewRequest(
+                request = WinoeReportDayReviewRequest(
                     system_prompt=system_prompt,
                     user_prompt=_build_day_review_prompt(
                         bundle=bundle,
@@ -139,7 +139,7 @@ class LiveFitProfileEvaluator:
                     ),
                     model=reviewer_model,
                 )
-                provider = get_fit_profile_review_provider(reviewer_provider)
+                provider = get_winoe_report_review_provider(reviewer_provider)
                 reviewer_output = provider.review_day(request=request)
                 reviewer_report = reviewer_output.model_dump()
                 day_result = DayEvaluationResult(
@@ -164,12 +164,12 @@ class LiveFitProfileEvaluator:
 
         require_agent_policy_snapshot(
             snapshot,
-            "fitProfile",
+            "winoeReport",
             scenario_version_id=bundle.scenario_version_id,
         )
         aggregator_runtime = require_agent_runtime(
             snapshot,
-            "fitProfile",
+            "winoeReport",
             scenario_version_id=bundle.scenario_version_id,
         )
         aggregator_runtime_mode = str(aggregator_runtime["runtimeMode"])
@@ -184,20 +184,20 @@ class LiveFitProfileEvaluator:
                 report_day_scores=report_day_scores,
             )
         else:
-            run_context_md = _build_fit_profile_run_context(bundle)
+            run_context_md = _build_winoe_report_run_context(bundle)
             system_prompt, rubric_prompt = build_required_snapshot_prompt(
                 snapshot_json=snapshot,
-                agent_key="fitProfile",
+                agent_key="winoeReport",
                 run_context_md=run_context_md,
                 scenario_version_id=bundle.scenario_version_id,
             )
-            provider = get_fit_profile_review_provider(aggregator_provider)
-            aggregate_output = provider.aggregate_fit_profile(
-                request=FitProfileAggregateRequest(
+            provider = get_winoe_report_review_provider(aggregator_provider)
+            aggregate_output = provider.aggregate_winoe_report(
+                request=WinoeReportAggregateRequest(
                     system_prompt=system_prompt,
                     user_prompt=json.dumps(
                         {
-                            "simulationContext": bundle.simulation_context_json or {},
+                            "trialContext": bundle.trial_context_json or {},
                             "reviewerReports": reviewer_reports,
                             "disabledDayIndexes": sorted(bundle.disabled_day_indexes),
                             "rubricGuidance": rubric_prompt,
@@ -215,7 +215,7 @@ class LiveFitProfileEvaluator:
                 ],
             )
             report_json = {
-                "overallFitScore": aggregate_output.overallFitScore,
+                "overallWinoeScore": aggregate_output.overallWinoeScore,
                 "recommendation": aggregate_output.recommendation,
                 "confidence": aggregate_output.confidence,
                 "dayScores": merged_day_scores,
@@ -234,7 +234,7 @@ class LiveFitProfileEvaluator:
                 },
             }
         return EvaluationResult(
-            overall_fit_score=float(report_json["overallFitScore"]),
+            overall_winoe_score=float(report_json["overallWinoeScore"]),
             recommendation=str(report_json["recommendation"]),
             confidence=float(report_json["confidence"]),
             day_results=day_results,
@@ -266,7 +266,7 @@ def _build_day_run_context(
     )
 
 
-def _build_fit_profile_run_context(bundle: EvaluationInputBundle) -> str:
+def _build_winoe_report_run_context(bundle: EvaluationInputBundle) -> str:
     return (
         f"Candidate session ID: {bundle.candidate_session_id}\n"
         f"Scenario version ID: {bundle.scenario_version_id}\n"
@@ -282,7 +282,7 @@ def _build_day_review_prompt(
 ) -> str:
     return json.dumps(
         {
-            "simulationContext": bundle.simulation_context_json or {},
+            "trialContext": bundle.trial_context_json or {},
             "dayInput": {
                 "dayIndex": day_input.day_index,
                 "taskId": day_input.task_id,
@@ -366,7 +366,7 @@ def _deterministic_aggregate_report(
         if isinstance(item, str)
     )[:6]
     return {
-        "overallFitScore": overall,
+        "overallWinoeScore": overall,
         "recommendation": _recommendation_from_score(overall),
         "confidence": confidence,
         "dayScores": list(report_day_scores),
@@ -425,16 +425,16 @@ def _aggregate_scores(day_results: list[DayEvaluationResult]) -> tuple[float, fl
     return overall, confidence
 
 
-_default_evaluator: FitProfileEvaluator = LiveFitProfileEvaluator()
+_default_evaluator: WinoeReportEvaluator = LiveWinoeReportEvaluator()
 
 
-def get_fit_profile_evaluator() -> FitProfileEvaluator:
-    """Return fit profile evaluator."""
+def get_winoe_report_evaluator() -> WinoeReportEvaluator:
+    """Return winoe report evaluator."""
     return _default_evaluator
 
 
 __all__ = [
-    "DeterministicFitProfileEvaluator",
-    "LiveFitProfileEvaluator",
-    "get_fit_profile_evaluator",
+    "DeterministicWinoeReportEvaluator",
+    "LiveWinoeReportEvaluator",
+    "get_winoe_report_evaluator",
 ]

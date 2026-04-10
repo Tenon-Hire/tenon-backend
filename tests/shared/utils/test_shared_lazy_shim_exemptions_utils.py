@@ -11,9 +11,9 @@ EXPECTED_EXEMPT_PACKAGES = [
     "app.candidates.candidate_sessions.repositories",
     "app.shared.jobs",
     "app.shared.jobs.repositories",
-    "app.simulations.repositories",
     "app.submissions.repositories",
     "app.submissions.services",
+    "app.trials.repositories",
 ]
 
 

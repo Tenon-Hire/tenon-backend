@@ -7,18 +7,20 @@ from tests.integrations.github.webhooks.handlers.integrations_github_webhooks_wo
 
 @pytest.mark.asyncio
 async def test_ambiguous_direct_workflow_run_id_match_returns_unmatched(async_session):
-    recruiter = await create_recruiter(async_session, email="webhook-direct@tenon.dev")
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="webhook-direct@winoe.dev"
+    )
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     first_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
-        invite_email="webhook-direct-first@tenon.dev",
+        trial=trial,
+        invite_email="webhook-direct-first@winoe.dev",
         with_default_schedule=True,
     )
     second_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
-        invite_email="webhook-direct-second@tenon.dev",
+        trial=trial,
+        invite_email="webhook-direct-second@winoe.dev",
         with_default_schedule=True,
     )
 

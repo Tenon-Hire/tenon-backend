@@ -18,8 +18,8 @@ from app.submissions.services.submissions_services_submissions_workspace_precomm
 )
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 from tests.submissions.services.precommit_bundle_runtime.submissions_precommit_bundle_runtime_branch_failure_github_utils import (
     _BranchFailureGithub,

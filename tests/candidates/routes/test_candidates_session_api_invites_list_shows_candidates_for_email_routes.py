@@ -7,12 +7,12 @@ from tests.candidates.routes.candidates_session_api_utils import *
 
 @pytest.mark.asyncio
 async def test_invites_list_shows_candidates_for_email(async_client, async_session):
-    recruiter = await create_recruiter(async_session, email="list@test.com")
-    sim, _ = await create_simulation(async_session, created_by=recruiter)
-    cs_match = await create_candidate_session(async_session, simulation=sim)
+    talent_partner = await create_talent_partner(async_session, email="list@test.com")
+    sim, _ = await create_trial(async_session, created_by=talent_partner)
+    cs_match = await create_candidate_session(async_session, trial=sim)
     await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         invite_email="other@example.com",
         candidate_name="Other",
     )

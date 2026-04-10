@@ -13,8 +13,8 @@ class GithubSettings(BaseSettings):
     GITHUB_ORG: str = ""
     GITHUB_TOKEN: str = ""
     GITHUB_TEMPLATE_OWNER: str = ""
-    GITHUB_ACTIONS_WORKFLOW_FILE: str = "tenon-ci.yml"
-    GITHUB_REPO_PREFIX: str = "tenon-ws-"
+    GITHUB_ACTIONS_WORKFLOW_FILE: str = "winoe-ci.yml"
+    GITHUB_REPO_PREFIX: str = "winoe-ws-"
     GITHUB_CLEANUP_ENABLED: bool = False
     WORKSPACE_RETENTION_DAYS: int = 30
     WORKSPACE_CLEANUP_MODE: str = "archive"
@@ -37,4 +37,4 @@ class GithubSettings(BaseSettings):
             raise ValueError("WORKSPACE_CLEANUP_MODE must be 'archive' or 'delete'")
         return normalized
 
-    model_config = SettingsConfigDict(extra="ignore", env_prefix="TENON_")
+    model_config = SettingsConfigDict(extra="ignore", env_prefix="WINOE_")

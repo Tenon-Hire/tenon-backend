@@ -15,13 +15,13 @@ from app.candidates.candidate_sessions.services.candidates_candidate_sessions_se
 from app.config import settings
 from app.shared.auth.principal import Principal
 from app.shared.database.shared_database_models_model import CandidateSession
-from app.simulations.repositories.simulations_repositories_simulations_simulation_model import (
-    SIMULATION_STATUS_TERMINATED,
+from app.trials.repositories.trials_repositories_trials_trial_model import (
+    TRIAL_STATUS_TERMINATED,
 )
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 
@@ -52,7 +52,7 @@ def test_ensure_can_access_hides_terminated_sessions():
         status="not_started",
         started_at=None,
         expires_at=None,
-        simulation=SimpleNamespace(status="terminated"),
+        trial=SimpleNamespace(status="terminated"),
     )
     with pytest.raises(HTTPException) as excinfo:
         ensure_can_access(session, principal, now=datetime.now(UTC))
@@ -77,14 +77,16 @@ def test_apply_auth_updates_sets_candidate_emails_and_progress():
 
 
 @pytest.mark.asyncio
-async def test_ensure_can_access_fails_closed_when_simulation_unloaded(async_session):
-    recruiter = await create_recruiter(async_session, email="fail-closed@test.com")
-    sim, _ = await create_simulation(async_session, created_by=recruiter)
-    cs = await create_candidate_session(async_session, simulation=sim)
+async def test_ensure_can_access_fails_closed_when_trial_unloaded(async_session):
+    talent_partner = await create_talent_partner(
+        async_session, email="fail-closed@test.com"
+    )
+    sim, _ = await create_trial(async_session, created_by=talent_partner)
+    cs = await create_candidate_session(async_session, trial=sim)
     session_id = cs.id
     invite_email = cs.invite_email
 
-    sim.status = SIMULATION_STATUS_TERMINATED
+    sim.status = TRIAL_STATUS_TERMINATED
     await async_session.commit()
     async_session.expunge_all()
 
@@ -92,7 +94,7 @@ async def test_ensure_can_access_fails_closed_when_simulation_unloaded(async_ses
         select(CandidateSession).where(CandidateSession.id == session_id)
     )
     unloaded = res.scalar_one()
-    assert "simulation" in sa_inspect(unloaded).unloaded
+    assert "trial" in sa_inspect(unloaded).unloaded
 
     principal = _principal(invite_email)
     with pytest.raises(HTTPException) as excinfo:

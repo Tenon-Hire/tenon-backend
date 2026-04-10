@@ -10,11 +10,13 @@ async def test_finalize_skips_invalid_or_reschedules_not_due_window(
     async_session,
     monkeypatch,
 ):
-    recruiter = await create_recruiter(async_session, email="finalize-window@test.com")
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="finalize-window@test.com"
+    )
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         status="in_progress",
         with_default_schedule=False,
     )
@@ -58,7 +60,7 @@ async def test_finalize_skips_invalid_or_reschedules_not_due_window(
             day_index=1,
             window_end_at=earlier_window_end,
         ),
-        company_id=simulation.company_id,
+        company_id=trial.company_id,
         candidate_session_id=candidate_session.id,
         next_run_at=earlier_window_end,
         commit=True,

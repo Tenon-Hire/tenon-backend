@@ -10,7 +10,7 @@ from app.shared.utils.shared_utils_brand_utils import TEST_ARTIFACT_NAMESPACE
 
 def select_artifacts(artifacts):
     """Execute select artifacts."""
-    tenon_artifact = legacy_artifact = None
+    winoe_artifact = legacy_artifact = None
     artifact_name_found = None
     for artifact in artifacts:
         if not artifact or artifact.get("expired"):
@@ -21,6 +21,6 @@ def select_artifacts(artifacts):
             legacy_artifact = artifact
             artifact_name_found = name
         if lowered == TEST_ARTIFACT_NAMESPACE:
-            tenon_artifact = artifact
+            winoe_artifact = artifact
             artifact_name_found = name
-    return tenon_artifact, legacy_artifact, artifact_name_found
+    return winoe_artifact, legacy_artifact, artifact_name_found

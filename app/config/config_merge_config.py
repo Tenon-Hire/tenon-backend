@@ -6,7 +6,7 @@ import os
 from collections.abc import Iterable
 
 _SECTIONS: dict[str, tuple[list[str], str]] = {
-    "database": (["DATABASE_URL", "DATABASE_URL_SYNC"], "TENON_"),
+    "database": (["DATABASE_URL", "DATABASE_URL_SYNC"], "WINOE_"),
     "auth": (
         [
             "AUTH0_DOMAIN",
@@ -21,9 +21,9 @@ _SECTIONS: dict[str, tuple[list[str], str]] = {
             "AUTH0_ROLES_CLAIM",
             "AUTH0_PERMISSIONS_CLAIM",
         ],
-        "TENON_",
+        "WINOE_",
     ),
-    "cors": (["CORS_ALLOW_ORIGINS", "CORS_ALLOW_ORIGIN_REGEX"], "TENON_"),
+    "cors": (["CORS_ALLOW_ORIGINS", "CORS_ALLOW_ORIGIN_REGEX"], "WINOE_"),
     "github": (
         [
             "GITHUB_API_BASE",
@@ -39,13 +39,13 @@ _SECTIONS: dict[str, tuple[list[str], str]] = {
             "GITHUB_WEBHOOK_SECRET",
             "GITHUB_WEBHOOK_MAX_BODY_BYTES",
         ],
-        "TENON_",
+        "WINOE_",
     ),
     "email": (
         [
-            "TENON_EMAIL_PROVIDER",
-            "TENON_EMAIL_FROM",
-            "TENON_RESEND_API_KEY",
+            "WINOE_EMAIL_PROVIDER",
+            "WINOE_EMAIL_FROM",
+            "WINOE_RESEND_API_KEY",
             "SENDGRID_API_KEY",
             "SMTP_HOST",
             "SMTP_PORT",
@@ -75,7 +75,7 @@ _SECTIONS: dict[str, tuple[list[str], str]] = {
             "MEDIA_ALLOWED_CONTENT_TYPES",
             "MEDIA_ALLOWED_EXTENSIONS",
         ],
-        "TENON_",
+        "WINOE_",
     ),
 }
 

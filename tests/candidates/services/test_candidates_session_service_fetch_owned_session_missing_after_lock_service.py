@@ -13,7 +13,7 @@ async def test_fetch_owned_session_missing_after_lock(monkeypatch):
         (),
         {
             "id": 1,
-            "simulation_id": 1,
+            "trial_id": 1,
             "candidate_auth0_sub": None,
             "candidate_email": "lock@test.com",
             "invite_email": "lock@test.com",

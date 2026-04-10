@@ -9,7 +9,7 @@ from tests.candidates.routes.candidates_session_schedule_api_utils import *
 async def test_resolve_and_invites_include_schedule_fields(
     async_client, async_session, override_dependencies
 ):
-    _recruiter, _simulation, cs = await _seed_claimed_session(async_session)
+    _talent_partner, _trial, cs = await _seed_claimed_session(async_session)
     await _claim(async_client, cs.token, cs.invite_email)
 
     provider = MemoryEmailProvider()

@@ -9,11 +9,13 @@ from tests.candidates.routes.candidates_schedule_gates_api_utils import *
 async def test_resolve_pre_start_returns_locked_payload_without_content_leaks(
     async_client, async_session
 ):
-    recruiter = await create_recruiter(async_session, email="resolve-prestart@test.com")
-    sim, _tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="resolve-prestart@test.com"
+    )
+    sim, _tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         invite_email="locked@example.com",
         with_default_schedule=False,
     )
@@ -37,7 +39,7 @@ async def test_resolve_pre_start_returns_locked_payload_without_content_leaks(
     assert body["windowStartAt"] == scheduled_start.isoformat().replace("+00:00", "Z")
     assert body["windowEndAt"] is not None
     assert body["candidateTimezone"] == "America/New_York"
-    assert body["simulation"]["id"] == sim.id
+    assert body["trial"]["id"] == sim.id
 
     for key in (
         "storyline",

@@ -12,6 +12,6 @@ def test_non_local_cors_rejects_origin_regex():
             ENV="staging",
             AUTH0_DOMAIN="example.auth0.com",
             AUTH0_API_AUDIENCE="aud",
-            CORS_ALLOW_ORIGINS=["https://frontend.tenon.ai"],
-            CORS_ALLOW_ORIGIN_REGEX=r"^https://.*\.tenon\.ai$",
+            CORS_ALLOW_ORIGINS=["https://frontend.winoe.ai"],
+            CORS_ALLOW_ORIGIN_REGEX=r"^https://.*\.winoe\.ai$",
         )

@@ -26,8 +26,8 @@ from app.submissions.repositories.github_native.workspaces.submissions_repositor
 )
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 
@@ -55,14 +55,14 @@ async def _prepare_workspace(
     with_cutoff: bool = False,
     use_group: bool = True,
 ) -> tuple[int, int, str, str | None]:
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session,
         email=f"workspace-cleanup-handler-{uuid4().hex}@test.com",
     )
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         status=session_status,
         completed_at=(
             completed_at
@@ -129,7 +129,7 @@ async def _prepare_workspace(
         )
 
     await async_session.commit()
-    return simulation.company_id, candidate_session.id, workspace.id, workspace_group_id
+    return trial.company_id, candidate_session.id, workspace.id, workspace_group_id
 
 
 async def _load_cleanup_record(

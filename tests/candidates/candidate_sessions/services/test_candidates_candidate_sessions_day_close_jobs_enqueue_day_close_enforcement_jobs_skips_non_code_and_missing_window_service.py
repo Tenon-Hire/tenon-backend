@@ -10,14 +10,14 @@ async def test_enqueue_day_close_enforcement_jobs_skips_non_code_and_missing_win
     async_session,
     monkeypatch,
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="day-close-enforce-skip@test.com"
     )
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     tasks[2].type = "documentation"  # Day 3 should be ignored by code-task filter.
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         status="in_progress",
         with_default_schedule=True,
     )

@@ -1,6 +1,6 @@
 # Architecture Overview
 
-This document describes the implemented Tenon backend architecture as of March 27, 2026.
+This document describes the implemented Winoe backend architecture as of March 27, 2026.
 
 ## Runtime Composition
 
@@ -11,17 +11,17 @@ This document describes the implemented Tenon backend architecture as of March 2
   - CORS and CSRF origin enforcement
   - request body size limits
   - trusted proxy header handling
-  - optional performance instrumentation (`TENON_DEBUG_PERF`, `TENON_PERF_*`)
+  - optional performance instrumentation (`WINOE_DEBUG_PERF`, `WINOE_PERF_*`)
 
 ## Domain Modules
 
-- `app/simulations/*`: simulation lifecycle, invites, scenario versioning, candidate compare payloads.
+- `app/trials/*`: trial lifecycle, invites, scenario versioning, candidate compare payloads.
 - `app/candidates/*`: candidate session resolve/claim/schedule/current-task/privacy flows.
 - `app/tasks/*`: candidate execution routes (codespace/run/submit/draft/handoff upload/status).
-- `app/submissions/*`: submission persistence, recruiter list/detail presenters, workspace orchestration.
-- `app/evaluations/*`: fit-profile API, evaluator pipeline, run/day-score lifecycle.
+- `app/submissions/*`: submission persistence, talent_partner list/detail presenters, workspace orchestration.
+- `app/evaluations/*`: winoe-report API, evaluator pipeline, run/day-score lifecycle.
 - `app/media/*`: recording/transcript repositories and privacy retention controls.
-- `app/recruiters/*`: admin template checks and demo admin operations.
+- `app/talent_partners/*`: admin template checks and demo admin operations.
 - `app/shared/*`: auth, database/session wiring, durable jobs, logging, perf, and cross-cutting utils.
 
 ## Integration Boundaries
@@ -44,7 +44,7 @@ This document describes the implemented Tenon backend architecture as of March 2
 ## Auth and Access Model
 
 - Principal extraction: `app/shared/auth/principal/*`.
-- Recruiter/candidate route guards are dependency-driven.
+- Talent Partner/candidate route guards are dependency-driven.
 - Admin template endpoints require `X-Admin-Key`.
 - Demo admin operations require demo-mode admin dependency resolution.
 
@@ -57,7 +57,7 @@ This document describes the implemented Tenon backend architecture as of March 2
   - evaluation run
   - day-close enforcement/finalization
   - transcription
-  - workspace/simulation cleanup
+  - workspace/trial cleanup
 
 ## Documentation Sources of Truth
 

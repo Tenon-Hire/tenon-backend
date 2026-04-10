@@ -7,14 +7,14 @@ from tests.integrations.github.webhooks.handlers.integrations_github_webhooks_wo
 
 @pytest.mark.asyncio
 async def test_direct_match_sets_last_run_at_when_completed_at_missing(async_session):
-    recruiter = await create_recruiter(
-        async_session, email="webhook-last-run@tenon.dev"
+    talent_partner = await create_talent_partner(
+        async_session, email="webhook-last-run@winoe.dev"
     )
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
-        invite_email="webhook-last-run-candidate@tenon.dev",
+        trial=trial,
+        invite_email="webhook-last-run-candidate@winoe.dev",
         with_default_schedule=True,
     )
     submission = await create_submission(

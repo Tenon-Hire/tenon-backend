@@ -8,8 +8,8 @@ from tests.media.services.media_handoff_transcription_integration_utils import (
 )
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 
@@ -23,13 +23,15 @@ async def test_handoff_upload_complete_enqueue_and_worker_transcribes(
     async_session,
     candidate_header_factory,
 ):
-    recruiter = await create_recruiter(async_session, email="handoff-int@test.com")
-    recruiter_email = recruiter.email
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="handoff-int@test.com"
+    )
+    talent_partner_email = talent_partner.email
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     task = _handoff_task(tasks)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         status="in_progress",
         with_default_schedule=True,
         consent_version="mvp1",
@@ -78,7 +80,7 @@ async def test_handoff_upload_complete_enqueue_and_worker_transcribes(
     await assert_transcription_job_and_outputs(
         async_client,
         async_session,
-        recruiter_email=recruiter_email,
+        talent_partner_email=talent_partner_email,
         recording=recording,
         recording_id_value=recording_id_value,
         candidate_session_id=candidate_session_id,

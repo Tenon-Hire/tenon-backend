@@ -7,11 +7,13 @@ from tests.shared.jobs.handlers.shared_jobs_handlers_day_close_finalize_text_uti
 
 @pytest.mark.asyncio
 async def test_finalize_skips_non_text_task(async_session, monkeypatch):
-    recruiter = await create_recruiter(async_session, email="finalize-nontext@test.com")
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="finalize-nontext@test.com"
+    )
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         status="in_progress",
         with_default_schedule=False,
     )

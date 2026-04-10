@@ -1,0 +1,205 @@
+{
+  "id": "43916056-c938-44ee-bc62-9865951d6f4a",
+  "name": "Winoe AI - Backend QA",
+  "values": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "api_prefix",
+      "value": "/api",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "talent_partner_email",
+      "value": "talent_partner1@local.test",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "talent_partner_token",
+      "value": "talent_partner:talent_partner1@local.test",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "talent_partner_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "candidate_email",
+      "value": "e2e-candidate@test.com",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "candidate_token",
+      "value": "candidate:e2e-candidate@test.com",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "candidate_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "admin_api_key",
+      "value": "my-super-secret-admin-key",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "trial_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "trial_id_2",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "candidate_session_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "candidate_session_token",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "scenario_version_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "scenario_generation_job_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "job_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "task_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "task_id_day1",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "task_id_day2",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "task_id_day3",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "task_id_day4",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "task_id_day5",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "run_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "submission_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "recording_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "upload_url",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "invite_url",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "workspace_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "repo_full_name",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "codespace_url",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "winoe_report_job_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "company_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "unique_candidate_email",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}

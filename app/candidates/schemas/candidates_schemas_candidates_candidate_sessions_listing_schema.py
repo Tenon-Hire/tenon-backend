@@ -20,7 +20,7 @@ class CandidateSessionListItem(APIModel):
     status: CandidateSessionStatus
     startedAt: datetime | None
     completedAt: datetime | None
-    hasFitProfile: bool
+    hasWinoeReport: bool
     hasReport: bool = False
     reportReady: bool | None = None
     reportId: str | None = None

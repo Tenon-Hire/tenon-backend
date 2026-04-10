@@ -14,7 +14,7 @@ async def test_csrf_middleware_passes_non_http_scopes():
 
     middleware = middleware_http.CsrfOriginEnforcementMiddleware(
         app,
-        allowed_origins=["https://frontend.tenon.ai"],
+        allowed_origins=["https://frontend.winoe.ai"],
         protected_path_prefixes=["/api"],
     )
     await middleware({"type": "lifespan"}, lambda: None, lambda _message: None)

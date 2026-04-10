@@ -32,7 +32,7 @@ def _async_return(val):
 def _stub_cs():
     return SimpleNamespace(
         id=1,
-        simulation_id=1,
+        trial_id=1,
         status="in_progress",
         scheduled_start_at=datetime.now(UTC) - timedelta(days=1),
     )
@@ -41,7 +41,7 @@ def _stub_cs():
 def _stub_task():
     return SimpleNamespace(
         id=2,
-        simulation_id=1,
+        trial_id=1,
         type="code",
         template_repo="org/template",
         day_index=2,

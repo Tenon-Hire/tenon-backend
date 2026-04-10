@@ -9,7 +9,7 @@ def test_submissions_helpers_guard_falls_back_when_router_import_fails(monkeypat
     )
     calls = {"fallback": 0}
     monkeypatch.setattr(
-        guard, "ensure_recruiter", lambda _u: calls.__setitem__("fallback", 1)
+        guard, "ensure_talent_partner", lambda _u: calls.__setitem__("fallback", 1)
     )
     original_import = builtins.__import__
 
@@ -19,5 +19,5 @@ def test_submissions_helpers_guard_falls_back_when_router_import_fails(monkeypat
         return original_import(name, globals, locals, fromlist, level)
 
     monkeypatch.setattr(builtins, "__import__", _import)
-    guard.ensure_recruiter_guard(SimpleNamespace(id=1))
+    guard.ensure_talent_partner_guard(SimpleNamespace(id=1))
     assert calls["fallback"] == 1

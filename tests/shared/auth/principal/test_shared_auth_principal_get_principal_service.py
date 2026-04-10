@@ -79,7 +79,7 @@ async def test_get_principal_maps_kid_not_found(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_principal_blocks_dev_shorthand_outside_test(monkeypatch):
-    monkeypatch.setenv("TENON_ENV", "prod")
+    monkeypatch.setenv("WINOE_ENV", "prod")
     monkeypatch.setattr(settings, "ENV", "prod")
     credentials = HTTPAuthorizationCredentials(
         scheme="Bearer", credentials="candidate:blocked@example.com"

@@ -7,14 +7,14 @@ from tests.media.services.media_privacy_service_utils import *
 
 @pytest.mark.asyncio
 async def test_record_candidate_session_consent_rejects_blank_notice(async_session):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session,
         email="privacy-consent-invalid@test.com",
     )
-    sim, _tasks = await create_simulation(async_session, created_by=recruiter)
+    sim, _tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         consent_version=None,
         consent_timestamp=None,
         ai_notice_version=None,

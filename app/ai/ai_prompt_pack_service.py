@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from app.ai.ai_output_models import (
-    AggregatedFitProfileOutput,
+    AggregatedWinoeReportOutput,
     CodespacePatchProposal,
     DayReviewerOutput,
     ScenarioGenerationOutput,
@@ -49,7 +49,7 @@ _OUTPUT_MODELS: dict[str, type[Any]] = {
     "ScenarioGenerationOutput": ScenarioGenerationOutput,
     "CodespacePatchProposal": CodespacePatchProposal,
     "DayReviewerOutput": DayReviewerOutput,
-    "AggregatedFitProfileOutput": AggregatedFitProfileOutput,
+    "AggregatedWinoeReportOutput": AggregatedWinoeReportOutput,
 }
 
 

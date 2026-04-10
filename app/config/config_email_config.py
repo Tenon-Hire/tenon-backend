@@ -8,9 +8,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class EmailSettings(BaseSettings):
     """Email provider configuration."""
 
-    TENON_EMAIL_PROVIDER: str = "console"
-    TENON_EMAIL_FROM: str = "Tenon <notifications@tenon.com>"
-    TENON_RESEND_API_KEY: str = ""
+    WINOE_EMAIL_PROVIDER: str = "console"
+    WINOE_EMAIL_FROM: str = "Winoe <notifications@winoe.com>"
+    WINOE_RESEND_API_KEY: str = ""
     SENDGRID_API_KEY: str = ""
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587

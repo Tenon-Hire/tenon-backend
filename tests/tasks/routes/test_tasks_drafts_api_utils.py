@@ -9,7 +9,7 @@ from app.candidates.candidate_sessions.services.scheduling.candidates_candidate_
 )
 from app.shared.database.shared_database_models_model import (
     CandidateSession,
-    Simulation,
+    Trial,
 )
 
 
@@ -34,9 +34,9 @@ async def set_closed_schedule(async_session, *, candidate_session_id: int) -> No
             select(CandidateSession).where(CandidateSession.id == candidate_session_id)
         )
     ).scalar_one()
-    _simulation = (
+    _trial = (
         await async_session.execute(
-            select(Simulation).where(Simulation.id == candidate_session.simulation_id)
+            select(Trial).where(Trial.id == candidate_session.trial_id)
         )
     ).scalar_one()
     now_utc = datetime.now(UTC).replace(microsecond=0)

@@ -17,11 +17,13 @@ async def test_get_run_result_throttled_when_polling_too_fast(
     ] = candidate_submissions.rate_limit.RateLimitRule(limit=5, window_seconds=60.0)
 
     actions_stubber()
-    recruiter = await create_recruiter(async_session, email="poll-throttle@sim.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="poll-throttle@sim.com"
+    )
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     cs = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         status="in_progress",
         with_default_schedule=True,
     )

@@ -57,7 +57,7 @@ async def handle_day_close_enforcement_impl(
             await db.execute(
                 select(CandidateSession)
                 .where(CandidateSession.id == candidate_session_id)
-                .options(selectinload(CandidateSession.simulation))
+                .options(selectinload(CandidateSession.trial))
             )
         ).scalar_one_or_none()
         if candidate_session is None:
@@ -71,7 +71,7 @@ async def handle_day_close_enforcement_impl(
             await db.execute(
                 select(Task).where(
                     Task.id == task_id,
-                    Task.simulation_id == candidate_session.simulation_id,
+                    Task.trial_id == candidate_session.trial_id,
                 )
             )
         ).scalar_one_or_none()

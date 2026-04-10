@@ -13,13 +13,13 @@ async def test_delete_recording_asset_logs_without_sensitive_payload(
     caplog.set_level(
         "INFO", logger="app.media.services.media_services_media_privacy_service"
     )
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session,
         email="privacy-delete-log@test.com",
     )
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     task = _handoff_task(tasks)
-    candidate_session = await create_candidate_session(async_session, simulation=sim)
+    candidate_session = await create_candidate_session(async_session, trial=sim)
     recording = await recordings_repo.create_recording_asset(
         async_session,
         candidate_session_id=candidate_session.id,

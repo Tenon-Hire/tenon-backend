@@ -10,9 +10,11 @@ async def test_submissions_helpers_list_skips_rows_without_task(monkeypatch):
     async def _fake_list(*_a, **_k):
         return [object(), ("sub", None), ("sub", "task")]
 
-    monkeypatch.setattr(submissions_helpers, "ensure_recruiter_guard", lambda _u: None)
     monkeypatch.setattr(
-        submissions_helpers.recruiter_sub_service, "list_submissions", _fake_list
+        submissions_helpers, "ensure_talent_partner_guard", lambda _u: None
+    )
+    monkeypatch.setattr(
+        submissions_helpers.talent_partner_sub_service, "list_submissions", _fake_list
     )
     monkeypatch.setattr(
         submissions_helpers,

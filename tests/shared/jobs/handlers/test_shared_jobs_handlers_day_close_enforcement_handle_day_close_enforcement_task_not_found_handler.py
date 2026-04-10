@@ -10,11 +10,13 @@ async def test_handle_day_close_enforcement_task_not_found(
     async_session,
     monkeypatch,
 ):
-    recruiter = await create_recruiter(async_session, email="task-missing@test.com")
-    simulation, _tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="task-missing@test.com"
+    )
+    trial, _tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         status="in_progress",
     )
     await async_session.commit()

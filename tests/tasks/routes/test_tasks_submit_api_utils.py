@@ -10,29 +10,29 @@ from app.candidates.candidate_sessions.services.scheduling.candidates_candidate_
 )
 from app.shared.database.shared_database_models_model import (
     CandidateSession,
-    Simulation,
     Submission,
+    Trial,
     Workspace,
 )
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
     create_submission,
+    create_talent_partner,
 )
 from tests.shared.factories import (
-    create_simulation as create_simulation_factory,
+    create_trial as create_trial_factory,
 )
 from tests.tasks.routes.test_tasks_submit_api_flow_utils import (
     claim_session,
     get_current_task,
     invite_candidate,
-    seed_recruiter,
+    seed_talent_partner,
 )
 from tests.tasks.routes.test_tasks_submit_api_runtime_utils import (
-    create_simulation as create_simulation_runtime,
+    create_trial as create_trial_runtime,
 )
 
-create_simulation = create_simulation_runtime
+create_trial = create_trial_runtime
 
 
 async def unlock_schedule(
@@ -46,9 +46,9 @@ async def unlock_schedule(
             select(CandidateSession).where(CandidateSession.id == candidate_session_id)
         )
     ).scalar_one()
-    _simulation = (
+    _trial = (
         await async_session.execute(
-            select(Simulation).where(Simulation.id == candidate_session.simulation_id)
+            select(Trial).where(Trial.id == candidate_session.trial_id)
         )
     ).scalar_one()
     now_utc = datetime.now(UTC).replace(microsecond=0)
@@ -77,11 +77,11 @@ def candidate_headers(cs_id: int, token: str) -> dict[str, str]:
 
 
 def task_id_by_day(sim_json: dict, day_index: int) -> int:
-    # create_simulation returns tasks with snake_case keys (day_index/type/etc)
+    # create_trial returns tasks with snake_case keys (day_index/type/etc)
     for t in sim_json["tasks"]:
         if t["day_index"] == day_index:
             return t["id"]
-    raise AssertionError(f"Simulation missing task for day_index={day_index}")
+    raise AssertionError(f"Trial missing task for day_index={day_index}")
 
 
 def build_day5_reflection_payload() -> dict:

@@ -16,9 +16,9 @@ from app.shared.database.shared_database_models_model import Job
 from app.shared.http.routes import github_webhooks as webhook_routes
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
     create_submission,
+    create_talent_partner,
+    create_trial,
 )
 
 

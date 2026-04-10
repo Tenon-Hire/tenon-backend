@@ -9,10 +9,10 @@ from tests.media.routes.media_handoff_upload_api_utils import *
 async def test_handoff_status_requires_candidate_session_headers(
     async_client, async_session
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="handoff-status-auth@test.com"
     )
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     task = _handoff_task(tasks)
     await async_session.commit()
 

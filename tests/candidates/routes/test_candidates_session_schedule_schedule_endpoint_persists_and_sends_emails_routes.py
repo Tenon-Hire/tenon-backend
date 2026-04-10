@@ -9,7 +9,7 @@ from tests.candidates.routes.candidates_session_schedule_api_utils import *
 async def test_schedule_endpoint_persists_and_sends_emails(
     async_client, async_session, override_dependencies
 ):
-    recruiter, simulation, cs = await _seed_claimed_session(async_session)
+    talent_partner, trial, cs = await _seed_claimed_session(async_session)
     await _claim(async_client, cs.token, cs.invite_email)
 
     provider = MemoryEmailProvider()
@@ -44,5 +44,5 @@ async def test_schedule_endpoint_persists_and_sends_emails(
     assert len(provider.sent) == 2
     recipients = {message.to for message in provider.sent}
     assert cs.invite_email in recipients
-    assert recruiter.email in recipients
+    assert talent_partner.email in recipients
     assert any("Schedule confirmed" in message.subject for message in provider.sent)

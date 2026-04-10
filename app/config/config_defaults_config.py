@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-DEFAULT_CLAIM_NAMESPACE = "https://tenon.ai"
+DEFAULT_CLAIM_NAMESPACE = "https://winoe.ai"
 
 
 def normalize_sync_url(url: str) -> str:

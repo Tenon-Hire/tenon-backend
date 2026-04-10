@@ -30,7 +30,7 @@ async def test_live_health_ignores_non_dispatch_event():
     template_key = next(iter(TEMPLATE_CATALOG))
     response = await check_template_health(
         StubGithubClient(),
-        workflow_file="tenon-ci.yml",
+        workflow_file="winoe-ci.yml",
         mode="live",
         template_keys=[template_key],
         timeout_seconds=1,

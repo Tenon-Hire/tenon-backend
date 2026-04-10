@@ -8,8 +8,8 @@ from typing import Literal
 from app.shared.types.shared_types_base_model import APIModel
 
 
-class CandidateSimulationSummary(APIModel):
-    """Summary of the simulation for candidate session response."""
+class CandidateTrialSummary(APIModel):
+    """Summary of the trial for candidate session response."""
 
     id: int
     title: str

@@ -2,7 +2,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.shared.http.routes import submissions
-from tests.shared.factories import create_recruiter
+from tests.shared.factories import create_talent_partner
 
 
 def test_derive_test_status_variants():
@@ -14,7 +14,7 @@ def test_derive_test_status_variants():
 
 @pytest.mark.asyncio
 async def test_get_submission_detail_not_found(async_session):
-    user = await create_recruiter(async_session, email="missing-sub@sim.com")
+    user = await create_talent_partner(async_session, email="missing-sub@sim.com")
     with pytest.raises(HTTPException) as exc:
         await submissions.get_submission_detail(
             submission_id=9999, db=async_session, user=user

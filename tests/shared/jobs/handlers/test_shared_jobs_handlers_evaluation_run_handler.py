@@ -14,7 +14,7 @@ from app.shared.jobs.shared_jobs_worker_service import PermanentJobError
 async def test_handle_evaluation_run_returns_success_result(monkeypatch):
     process = AsyncMock(return_value={"status": "completed", "evaluationRunId": 1})
     monkeypatch.setattr(
-        evaluation_handler.fit_profile_pipeline,
+        evaluation_handler.winoe_report_pipeline,
         "process_evaluation_run_job",
         process,
     )
@@ -31,7 +31,7 @@ async def test_handle_evaluation_run_raises_permanent_error_for_failed_domain_re
         return_value={"status": "failed", "errorCode": "evaluation_failed"}
     )
     monkeypatch.setattr(
-        evaluation_handler.fit_profile_pipeline,
+        evaluation_handler.winoe_report_pipeline,
         "process_evaluation_run_job",
         process,
     )

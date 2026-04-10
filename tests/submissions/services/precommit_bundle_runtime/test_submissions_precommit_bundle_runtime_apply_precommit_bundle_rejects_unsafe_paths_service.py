@@ -7,11 +7,13 @@ from tests.submissions.services.precommit_bundle_runtime.submissions_precommit_b
 
 @pytest.mark.asyncio
 async def test_apply_precommit_bundle_rejects_unsafe_paths(async_session):
-    recruiter = await create_recruiter(async_session, email="bundle-unsafe@test.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="bundle-unsafe@test.com"
+    )
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         status="in_progress",
     )
     scenario_version_id = candidate_session.scenario_version_id

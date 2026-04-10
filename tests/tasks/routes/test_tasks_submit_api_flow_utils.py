@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.shared.database.shared_database_models_model import Company, User
 
 
-async def seed_recruiter(
+async def seed_talent_partner(
     session: AsyncSession, *, email: str, company_name: str
 ) -> User:
     company = Company(name=company_name)
@@ -14,7 +14,7 @@ async def seed_recruiter(
     user = User(
         name=email.split("@")[0],
         email=email,
-        role="recruiter",
+        role="talent_partner",
         company_id=company.id,
         password_hash="",
     )
@@ -27,12 +27,12 @@ async def seed_recruiter(
 async def invite_candidate(
     async_client,
     sim_id: int,
-    recruiter_email: str,
+    talent_partner_email: str,
     invite_email: str = "jane@example.com",
 ) -> dict:
     resp = await async_client.post(
-        f"/api/simulations/{sim_id}/invite",
-        headers={"x-dev-user-email": recruiter_email},
+        f"/api/trials/{sim_id}/invite",
+        headers={"x-dev-user-email": talent_partner_email},
         json={"candidateName": "Jane Doe", "inviteEmail": invite_email},
     )
     assert resp.status_code == 200, resp.text

@@ -35,7 +35,7 @@ async def _backfill_locked_schedule(
     if getattr(candidate_session, "day_windows_json", None):
         return False
     candidate_session.day_windows_json = _derive_serialized_day_windows(
-        simulation=candidate_session.simulation,
+        trial=candidate_session.trial,
         scheduled_start_at_utc=scheduled_start_at_utc,
         normalized_timezone=normalized_timezone,
     )
@@ -54,13 +54,13 @@ async def _set_new_schedule(
     candidate_session.scheduled_start_at = scheduled_start_at_utc
     candidate_session.candidate_timezone = normalized_timezone
     candidate_session.day_windows_json = _derive_serialized_day_windows(
-        simulation=candidate_session.simulation,
+        trial=candidate_session.trial,
         scheduled_start_at_utc=scheduled_start_at_utc,
         normalized_timezone=normalized_timezone,
     )
     candidate_session.schedule_locked_at = resolved_now
     await enqueue_day_close_jobs(db, candidate_session=candidate_session, commit=False)
-    return candidate_session.simulation
+    return candidate_session.trial
 
 
 __all__ = ["_backfill_locked_schedule", "_set_new_schedule"]

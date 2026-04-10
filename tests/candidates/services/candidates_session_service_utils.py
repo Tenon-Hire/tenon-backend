@@ -8,14 +8,14 @@ from fastapi import HTTPException
 from app.candidates.candidate_sessions import services as cs_service
 from app.config import settings
 from app.shared.auth.principal import Principal
-from app.simulations.repositories.simulations_repositories_simulations_simulation_status_constants import (
-    SIMULATION_STATUS_TERMINATED,
+from app.trials.repositories.trials_repositories_trials_trial_status_constants import (
+    TRIAL_STATUS_TERMINATED,
 )
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
     create_submission,
+    create_talent_partner,
+    create_trial,
 )
 
 

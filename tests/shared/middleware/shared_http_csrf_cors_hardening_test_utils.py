@@ -27,7 +27,7 @@ def _configure_security_settings(
     monkeypatch.setattr(
         settings,
         "CSRF_ALLOWED_ORIGINS",
-        csrf_allowed_origins or ["https://frontend.tenon.ai"],
+        csrf_allowed_origins or ["https://frontend.winoe.ai"],
     )
     monkeypatch.setattr(
         settings,
@@ -37,7 +37,7 @@ def _configure_security_settings(
     monkeypatch.setattr(
         settings.cors,
         "CORS_ALLOW_ORIGINS",
-        cors_allowed_origins or ["https://frontend.tenon.ai"],
+        cors_allowed_origins or ["https://frontend.winoe.ai"],
     )
     monkeypatch.setattr(settings.cors, "CORS_ALLOW_ORIGIN_REGEX", cors_origin_regex)
 

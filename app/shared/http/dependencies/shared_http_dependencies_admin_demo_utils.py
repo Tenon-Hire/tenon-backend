@@ -16,11 +16,11 @@ from app.shared.http.dependencies.shared_http_dependencies_admin_demo_actor_util
 )
 from app.shared.http.dependencies.shared_http_dependencies_admin_demo_rules_utils import (
     allowlist_contains_email,
-    allowlist_contains_recruiter_id,
     allowlist_contains_subject,
+    allowlist_contains_talent_partner_id,
     build_actor,
     is_admin_claim,
-    lookup_recruiter_id,
+    lookup_talent_partner_id,
 )
 
 
@@ -34,16 +34,16 @@ async def require_demo_mode_admin(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
 
     principal = await get_principal(credentials, request)
-    recruiter_id = await lookup_recruiter_id(db, email=principal.email)
+    talent_partner_id = await lookup_talent_partner_id(db, email=principal.email)
     if is_admin_claim(principal):
-        return build_actor(principal, recruiter_id)
+        return build_actor(principal, talent_partner_id)
 
     if (
         allowlist_contains_email(principal.email)
         or allowlist_contains_subject(principal.sub)
-        or allowlist_contains_recruiter_id(recruiter_id)
+        or allowlist_contains_talent_partner_id(talent_partner_id)
     ):
-        return build_actor(principal, recruiter_id)
+        return build_actor(principal, talent_partner_id)
 
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,

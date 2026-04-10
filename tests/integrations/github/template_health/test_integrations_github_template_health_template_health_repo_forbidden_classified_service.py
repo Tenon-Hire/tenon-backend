@@ -13,7 +13,7 @@ async def test_template_health_repo_forbidden_classified():
 
     response = await check_template_health(
         StubGithubClient(),
-        workflow_file="tenon-ci.yml",
+        workflow_file="winoe-ci.yml",
         mode="static",
         template_keys=[next(iter(TEMPLATE_CATALOG))],
     )

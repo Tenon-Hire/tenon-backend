@@ -7,19 +7,19 @@ from app.notifications.services import service as notification_service
 from app.notifications.services.notifications_services_notifications_email_sender_service import (
     EmailService,
 )
-from app.simulations import services as sim_service
+from app.trials import services as sim_service
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 
 @pytest.mark.asyncio
 async def test_send_invite_email_tracks_status_and_rate_limit(async_session):
-    recruiter = await create_recruiter(async_session, email="notify@test.com")
-    sim, _ = await create_simulation(async_session, created_by=recruiter)
-    cs = await create_candidate_session(async_session, simulation=sim)
+    talent_partner = await create_talent_partner(async_session, email="notify@test.com")
+    sim, _ = await create_trial(async_session, created_by=talent_partner)
+    cs = await create_candidate_session(async_session, trial=sim)
 
     provider = MemoryEmailProvider()
     email_service = EmailService(provider, sender="noreply@test.com")
@@ -28,7 +28,7 @@ async def test_send_invite_email_tracks_status_and_rate_limit(async_session):
     first = await notification_service.send_invite_email(
         async_session,
         candidate_session=cs,
-        simulation=sim,
+        trial=sim,
         invite_url=sim_service.invite_url(cs.token),
         email_service=email_service,
         now=now,
@@ -48,7 +48,7 @@ async def test_send_invite_email_tracks_status_and_rate_limit(async_session):
     second = await notification_service.send_invite_email(
         async_session,
         candidate_session=cs,
-        simulation=sim,
+        trial=sim,
         invite_url=sim_service.invite_url(cs.token),
         email_service=email_service,
         now=now,
@@ -75,9 +75,11 @@ def test_invite_email_content_and_rate_limit_helpers():
 
 @pytest.mark.asyncio
 async def test_send_invite_email_failure_path(async_session):
-    recruiter = await create_recruiter(async_session, email="notify-fail@test.com")
-    sim, _ = await create_simulation(async_session, created_by=recruiter)
-    cs = await create_candidate_session(async_session, simulation=sim)
+    talent_partner = await create_talent_partner(
+        async_session, email="notify-fail@test.com"
+    )
+    sim, _ = await create_trial(async_session, created_by=talent_partner)
+    cs = await create_candidate_session(async_session, trial=sim)
 
     class FailingProvider:
         async def send(self, message):
@@ -90,7 +92,7 @@ async def test_send_invite_email_failure_path(async_session):
     result = await notification_service.send_invite_email(
         async_session,
         candidate_session=cs,
-        simulation=sim,
+        trial=sim,
         invite_url=sim_service.invite_url(cs.token),
         email_service=email_service,
         now=datetime.now(UTC),

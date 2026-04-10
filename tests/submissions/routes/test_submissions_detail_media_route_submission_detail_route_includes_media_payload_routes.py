@@ -7,14 +7,14 @@ from tests.submissions.routes.submissions_detail_media_routes_utils import *
 
 @pytest.mark.asyncio
 async def test_submission_detail_route_includes_media_payload(async_session):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="detail-route-success@test.com"
     )
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     task = _handoff_task(tasks)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         status="in_progress",
     )
     submission = await create_submission(
@@ -50,7 +50,7 @@ async def test_submission_detail_route_includes_media_payload(async_session):
     payload = await detail_route.get_submission_detail_route(
         submission_id=submission.id,
         db=async_session,
-        user=recruiter,
+        user=talent_partner,
     )
 
     assert payload.recording is not None

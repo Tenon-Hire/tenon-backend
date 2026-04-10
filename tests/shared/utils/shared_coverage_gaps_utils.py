@@ -34,15 +34,6 @@ from app.shared.http import (
 from app.shared.http import shared_http_middleware_perf_middleware as middleware_perf
 from app.shared.http.errors import shared_http_errors_handlers_utils as error_utils
 from app.shared.perf import shared_perf_sqlalchemy_hooks_utils as sqlalchemy_hooks
-from app.simulations.routes.simulations_routes import create as sim_create_route
-from app.simulations.routes.simulations_routes import detail as sim_detail_route
-from app.simulations.routes.simulations_routes import (
-    list_simulations as sim_list_route,
-)
-from app.simulations.services import (
-    simulations_services_simulations_invite_factory_service as invite_factory,
-)
-from app.simulations.services import task_templates
 from app.submissions.presentation.submissions_presentation_submissions_parsed_output_utils import (
     process_parsed_output,
 )
@@ -62,6 +53,15 @@ from app.submissions.services.use_cases import (
 )
 from app.tasks.routes.tasks import (
     tasks_routes_tasks_tasks_runtime_utils as task_helpers,
+)
+from app.trials.routes.trials_routes import create as sim_create_route
+from app.trials.routes.trials_routes import detail as sim_detail_route
+from app.trials.routes.trials_routes import (
+    list_trials as sim_list_route,
+)
+from app.trials.services import task_templates
+from app.trials.services import (
+    trials_services_trials_invite_factory_service as invite_factory,
 )
 
 app = api_main.app

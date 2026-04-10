@@ -17,8 +17,8 @@ from app.shared.http.dependencies.shared_http_dependencies_notifications_utils i
 )
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 
@@ -32,17 +32,17 @@ def _next_local_window_start_utc(
 
 
 async def _seed_claimed_session(async_session):
-    recruiter = await create_recruiter(
-        async_session, email="schedule-recruiter@test.com"
+    talent_partner = await create_talent_partner(
+        async_session, email="schedule-talent_partner@test.com"
     )
-    simulation, _tasks = await create_simulation(async_session, created_by=recruiter)
+    trial, _tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         invite_email="schedule-candidate@test.com",
     )
     await async_session.commit()
-    return recruiter, simulation, candidate_session
+    return talent_partner, trial, candidate_session
 
 
 async def _claim(async_client, token: str, email: str):

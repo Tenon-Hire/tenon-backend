@@ -157,7 +157,7 @@ def _read_signed_media(
     content_type: str,
     timeout_seconds: int,
 ) -> tuple[bytes, str, str]:
-    request = Request(source_url, headers={"User-Agent": "Tenon-AI/1.0"})
+    request = Request(source_url, headers={"User-Agent": "Winoe-AI/1.0"})
     try:
         with urlopen(request, timeout=timeout_seconds) as response:
             payload = response.read()

@@ -9,14 +9,14 @@ from tests.media.routes.media_handoff_upload_api_utils import *
 async def test_handoff_status_is_candidate_scoped_and_does_not_leak_other_candidate_data(
     async_client, async_session, candidate_header_factory
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="handoff-status-scope@test.com"
     )
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     task = _handoff_task(tasks)
     candidate_session_a = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         invite_email="status-a@test.com",
         status="in_progress",
         with_default_schedule=True,
@@ -24,7 +24,7 @@ async def test_handoff_status_is_candidate_scoped_and_does_not_leak_other_candid
     )
     candidate_session_b = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         invite_email="status-b@test.com",
         status="in_progress",
         with_default_schedule=True,

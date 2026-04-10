@@ -4,8 +4,8 @@ import pytest
 
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 from tests.tasks.routes.test_tasks_drafts_api_utils import set_closed_schedule
 
@@ -14,10 +14,12 @@ from tests.tasks.routes.test_tasks_drafts_api_utils import set_closed_schedule
 async def test_put_task_draft_outside_window_returns_task_window_closed(
     async_client, async_session, candidate_header_factory
 ):
-    recruiter = await create_recruiter(async_session, email="draft-window@test.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="draft-window@test.com"
+    )
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
-        async_session, simulation=sim, status="in_progress", with_default_schedule=False
+        async_session, trial=sim, status="in_progress", with_default_schedule=False
     )
     await async_session.commit()
     await set_closed_schedule(async_session, candidate_session_id=candidate_session.id)
@@ -36,10 +38,12 @@ async def test_put_task_draft_outside_window_returns_task_window_closed(
 async def test_put_task_draft_after_submission_returns_draft_finalized(
     async_client, async_session, candidate_header_factory
 ):
-    recruiter = await create_recruiter(async_session, email="draft-finalized@test.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="draft-finalized@test.com"
+    )
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
-        async_session, simulation=sim, status="in_progress", with_default_schedule=True
+        async_session, trial=sim, status="in_progress", with_default_schedule=True
     )
     await async_session.commit()
 

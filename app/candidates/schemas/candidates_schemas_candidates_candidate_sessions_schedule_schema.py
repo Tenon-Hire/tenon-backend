@@ -7,7 +7,7 @@ from datetime import datetime
 from pydantic import Field
 
 from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_windows_schema import (
-    CandidateSimulationSummary,
+    CandidateTrialSummary,
     CurrentDayWindow,
     DayWindow,
 )
@@ -24,7 +24,7 @@ class CandidateSessionResolveResponse(APIModel):
     startedAt: datetime | None
     completedAt: datetime | None
     candidateName: str
-    simulation: CandidateSimulationSummary
+    trial: CandidateTrialSummary
     aiNoticeText: str
     aiNoticeVersion: str
     evalEnabledByDay: dict[str, bool]

@@ -31,8 +31,8 @@ from app.submissions.repositories.github_native.workspaces import (
 )
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 
@@ -52,13 +52,13 @@ def _session_maker(async_session: AsyncSession) -> async_sessionmaker[AsyncSessi
 
 
 async def _prepare_code_day_context(async_session: AsyncSession):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="cutoff-enforcement-handler@test.com"
     )
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         status="in_progress",
         with_default_schedule=True,
     )
@@ -97,7 +97,7 @@ async def _prepare_code_day_context(async_session: AsyncSession):
         day_index=day2_task.day_index,
         window_end_at=cutoff_at,
     )
-    return simulation, candidate_session, day2_task, cutoff_at, payload
+    return trial, candidate_session, day2_task, cutoff_at, payload
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]

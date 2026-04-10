@@ -78,7 +78,7 @@ def build_schedule_not_started_error(
     )
     return ApiError(
         status_code=status.HTTP_409_CONFLICT,
-        detail="Simulation has not started yet.",
+        detail="Trial has not started yet.",
         error_code=SCHEDULE_NOT_STARTED,
         retryable=True,
         details={

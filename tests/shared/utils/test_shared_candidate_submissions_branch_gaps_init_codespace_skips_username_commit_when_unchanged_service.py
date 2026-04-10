@@ -53,7 +53,7 @@ async def test_init_codespace_skips_username_commit_when_unchanged(monkeypatch):
         task_id=99,
         github_client=SimpleNamespace(),
         github_username="  octocat  ",
-        repo_prefix="tenon-",
+        repo_prefix="winoe-",
         template_owner=None,
         now=datetime.now(UTC),
     )

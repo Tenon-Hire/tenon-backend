@@ -1,3 +1,3 @@
-from . import evaluations_routes_evaluations_fit_profile_routes as fit_profile
+from . import evaluations_routes_evaluations_winoe_report_routes as winoe_report
 
-__all__ = ["fit_profile"]
+__all__ = ["winoe_report"]

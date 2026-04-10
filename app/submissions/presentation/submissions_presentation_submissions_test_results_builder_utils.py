@@ -20,7 +20,9 @@ from app.submissions.presentation.submissions_presentation_submissions_test_resu
 from app.submissions.presentation.submissions_presentation_submissions_test_results_runinfo_utils import (
     enrich_run_info,
 )
-from app.submissions.services import service_recruiter as recruiter_sub_service
+from app.submissions.services import (
+    service_talent_partner as talent_partner_sub_service,
+)
 
 
 def build_test_results(
@@ -41,7 +43,7 @@ def build_test_results(
     passed_val, failed_val, total_val = fill_counts(
         sub, payload["passed_val"], payload["failed_val"], payload["total_val"]
     )
-    status_str = recruiter_sub_service.derive_test_status(
+    status_str = talent_partner_sub_service.derive_test_status(
         passed_val, failed_val, parsed_payload
     )
     (

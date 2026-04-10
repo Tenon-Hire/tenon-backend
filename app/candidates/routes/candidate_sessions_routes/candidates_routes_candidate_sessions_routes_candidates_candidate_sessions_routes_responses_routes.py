@@ -15,15 +15,15 @@ from app.candidates.routes.candidate_sessions_routes.candidates_routes_candidate
 from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_core_schema import (
     CandidateSessionResolveResponse,
     CandidateSessionScheduleResponse,
-    CandidateSimulationSummary,
+    CandidateTrialSummary,
 )
 
 
-def _resolve_simulation_summary(
+def _resolve_trial_summary(
     cs, *, include_content_sections: bool
-) -> CandidateSimulationSummary:
-    sim = cs.simulation
-    summary = CandidateSimulationSummary(id=sim.id, title=sim.title, role=sim.role)
+) -> CandidateTrialSummary:
+    sim = cs.trial
+    summary = CandidateTrialSummary(id=sim.id, title=sim.title, role=sim.role)
     if include_content_sections:
         return summary
     return summary
@@ -31,9 +31,7 @@ def _resolve_simulation_summary(
 
 def render_claim_response(cs) -> CandidateSessionResolveResponse:
     """Render claim response."""
-    return _render_claim_response(
-        cs, resolve_simulation_summary=_resolve_simulation_summary
-    )
+    return _render_claim_response(cs, resolve_trial_summary=_resolve_trial_summary)
 
 
 def render_schedule_response(cs) -> CandidateSessionScheduleResponse:
@@ -49,7 +47,7 @@ def render_schedule_response(cs) -> CandidateSessionScheduleResponse:
 
 
 __all__ = [
-    "_resolve_simulation_summary",
+    "_resolve_trial_summary",
     "build_current_task_response",
     "render_claim_response",
     "render_schedule_response",

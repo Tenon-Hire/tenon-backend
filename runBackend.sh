@@ -2,7 +2,7 @@
 
 set -e
 
-echo "🚀 Tenon Backend — Local Runner"
+echo "🚀 Winoe Backend — Local Runner"
 
 PROJECT_ROOT="$(dirname "$0")"
 cd "$PROJECT_ROOT" || exit 1
@@ -65,12 +65,12 @@ if [[ "$1" == "migrate" ]]; then
     exit 0
 fi
 
-echo "🌱 Seeding local recruiters..."
+echo "🌱 Seeding local talent_partners..."
 export ENV=local
 export DEV_AUTH_BYPASS=1
 source ./setEnvVar.sh
 
-$RUN python scripts/seed_local_recruiters.py
+$RUN python scripts/seed_local_talent_partners.py
 
 echo "🔧 Starting FastAPI server..."
 

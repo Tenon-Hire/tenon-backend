@@ -10,14 +10,14 @@ async def test_process_workflow_run_completed_event_company_unresolved_returns_u
     async_session,
     monkeypatch,
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session,
-        email="webhook-no-company@tenon.dev",
+        email="webhook-no-company@winoe.dev",
     )
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         with_default_schedule=True,
     )
     submission = await create_submission(

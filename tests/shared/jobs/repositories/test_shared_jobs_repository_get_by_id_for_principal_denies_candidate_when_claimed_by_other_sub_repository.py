@@ -9,13 +9,13 @@ from tests.shared.jobs.repositories.shared_jobs_repository_utils import *
 async def test_get_by_id_for_principal_denies_candidate_when_claimed_by_other_sub(
     async_session,
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="jobs-owner-sub-check@test.com"
     )
-    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    sim, _ = await create_trial(async_session, created_by=talent_partner)
     cs = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         invite_email="jobs-candidate-sub-check@test.com",
         candidate_auth0_sub="candidate-sub-owner",
     )
@@ -24,7 +24,7 @@ async def test_get_by_id_for_principal_denies_candidate_when_claimed_by_other_su
         job_type="transcript_processing",
         idempotency_key="idem-sub-check",
         payload_json={"candidateSessionId": cs.id},
-        company_id=recruiter.company_id,
+        company_id=talent_partner.company_id,
         candidate_session_id=cs.id,
     )
 

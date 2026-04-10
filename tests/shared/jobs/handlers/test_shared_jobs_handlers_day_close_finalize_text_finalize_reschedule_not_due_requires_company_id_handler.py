@@ -10,13 +10,13 @@ async def test_finalize_reschedule_not_due_requires_company_id(
     async_session,
     monkeypatch,
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="finalize-window-company-id@test.com"
     )
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         status="in_progress",
         with_default_schedule=False,
     )
@@ -41,7 +41,7 @@ async def test_finalize_reschedule_not_due_requires_company_id(
     original_getattr = builtins.getattr
 
     def _fake_getattr(obj, name, *default):
-        if name == "company_id" and obj.__class__.__name__ == "Simulation":
+        if name == "company_id" and obj.__class__.__name__ == "Trial":
             return None
         return original_getattr(obj, name, *default)
 

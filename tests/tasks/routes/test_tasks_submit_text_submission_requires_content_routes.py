@@ -11,13 +11,13 @@ async def test_text_submission_requires_content(
 ):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
 
-    recruiter_email = "recruiterA@tenon.com"
-    await seed_recruiter(
-        async_session, email=recruiter_email, company_name="Recruiter A"
+    talent_partner_email = "talent_partnerA@winoe.com"
+    await seed_talent_partner(
+        async_session, email=talent_partner_email, company_name="TalentPartner A"
     )
 
-    sim = await create_simulation(async_client, async_session, recruiter_email)
-    invite = await invite_candidate(async_client, sim["id"], recruiter_email)
+    sim = await create_trial(async_client, async_session, talent_partner_email)
+    invite = await invite_candidate(async_client, sim["id"], talent_partner_email)
     await claim_session(async_client, invite["token"], "jane@example.com")
     cs_id = invite["candidateSessionId"]
     await unlock_schedule(async_session, candidate_session_id=cs_id)

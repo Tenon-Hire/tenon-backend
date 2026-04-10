@@ -10,9 +10,11 @@ async def test_submissions_detail_route_maps_service_payload(monkeypatch):
     async def _fake_fetch_detail(*_a, **_k):
         return object(), object(), object(), object()
 
-    monkeypatch.setattr(submissions_detail_route, "ensure_recruiter", lambda _u: None)
     monkeypatch.setattr(
-        submissions_detail_route.recruiter_sub_service,
+        submissions_detail_route, "ensure_talent_partner", lambda _u: None
+    )
+    monkeypatch.setattr(
+        submissions_detail_route.talent_partner_sub_service,
         "fetch_detail",
         _fake_fetch_detail,
     )

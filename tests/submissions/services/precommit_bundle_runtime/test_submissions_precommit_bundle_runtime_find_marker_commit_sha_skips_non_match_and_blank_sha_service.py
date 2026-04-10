@@ -7,7 +7,7 @@ from tests.submissions.services.precommit_bundle_runtime.submissions_precommit_b
 
 @pytest.mark.asyncio
 async def test_find_marker_commit_sha_skips_non_match_and_blank_sha():
-    marker = "tenon-marker"
+    marker = "winoe-marker"
     client = _BranchFailureGithub(
         commits=[
             {"sha": "", "commit": {"message": f"contains {marker} but blank sha"}},

@@ -101,11 +101,9 @@ def _schedule_matches(
     )
 
 
-def _default_window_times(simulation) -> tuple[time, time]:
-    start_local = (
-        getattr(simulation, "day_window_start_local", None) or DEFAULT_WINDOW_START
-    )
-    end_local = getattr(simulation, "day_window_end_local", None) or DEFAULT_WINDOW_END
+def _default_window_times(trial) -> tuple[time, time]:
+    start_local = getattr(trial, "day_window_start_local", None) or DEFAULT_WINDOW_START
+    end_local = getattr(trial, "day_window_end_local", None) or DEFAULT_WINDOW_END
     return start_local, end_local
 
 

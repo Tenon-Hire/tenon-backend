@@ -4,15 +4,17 @@ import pytest
 from sqlalchemy import select
 
 from app.shared.database.shared_database_models_model import Company
-from tests.simulations.routes.simulations_api_utils import *
+from tests.trials.routes.trials_api_utils import *
 
 
 @pytest.mark.asyncio
 async def test_company_ai_config_round_trips_prompt_overrides(
     async_client, async_session, auth_header_factory
 ):
-    recruiter = await create_recruiter(async_session, email="company-ai@test.com")
-    headers = auth_header_factory(recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="company-ai@test.com"
+    )
+    headers = auth_header_factory(talent_partner)
 
     initial = await async_client.get("/api/companies/me/ai-config", headers=headers)
     assert initial.status_code == 200, initial.text
@@ -30,7 +32,7 @@ async def test_company_ai_config_round_trips_prompt_overrides(
     )
     assert update.status_code == 200, update.text
     body = update.json()
-    assert body["companyId"] == recruiter.company_id
+    assert body["companyId"] == talent_partner.company_id
     assert body["promptOverrides"]["prestart"]["instructionsMd"] == (
         "Use Acme platform language."
     )
@@ -39,7 +41,7 @@ async def test_company_ai_config_round_trips_prompt_overrides(
     )
 
     company = await async_session.scalar(
-        select(Company).where(Company.id == recruiter.company_id)
+        select(Company).where(Company.id == talent_partner.company_id)
     )
     assert company is not None
     assert company.ai_prompt_overrides_json == body["promptOverrides"]
@@ -49,14 +51,16 @@ async def test_company_ai_config_round_trips_prompt_overrides(
 async def test_company_ai_config_put_can_clear_prompt_overrides(
     async_client, async_session, auth_header_factory
 ):
-    recruiter = await create_recruiter(async_session, email="company-ai-clear@test.com")
-    headers = auth_header_factory(recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="company-ai-clear@test.com"
+    )
+    headers = auth_header_factory(talent_partner)
 
     seeded = await async_session.scalar(
-        select(Company).where(Company.id == recruiter.company_id)
+        select(Company).where(Company.id == talent_partner.company_id)
     )
     seeded.ai_prompt_overrides_json = {
-        "fitProfile": {"rubricMd": "Keep prior override"}
+        "winoeReport": {"rubricMd": "Keep prior override"}
     }
     await async_session.commit()
 
@@ -69,7 +73,7 @@ async def test_company_ai_config_put_can_clear_prompt_overrides(
     assert cleared.json()["promptOverrides"] is None
 
     company = await async_session.scalar(
-        select(Company).where(Company.id == recruiter.company_id)
+        select(Company).where(Company.id == talent_partner.company_id)
     )
     assert company is not None
     assert company.ai_prompt_overrides_json is None

@@ -8,10 +8,10 @@ from tests.candidates.routes.candidates_session_resolve_api_utils import *
 @pytest.mark.asyncio
 @pytest.mark.asyncio
 async def test_resolve_invalid_token_returns_404(async_client, async_session):
-    recruiter_email = "invalidtoken@test.com"
-    await _seed_recruiter(async_session, recruiter_email)
-    sim_id = await _create_simulation(async_client, async_session, recruiter_email)
-    invite = await _invite_candidate(async_client, sim_id, recruiter_email)
+    talent_partner_email = "invalidtoken@test.com"
+    await _seed_talent_partner(async_session, talent_partner_email)
+    sim_id = await _create_trial(async_client, async_session, talent_partner_email)
+    invite = await _invite_candidate(async_client, sim_id, talent_partner_email)
     await _claim(async_client, invite["token"], "jane@example.com")
     access_token = "candidate:jane@example.com"
 

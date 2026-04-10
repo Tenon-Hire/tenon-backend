@@ -10,17 +10,17 @@ from app.submissions.repositories.github_native.workspaces.submissions_repositor
 )
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 
 async def seed_candidate_workspace_session(async_session, *, email: str):
-    recruiter = await create_recruiter(async_session, email=email)
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(async_session, email=email)
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         status="in_progress",
     )
     return candidate_session, tasks

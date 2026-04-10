@@ -36,7 +36,7 @@ async def assert_transcription_job_and_outputs(
     async_client,
     async_session: AsyncSession,
     *,
-    recruiter_email: str,
+    talent_partner_email: str,
     recording,
     recording_id_value: str,
     candidate_session_id: int,
@@ -87,7 +87,7 @@ async def assert_transcription_job_and_outputs(
 
     detail_response = await async_client.get(
         f"/api/submissions/{submission.id}",
-        headers={"x-dev-user-email": recruiter_email},
+        headers={"x-dev-user-email": talent_partner_email},
     )
     assert detail_response.status_code == 200, detail_response.text
     body = detail_response.json()

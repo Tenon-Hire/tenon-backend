@@ -23,8 +23,8 @@ async def test_enqueue_day_close_finalize_text_jobs_impl_commit_false_skips_db_c
     db = _FakeDB()
     candidate_session = SimpleNamespace(
         id=1,
-        simulation=SimpleNamespace(company_id=11),
-        simulation_id=99,
+        trial=SimpleNamespace(company_id=11),
+        trial_id=99,
     )
     task = SimpleNamespace(id=101, day_index=1, type="documentation")
 
@@ -59,8 +59,8 @@ async def test_enqueue_day_close_enforcement_jobs_impl_commit_false_skips_db_com
     db = _FakeDB()
     candidate_session = SimpleNamespace(
         id=2,
-        simulation=SimpleNamespace(company_id=12),
-        simulation_id=100,
+        trial=SimpleNamespace(company_id=12),
+        trial_id=100,
     )
     task = SimpleNamespace(id=202, day_index=2, type="code")
 
@@ -91,10 +91,10 @@ async def test_enqueue_day_close_enforcement_jobs_impl_commit_false_skips_db_com
 
 
 @pytest.mark.asyncio
-async def test_enqueue_day_close_jobs_impl_returns_empty_tuples_without_simulation():
+async def test_enqueue_day_close_jobs_impl_returns_empty_tuples_without_trial():
     result = await enqueue_service.enqueue_day_close_jobs_impl(
         db=_FakeDB(),
-        candidate_session=SimpleNamespace(simulation=None),
+        candidate_session=SimpleNamespace(trial=None),
         load_tasks_for_day_indexes=lambda *_args, **_kwargs: None,
         compute_task_window=lambda *_args, **_kwargs: None,
         upsert_day_close_jobs=lambda *_args, **_kwargs: None,
@@ -111,8 +111,8 @@ async def test_enqueue_day_close_jobs_impl_skips_missing_window_and_commits_when
     db = _FakeDB()
     candidate_session = SimpleNamespace(
         id=3,
-        simulation=SimpleNamespace(company_id=13),
-        simulation_id=101,
+        trial=SimpleNamespace(company_id=13),
+        trial_id=101,
     )
     finalize_task = SimpleNamespace(id=301, day_index=1, type="documentation")
     skipped_task = SimpleNamespace(id=302, day_index=5, type="documentation")

@@ -19,7 +19,7 @@ async def test_protected_route_without_token_returns_401(
     async_client, override_dependencies
 ):
     with override_dependencies({get_current_user: security_deps.get_current_user}):
-        res = await async_client.get("/api/simulations")
+        res = await async_client.get("/api/trials")
 
     assert res.status_code == 401
     assert res.json() == {"detail": "Not authenticated"}
@@ -43,7 +43,7 @@ async def test_protected_route_invalid_tokens_return_401(
     monkeypatch.setattr(auth0_module, "decode_auth0_token", bad_decode)
     with override_dependencies({get_current_user: security_deps.get_current_user}):
         res = await async_client.get(
-            "/api/simulations",
+            "/api/trials",
             headers={"Authorization": "Bearer invalid-token"},
         )
 
@@ -61,7 +61,7 @@ async def test_protected_route_jwks_outage_returns_503(
     monkeypatch.setattr(auth0_module, "decode_auth0_token", jwks_outage)
     with override_dependencies({get_current_user: security_deps.get_current_user}):
         res = await async_client.get(
-            "/api/simulations",
+            "/api/trials",
             headers={"Authorization": "Bearer token-during-outage"},
         )
 
@@ -70,7 +70,7 @@ async def test_protected_route_jwks_outage_returns_503(
 
 
 @pytest.mark.asyncio
-async def test_valid_candidate_token_without_recruiter_permission_returns_403_no_side_effect(
+async def test_valid_candidate_token_without_talent_partner_permission_returns_403_no_side_effect(
     async_client, async_session, override_dependencies, monkeypatch
 ):
     before_count = await _user_count(async_session)
@@ -88,11 +88,11 @@ async def test_valid_candidate_token_without_recruiter_permission_returns_403_no
     monkeypatch.setattr(auth0_module, "decode_auth0_token", decode_candidate)
     with override_dependencies({get_current_user: security_deps.get_current_user}):
         res = await async_client.get(
-            "/api/simulations",
+            "/api/trials",
             headers={"Authorization": "Bearer valid-candidate-token"},
         )
 
     after_count = await _user_count(async_session)
     assert res.status_code == 403
-    assert res.json() == {"detail": "Recruiter access required"}
+    assert res.json() == {"detail": "Talent Partner access required"}
     assert after_count == before_count

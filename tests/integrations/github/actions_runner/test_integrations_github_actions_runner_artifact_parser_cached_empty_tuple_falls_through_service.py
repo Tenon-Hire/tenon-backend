@@ -27,7 +27,7 @@ async def test_artifact_parser_cached_empty_tuple_falls_through_to_download():
             buf = io.BytesIO()
             with zipfile.ZipFile(buf, "w") as zf:
                 zf.writestr(
-                    "tenon-test-results.json",
+                    "winoe-test-results.json",
                     json.dumps({"passed": 2, "failed": 0, "total": 2}),
                 )
             return buf.getvalue()

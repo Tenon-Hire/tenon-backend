@@ -20,8 +20,8 @@ async def test_template_health_workflow_file_with_newlines():
             content = "\n".join(
                 [
                     "uses: actions/upload-artifact@v4",
-                    "name: tenon-test-results",
-                    "path: artifacts/tenon-test-results.json",
+                    "name: winoe-test-results",
+                    "path: artifacts/winoe-test-results.json",
                 ]
             )
             encoded = base64.encodebytes(content.encode("utf-8")).decode("ascii")
@@ -30,7 +30,7 @@ async def test_template_health_workflow_file_with_newlines():
     template_key = next(iter(TEMPLATE_CATALOG))
     response = await check_template_health(
         StubGithubClient(),
-        workflow_file="tenon-ci.yml",
+        workflow_file="winoe-ci.yml",
         mode="static",
         template_keys=[template_key],
     )

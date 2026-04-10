@@ -12,23 +12,21 @@ from app.candidates.candidate_sessions.services.scheduling.candidates_candidate_
 
 def _derive_serialized_day_windows(
     *,
-    simulation,
+    trial,
     scheduled_start_at_utc,
     normalized_timezone: str,
 ) -> list[dict[str, str | int]]:
     window_start, window_end = (
-        getattr(simulation, "day_window_start_local", None) or time(hour=9),
-        getattr(simulation, "day_window_end_local", None) or time(hour=17),
+        getattr(trial, "day_window_start_local", None) or time(hour=9),
+        getattr(trial, "day_window_end_local", None) or time(hour=17),
     )
     day_windows = derive_day_windows(
         scheduled_start_at_utc=scheduled_start_at_utc,
         candidate_tz=normalized_timezone,
         day_window_start_local=window_start,
         day_window_end_local=window_end,
-        overrides=getattr(simulation, "day_window_overrides_json", None),
-        overrides_enabled=bool(
-            getattr(simulation, "day_window_overrides_enabled", False)
-        ),
+        overrides=getattr(trial, "day_window_overrides_json", None),
+        overrides_enabled=bool(getattr(trial, "day_window_overrides_enabled", False)),
         total_days=5,
     )
     return serialize_day_windows(day_windows)

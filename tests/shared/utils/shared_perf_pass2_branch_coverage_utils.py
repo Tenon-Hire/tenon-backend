@@ -18,13 +18,6 @@ from app.notifications.services import (
     notifications_services_notifications_invite_content_service as invite_content,
 )
 from app.shared.jobs.repositories import repository as jobs_repo
-from app.simulations.repositories import repository_owned
-from app.simulations.repositories.simulations_repositories_simulations_simulation_model import (
-    SIMULATION_STATUS_TERMINATED,
-)
-from app.simulations.routes.simulations_routes import (
-    lifecycle as lifecycle_route,
-)
 from app.submissions.repositories.github_native.workspaces import (
     repository as workspace_repo,
 )
@@ -56,11 +49,18 @@ from app.tasks.routes.tasks import tasks_routes_tasks_tasks_draft_routes as draf
 from app.tasks.routes.tasks import (
     tasks_routes_tasks_tasks_runtime_utils as task_helpers,
 )
+from app.trials.repositories import repository_owned
+from app.trials.repositories.trials_repositories_trials_trial_model import (
+    TRIAL_STATUS_TERMINATED,
+)
+from app.trials.routes.trials_routes import (
+    lifecycle as lifecycle_route,
+)
 from tests.shared.factories import (
     create_candidate_session,
     create_company,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 

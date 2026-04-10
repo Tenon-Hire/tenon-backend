@@ -7,12 +7,12 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-from app.simulations.constants.simulations_constants_simulations_ai_config_constants import (
+from app.trials.constants.trials_constants_trials_ai_config_constants import (
     AI_NOTICE_DEFAULT_VERSION,
     default_ai_eval_enabled_by_day,
 )
-from app.simulations.schemas.simulations_schemas_simulations_ai_values_schema import (
-    resolve_simulation_ai_fields,
+from app.trials.schemas.trials_schemas_trials_ai_values_schema import (
+    resolve_trial_ai_fields,
 )
 
 from .ai_prompt_models import AI_AGENT_KEYS
@@ -24,22 +24,22 @@ from .ai_prompt_resolution_service import (
 from .ai_runtime_config_service import (
     AIFeatureConfig,
     resolve_codespace_specializer_config,
-    resolve_fit_profile_aggregator_config,
-    resolve_fit_profile_day1_config,
-    resolve_fit_profile_day4_config,
-    resolve_fit_profile_day5_config,
-    resolve_fit_profile_day23_config,
     resolve_scenario_generation_config,
+    resolve_winoe_report_aggregator_config,
+    resolve_winoe_report_day1_config,
+    resolve_winoe_report_day4_config,
+    resolve_winoe_report_day5_config,
+    resolve_winoe_report_day23_config,
 )
 
 _AGENT_CONFIG_RESOLVERS = {
     "prestart": resolve_scenario_generation_config,
     "codespace": resolve_codespace_specializer_config,
-    "day1": resolve_fit_profile_day1_config,
-    "day23": resolve_fit_profile_day23_config,
-    "day4": resolve_fit_profile_day4_config,
-    "day5": resolve_fit_profile_day5_config,
-    "fitProfile": resolve_fit_profile_aggregator_config,
+    "day1": resolve_winoe_report_day1_config,
+    "day23": resolve_winoe_report_day23_config,
+    "day4": resolve_winoe_report_day4_config,
+    "day5": resolve_winoe_report_day5_config,
+    "winoeReport": resolve_winoe_report_aggregator_config,
 }
 
 
@@ -77,11 +77,11 @@ def _normalize_eval_enabled_by_day(raw_value: Any) -> dict[str, bool]:
     return resolved
 
 
-def _build_candidate_settings(simulation: object) -> dict[str, Any]:
-    notice_version, notice_text, eval_enabled_by_day = resolve_simulation_ai_fields(
-        notice_version=getattr(simulation, "ai_notice_version", None),
-        notice_text=getattr(simulation, "ai_notice_text", None),
-        eval_enabled_by_day=getattr(simulation, "ai_eval_enabled_by_day", None),
+def _build_candidate_settings(trial: object) -> dict[str, Any]:
+    notice_version, notice_text, eval_enabled_by_day = resolve_trial_ai_fields(
+        notice_version=getattr(trial, "ai_notice_version", None),
+        notice_text=getattr(trial, "ai_notice_text", None),
+        eval_enabled_by_day=getattr(trial, "ai_eval_enabled_by_day", None),
     )
     return {
         "noticeVersion": notice_version,
@@ -97,9 +97,9 @@ def _feature_config_for_agent(agent_key: str) -> AIFeatureConfig:
 
 def build_ai_policy_snapshot(
     *,
-    simulation: object,
+    trial: object,
     company_prompt_overrides_json: Mapping[str, Any] | None = None,
-    simulation_prompt_overrides_json: Mapping[str, Any] | None = None,
+    trial_prompt_overrides_json: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the canonical frozen AI policy snapshot for one scenario version."""
     agents: dict[str, Any] = {}
@@ -110,7 +110,7 @@ def build_ai_policy_snapshot(
             base_instructions_md=prompt_entry.instructions_md,
             base_rubric_md=prompt_entry.rubric_md,
             company_overrides_json=company_prompt_overrides_json,
-            simulation_overrides_json=simulation_prompt_overrides_json,
+            trial_overrides_json=trial_prompt_overrides_json,
             run_context_md=None,
         )
         runtime_config = _feature_config_for_agent(agent_key)
@@ -136,7 +136,7 @@ def build_ai_policy_snapshot(
         }
     snapshot = {
         "promptPackVersion": PROMPT_PACK_VERSION,
-        "candidateSettings": _build_candidate_settings(simulation),
+        "candidateSettings": _build_candidate_settings(trial),
         "agents": agents,
     }
     snapshot["snapshotDigest"] = _stable_json_hash(snapshot)
@@ -282,7 +282,7 @@ def require_candidate_settings_from_snapshot(
             code="scenario_version_ai_policy_snapshot_candidate_settings_missing",
             scenario_version_id=scenario_version_id,
         )
-    return resolve_simulation_ai_fields(
+    return resolve_trial_ai_fields(
         notice_version=candidate_settings.get("noticeVersion"),
         notice_text=candidate_settings.get("noticeText"),
         eval_enabled_by_day=candidate_settings.get("evalEnabledByDay"),

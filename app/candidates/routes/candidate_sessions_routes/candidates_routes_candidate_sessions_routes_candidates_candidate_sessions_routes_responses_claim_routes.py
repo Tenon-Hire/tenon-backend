@@ -16,7 +16,7 @@ from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_cor
 
 
 def render_claim_response(
-    cs, *, resolve_simulation_summary
+    cs, *, resolve_trial_summary
 ) -> CandidateSessionResolveResponse:
     """Project session state into the public claim response schema."""
     now_utc = utcnow()
@@ -41,7 +41,7 @@ def render_claim_response(
         startedAt=cs.started_at,
         completedAt=cs.completed_at,
         candidateName=cs.candidate_name,
-        simulation=resolve_simulation_summary(
+        trial=resolve_trial_summary(
             cs, include_content_sections=include_content_sections
         ),
         aiNoticeText=ai_notice_text,

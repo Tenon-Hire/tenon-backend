@@ -10,12 +10,12 @@ from app.shared.http.routes import (
     admin_routes,
     admin_templates,
     candidate_sessions,
-    fit_profile,
     github_webhooks,
     recordings,
-    simulations,
     submissions,
     tasks_codespaces,
+    trials,
+    winoe_report,
 )
 from app.shared.http.routes import shared_http_routes_auth_routes as auth
 from app.shared.http.routes import (
@@ -40,7 +40,7 @@ def register_routers(app: FastAPI) -> None:
             prefix=f"{prefix}/admin",
             tags=["admin"],
         )
-    app.include_router(simulations.router, prefix=f"{prefix}", tags=["simulations"])
+    app.include_router(trials.router, prefix=f"{prefix}", tags=["trials"])
     app.include_router(
         candidate_sessions.router, prefix=f"{prefix}/candidate", tags=["candidate"]
     )
@@ -54,7 +54,7 @@ def register_routers(app: FastAPI) -> None:
     )
     app.include_router(recordings.router, prefix=f"{prefix}", tags=["recordings"])
     app.include_router(submissions.router, prefix=f"{prefix}")
-    app.include_router(fit_profile.router, prefix=f"{prefix}", tags=["fit_profile"])
+    app.include_router(winoe_report.router, prefix=f"{prefix}", tags=["winoe_report"])
 
 
 __all__ = ["register_routers"]

@@ -25,12 +25,12 @@ async def enqueue_day_close_finalize_text_jobs_impl(
     commit: bool = False,
 ):
     """Enqueue day close finalize text jobs impl."""
-    simulation = getattr(candidate_session, "simulation", None)
-    if simulation is None:
+    trial = getattr(candidate_session, "trial", None)
+    if trial is None:
         return []
     tasks = await load_tasks_for_day_indexes(
         db,
-        simulation_id=candidate_session.simulation_id,
+        trial_id=candidate_session.trial_id,
         day_indexes=DAY_CLOSE_FINALIZE_TEXT_DAY_INDEXES,
     )
     specs: list[jobs_repo.IdempotentJobSpec] = []
@@ -48,9 +48,7 @@ async def enqueue_day_close_finalize_text_jobs_impl(
                 window_end_at=task_window.window_end_at,
             )
         )
-    jobs = await upsert_day_close_jobs(
-        db, company_id=simulation.company_id, specs=specs
-    )
+    jobs = await upsert_day_close_jobs(db, company_id=trial.company_id, specs=specs)
     if commit:
         await db.commit()
     return jobs
@@ -67,12 +65,12 @@ async def enqueue_day_close_enforcement_jobs_impl(
     commit: bool = False,
 ):
     """Enqueue day close enforcement jobs impl."""
-    simulation = getattr(candidate_session, "simulation", None)
-    if simulation is None:
+    trial = getattr(candidate_session, "trial", None)
+    if trial is None:
         return []
     tasks = await load_tasks_for_day_indexes(
         db,
-        simulation_id=candidate_session.simulation_id,
+        trial_id=candidate_session.trial_id,
         day_indexes=DAY_CLOSE_ENFORCEMENT_DAY_INDEXES,
     )
     specs: list[jobs_repo.IdempotentJobSpec] = []
@@ -90,9 +88,7 @@ async def enqueue_day_close_enforcement_jobs_impl(
                 window_end_at=task_window.window_end_at,
             )
         )
-    jobs = await upsert_day_close_jobs(
-        db, company_id=simulation.company_id, specs=specs
-    )
+    jobs = await upsert_day_close_jobs(db, company_id=trial.company_id, specs=specs)
     if commit:
         await db.commit()
     return jobs
@@ -110,12 +106,12 @@ async def enqueue_day_close_jobs_impl(
     commit: bool = False,
 ):
     """Enqueue day close jobs impl."""
-    simulation = getattr(candidate_session, "simulation", None)
-    if simulation is None:
+    trial = getattr(candidate_session, "trial", None)
+    if trial is None:
         return [], []
     tasks = await load_tasks_for_day_indexes(
         db,
-        simulation_id=candidate_session.simulation_id,
+        trial_id=candidate_session.trial_id,
         day_indexes=DAY_CLOSE_ALL_DAY_INDEXES,
     )
     finalize_specs: list[jobs_repo.IdempotentJobSpec] = []
@@ -150,10 +146,10 @@ async def enqueue_day_close_jobs_impl(
                 )
             )
     finalize_jobs = await upsert_day_close_jobs(
-        db, company_id=simulation.company_id, specs=finalize_specs
+        db, company_id=trial.company_id, specs=finalize_specs
     )
     enforcement_jobs = await upsert_day_close_jobs(
-        db, company_id=simulation.company_id, specs=enforcement_specs
+        db, company_id=trial.company_id, specs=enforcement_specs
     )
     if commit:
         await db.commit()

@@ -8,29 +8,29 @@ from sqlalchemy.orm import contains_eager, joinedload
 from sqlalchemy.sql import Select
 
 from app.shared.database.shared_database_models_model import CandidateSession
-from app.simulations.repositories.simulations_repositories_simulations_simulation_model import (
-    SIMULATION_STATUS_TERMINATED,
-    Simulation,
+from app.trials.repositories.trials_repositories_trials_trial_model import (
+    TRIAL_STATUS_TERMINATED,
+    Trial,
 )
 
 
-def _not_terminated_simulation_clause():
+def _not_terminated_trial_clause():
     return or_(
-        Simulation.status.is_(None),
-        Simulation.status != SIMULATION_STATUS_TERMINATED,
+        Trial.status.is_(None),
+        Trial.status != TRIAL_STATUS_TERMINATED,
     )
 
 
 def _build_get_by_id_stmt(session_id: int) -> Select:
     return (
         select(CandidateSession)
-        .join(Simulation, Simulation.id == CandidateSession.simulation_id)
+        .join(Trial, Trial.id == CandidateSession.trial_id)
         .where(
             CandidateSession.id == session_id,
-            _not_terminated_simulation_clause(),
+            _not_terminated_trial_clause(),
         )
         .options(
-            contains_eager(CandidateSession.simulation),
+            contains_eager(CandidateSession.trial),
             joinedload(CandidateSession.scenario_version),
         )
     )

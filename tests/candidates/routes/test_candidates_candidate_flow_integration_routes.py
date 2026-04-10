@@ -9,10 +9,10 @@ from app.candidates.candidate_sessions.services.scheduling.candidates_candidate_
 )
 from app.shared.database.shared_database_models_model import (
     CandidateSession,
-    Simulation,
+    Trial,
 )
 from app.shared.jobs import worker
-from tests.shared.factories import create_recruiter
+from tests.shared.factories import create_talent_partner
 
 
 def _task_id_by_day(sim_payload: dict, day_index: int) -> int:
@@ -30,9 +30,9 @@ async def _unlock_schedule(async_session, *, candidate_session_id: int) -> None:
             select(CandidateSession).where(CandidateSession.id == candidate_session_id)
         )
     ).scalar_one()
-    _simulation = (
+    _trial = (
         await async_session.execute(
-            select(Simulation).where(Simulation.id == candidate_session.simulation_id)
+            select(Trial).where(Trial.id == candidate_session.trial_id)
         )
     ).scalar_one()
     now_utc = datetime.now(UTC).replace(microsecond=0)
@@ -58,7 +58,7 @@ async def test_full_flow_invite_through_first_submission(
     async_client, async_session, auth_header_factory, monkeypatch
 ):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
-    recruiter = await create_recruiter(async_session, email="flow@test.com")
+    talent_partner = await create_talent_partner(async_session, email="flow@test.com")
 
     sim_payload = {
         "title": "Flow Test Sim",
@@ -68,7 +68,7 @@ async def test_full_flow_invite_through_first_submission(
         "focus": "End-to-end candidate flow",
     }
     sim_res = await async_client.post(
-        "/api/simulations", json=sim_payload, headers=auth_header_factory(recruiter)
+        "/api/trials", json=sim_payload, headers=auth_header_factory(talent_partner)
     )
     assert sim_res.status_code == 201, sim_res.text
     sim_body = sim_res.json()
@@ -88,15 +88,15 @@ async def test_full_flow_invite_through_first_submission(
     assert handled is True
 
     activate_res = await async_client.post(
-        f"/api/simulations/{sim_body['id']}/activate",
+        f"/api/trials/{sim_body['id']}/activate",
         json={"confirm": True},
-        headers=auth_header_factory(recruiter),
+        headers=auth_header_factory(talent_partner),
     )
     assert activate_res.status_code == 200, activate_res.text
 
     invite_res = await async_client.post(
-        f"/api/simulations/{sim_body['id']}/invite",
-        headers=auth_header_factory(recruiter),
+        f"/api/trials/{sim_body['id']}/invite",
+        headers=auth_header_factory(talent_partner),
         json={"candidateName": "Flow Candidate", "inviteEmail": "flow@example.com"},
     )
     assert invite_res.status_code == 200, invite_res.text

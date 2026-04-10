@@ -4,11 +4,26 @@ from __future__ import annotations
 
 import sqlalchemy as sa
 
+from app.core.db.migrations.shared_trial_schema_compat import (
+    resolve_candidate_session_parent_column_name,
+    resolve_trial_parent_table_name,
+)
 
-def table_refs() -> tuple[sa.Table, sa.Table, sa.Table]:
+
+def table_refs(
+    bind: sa.Connection | None = None,
+) -> tuple[sa.Table, sa.Table, sa.Table]:
     """Execute table refs."""
-    simulations = sa.table(
-        "simulations",
+    parent_table_name = "trials"
+    candidate_session_parent_column = "trial_id"
+    if bind is not None:
+        parent_table_name = resolve_trial_parent_table_name(bind)
+        candidate_session_parent_column = resolve_candidate_session_parent_column_name(
+            bind
+        )
+
+    trials = sa.table(
+        parent_table_name,
         sa.column("id", sa.Integer()),
         sa.column("active_scenario_version_id", sa.Integer()),
         sa.column("status", sa.String()),
@@ -26,7 +41,7 @@ def table_refs() -> tuple[sa.Table, sa.Table, sa.Table]:
     scenario_versions = sa.table(
         "scenario_versions",
         sa.column("id", sa.Integer()),
-        sa.column("simulation_id", sa.Integer()),
+        sa.column("trial_id", sa.Integer()),
         sa.column("version_index", sa.Integer()),
         sa.column("status", sa.String()),
         sa.column("storyline_md", sa.Text()),
@@ -41,7 +56,7 @@ def table_refs() -> tuple[sa.Table, sa.Table, sa.Table]:
     )
     candidate_sessions = sa.table(
         "candidate_sessions",
-        sa.column("simulation_id", sa.Integer()),
+        sa.column(candidate_session_parent_column, sa.Integer()),
         sa.column("scenario_version_id", sa.Integer()),
     )
-    return simulations, scenario_versions, candidate_sessions
+    return trials, scenario_versions, candidate_sessions

@@ -8,7 +8,7 @@ def test_compute_day1_window_handles_empty_derived_windows(monkeypatch) -> None:
     candidate_session = SimpleNamespace(
         day_windows_json=None,
         scheduled_start_at=scheduled_start,
-        simulation=_simulation(),
+        trial=_trial(),
         candidate_timezone="America/New_York",
     )
     monkeypatch.setattr(schedule_gates, "derive_day_windows", lambda **_kwargs: [])

@@ -10,14 +10,14 @@ async def test_handle_github_workflow_artifact_parse_sets_last_run_when_timestam
     async_session,
     monkeypatch,
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session,
-        email="parse-handler-last-run@tenon.dev",
+        email="parse-handler-last-run@winoe.dev",
     )
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         with_default_schedule=True,
     )
     submission = await create_submission(
@@ -88,14 +88,14 @@ async def test_handle_github_workflow_artifact_parse_preserves_existing_last_run
     async_session,
     monkeypatch,
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session,
-        email="parse-handler-last-run-existing@tenon.dev",
+        email="parse-handler-last-run-existing@winoe.dev",
     )
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         with_default_schedule=True,
     )
     existing_last_run_at = datetime(2026, 3, 27, 10, 0, tzinfo=UTC)

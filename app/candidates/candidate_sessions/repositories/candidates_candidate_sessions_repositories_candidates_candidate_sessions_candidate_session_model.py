@@ -26,22 +26,20 @@ class CandidateSession(Base):
     __tablename__ = "candidate_sessions"
     __table_args__ = (
         UniqueConstraint(
-            "simulation_id",
+            "trial_id",
             "invite_email",
-            name="uq_candidate_session_simulation_invite_email",
+            name="uq_candidate_session_trial_invite_email",
         ),
         Index(
-            "uq_candidate_sessions_simulation_invite_email_ci",
-            "simulation_id",
+            "uq_candidate_sessions_trial_invite_email_ci",
+            "trial_id",
             func.lower(column("invite_email")),
             unique=True,
         ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    simulation_id: Mapped[int] = mapped_column(
-        ForeignKey("simulations.id"), nullable=False
-    )
+    trial_id: Mapped[int] = mapped_column(ForeignKey("trials.id"), nullable=False)
     scenario_version_id: Mapped[int] = mapped_column(
         ForeignKey("scenario_versions.id"), nullable=False
     )
@@ -94,7 +92,7 @@ class CandidateSession(Base):
     )
     ai_notice_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
-    simulation = relationship("Simulation", back_populates="candidate_sessions")
+    trial = relationship("Trial", back_populates="candidate_sessions")
     scenario_version = relationship(
         "ScenarioVersion", back_populates="candidate_sessions"
     )
@@ -102,8 +100,8 @@ class CandidateSession(Base):
     submissions = relationship(
         "Submission", back_populates="candidate_session", cascade="all, delete-orphan"
     )
-    fit_profile = relationship(
-        "FitProfile",
+    winoe_report = relationship(
+        "WinoeReport",
         back_populates="candidate_session",
         uselist=False,
         cascade="all, delete-orphan",

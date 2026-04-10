@@ -15,11 +15,13 @@ async def test_github_webhook_workflow_run_completed_updates_and_enqueues_job_on
     secret = "test-webhook-secret"
     monkeypatch.setattr(webhook_routes.settings.github, "GITHUB_WEBHOOK_SECRET", secret)
 
-    recruiter = await create_recruiter(async_session, email="webhooks-1@tenon.dev")
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="webhooks-1@winoe.dev"
+    )
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         with_default_schedule=True,
     )
 

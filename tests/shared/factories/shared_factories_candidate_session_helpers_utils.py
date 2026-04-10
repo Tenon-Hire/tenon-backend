@@ -9,7 +9,7 @@ from app.ai import build_ai_policy_snapshot
 from app.candidates.candidate_sessions.services.scheduling.candidates_candidate_sessions_services_scheduling_candidates_candidate_sessions_scheduling_day_windows_service import (
     serialize_day_windows,
 )
-from app.shared.database.shared_database_models_model import ScenarioVersion, Simulation
+from app.shared.database.shared_database_models_model import ScenarioVersion, Trial
 
 
 def _resolve_schedule_defaults(
@@ -48,36 +48,36 @@ def _resolve_schedule_defaults(
 async def _resolve_candidate_session_scenario_version_id(
     session: AsyncSession,
     *,
-    simulation: Simulation,
+    trial: Trial,
     scenario_version_id: int | None,
 ) -> int:
-    resolved = scenario_version_id or simulation.active_scenario_version_id
+    resolved = scenario_version_id or trial.active_scenario_version_id
     if resolved is not None:
         return resolved
     existing = (
         await session.execute(
             select(ScenarioVersion)
-            .where(ScenarioVersion.simulation_id == simulation.id)
+            .where(ScenarioVersion.trial_id == trial.id)
             .order_by(ScenarioVersion.version_index.desc())
             .limit(1)
         )
     ).scalar_one_or_none()
     if existing is None:
         existing = ScenarioVersion(
-            simulation_id=simulation.id,
+            trial_id=trial.id,
             version_index=1,
             status="ready",
-            storyline_md=f"# {simulation.title}",
+            storyline_md=f"# {trial.title}",
             task_prompts_json=[],
             rubric_json={},
-            focus_notes=simulation.focus or "",
-            template_key=simulation.template_key,
-            tech_stack=simulation.tech_stack,
-            seniority=simulation.seniority,
-            ai_policy_snapshot_json=build_ai_policy_snapshot(simulation=simulation),
+            focus_notes=trial.focus or "",
+            template_key=trial.template_key,
+            tech_stack=trial.tech_stack,
+            seniority=trial.seniority,
+            ai_policy_snapshot_json=build_ai_policy_snapshot(trial=trial),
         )
         session.add(existing)
         await session.flush()
-    simulation.active_scenario_version_id = existing.id
+    trial.active_scenario_version_id = existing.id
     await session.flush()
     return existing.id

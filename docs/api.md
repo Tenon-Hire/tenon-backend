@@ -9,7 +9,7 @@ Total endpoints: 46
 - `POST /api/admin/candidate_sessions/{candidate_session_id}/reset`: Reset Candidate Session
 - `POST /api/admin/jobs/{job_id}/requeue`: Requeue Job
 - `POST /api/admin/media/purge`: Purge Media Retention
-- `POST /api/admin/simulations/{simulation_id}/scenario/use_fallback`: Use Simulation Fallback
+- `POST /api/admin/trials/{trial_id}/scenario/use_fallback`: Use Trial Fallback
 - `GET /api/admin/templates/health`: Get Template Health
 - `POST /api/admin/templates/health/run`: Run Template Health
 - `POST /api/auth/logout`: Logout
@@ -20,25 +20,25 @@ Total endpoints: 46
 - `GET /api/candidate/session/{token}`: Resolve Candidate Session
 - `POST /api/candidate/session/{token}/claim`: Claim Candidate Session
 - `POST /api/candidate/session/{token}/schedule`: Schedule Candidate Session
-- `GET /api/candidate_sessions/{candidate_session_id}/fit_profile`: Get Fit Profile Route
-- `POST /api/candidate_sessions/{candidate_session_id}/fit_profile/generate`: Generate Fit Profile Route
+- `GET /api/candidate_sessions/{candidate_session_id}/winoe_report`: Get Winoe Report Route
+- `POST /api/candidate_sessions/{candidate_session_id}/winoe_report/generate`: Generate Winoe Report Route
 - `POST /api/github/webhooks`: Receive Github Webhook
 - `GET /api/jobs/{job_id}`: Get Job Status
 - `POST /api/recordings/{recording_id}/delete`: Delete Recording Route
-- `GET /api/simulations`: List Simulations
-- `POST /api/simulations`: Create Simulation
-- `GET /api/simulations/{simulation_id}`: Get Simulation Detail
-- `PUT /api/simulations/{simulation_id}`: Update Simulation
-- `POST /api/simulations/{simulation_id}/activate`: Activate Simulation
-- `GET /api/simulations/{simulation_id}/candidates`: List Simulation Candidates
-- `GET /api/simulations/{simulation_id}/candidates/compare`: List Simulation Candidates Compare
-- `POST /api/simulations/{simulation_id}/candidates/{candidate_session_id}/invite/resend`: Resend Candidate Invite
-- `POST /api/simulations/{simulation_id}/invite`: Create Candidate Invite
-- `PATCH /api/simulations/{simulation_id}/scenario/active`: Update Active Scenario Version
-- `POST /api/simulations/{simulation_id}/scenario/regenerate`: Regenerate Scenario Version
-- `PATCH /api/simulations/{simulation_id}/scenario/{scenario_version_id}`: Patch Scenario Version
-- `POST /api/simulations/{simulation_id}/scenario/{scenario_version_id}/approve`: Approve Scenario Version
-- `POST /api/simulations/{simulation_id}/terminate`: Terminate Simulation
+- `GET /api/trials`: List Trials
+- `POST /api/trials`: Create Trial
+- `GET /api/trials/{trial_id}`: Get Trial Detail
+- `PUT /api/trials/{trial_id}`: Update Trial
+- `POST /api/trials/{trial_id}/activate`: Activate Trial
+- `GET /api/trials/{trial_id}/candidates`: List Trial Candidates
+- `GET /api/trials/{trial_id}/candidates/compare`: List Trial Candidates Compare
+- `POST /api/trials/{trial_id}/candidates/{candidate_session_id}/invite/resend`: Resend Candidate Invite
+- `POST /api/trials/{trial_id}/invite`: Create Candidate Invite
+- `PATCH /api/trials/{trial_id}/scenario/active`: Update Active Scenario Version
+- `POST /api/trials/{trial_id}/scenario/regenerate`: Regenerate Scenario Version
+- `PATCH /api/trials/{trial_id}/scenario/{scenario_version_id}`: Patch Scenario Version
+- `POST /api/trials/{trial_id}/scenario/{scenario_version_id}/approve`: Approve Scenario Version
+- `POST /api/trials/{trial_id}/terminate`: Terminate Trial
 - `GET /api/submissions`: List Submissions Route
 - `GET /api/submissions/{submission_id}`: Get Submission Detail Route
 - `POST /api/tasks/{task_id}/codespace/init`: Init Codespace Route
@@ -58,7 +58,7 @@ Total endpoints: 46
 ### `POST /api/admin/candidate_sessions/{candidate_session_id}/reset`
 - Summary: Reset Candidate Session
 - Description: Reset a candidate session state during demo-mode operations for controlled QA or replay flows.
-- Auth: Bearer token for demo admin allowlist (requires `TENON_DEMO_MODE=true`)
+- Auth: Bearer token for demo admin allowlist (requires `WINOE_DEMO_MODE=true`)
 - Operation ID: `reset_candidate_session_api_admin_candidate_sessions__candidate_session_id__reset_post`
 - Dependency auth signals: `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_admin_demo_utils.require_demo_mode_admin`, `fastapi.security.http.unknown`
 - Path params: 
@@ -96,7 +96,7 @@ Total endpoints: 46
 ### `POST /api/admin/jobs/{job_id}/requeue`
 - Summary: Requeue Job
 - Description: Force a durable background job back to queued state for demo-mode recovery/testing.
-- Auth: Bearer token for demo admin allowlist (requires `TENON_DEMO_MODE=true`)
+- Auth: Bearer token for demo admin allowlist (requires `WINOE_DEMO_MODE=true`)
 - Operation ID: `requeue_job_api_admin_jobs__job_id__requeue_post`
 - Dependency auth signals: `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_admin_demo_utils.require_demo_mode_admin`, `fastapi.security.http.unknown`
 - Path params: 
@@ -134,7 +134,7 @@ Total endpoints: 46
 ### `POST /api/admin/media/purge`
 - Summary: Purge Media Retention
 - Description: Run retention cleanup for recording assets and mark expired media as purged in demo environments.
-- Auth: Bearer token for demo admin allowlist (requires `TENON_DEMO_MODE=true`)
+- Auth: Bearer token for demo admin allowlist (requires `WINOE_DEMO_MODE=true`)
 - Operation ID: `purge_media_retention_api_admin_media_purge_post`
 - Dependency auth signals: `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_admin_demo_utils.require_demo_mode_admin`, `app.shared.http.dependencies.shared_http_dependencies_storage_media_utils.get_media_storage_provider`, `fastapi.security.http.unknown`
 - Path params: 
@@ -171,21 +171,21 @@ Total endpoints: 46
 }
 ```
 
-### `POST /api/admin/simulations/{simulation_id}/scenario/use_fallback`
-- Summary: Use Simulation Fallback
-- Description: Apply a fallback scenario version to a simulation when generated content must be overridden in demo mode.
-- Auth: Bearer token for demo admin allowlist (requires `TENON_DEMO_MODE=true`)
-- Operation ID: `use_simulation_fallback_api_admin_simulations__simulation_id__scenario_use_fallback_post`
+### `POST /api/admin/trials/{trial_id}/scenario/use_fallback`
+- Summary: Use Trial Fallback
+- Description: Apply a fallback scenario version to a trial when generated content must be overridden in demo mode.
+- Auth: Bearer token for demo admin allowlist (requires `WINOE_DEMO_MODE=true`)
+- Operation ID: `use_trial_fallback_api_admin_trials__trial_id__scenario_use_fallback_post`
 - Dependency auth signals: `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_admin_demo_utils.require_demo_mode_admin`, `fastapi.security.http.unknown`
 - Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
-  - | `simulation_id` | yes | `integer` | `-` | - |
+  - | `trial_id` | yes | `integer` | `-` | - |
 - Query params: 
   - None
 - Header params: 
   - None
-- Request schema: `SimulationFallbackRequest`
+- Request schema: `TrialFallbackRequest`
 - Request example:
 ```json
 {
@@ -194,16 +194,16 @@ Total endpoints: 46
 }
 ```
 - Success responses:
-  - `200`: Successful Response (schema: `SimulationFallbackResponse`)
+  - `200`: Successful Response (schema: `TrialFallbackResponse`)
 - Error responses:
   - `400`: Fallback request is invalid. (schema: `-`)
   - `403`: Admin access required. (schema: `-`)
-  - `404`: Demo mode disabled or simulation not found. (schema: `-`)
+  - `404`: Demo mode disabled or trial not found. (schema: `-`)
   - `422`: Validation Error (schema: `HTTPValidationError`)
 - Success example (`200`):
 ```json
 {
-  "simulationId": 1,
+  "trialId": 1,
   "activeScenarioVersionId": 1,
   "applyTo": "example"
 }
@@ -326,8 +326,8 @@ Total endpoints: 46
 
 ### `GET /api/auth/me`
 - Summary: Read Me
-- Description: Return the authenticated recruiter profile for the caller.
-- Auth: Recruiter bearer token
+- Description: Return the authenticated talent_partner profile for the caller.
+- Auth: Talent Partner bearer token
 - Operation ID: `read_me_api_auth_me_get`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_authenticated_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
 - Path params: 
@@ -376,8 +376,8 @@ Total endpoints: 46
 [
   {
     "candidateSessionId": 1,
-    "simulationId": 1,
-    "simulationTitle": "example",
+    "trialId": 1,
+    "trialTitle": "example",
     "role": "example",
     "companyName": "example",
     "status": "not_started",
@@ -499,7 +499,7 @@ Total endpoints: 46
   "startedAt": "2026-01-01T00:00:00Z",
   "completedAt": "2026-01-01T00:00:00Z",
   "candidateName": "example",
-  "simulation": {
+  "trial": {
     "id": 1,
     "title": "example",
     "role": "example"
@@ -540,7 +540,7 @@ Total endpoints: 46
   "startedAt": "2026-01-01T00:00:00Z",
   "completedAt": "2026-01-01T00:00:00Z",
   "candidateName": "example",
-  "simulation": {
+  "trial": {
     "id": 1,
     "title": "example",
     "role": "example"
@@ -600,11 +600,11 @@ Total endpoints: 46
 }
 ```
 
-### `GET /api/candidate_sessions/{candidate_session_id}/fit_profile`
-- Summary: Get Fit Profile Route
-- Description: Return fit-profile generation status and latest report payload for a recruiter-visible candidate session.
-- Auth: Recruiter bearer token
-- Operation ID: `get_fit_profile_route_api_candidate_sessions__candidate_session_id__fit_profile_get`
+### `GET /api/candidate_sessions/{candidate_session_id}/winoe_report`
+- Summary: Get Winoe Report Route
+- Description: Return winoe-report generation status and latest report payload for a talent_partner-visible candidate session.
+- Auth: Talent Partner bearer token
+- Operation ID: `get_winoe_report_route_api_candidate_sessions__candidate_session_id__winoe_report_get`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
 - Path params: 
   - | Name | Required | Type | Default | Description |
@@ -616,9 +616,9 @@ Total endpoints: 46
   - None
 - Request schema: None
 - Success responses:
-  - `200`: Successful Response (schema: `FitProfileStatusResponse`)
+  - `200`: Successful Response (schema: `WinoeReportStatusResponse`)
 - Error responses:
-  - `403`: Recruiter access required. (schema: `-`)
+  - `403`: Talent Partner access required. (schema: `-`)
   - `404`: Candidate session not found. (schema: `-`)
   - `422`: Validation Error (schema: `HTTPValidationError`)
 - Success example (`200`):
@@ -628,11 +628,11 @@ Total endpoints: 46
 }
 ```
 
-### `POST /api/candidate_sessions/{candidate_session_id}/fit_profile/generate`
-- Summary: Generate Fit Profile Route
-- Description: Queue or compute fit-profile artifacts for a candidate session visible to the authenticated recruiter.
-- Auth: Recruiter bearer token
-- Operation ID: `generate_fit_profile_route_api_candidate_sessions__candidate_session_id__fit_profile_generate_post`
+### `POST /api/candidate_sessions/{candidate_session_id}/winoe_report/generate`
+- Summary: Generate Winoe Report Route
+- Description: Queue or compute winoe-report artifacts for a candidate session visible to the authenticated talent_partner.
+- Auth: Talent Partner bearer token
+- Operation ID: `generate_winoe_report_route_api_candidate_sessions__candidate_session_id__winoe_report_generate_post`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
 - Path params: 
   - | Name | Required | Type | Default | Description |
@@ -644,9 +644,9 @@ Total endpoints: 46
   - None
 - Request schema: None
 - Success responses:
-  - `202`: Successful Response (schema: `FitProfileGenerateResponse`)
+  - `202`: Successful Response (schema: `WinoeReportGenerateResponse`)
 - Error responses:
-  - `403`: Recruiter access required. (schema: `-`)
+  - `403`: Talent Partner access required. (schema: `-`)
   - `404`: Candidate session not found. (schema: `-`)
   - `422`: Validation Error (schema: `HTTPValidationError`)
 - Success example (`202`):
@@ -745,11 +745,11 @@ Total endpoints: 46
 }
 ```
 
-### `GET /api/simulations`
-- Summary: List Simulations
-- Description: List simulations for recruiter dashboard (scoped to current user).
-- Auth: Recruiter bearer token
-- Operation ID: `list_simulations_api_simulations_get`
+### `GET /api/trials`
+- Summary: List Trials
+- Description: List trials for talent_partner dashboard (scoped to current user).
+- Auth: Talent Partner bearer token
+- Operation ID: `list_trials_api_trials_get`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
 - Path params: 
   - None
@@ -761,7 +761,7 @@ Total endpoints: 46
   - None
 - Request schema: None
 - Success responses:
-  - `200`: Successful Response (schema: `Response List Simulations Api Simulations Get`)
+  - `200`: Successful Response (schema: `Response List Trials Api Trials Get`)
 - Error responses:
   - `422`: Validation Error (schema: `HTTPValidationError`)
 - Success example (`200`):
@@ -780,11 +780,11 @@ Total endpoints: 46
 ]
 ```
 
-### `POST /api/simulations`
-- Summary: Create Simulation
-- Description: Create a simulation and seed default tasks.
-- Auth: Recruiter bearer token
-- Operation ID: `create_simulation_api_simulations_post`
+### `POST /api/trials`
+- Summary: Create Trial
+- Description: Create a trial and seed default tasks.
+- Auth: Talent Partner bearer token
+- Operation ID: `create_trial_api_trials_post`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
 - Path params: 
   - None
@@ -792,7 +792,7 @@ Total endpoints: 46
   - None
 - Header params: 
   - None
-- Request schema: `SimulationCreate`
+- Request schema: `TrialCreate`
 - Request example:
 ```json
 {
@@ -804,7 +804,7 @@ Total endpoints: 46
 }
 ```
 - Success responses:
-  - `201`: Successful Response (schema: `SimulationCreateResponse`)
+  - `201`: Successful Response (schema: `TrialCreateResponse`)
 - Error responses:
   - `422`: Validation Error (schema: `HTTPValidationError`)
 - Success example (`201`):
@@ -830,23 +830,23 @@ Total endpoints: 46
 }
 ```
 
-### `GET /api/simulations/{simulation_id}`
-- Summary: Get Simulation Detail
-- Description: Return a simulation detail view for recruiters.
-- Auth: Recruiter bearer token
-- Operation ID: `get_simulation_detail_api_simulations__simulation_id__get`
+### `GET /api/trials/{trial_id}`
+- Summary: Get Trial Detail
+- Description: Return a trial detail view for talent_partners.
+- Auth: Talent Partner bearer token
+- Operation ID: `get_trial_detail_api_trials__trial_id__get`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
 - Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
-  - | `simulation_id` | yes | `integer` | `-` | - |
+  - | `trial_id` | yes | `integer` | `-` | - |
 - Query params: 
   - None
 - Header params: 
   - None
 - Request schema: None
 - Success responses:
-  - `200`: Successful Response (schema: `SimulationDetailResponse`)
+  - `200`: Successful Response (schema: `TrialDetailResponse`)
 - Error responses:
   - `422`: Validation Error (schema: `HTTPValidationError`)
 - Success example (`200`):
@@ -862,21 +862,21 @@ Total endpoints: 46
 }
 ```
 
-### `PUT /api/simulations/{simulation_id}`
-- Summary: Update Simulation
-- Description: Update mutable simulation configuration.
-- Auth: Recruiter bearer token
-- Operation ID: `update_simulation_api_simulations__simulation_id__put`
+### `PUT /api/trials/{trial_id}`
+- Summary: Update Trial
+- Description: Update mutable trial configuration.
+- Auth: Talent Partner bearer token
+- Operation ID: `update_trial_api_trials__trial_id__put`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
 - Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
-  - | `simulation_id` | yes | `integer` | `-` | - |
+  - | `trial_id` | yes | `integer` | `-` | - |
 - Query params: 
   - None
 - Header params: 
   - None
-- Request schema: `SimulationUpdate`
+- Request schema: `TrialUpdate`
 - Request example:
 ```json
 {
@@ -890,7 +890,7 @@ Total endpoints: 46
 }
 ```
 - Success responses:
-  - `200`: Successful Response (schema: `SimulationDetailResponse`)
+  - `200`: Successful Response (schema: `TrialDetailResponse`)
 - Error responses:
   - `422`: Validation Error (schema: `HTTPValidationError`)
 - Success example (`200`):
@@ -906,21 +906,21 @@ Total endpoints: 46
 }
 ```
 
-### `POST /api/simulations/{simulation_id}/activate`
-- Summary: Activate Simulation
-- Description: Transition a simulation into the active state once recruiter confirms readiness.
-- Auth: Recruiter bearer token
-- Operation ID: `activate_simulation_api_simulations__simulation_id__activate_post`
+### `POST /api/trials/{trial_id}/activate`
+- Summary: Activate Trial
+- Description: Transition a trial into the active state once talent_partner confirms readiness.
+- Auth: Talent Partner bearer token
+- Operation ID: `activate_trial_api_trials__trial_id__activate_post`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
 - Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
-  - | `simulation_id` | yes | `integer` | `-` | - |
+  - | `trial_id` | yes | `integer` | `-` | - |
 - Query params: 
   - None
 - Header params: 
   - None
-- Request schema: `SimulationLifecycleRequest`
+- Request schema: `TrialLifecycleRequest`
 - Request example:
 ```json
 {
@@ -928,30 +928,30 @@ Total endpoints: 46
 }
 ```
 - Success responses:
-  - `200`: Successful Response (schema: `SimulationActivateResponse`)
+  - `200`: Successful Response (schema: `TrialActivateResponse`)
 - Error responses:
   - `400`: Activation confirmation missing. (schema: `-`)
-  - `403`: Recruiter access required. (schema: `-`)
-  - `404`: Simulation not found. (schema: `-`)
+  - `403`: Talent Partner access required. (schema: `-`)
+  - `404`: Trial not found. (schema: `-`)
   - `422`: Validation Error (schema: `HTTPValidationError`)
 - Success example (`200`):
 ```json
 {
-  "simulationId": 1,
+  "trialId": 1,
   "status": "draft"
 }
 ```
 
-### `GET /api/simulations/{simulation_id}/candidates`
-- Summary: List Simulation Candidates
-- Description: List candidate sessions for a simulation (recruiter-only).
-- Auth: Recruiter bearer token
-- Operation ID: `list_simulation_candidates_api_simulations__simulation_id__candidates_get`
+### `GET /api/trials/{trial_id}/candidates`
+- Summary: List Trial Candidates
+- Description: List candidate sessions for a trial (talent_partner-only).
+- Auth: Talent Partner bearer token
+- Operation ID: `list_trial_candidates_api_trials__trial_id__candidates_get`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
 - Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
-  - | `simulation_id` | yes | `integer` | `-` | - |
+  - | `trial_id` | yes | `integer` | `-` | - |
 - Query params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
@@ -960,7 +960,7 @@ Total endpoints: 46
   - None
 - Request schema: None
 - Success responses:
-  - `200`: Successful Response (schema: `Response List Simulation Candidates Api Simulations  Simulation Id  Candidates Get`)
+  - `200`: Successful Response (schema: `Response List Trial Candidates Api Trials  Trial Id  Candidates Get`)
 - Error responses:
   - `422`: Validation Error (schema: `HTTPValidationError`)
 - Success example (`200`):
@@ -973,49 +973,49 @@ Total endpoints: 46
     "status": "not_started",
     "startedAt": "2026-01-01T00:00:00Z",
     "completedAt": "2026-01-01T00:00:00Z",
-    "hasFitProfile": true
+    "hasWinoeReport": true
   }
 ]
 ```
 
-### `GET /api/simulations/{simulation_id}/candidates/compare`
-- Summary: List Simulation Candidates Compare
-- Description: Return side-by-side candidate progress and scoring signals for a recruiter-owned simulation.
-- Auth: Recruiter bearer token
-- Operation ID: `list_simulation_candidates_compare_api_simulations__simulation_id__candidates_compare_get`
+### `GET /api/trials/{trial_id}/candidates/compare`
+- Summary: List Trial Candidates Compare
+- Description: Return side-by-side candidate progress and scoring signals for a talent_partner-owned trial.
+- Auth: Talent Partner bearer token
+- Operation ID: `list_trial_candidates_compare_api_trials__trial_id__candidates_compare_get`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
 - Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
-  - | `simulation_id` | yes | `integer` | `-` | - |
+  - | `trial_id` | yes | `integer` | `-` | - |
 - Query params: 
   - None
 - Header params: 
   - None
 - Request schema: None
 - Success responses:
-  - `200`: Successful Response (schema: `SimulationCandidatesCompareResponse`)
+  - `200`: Successful Response (schema: `TrialCandidatesCompareResponse`)
 - Error responses:
-  - `403`: Recruiter access required. (schema: `-`)
-  - `404`: Simulation not found. (schema: `-`)
+  - `403`: Talent Partner access required. (schema: `-`)
+  - `404`: Trial not found. (schema: `-`)
   - `422`: Validation Error (schema: `HTTPValidationError`)
 - Success example (`200`):
 ```json
 {
-  "simulationId": 1
+  "trialId": 1
 }
 ```
 
-### `POST /api/simulations/{simulation_id}/candidates/{candidate_session_id}/invite/resend`
+### `POST /api/trials/{trial_id}/candidates/{candidate_session_id}/invite/resend`
 - Summary: Resend Candidate Invite
-- Description: Resend an existing candidate invite email for a recruiter-owned simulation session.
-- Auth: Recruiter bearer token
-- Operation ID: `resend_candidate_invite_api_simulations__simulation_id__candidates__candidate_session_id__invite_resend_post`
+- Description: Resend an existing candidate invite email for a talent_partner-owned trial session.
+- Auth: Talent Partner bearer token
+- Operation ID: `resend_candidate_invite_api_trials__trial_id__candidates__candidate_session_id__invite_resend_post`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_notifications_utils.get_email_service`, `fastapi.security.http.unknown`
 - Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
-  - | `simulation_id` | yes | `integer` | `-` | - |
+  - | `trial_id` | yes | `integer` | `-` | - |
   - | `candidate_session_id` | yes | `integer` | `-` | - |
 - Query params: 
   - None
@@ -1025,24 +1025,24 @@ Total endpoints: 46
 - Success responses:
   - `200`: Successful Response (schema: `-`)
 - Error responses:
-  - `403`: Recruiter access required. (schema: `-`)
-  - `404`: Simulation or candidate session not found. (schema: `-`)
+  - `403`: Talent Partner access required. (schema: `-`)
+  - `404`: Trial or candidate session not found. (schema: `-`)
   - `422`: Validation Error (schema: `HTTPValidationError`)
 - Success example (`200`):
 ```json
 "example"
 ```
 
-### `POST /api/simulations/{simulation_id}/invite`
+### `POST /api/trials/{trial_id}/invite`
 - Summary: Create Candidate Invite
-- Description: Create a candidate_session invite token for a simulation (recruiter-only).
-- Auth: Recruiter bearer token
-- Operation ID: `create_candidate_invite_api_simulations__simulation_id__invite_post`
+- Description: Create a candidate_session invite token for a trial (talent_partner-only).
+- Auth: Talent Partner bearer token
+- Operation ID: `create_candidate_invite_api_trials__trial_id__invite_post`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_github_native_utils.get_github_client`, `app.shared.http.dependencies.shared_http_dependencies_notifications_utils.get_email_service`, `fastapi.security.http.unknown`
 - Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
-  - | `simulation_id` | yes | `integer` | `-` | - |
+  - | `trial_id` | yes | `integer` | `-` | - |
 - Query params: 
   - None
 - Header params: 
@@ -1070,16 +1070,16 @@ Total endpoints: 46
 }
 ```
 
-### `PATCH /api/simulations/{simulation_id}/scenario/active`
+### `PATCH /api/trials/{trial_id}/scenario/active`
 - Summary: Update Active Scenario Version
-- Description: Update active scenario metadata and assignment fields for the simulation.
-- Auth: Recruiter bearer token
-- Operation ID: `update_active_scenario_version_api_simulations__simulation_id__scenario_active_patch`
+- Description: Update active scenario metadata and assignment fields for the trial.
+- Auth: Talent Partner bearer token
+- Operation ID: `update_active_scenario_version_api_trials__trial_id__scenario_active_patch`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
 - Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
-  - | `simulation_id` | yes | `integer` | `-` | - |
+  - | `trial_id` | yes | `integer` | `-` | - |
 - Query params: 
   - None
 - Header params: 
@@ -1096,13 +1096,13 @@ Total endpoints: 46
 - Success responses:
   - `200`: Successful Response (schema: `ScenarioActiveUpdateResponse`)
 - Error responses:
-  - `403`: Recruiter access required. (schema: `-`)
-  - `404`: Simulation not found. (schema: `-`)
+  - `403`: Talent Partner access required. (schema: `-`)
+  - `404`: Trial not found. (schema: `-`)
   - `422`: Validation Error (schema: `HTTPValidationError`)
 - Success example (`200`):
 ```json
 {
-  "simulationId": 1,
+  "trialId": 1,
   "scenario": {
     "id": 1,
     "versionIndex": 1,
@@ -1111,16 +1111,16 @@ Total endpoints: 46
 }
 ```
 
-### `POST /api/simulations/{simulation_id}/scenario/regenerate`
+### `POST /api/trials/{trial_id}/scenario/regenerate`
 - Summary: Regenerate Scenario Version
-- Description: Request a regenerated scenario version for a simulation and return the created job reference.
-- Auth: Recruiter bearer token
-- Operation ID: `regenerate_scenario_version_api_simulations__simulation_id__scenario_regenerate_post`
+- Description: Request a regenerated scenario version for a trial and return the created job reference.
+- Auth: Talent Partner bearer token
+- Operation ID: `regenerate_scenario_version_api_trials__trial_id__scenario_regenerate_post`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
 - Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
-  - | `simulation_id` | yes | `integer` | `-` | - |
+  - | `trial_id` | yes | `integer` | `-` | - |
 - Query params: 
   - None
 - Header params: 
@@ -1129,8 +1129,8 @@ Total endpoints: 46
 - Success responses:
   - `200`: Successful Response (schema: `ScenarioRegenerateResponse`)
 - Error responses:
-  - `403`: Recruiter access required. (schema: `-`)
-  - `404`: Simulation not found. (schema: `-`)
+  - `403`: Talent Partner access required. (schema: `-`)
+  - `404`: Trial not found. (schema: `-`)
   - `422`: Validation Error (schema: `HTTPValidationError`)
   - `429`: Scenario regeneration rate limit exceeded. (schema: `-`)
 - Success example (`200`):
@@ -1142,16 +1142,16 @@ Total endpoints: 46
 }
 ```
 
-### `PATCH /api/simulations/{simulation_id}/scenario/{scenario_version_id}`
+### `PATCH /api/trials/{trial_id}/scenario/{scenario_version_id}`
 - Summary: Patch Scenario Version
 - Description: Patch editable scenario version content and return the updated scenario payload.
-- Auth: Recruiter bearer token
-- Operation ID: `patch_scenario_version_api_simulations__simulation_id__scenario__scenario_version_id__patch`
+- Auth: Talent Partner bearer token
+- Operation ID: `patch_scenario_version_api_trials__trial_id__scenario__scenario_version_id__patch`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
 - Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
-  - | `simulation_id` | yes | `integer` | `-` | - |
+  - | `trial_id` | yes | `integer` | `-` | - |
   - | `scenario_version_id` | yes | `integer` | `-` | - |
 - Query params: 
   - None
@@ -1175,8 +1175,8 @@ Total endpoints: 46
 - Success responses:
   - `200`: Successful Response (schema: `ScenarioVersionPatchResponse`)
 - Error responses:
-  - `403`: Recruiter access required. (schema: `-`)
-  - `404`: Simulation or scenario version not found. (schema: `-`)
+  - `403`: Talent Partner access required. (schema: `-`)
+  - `404`: Trial or scenario version not found. (schema: `-`)
   - `422`: Validation Error (schema: `HTTPValidationError`)
 - Success example (`200`):
 ```json
@@ -1186,16 +1186,16 @@ Total endpoints: 46
 }
 ```
 
-### `POST /api/simulations/{simulation_id}/scenario/{scenario_version_id}/approve`
+### `POST /api/trials/{trial_id}/scenario/{scenario_version_id}/approve`
 - Summary: Approve Scenario Version
-- Description: Approve a scenario version and promote it for active simulation usage.
-- Auth: Recruiter bearer token
-- Operation ID: `approve_scenario_version_api_simulations__simulation_id__scenario__scenario_version_id__approve_post`
+- Description: Approve a scenario version and promote it for active trial usage.
+- Auth: Talent Partner bearer token
+- Operation ID: `approve_scenario_version_api_trials__trial_id__scenario__scenario_version_id__approve_post`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
 - Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
-  - | `simulation_id` | yes | `integer` | `-` | - |
+  - | `trial_id` | yes | `integer` | `-` | - |
   - | `scenario_version_id` | yes | `integer` | `-` | - |
 - Query params: 
   - None
@@ -1205,13 +1205,13 @@ Total endpoints: 46
 - Success responses:
   - `200`: Successful Response (schema: `ScenarioApproveResponse`)
 - Error responses:
-  - `403`: Recruiter access required. (schema: `-`)
-  - `404`: Simulation or scenario version not found. (schema: `-`)
+  - `403`: Talent Partner access required. (schema: `-`)
+  - `404`: Trial or scenario version not found. (schema: `-`)
   - `422`: Validation Error (schema: `HTTPValidationError`)
 - Success example (`200`):
 ```json
 {
-  "simulationId": 1,
+  "trialId": 1,
   "status": "draft",
   "activeScenarioVersionId": 1,
   "scenario": {
@@ -1222,21 +1222,21 @@ Total endpoints: 46
 }
 ```
 
-### `POST /api/simulations/{simulation_id}/terminate`
-- Summary: Terminate Simulation
-- Description: Terminate an active simulation and enqueue workspace cleanup jobs for associated candidate workspaces.
-- Auth: Recruiter bearer token
-- Operation ID: `terminate_simulation_api_simulations__simulation_id__terminate_post`
+### `POST /api/trials/{trial_id}/terminate`
+- Summary: Terminate Trial
+- Description: Terminate an active trial and enqueue workspace cleanup jobs for associated candidate workspaces.
+- Auth: Talent Partner bearer token
+- Operation ID: `terminate_trial_api_trials__trial_id__terminate_post`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
 - Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
-  - | `simulation_id` | yes | `integer` | `-` | - |
+  - | `trial_id` | yes | `integer` | `-` | - |
 - Query params: 
   - None
 - Header params: 
   - None
-- Request schema: `SimulationLifecycleRequest`
+- Request schema: `TrialLifecycleRequest`
 - Request example:
 ```json
 {
@@ -1244,24 +1244,24 @@ Total endpoints: 46
 }
 ```
 - Success responses:
-  - `200`: Successful Response (schema: `SimulationTerminateResponse`)
+  - `200`: Successful Response (schema: `TrialTerminateResponse`)
 - Error responses:
   - `400`: Termination confirmation missing. (schema: `-`)
-  - `403`: Recruiter access required. (schema: `-`)
-  - `404`: Simulation not found. (schema: `-`)
+  - `403`: Talent Partner access required. (schema: `-`)
+  - `404`: Trial not found. (schema: `-`)
   - `422`: Validation Error (schema: `HTTPValidationError`)
 - Success example (`200`):
 ```json
 {
-  "simulationId": 1,
+  "trialId": 1,
   "status": "draft"
 }
 ```
 
 ### `GET /api/submissions`
 - Summary: List Submissions Route
-- Description: List submissions visible to the recruiter with optional filters.
-- Auth: Recruiter bearer token
+- Description: List submissions visible to the talent_partner with optional filters.
+- Auth: Talent Partner bearer token
 - Operation ID: `list_submissions_route_api_submissions_get`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
 - Path params: 
@@ -1277,7 +1277,7 @@ Total endpoints: 46
   - None
 - Request schema: None
 - Success responses:
-  - `200`: Successful Response (schema: `RecruiterSubmissionListOut`)
+  - `200`: Successful Response (schema: `Talent PartnerSubmissionListOut`)
 - Error responses:
   - `422`: Validation Error (schema: `HTTPValidationError`)
 - Success example (`200`):
@@ -1298,8 +1298,8 @@ Total endpoints: 46
 
 ### `GET /api/submissions/{submission_id}`
 - Summary: Get Submission Detail Route
-- Description: Return recruiter-facing detail for a submission.
-- Auth: Recruiter bearer token
+- Description: Return talent_partner-facing detail for a submission.
+- Auth: Talent Partner bearer token
 - Operation ID: `get_submission_detail_route_api_submissions__submission_id__get`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
 - Path params: 
@@ -1312,7 +1312,7 @@ Total endpoints: 46
   - None
 - Request schema: None
 - Success responses:
-  - `200`: Successful Response (schema: `RecruiterSubmissionDetailOut`)
+  - `200`: Successful Response (schema: `Talent PartnerSubmissionDetailOut`)
 - Error responses:
   - `422`: Validation Error (schema: `HTTPValidationError`)
 - Success example (`200`):

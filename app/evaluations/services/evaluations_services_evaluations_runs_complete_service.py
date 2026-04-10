@@ -41,7 +41,7 @@ async def complete_run(
     *,
     run_id: int,
     day_scores: Sequence[Mapping[str, Any]],
-    overall_fit_score: float | None = None,
+    overall_winoe_score: float | None = None,
     recommendation: str | None = None,
     confidence: float | None = None,
     raw_report_json: Mapping[str, Any] | None = None,
@@ -80,8 +80,8 @@ async def complete_run(
     run.status = EVALUATION_RUN_STATUS_COMPLETED
     run.completed_at = resolved_completed_at
     run.generated_at = resolved_generated_at
-    run.overall_fit_score = coerce_unit_interval_score(
-        overall_fit_score, field_name="overall_fit_score", required=False
+    run.overall_winoe_score = coerce_unit_interval_score(
+        overall_winoe_score, field_name="overall_winoe_score", required=False
     )
     run.recommendation = coerce_recommendation(recommendation, required=False)
     run.confidence = coerce_unit_interval_score(

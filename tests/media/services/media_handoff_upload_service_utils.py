@@ -38,9 +38,9 @@ from app.shared.utils.shared_utils_errors_utils import (
 from app.submissions.repositories import repository as submissions_repo
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
     create_submission,
+    create_talent_partner,
+    create_trial,
 )
 
 CONSENT_KWARGS = {"consent_version": "mvp1", "ai_notice_version": "mvp1"}
@@ -60,11 +60,11 @@ async def _setup_handoff_context(
     *,
     consented: bool = False,
 ):
-    recruiter = await create_recruiter(async_session, email=email)
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(async_session, email=email)
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         status="in_progress",
         with_default_schedule=True,
         **(CONSENT_KWARGS if consented else {}),

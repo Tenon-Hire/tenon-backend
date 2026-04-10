@@ -7,11 +7,11 @@ from tests.submissions.services.test_submissions_candidate_service_utils import 
 
 @pytest.mark.asyncio
 async def test_progress_after_submission_marks_complete(async_session):
-    recruiter = await create_recruiter(async_session, email="done@sim.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(async_session, email="done@sim.com")
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     cs = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         status="in_progress",
     )
     now = datetime.now(UTC)

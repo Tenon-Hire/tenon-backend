@@ -15,14 +15,14 @@ async def test_parse_artifacts_uses_cache():
 
         async def list_artifacts(self, *_a, **_k):
             self.list_calls += 1
-            return [{"id": 123, "name": "tenon-test-results"}]
+            return [{"id": 123, "name": "winoe-test-results"}]
 
         async def download_artifact_zip(self, *_a, **_k):
             self.downloads += 1
             buf = io.BytesIO()
             with zipfile.ZipFile(buf, "w") as zf:
                 zf.writestr(
-                    "tenon-test-results.json",
+                    "winoe-test-results.json",
                     json.dumps({"passed": 1, "failed": 0, "total": 1}),
                 )
             return buf.getvalue()

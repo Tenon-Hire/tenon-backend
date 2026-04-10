@@ -19,17 +19,17 @@ def _normalize_sync_url(url: str) -> str:
 
 
 def _resolve_sync_url(project_root: Path) -> str:
-    env_url = os.getenv("TENON_DATABASE_URL_SYNC") or os.getenv("TENON_DATABASE_URL")
+    env_url = os.getenv("WINOE_DATABASE_URL_SYNC") or os.getenv("WINOE_DATABASE_URL")
     if env_url:
         normalized = _normalize_sync_url(env_url)
     else:
         env_file = dotenv_values(project_root / ".env")
-        file_url = env_file.get("TENON_DATABASE_URL_SYNC") or env_file.get(
-            "TENON_DATABASE_URL"
+        file_url = env_file.get("WINOE_DATABASE_URL_SYNC") or env_file.get(
+            "WINOE_DATABASE_URL"
         )
         if not file_url:
             raise RuntimeError(
-                "TENON_DATABASE_URL_SYNC or TENON_DATABASE_URL must be set "
+                "WINOE_DATABASE_URL_SYNC or WINOE_DATABASE_URL must be set "
                 "(env or .env)."
             )
         normalized = _normalize_sync_url(str(file_url))
@@ -47,7 +47,7 @@ def main() -> None:
     base_sync_url = _resolve_sync_url(project_root)
     base_url = make_url(base_sync_url)
     admin_url = base_url.set(database="postgres").render_as_string(hide_password=False)
-    temp_db_name = f"tenon_migration_smoke_{uuid.uuid4().hex[:12]}"
+    temp_db_name = f"winoe_migration_smoke_{uuid.uuid4().hex[:12]}"
     temp_sync_url = base_url.set(database=temp_db_name).render_as_string(
         hide_password=False
     )
@@ -58,9 +58,9 @@ def main() -> None:
             conn.execute(text(f'CREATE DATABASE "{temp_db_name}"'))
 
         env = os.environ.copy()
-        env["TENON_ENV"] = "test"
-        env["TENON_DATABASE_URL_SYNC"] = temp_sync_url
-        env["TENON_DATABASE_URL"] = temp_sync_url
+        env["WINOE_ENV"] = "test"
+        env["WINOE_DATABASE_URL_SYNC"] = temp_sync_url
+        env["WINOE_DATABASE_URL"] = temp_sync_url
         subprocess.run(
             [
                 sys.executable,

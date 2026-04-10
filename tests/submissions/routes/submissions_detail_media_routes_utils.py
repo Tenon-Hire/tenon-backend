@@ -24,9 +24,9 @@ from app.submissions.routes.submissions_routes import (
 from tests.shared.factories import (
     create_candidate_session,
     create_company,
-    create_recruiter,
-    create_simulation,
     create_submission,
+    create_talent_partner,
+    create_trial,
 )
 
 # Keep tests patching `detail_route.get_storage_media_provider` while invoking

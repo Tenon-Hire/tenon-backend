@@ -2,14 +2,14 @@
 set -euo pipefail
 
 ###############################################################################
-# Tenon AI - Database QA Runner
+# Winoe AI - Database QA Runner
 #
 # Runs the database QA pass using runtime-generated SQL artifacts.
 #
 # By default this script:
-#   1. Loads DB config from tenon-backend/.env
-#   2. Uses TENON_DATABASE_URL_SYNC (or TENON_DATABASE_URL fallback)
-#   3. Enforces local postgres db "tenon" (localhost/127.0.0.1)
+#   1. Loads DB config from winoe-backend/.env
+#   2. Uses WINOE_DATABASE_URL_SYNC (or WINOE_DATABASE_URL fallback)
+#   3. Enforces local postgres db "winoe" (localhost/127.0.0.1)
 #   4. Applies alembic migrations
 #   5. Executes protocol sections in recommended order
 #   6. Seeds before write tests and cleans up afterward
@@ -65,7 +65,7 @@ Usage: $0 [options]
 Options:
   --skip-migrations   Skip \`poetry run alembic upgrade head\`
   --skip-cleanup      Skip final cleanup SQL
-  --allow-nonlocal    Do not enforce localhost:5432/tenon URL check
+  --allow-nonlocal    Do not enforce localhost:5432/winoe URL check
   -h, --help          Show this help
 EOF
 }
@@ -593,8 +593,8 @@ BEGIN
         v_sql := 'UPDATE recording_assets SET status = ''__invalid__'' WHERE id = 970001';
       WHEN 'ck_scenario_versions_status' THEN
         v_sql := 'UPDATE scenario_versions SET status = ''__invalid__'' WHERE id = 970001';
-      WHEN 'ck_simulations_status_lifecycle' THEN
-        v_sql := 'UPDATE simulations SET status = ''__invalid__'' WHERE id = 970001';
+      WHEN 'ck_trials_status_lifecycle' THEN
+        v_sql := 'UPDATE trials SET status = ''__invalid__'' WHERE id = 970001';
       WHEN 'ck_transcripts_status' THEN
         v_sql := 'UPDATE transcripts SET status = ''__invalid__'' WHERE id = 970001';
     END CASE;
@@ -1182,19 +1182,19 @@ VALUES (980001, 'qa_lifecycle_company_runtime', NOW());
 
 INSERT INTO users (id, name, email, role, company_id, password_hash, created_at)
 VALUES
-  (980001, 'Runtime Recruiter', 'runtime.recruiter@tenon.test', 'recruiter', 980001, NULL, NOW()),
-  (980002, 'Runtime Candidate', 'runtime.candidate@tenon.test', 'candidate', NULL, NULL, NOW());
+  (980001, 'Runtime TalentPartner', 'runtime.talent_partner@winoe.test', 'talent_partner', 980001, NULL, NOW()),
+  (980002, 'Runtime Candidate', 'runtime.candidate@winoe.test', 'candidate', NULL, NULL, NOW());
 
-INSERT INTO simulations (
+INSERT INTO trials (
   id, company_id, title, role, tech_stack, seniority, scenario_template,
   created_by, status, created_at, focus, template_key, generating_at,
   ready_for_review_at, activated_at, terminated_at, company_context,
   ai_notice_version, ai_notice_text, ai_eval_enabled_by_day, terminated_reason,
-  terminated_by_recruiter_id, day_window_start_local, day_window_end_local,
+  terminated_by_talent_partner_id, day_window_start_local, day_window_end_local,
   day_window_overrides_enabled, day_window_overrides_json
 )
 VALUES (
-  980001, 980001, 'Runtime Lifecycle Simulation', 'Backend Engineer', 'Python,FastAPI,PostgreSQL',
+  980001, 980001, 'Runtime Lifecycle Trial', 'Backend Engineer', 'Python,FastAPI,PostgreSQL',
   'senior', 'default-5day-node-postgres', 980001, 'active_inviting', NOW() - INTERVAL '5 days',
   'Runtime QA flow', 'python-fastapi', NOW() - INTERVAL '5 days', NOW() - INTERVAL '4 days',
   NOW() - INTERVAL '3 days', NULL, '{"domain":"qa"}'::json, 'v1', 'AI notice runtime',
@@ -1203,7 +1203,7 @@ VALUES (
 );
 
 INSERT INTO scenario_versions (
-  id, simulation_id, version_index, status, storyline_md, task_prompts_json, rubric_json,
+  id, trial_id, version_index, status, storyline_md, task_prompts_json, rubric_json,
   focus_notes, template_key, tech_stack, seniority, model_name, model_version,
   prompt_version, rubric_version, locked_at, created_at
 )
@@ -1213,25 +1213,25 @@ VALUES (
   'gpt-5.4', '2026-03-18', 'sim-v1', 'rubric-v1', NOW() - INTERVAL '3 days', NOW() - INTERVAL '5 days'
 );
 
-INSERT INTO tasks (id, simulation_id, day_index, type, title, description, starter_code_path, test_file_path, max_score, template_repo)
+INSERT INTO tasks (id, trial_id, day_index, type, title, description, starter_code_path, test_file_path, max_score, template_repo)
 VALUES
-  (980001, 980001, 1, 'design', 'Day 1', 'Design task', NULL, NULL, 20, 'tenon-hire-dev/tenon-template-python-fastapi'),
-  (980002, 980001, 2, 'code', 'Day 2', 'Code task', 'app/main.py', 'tests/test_main.py', 20, 'tenon-hire-dev/tenon-template-python-fastapi'),
-  (980003, 980001, 3, 'debug', 'Day 3', 'Debug task', 'app/service.py', 'tests/test_service.py', 20, 'tenon-hire-dev/tenon-template-python-fastapi'),
-  (980004, 980001, 4, 'handoff', 'Day 4', 'Demo task', NULL, NULL, 20, 'tenon-hire-dev/tenon-template-python-fastapi'),
-  (980005, 980001, 5, 'documentation', 'Day 5', 'Essay task', NULL, NULL, 20, 'tenon-hire-dev/tenon-template-python-fastapi');
+  (980001, 980001, 1, 'design', 'Day 1', 'Design task', NULL, NULL, 20, 'winoe-hire-dev/winoe-template-python-fastapi'),
+  (980002, 980001, 2, 'code', 'Day 2', 'Code task', 'app/main.py', 'tests/test_main.py', 20, 'winoe-hire-dev/winoe-template-python-fastapi'),
+  (980003, 980001, 3, 'debug', 'Day 3', 'Debug task', 'app/service.py', 'tests/test_service.py', 20, 'winoe-hire-dev/winoe-template-python-fastapi'),
+  (980004, 980001, 4, 'handoff', 'Day 4', 'Demo task', NULL, NULL, 20, 'winoe-hire-dev/winoe-template-python-fastapi'),
+  (980005, 980001, 5, 'documentation', 'Day 5', 'Essay task', NULL, NULL, 20, 'winoe-hire-dev/winoe-template-python-fastapi');
 
 INSERT INTO candidate_sessions (
-  id, simulation_id, candidate_user_id, invite_email, token, status, started_at, completed_at,
+  id, trial_id, candidate_user_id, invite_email, token, status, started_at, completed_at,
   candidate_name, expires_at, candidate_email, candidate_auth0_sub, claimed_at, invite_email_status,
   invite_email_error, invite_email_last_attempt_at, invite_email_sent_at, candidate_auth0_email,
   scheduled_start_at, candidate_timezone, schedule_locked_at, invite_email_verified_at, day_windows_json, github_username
 )
 VALUES (
-  980001, 980001, 980002, 'runtime.candidate@tenon.test', 'runtime_token_980001', 'completed',
+  980001, 980001, 980002, 'runtime.candidate@winoe.test', 'runtime_token_980001', 'completed',
   NOW() - INTERVAL '5 days', NOW() - INTERVAL '1 day', 'Runtime Candidate', NOW() + INTERVAL '7 days',
-  'runtime.candidate@tenon.test', 'auth0|runtime-candidate', NOW() - INTERVAL '5 days', 'sent',
-  NULL, NOW() - INTERVAL '6 days', NOW() - INTERVAL '6 days', 'runtime.candidate@tenon.test',
+  'runtime.candidate@winoe.test', 'auth0|runtime-candidate', NOW() - INTERVAL '5 days', 'sent',
+  NULL, NOW() - INTERVAL '6 days', NOW() - INTERVAL '6 days', 'runtime.candidate@winoe.test',
   NOW() - INTERVAL '5 days', 'America/New_York', NOW() - INTERVAL '5 days', NOW() - INTERVAL '5 days',
   '[{"dayIndex":1,"windowStartAt":"2026-03-10T14:00:00Z","windowEndAt":"2026-03-10T22:00:00Z"}]'::json, 'runtime-candidate-gh'
 );
@@ -1249,7 +1249,7 @@ VALUES
 
 INSERT INTO evaluation_runs (
   id, candidate_session_id, scenario_version_id, status, started_at, completed_at, model_name,
-  model_version, prompt_version, rubric_version, job_id, basis_fingerprint, overall_fit_score,
+  model_version, prompt_version, rubric_version, job_id, basis_fingerprint, overall_winoe_score,
   recommendation, confidence, generated_at, raw_report_json, error_code, metadata_json,
   day2_checkpoint_sha, day3_final_sha, cutoff_commit_sha, transcript_reference
 )
@@ -1269,28 +1269,28 @@ VALUES
   (980014, 980001, 4, 86.0, '{}'::json, '[]'::json, NOW()),
   (980015, 980001, 5, 89.0, '{}'::json, '[]'::json, NOW());
 
-INSERT INTO fit_profiles (id, candidate_session_id, generated_at)
+INSERT INTO winoe_reports (id, candidate_session_id, generated_at)
 VALUES (980001, 980001, NOW());
 
 SELECT
   c.name AS company_name,
-  ru.email AS recruiter_email,
-  s.title AS simulation_title,
+  ru.email AS talent_partner_email,
+  s.title AS trial_title,
   cs.invite_email AS candidate_email,
   COUNT(DISTINCT t.id) AS task_count,
   COUNT(DISTINCT sub.id) AS submission_count,
-  er.overall_fit_score,
-  fp.id AS fit_profile_id
-FROM simulations s
+  er.overall_winoe_score,
+  fp.id AS winoe_report_id
+FROM trials s
 JOIN companies c ON c.id = s.company_id
 JOIN users ru ON ru.id = s.created_by
-JOIN candidate_sessions cs ON cs.simulation_id = s.id
-LEFT JOIN tasks t ON t.simulation_id = s.id
+JOIN candidate_sessions cs ON cs.trial_id = s.id
+LEFT JOIN tasks t ON t.trial_id = s.id
 LEFT JOIN submissions sub ON sub.candidate_session_id = cs.id
 LEFT JOIN evaluation_runs er ON er.candidate_session_id = cs.id
-LEFT JOIN fit_profiles fp ON fp.candidate_session_id = cs.id
+LEFT JOIN winoe_reports fp ON fp.candidate_session_id = cs.id
 WHERE s.id = 980001
-GROUP BY c.name, ru.email, s.title, cs.invite_email, er.overall_fit_score, fp.id;
+GROUP BY c.name, ru.email, s.title, cs.invite_email, er.overall_winoe_score, fp.id;
 
 ROLLBACK;
 SQL
@@ -1298,28 +1298,28 @@ SQL
   cat >"$RUNTIME_SECTION_4_SQL" <<'SQL'
 -- Section 4: Referential integrity checks (runtime-compatible)
 SELECT cda.id FROM candidate_day_audits cda LEFT JOIN candidate_sessions cs ON cda.candidate_session_id = cs.id WHERE cs.id IS NULL;
-SELECT cs.id FROM candidate_sessions cs LEFT JOIN simulations s ON cs.simulation_id = s.id WHERE cs.simulation_id IS NOT NULL AND s.id IS NULL;
+SELECT cs.id FROM candidate_sessions cs LEFT JOIN trials s ON cs.trial_id = s.id WHERE cs.trial_id IS NOT NULL AND s.id IS NULL;
 SELECT cs.id FROM candidate_sessions cs LEFT JOIN users u ON cs.candidate_user_id = u.id WHERE cs.candidate_user_id IS NOT NULL AND u.id IS NULL;
 SELECT eds.id FROM evaluation_day_scores eds LEFT JOIN evaluation_runs er ON eds.run_id = er.id WHERE er.id IS NULL;
 SELECT er.id FROM evaluation_runs er LEFT JOIN candidate_sessions cs ON er.candidate_session_id = cs.id WHERE cs.id IS NULL;
 SELECT er.id FROM evaluation_runs er LEFT JOIN scenario_versions sv ON er.scenario_version_id = sv.id WHERE sv.id IS NULL;
-SELECT fp.id FROM fit_profiles fp LEFT JOIN candidate_sessions cs ON fp.candidate_session_id = cs.id WHERE cs.id IS NULL;
+SELECT fp.id FROM winoe_reports fp LEFT JOIN candidate_sessions cs ON fp.candidate_session_id = cs.id WHERE cs.id IS NULL;
 SELECT j.id FROM jobs j LEFT JOIN companies c ON j.company_id = c.id WHERE c.id IS NULL;
 SELECT j.id FROM jobs j LEFT JOIN candidate_sessions cs ON j.candidate_session_id = cs.id WHERE j.candidate_session_id IS NOT NULL AND cs.id IS NULL;
 SELECT pb.id FROM precommit_bundles pb LEFT JOIN scenario_versions sv ON pb.scenario_version_id = sv.id WHERE sv.id IS NULL;
 SELECT ra.id FROM recording_assets ra LEFT JOIN candidate_sessions cs ON ra.candidate_session_id = cs.id WHERE cs.id IS NULL;
 SELECT ra.id FROM recording_assets ra LEFT JOIN tasks t ON ra.task_id = t.id WHERE t.id IS NULL;
 SELECT sea.id FROM scenario_edit_audit sea LEFT JOIN scenario_versions sv ON sea.scenario_version_id = sv.id WHERE sv.id IS NULL;
-SELECT sea.id FROM scenario_edit_audit sea LEFT JOIN users u ON sea.recruiter_id = u.id WHERE u.id IS NULL;
-SELECT sv.id FROM scenario_versions sv LEFT JOIN simulations s ON sv.simulation_id = s.id WHERE s.id IS NULL;
-SELECT s.id FROM simulations s LEFT JOIN companies c ON s.company_id = c.id WHERE s.company_id IS NOT NULL AND c.id IS NULL;
-SELECT s.id FROM simulations s LEFT JOIN users u ON s.created_by = u.id WHERE s.created_by IS NOT NULL AND u.id IS NULL;
+SELECT sea.id FROM scenario_edit_audit sea LEFT JOIN users u ON sea.talent_partner_id = u.id WHERE u.id IS NULL;
+SELECT sv.id FROM scenario_versions sv LEFT JOIN trials s ON sv.trial_id = s.id WHERE s.id IS NULL;
+SELECT s.id FROM trials s LEFT JOIN companies c ON s.company_id = c.id WHERE s.company_id IS NOT NULL AND c.id IS NULL;
+SELECT s.id FROM trials s LEFT JOIN users u ON s.created_by = u.id WHERE s.created_by IS NOT NULL AND u.id IS NULL;
 SELECT sub.id FROM submissions sub LEFT JOIN candidate_sessions cs ON sub.candidate_session_id = cs.id WHERE sub.candidate_session_id IS NOT NULL AND cs.id IS NULL;
 SELECT sub.id FROM submissions sub LEFT JOIN tasks t ON sub.task_id = t.id WHERE sub.task_id IS NOT NULL AND t.id IS NULL;
 SELECT td.id FROM task_drafts td LEFT JOIN candidate_sessions cs ON td.candidate_session_id = cs.id WHERE cs.id IS NULL;
 SELECT td.id FROM task_drafts td LEFT JOIN tasks t ON td.task_id = t.id WHERE t.id IS NULL;
 SELECT td.id FROM task_drafts td LEFT JOIN submissions s ON td.finalized_submission_id = s.id WHERE td.finalized_submission_id IS NOT NULL AND s.id IS NULL;
-SELECT t.id FROM tasks t LEFT JOIN simulations s ON t.simulation_id = s.id WHERE t.simulation_id IS NOT NULL AND s.id IS NULL;
+SELECT t.id FROM tasks t LEFT JOIN trials s ON t.trial_id = s.id WHERE t.trial_id IS NOT NULL AND s.id IS NULL;
 SELECT tr.id FROM transcripts tr LEFT JOIN recording_assets ra ON tr.recording_id = ra.id WHERE ra.id IS NULL;
 SELECT u.id FROM users u LEFT JOIN companies c ON u.company_id = c.id WHERE u.company_id IS NOT NULL AND c.id IS NULL;
 SELECT wg.id FROM workspace_groups wg LEFT JOIN candidate_sessions cs ON wg.candidate_session_id = cs.id WHERE cs.id IS NULL;
@@ -1328,16 +1328,16 @@ SELECT w.id FROM workspaces w LEFT JOIN tasks t ON w.task_id = t.id WHERE t.id I
 
 -- Duplicate checks for key unique rules
 SELECT email, COUNT(*) FROM users GROUP BY email HAVING COUNT(*) > 1;
-SELECT simulation_id, invite_email, COUNT(*) FROM candidate_sessions GROUP BY simulation_id, invite_email HAVING COUNT(*) > 1;
+SELECT trial_id, invite_email, COUNT(*) FROM candidate_sessions GROUP BY trial_id, invite_email HAVING COUNT(*) > 1;
 SELECT candidate_session_id, task_id, COUNT(*) FROM submissions GROUP BY candidate_session_id, task_id HAVING COUNT(*) > 1;
 SELECT candidate_session_id, task_id, COUNT(*) FROM task_drafts GROUP BY candidate_session_id, task_id HAVING COUNT(*) > 1;
 SELECT run_id, day_index, COUNT(*) FROM evaluation_day_scores GROUP BY run_id, day_index HAVING COUNT(*) > 1;
-SELECT candidate_session_id, COUNT(*) FROM fit_profiles GROUP BY candidate_session_id HAVING COUNT(*) > 1;
+SELECT candidate_session_id, COUNT(*) FROM winoe_reports GROUP BY candidate_session_id HAVING COUNT(*) > 1;
 SQL
 
   cat >"$RUNTIME_SECTION_5_SQL" <<'SQL'
 -- Section 5: Enum/status consistency
-SELECT DISTINCT status FROM simulations;
+SELECT DISTINCT status FROM trials;
 SELECT DISTINCT status FROM candidate_sessions;
 SELECT DISTINCT status FROM evaluation_runs;
 SELECT DISTINCT recommendation FROM evaluation_runs;
@@ -1349,13 +1349,13 @@ SELECT DISTINCT role FROM users;
 SELECT DISTINCT type FROM tasks;
 
 -- Invalid-domain checks based on current business expectations
-SELECT DISTINCT status FROM simulations WHERE status IS NOT NULL AND status NOT IN ('draft','generating','ready_for_review','active_inviting','terminated');
+SELECT DISTINCT status FROM trials WHERE status IS NOT NULL AND status NOT IN ('draft','generating','ready_for_review','active_inviting','terminated');
 SELECT DISTINCT status FROM evaluation_runs WHERE status IS NOT NULL AND status NOT IN ('pending','running','completed','failed');
 SELECT DISTINCT recommendation FROM evaluation_runs WHERE recommendation IS NOT NULL AND recommendation NOT IN ('hire','strong_hire','no_hire','lean_hire');
 SELECT DISTINCT status FROM precommit_bundles WHERE status IS NOT NULL AND status NOT IN ('draft','ready','disabled');
 SELECT DISTINCT status FROM recording_assets WHERE status IS NOT NULL AND status NOT IN ('uploading','uploaded','processing','ready','failed','deleted','purged');
 SELECT DISTINCT status FROM transcripts WHERE status IS NOT NULL AND status NOT IN ('pending','processing','ready','failed');
-SELECT DISTINCT role FROM users WHERE role IS NOT NULL AND role NOT IN ('recruiter','candidate','admin');
+SELECT DISTINCT role FROM users WHERE role IS NOT NULL AND role NOT IN ('talent_partner','candidate','admin');
 SELECT DISTINCT type FROM tasks WHERE type IS NOT NULL AND type NOT IN ('design','code','debug','handoff','documentation');
 SQL
 
@@ -1367,7 +1367,7 @@ SELECT id FROM evaluation_runs WHERE completed_at IS NOT NULL AND completed_at <
 SELECT id FROM candidate_sessions WHERE started_at IS NOT NULL AND completed_at IS NOT NULL AND completed_at < started_at;
 SELECT id FROM candidate_sessions WHERE claimed_at IS NOT NULL AND expires_at IS NOT NULL AND expires_at <= claimed_at;
 SELECT id FROM submissions WHERE submitted_at IS NOT NULL AND last_run_at IS NOT NULL AND last_run_at < submitted_at;
-SELECT id FROM simulations
+SELECT id FROM trials
 WHERE (ready_for_review_at IS NOT NULL AND generating_at IS NOT NULL AND ready_for_review_at < generating_at)
    OR (activated_at IS NOT NULL AND ready_for_review_at IS NOT NULL AND activated_at < ready_for_review_at)
    OR (terminated_at IS NOT NULL AND activated_at IS NOT NULL AND terminated_at < activated_at);
@@ -1375,9 +1375,9 @@ SQL
 
   cat >"$RUNTIME_SECTION_7_SQL" <<'SQL'
 -- Section 7: JSON structure validation
-SELECT id FROM simulations WHERE company_context IS NOT NULL AND jsonb_typeof(company_context::jsonb) <> 'object';
-SELECT id FROM simulations WHERE ai_eval_enabled_by_day IS NOT NULL AND jsonb_typeof(ai_eval_enabled_by_day::jsonb) <> 'object';
-SELECT id FROM simulations WHERE day_window_overrides_json IS NOT NULL AND jsonb_typeof(day_window_overrides_json::jsonb) <> 'object';
+SELECT id FROM trials WHERE company_context IS NOT NULL AND jsonb_typeof(company_context::jsonb) <> 'object';
+SELECT id FROM trials WHERE ai_eval_enabled_by_day IS NOT NULL AND jsonb_typeof(ai_eval_enabled_by_day::jsonb) <> 'object';
+SELECT id FROM trials WHERE day_window_overrides_json IS NOT NULL AND jsonb_typeof(day_window_overrides_json::jsonb) <> 'object';
 SELECT id FROM candidate_sessions WHERE day_windows_json IS NOT NULL AND jsonb_typeof(day_windows_json::jsonb) <> 'array';
 SELECT id FROM scenario_versions WHERE task_prompts_json IS NOT NULL AND jsonb_typeof(task_prompts_json::jsonb) NOT IN ('array','object');
 SELECT id FROM scenario_versions WHERE rubric_json IS NOT NULL AND jsonb_typeof(rubric_json::jsonb) NOT IN ('array','object');
@@ -1396,9 +1396,9 @@ SQL
 
   cat >"$RUNTIME_SECTION_8_SQL" <<'SQL'
 -- Section 8: Index effectiveness spot checks
-EXPLAIN ANALYZE SELECT * FROM users WHERE email = 'qa.recruiter@tenon.test';
+EXPLAIN ANALYZE SELECT * FROM users WHERE email = 'qa.talent_partner@winoe.test';
 EXPLAIN ANALYZE SELECT * FROM candidate_sessions WHERE token = 'qa_db_protocol_token_970001';
-EXPLAIN ANALYZE SELECT * FROM tasks WHERE simulation_id = 970001 ORDER BY day_index;
+EXPLAIN ANALYZE SELECT * FROM tasks WHERE trial_id = 970001 ORDER BY day_index;
 EXPLAIN ANALYZE SELECT * FROM submissions WHERE candidate_session_id = 970001;
 EXPLAIN ANALYZE SELECT * FROM task_drafts WHERE candidate_session_id = 970001;
 EXPLAIN ANALYZE SELECT * FROM precommit_bundles WHERE scenario_version_id = 970001 AND template_key = 'python-fastapi' AND status = 'ready';
@@ -1406,7 +1406,7 @@ EXPLAIN ANALYZE SELECT * FROM evaluation_runs WHERE candidate_session_id = 97000
 EXPLAIN ANALYZE SELECT * FROM evaluation_day_scores WHERE run_id = 970001;
 EXPLAIN ANALYZE SELECT * FROM recording_assets WHERE candidate_session_id = 970001 AND task_id = 970004 ORDER BY created_at DESC;
 EXPLAIN ANALYZE SELECT * FROM transcripts WHERE status = 'ready' ORDER BY created_at DESC;
-EXPLAIN ANALYZE SELECT * FROM jobs WHERE company_id = 970001 AND job_type = 'evaluation.fit_profile' AND idempotency_key = 'qa-cs-970001-fit-profile';
+EXPLAIN ANALYZE SELECT * FROM jobs WHERE company_id = 970001 AND job_type = 'evaluation.winoe_report' AND idempotency_key = 'qa-cs-970001-winoe-report';
 EXPLAIN ANALYZE SELECT * FROM jobs WHERE status IN ('queued','running') ORDER BY next_run_at NULLS FIRST, created_at ASC LIMIT 50;
 EXPLAIN ANALYZE SELECT * FROM scenario_edit_audit WHERE scenario_version_id = 970001 ORDER BY created_at DESC;
 EXPLAIN ANALYZE SELECT * FROM admin_action_audits WHERE action = 'candidate_session_reset' ORDER BY created_at DESC;
@@ -1951,12 +1951,12 @@ BEGIN;
 -- VARCHAR boundary on users.name VARCHAR(200)
 SAVEPOINT sp_len_200_ok;
 INSERT INTO users (id, name, email, role, company_id, password_hash, created_at)
-VALUES (979001, repeat('a', 200), 'qa.boundary.200@tenon.test', 'recruiter', 970001, NULL, NOW());
+VALUES (979001, repeat('a', 200), 'qa.boundary.200@winoe.test', 'talent_partner', 970001, NULL, NOW());
 -- Expected: success
 
 SAVEPOINT sp_len_201_fail;
 INSERT INTO users (id, name, email, role, company_id, password_hash, created_at)
-VALUES (979002, repeat('b', 201), 'qa.boundary.201@tenon.test', 'recruiter', 970001, NULL, NOW());
+VALUES (979002, repeat('b', 201), 'qa.boundary.201@winoe.test', 'talent_partner', 970001, NULL, NOW());
 -- Expected: ERROR
 ROLLBACK TO SAVEPOINT sp_len_201_fail;
 
@@ -1989,7 +1989,7 @@ ROLLBACK;
 SQL
 
   cat >"$RUNTIME_SEED_SQL" <<'SQL'
--- Runtime-compatible deterministic QA seed for current local tenon schema
+-- Runtime-compatible deterministic QA seed for current local winoe schema
 BEGIN;
 SET TIME ZONE 'UTC';
 
@@ -2005,30 +2005,30 @@ VALUES
 
 INSERT INTO users (id, name, email, role, company_id, password_hash, created_at)
 VALUES
-  (970001, 'QA Recruiter', 'qa.recruiter@tenon.test', 'recruiter', 970001, NULL, NOW()),
-  (970002, 'QA Candidate', 'qa.candidate@tenon.test', 'candidate', NULL, NULL, NOW()),
-  (970003, 'QA Admin', 'qa.admin@tenon.test', 'admin', 970001, NULL, NOW());
+  (970001, 'QA TalentPartner', 'qa.talent_partner@winoe.test', 'talent_partner', 970001, NULL, NOW()),
+  (970002, 'QA Candidate', 'qa.candidate@winoe.test', 'candidate', NULL, NULL, NOW()),
+  (970003, 'QA Admin', 'qa.admin@winoe.test', 'admin', 970001, NULL, NOW());
 
-INSERT INTO simulations (
+INSERT INTO trials (
   id, company_id, title, role, tech_stack, seniority, scenario_template,
   created_by, status, created_at, focus, template_key, generating_at,
   ready_for_review_at, activated_at, terminated_at, company_context,
   ai_notice_version, ai_notice_text, ai_eval_enabled_by_day, terminated_reason,
-  terminated_by_recruiter_id, day_window_start_local, day_window_end_local,
+  terminated_by_talent_partner_id, day_window_start_local, day_window_end_local,
   day_window_overrides_enabled, day_window_overrides_json
 )
 VALUES (
-  970001, 970001, 'QA Protocol Backend Simulation', 'Backend Engineer', 'Python,FastAPI,PostgreSQL',
+  970001, 970001, 'QA Protocol Backend Trial', 'Backend Engineer', 'Python,FastAPI,PostgreSQL',
   'senior', 'default-5day-node-postgres', 970001, 'active_inviting', NOW() - INTERVAL '7 days',
   'Protocol coverage run', 'python-fastapi', NOW() - INTERVAL '7 days', NOW() - INTERVAL '6 days',
   NOW() - INTERVAL '5 days', NULL, '{"domain":"hiring-tech"}'::json, 'v1',
-  'AI is used to generate and evaluate this simulation.',
+  'AI is used to generate and evaluate this trial.',
   '{"1":true,"2":true,"3":true,"4":true,"5":true}'::json,
   'qa_fk_cascade_sample', 970001, '09:00:00', '17:00:00', FALSE, NULL
 );
 
 INSERT INTO scenario_versions (
-  id, simulation_id, version_index, status, storyline_md, task_prompts_json, rubric_json,
+  id, trial_id, version_index, status, storyline_md, task_prompts_json, rubric_json,
   focus_notes, template_key, tech_stack, seniority, model_name, model_version,
   prompt_version, rubric_version, locked_at, created_at
 )
@@ -2044,21 +2044,21 @@ VALUES
     'gpt-5.4', '2026-03-18', 'sim-v3', 'rubric-v2', NOW() - INTERVAL '5 days', NOW() - INTERVAL '6 days'
   );
 
-UPDATE simulations
+UPDATE trials
 SET active_scenario_version_id = 970001,
     pending_scenario_version_id = 970002
 WHERE id = 970001;
 
-INSERT INTO tasks (id, simulation_id, day_index, type, title, description, starter_code_path, test_file_path, max_score, template_repo)
+INSERT INTO tasks (id, trial_id, day_index, type, title, description, starter_code_path, test_file_path, max_score, template_repo)
 VALUES
-  (970001, 970001, 1, 'design', 'Design', 'Design task', NULL, NULL, 20, 'tenon-hire-dev/tenon-template-python-fastapi'),
-  (970002, 970001, 2, 'code', 'Implement', 'Coding task', 'app/main.py', 'tests/test_main.py', 20, 'tenon-hire-dev/tenon-template-python-fastapi'),
-  (970003, 970001, 3, 'debug', 'Debug', 'Debug task', 'app/service.py', 'tests/test_service.py', 20, 'tenon-hire-dev/tenon-template-python-fastapi'),
-  (970004, 970001, 4, 'handoff', 'Demo', 'Handoff task', NULL, NULL, 20, 'tenon-hire-dev/tenon-template-python-fastapi'),
-  (970005, 970001, 5, 'documentation', 'Essay', 'Reflection task', NULL, NULL, 20, 'tenon-hire-dev/tenon-template-python-fastapi');
+  (970001, 970001, 1, 'design', 'Design', 'Design task', NULL, NULL, 20, 'winoe-hire-dev/winoe-template-python-fastapi'),
+  (970002, 970001, 2, 'code', 'Implement', 'Coding task', 'app/main.py', 'tests/test_main.py', 20, 'winoe-hire-dev/winoe-template-python-fastapi'),
+  (970003, 970001, 3, 'debug', 'Debug', 'Debug task', 'app/service.py', 'tests/test_service.py', 20, 'winoe-hire-dev/winoe-template-python-fastapi'),
+  (970004, 970001, 4, 'handoff', 'Demo', 'Handoff task', NULL, NULL, 20, 'winoe-hire-dev/winoe-template-python-fastapi'),
+  (970005, 970001, 5, 'documentation', 'Essay', 'Reflection task', NULL, NULL, 20, 'winoe-hire-dev/winoe-template-python-fastapi');
 
 INSERT INTO candidate_sessions (
-  id, simulation_id, candidate_user_id, invite_email, token, status, started_at, completed_at,
+  id, trial_id, candidate_user_id, invite_email, token, status, started_at, completed_at,
   candidate_name, expires_at, candidate_email, candidate_auth0_sub, claimed_at, invite_email_status,
   invite_email_error, invite_email_last_attempt_at, invite_email_sent_at, candidate_auth0_email,
   scheduled_start_at, candidate_timezone, schedule_locked_at, invite_email_verified_at, day_windows_json, github_username,
@@ -2066,19 +2066,19 @@ INSERT INTO candidate_sessions (
 )
 VALUES
   (
-    970001, 970001, 970002, 'qa.candidate@tenon.test', 'qa_db_protocol_token_970001', 'completed',
+    970001, 970001, 970002, 'qa.candidate@winoe.test', 'qa_db_protocol_token_970001', 'completed',
     NOW() - INTERVAL '5 days', NOW() - INTERVAL '1 day', 'QA Candidate', NOW() + INTERVAL '7 days',
-    'qa.candidate@tenon.test', 'auth0|qa-candidate', NOW() - INTERVAL '5 days', 'sent',
-    NULL, NOW() - INTERVAL '6 days', NOW() - INTERVAL '6 days', 'qa.candidate@tenon.test',
+    'qa.candidate@winoe.test', 'auth0|qa-candidate', NOW() - INTERVAL '5 days', 'sent',
+    NULL, NOW() - INTERVAL '6 days', NOW() - INTERVAL '6 days', 'qa.candidate@winoe.test',
     NOW() - INTERVAL '5 days', 'America/New_York', NOW() - INTERVAL '5 days', NOW() - INTERVAL '5 days',
     '[{"dayIndex":1,"windowStartAt":"2026-03-10T14:00:00Z","windowEndAt":"2026-03-10T22:00:00Z"}]'::json, 'qa-candidate-gh',
     970001
   ),
   (
-    970002, 970001, 970002, 'qa.candidate.2@tenon.test', 'qa_db_protocol_token_970002', 'active',
+    970002, 970001, 970002, 'qa.candidate.2@winoe.test', 'qa_db_protocol_token_970002', 'active',
     NOW() - INTERVAL '4 days', NULL, 'QA Candidate 2', NOW() + INTERVAL '7 days',
-    'qa.candidate.2@tenon.test', 'auth0|qa-candidate-2', NOW() - INTERVAL '4 days', 'sent',
-    NULL, NOW() - INTERVAL '5 days', NOW() - INTERVAL '5 days', 'qa.candidate.2@tenon.test',
+    'qa.candidate.2@winoe.test', 'auth0|qa-candidate-2', NOW() - INTERVAL '4 days', 'sent',
+    NULL, NOW() - INTERVAL '5 days', NOW() - INTERVAL '5 days', 'qa.candidate.2@winoe.test',
     NOW() - INTERVAL '4 days', 'America/New_York', NOW() - INTERVAL '4 days', NOW() - INTERVAL '4 days',
     '[{"dayIndex":1,"windowStartAt":"2026-03-11T14:00:00Z","windowEndAt":"2026-03-11T22:00:00Z"}]'::json, 'qa-candidate-gh-2',
     970002
@@ -2095,11 +2095,11 @@ INSERT INTO workspace_groups (
 VALUES
   (
     '97000100-0000-0000-0000-000000000001', 970001, 'qa-shared-workspace',
-    'tenon-hire-dev/tenon-template-python-fastapi', 'tenon-qa/qa-sim-970001', 'main', 'base_sha_970001', NOW() - INTERVAL '5 days'
+    'winoe-hire-dev/winoe-template-python-fastapi', 'winoe-qa/qa-sim-970001', 'main', 'base_sha_970001', NOW() - INTERVAL '5 days'
   ),
   (
     '97000100-0000-0000-0000-000000000002', 970001, 'qa-shared-workspace-2',
-    'tenon-hire-dev/tenon-template-python-fastapi', 'tenon-qa/qa-sim-970001', 'main', 'base_sha_970001', NOW() - INTERVAL '5 days'
+    'winoe-hire-dev/winoe-template-python-fastapi', 'winoe-qa/qa-sim-970001', 'main', 'base_sha_970001', NOW() - INTERVAL '5 days'
   );
 
 INSERT INTO workspaces (
@@ -2110,7 +2110,7 @@ INSERT INTO workspaces (
 VALUES
   (
     '97000200-0000-0000-0000-000000000001', 970001, 970002,
-    'tenon-hire-dev/tenon-template-python-fastapi', 'tenon-qa/qa-sim-970001-task-970002',
+    'winoe-hire-dev/winoe-template-python-fastapi', 'winoe-qa/qa-sim-970001-task-970002',
     123456789, 'main', NOW() - INTERVAL '5 days', 'latest_commit_sha_970001', 'workflow_run_970001',
     'success', '{"testsPassed":12,"testsFailed":0}', 'base_sha_970001',
     'qa-codespace-970001', 'https://github.com/codespaces/qa-codespace-970001', 'available',
@@ -2118,7 +2118,7 @@ VALUES
   ),
   (
     '97000200-0000-0000-0000-000000000002', 970001, 970003,
-    'tenon-hire-dev/tenon-template-python-fastapi', 'tenon-qa/qa-sim-970001-task-970003',
+    'winoe-hire-dev/winoe-template-python-fastapi', 'winoe-qa/qa-sim-970001-task-970003',
     123456790, 'main', NOW() - INTERVAL '4 days', 'latest_commit_sha_970002', 'workflow_run_970002',
     'success', '{"testsPassed":11,"testsFailed":1}', 'base_sha_970001',
     'qa-codespace-970002', 'https://github.com/codespaces/qa-codespace-970002', 'available',
@@ -2176,18 +2176,18 @@ INSERT INTO jobs (
 VALUES
   (
     '97000300-0000-0000-0000-000000000001', 'scenario.generate', 'succeeded', 1, 5, 'qa-sim-970001-scenario-generate',
-    '{"simulationId":970001}'::json, '{"ok":true}'::json, NULL, NOW() - INTERVAL '7 days', NOW() - INTERVAL '6 days',
+    '{"trialId":970001}'::json, '{"ok":true}'::json, NULL, NOW() - INTERVAL '7 days', NOW() - INTERVAL '6 days',
     NOW() - INTERVAL '6 days', NULL, NULL, 'qa-corr-970001', 970001, 970001
   ),
   (
-    '97000300-0000-0000-0000-000000000002', 'evaluation.fit_profile', 'succeeded', 1, 5, 'qa-cs-970001-fit-profile',
+    '97000300-0000-0000-0000-000000000002', 'evaluation.winoe_report', 'succeeded', 1, 5, 'qa-cs-970001-winoe-report',
     '{"candidateSessionId":970001}'::json, '{"ok":true}'::json, NULL, NOW() - INTERVAL '1 day', NOW() - INTERVAL '15 hours',
     NOW() - INTERVAL '15 hours', NULL, NULL, 'qa-corr-970002', 970001, 970001
   );
 
 INSERT INTO evaluation_runs (
   id, candidate_session_id, scenario_version_id, status, started_at, completed_at, model_name, model_version,
-  prompt_version, rubric_version, job_id, basis_fingerprint, overall_fit_score, recommendation, confidence,
+  prompt_version, rubric_version, job_id, basis_fingerprint, overall_winoe_score, recommendation, confidence,
   generated_at, raw_report_json, error_code, metadata_json, day2_checkpoint_sha, day3_final_sha, cutoff_commit_sha, transcript_reference
 )
 VALUES (
@@ -2209,11 +2209,11 @@ VALUES
   (970014, 970001, 4, 86.0, '{"demo":4.3,"communication":4.3}'::json, '[{"type":"submission","id":970004}]'::json, NOW() - INTERVAL '15 hours'),
   (970015, 970001, 5, 91.0, '{"reflection":4.6,"judgment":4.5}'::json, '[{"type":"submission","id":970005}]'::json, NOW() - INTERVAL '15 hours');
 
-INSERT INTO fit_profiles (id, candidate_session_id, generated_at)
+INSERT INTO winoe_reports (id, candidate_session_id, generated_at)
 VALUES (970001, 970001, NOW() - INTERVAL '14 hours');
 
 INSERT INTO scenario_edit_audit (
-  id, scenario_version_id, recruiter_id, patch_json, created_at
+  id, scenario_version_id, talent_partner_id, patch_json, created_at
 )
 VALUES (
   970001, 970001, 970001, '{"field":"focus_notes","old":"Initial","new":"Edited"}'::json, NOW() - INTERVAL '5 days'
@@ -2250,7 +2250,7 @@ WHERE id = 970001
         '97000300-0000-0000-0000-000000000002'
      );
 
-DELETE FROM fit_profiles
+DELETE FROM winoe_reports
 WHERE id = 970001 OR candidate_session_id = 970001;
 
 DELETE FROM jobs
@@ -2258,7 +2258,7 @@ WHERE id IN (
   '97000300-0000-0000-0000-000000000001',
   '97000300-0000-0000-0000-000000000002'
 )
-   OR idempotency_key IN ('qa-sim-970001-scenario-generate', 'qa-cs-970001-fit-profile');
+   OR idempotency_key IN ('qa-sim-970001-scenario-generate', 'qa-cs-970001-winoe-report');
 
 DELETE FROM task_drafts
 WHERE id = 970001 OR candidate_session_id = 970001;
@@ -2289,22 +2289,22 @@ WHERE id IN (970001, 970002)
    OR token IN ('qa_db_protocol_token_970001', 'qa_db_protocol_token_970002');
 
 DELETE FROM tasks
-WHERE id BETWEEN 970001 AND 970005 OR simulation_id = 970001;
+WHERE id BETWEEN 970001 AND 970005 OR trial_id = 970001;
 
-UPDATE simulations
+UPDATE trials
 SET active_scenario_version_id = NULL,
     pending_scenario_version_id = NULL
-WHERE id = 970001 OR title = 'QA Protocol Backend Simulation';
+WHERE id = 970001 OR title = 'QA Protocol Backend Trial';
 
 DELETE FROM scenario_versions
-WHERE id = 970001 OR simulation_id = 970001;
+WHERE id = 970001 OR trial_id = 970001;
 
-DELETE FROM simulations
-WHERE id = 970001 OR title = 'QA Protocol Backend Simulation';
+DELETE FROM trials
+WHERE id = 970001 OR title = 'QA Protocol Backend Trial';
 
 DELETE FROM users
 WHERE id IN (970001, 970002, 970003)
-   OR email IN ('qa.recruiter@tenon.test', 'qa.candidate@tenon.test', 'qa.admin@tenon.test');
+   OR email IN ('qa.talent_partner@winoe.test', 'qa.candidate@winoe.test', 'qa.admin@winoe.test');
 
 DELETE FROM items
 WHERE id IN (970001, 970002)
@@ -2339,9 +2339,9 @@ set -a
 source "$ENV_FILE"
 set +a
 
-DB_URL="${TENON_DATABASE_URL_SYNC:-${TENON_DATABASE_URL:-}}"
+DB_URL="${WINOE_DATABASE_URL_SYNC:-${WINOE_DATABASE_URL:-}}"
 if [[ -z "$DB_URL" ]]; then
-  fail "TENON_DATABASE_URL_SYNC or TENON_DATABASE_URL is not set in $ENV_FILE"
+  fail "WINOE_DATABASE_URL_SYNC or WINOE_DATABASE_URL is not set in $ENV_FILE"
   exit 1
 fi
 DB_URL="${DB_URL/postgresql+asyncpg:/postgresql:}"
@@ -2356,9 +2356,9 @@ parsed = urlparse(url)
 host = (parsed.hostname or "").lower()
 db_name = parsed.path.lstrip("/")
 
-if host not in {"localhost", "127.0.0.1"} or db_name != "tenon":
+if host not in {"localhost", "127.0.0.1"} or db_name != "winoe":
     print(
-        f"Refusing to run: expected local DB localhost/127.0.0.1 and database 'tenon', got host='{host}' db='{db_name}'.",
+        f"Refusing to run: expected local DB localhost/127.0.0.1 and database 'winoe', got host='{host}' db='{db_name}'.",
         file=sys.stderr,
     )
     sys.exit(1)

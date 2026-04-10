@@ -9,25 +9,25 @@ from tests.tasks.routes.test_tasks_api_submit_utils import *
 async def test_submit_unknown_task_type_errors(
     async_client, async_session, candidate_header_factory
 ):
-    recruiter = await create_recruiter(async_session, email="unk@sim.com")
-    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(async_session, email="unk@sim.com")
+    sim, _ = await create_trial(async_session, created_by=talent_partner)
     cs = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         status="in_progress",
         with_default_schedule=True,
     )
 
     # Manually insert a task with unsupported type
     res_tasks = await async_session.execute(
-        select(Task).where(Task.simulation_id == sim.id).order_by(Task.day_index)
+        select(Task).where(Task.trial_id == sim.id).order_by(Task.day_index)
     )
     for t in res_tasks.scalars():
         await async_session.delete(t)
     await async_session.commit()
 
     bad_task = Task(
-        simulation_id=sim.id,
+        trial_id=sim.id,
         day_index=1,
         type="behavioral",
         title="Unknown type",

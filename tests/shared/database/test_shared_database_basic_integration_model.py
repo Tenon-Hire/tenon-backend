@@ -1,17 +1,17 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.shared.database.shared_database_models_model import Company, Simulation, User
+from app.shared.database.shared_database_models_model import Company, Trial, User
 
 
 @pytest.mark.asyncio
-async def test_create_simulation(async_session: AsyncSession):
+async def test_create_trial(async_session: AsyncSession):
     # 1. Create company
     company = Company(name="TestCo")
     async_session.add(company)
     await async_session.flush()
 
-    # 2. Create user (creator of the simulation)
+    # 2. Create user (creator of the trial)
     user = User(
         name="Admin User",
         email="admin@test.com",
@@ -22,10 +22,10 @@ async def test_create_simulation(async_session: AsyncSession):
     async_session.add(user)
     await async_session.flush()
 
-    # 3. Create simulation referencing both
-    sim = Simulation(
+    # 3. Create trial referencing both
+    sim = Trial(
         company_id=company.id,
-        title="Backend Hiring Simulation",
+        title="Backend Hiring Trial",
         role="Backend Engineer",
         tech_stack="Node.js, Postgres",
         seniority="mid",

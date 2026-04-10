@@ -19,8 +19,8 @@ from app.shared.database.shared_database_models_model import (
 from tests.shared.factories import (
     create_candidate_session,
     create_company,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 

@@ -28,21 +28,21 @@ async def get_by_id_for_principal(
     db: AsyncSession, job_id: str, principal: Principal
 ) -> Job | None:
     """Return by id for principal."""
-    recruiter_job = await _recruiter_job(db, job_id, principal)
-    if recruiter_job is not None:
-        return recruiter_job
+    talent_partner_job = await _talent_partner_job(db, job_id, principal)
+    if talent_partner_job is not None:
+        return talent_partner_job
     return await _candidate_job(db, job_id, principal)
 
 
-async def _recruiter_job(
+async def _talent_partner_job(
     db: AsyncSession, job_id: str, principal: Principal
 ) -> Job | None:
-    if "recruiter:access" not in principal.permissions:
+    if "talent_partner:access" not in principal.permissions:
         return None
-    recruiter = (
+    talent_partner = (
         await db.execute(select(User).where(User.email == principal.email))
     ).scalar_one_or_none()
-    company_id = getattr(recruiter, "company_id", None)
+    company_id = getattr(talent_partner, "company_id", None)
     if company_id is None:
         return None
     return (

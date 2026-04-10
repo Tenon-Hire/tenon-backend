@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from typing import Any
 
 NO_DRAFT_AT_CUTOFF_MARKER: dict[str, Any] = {
-    "_tenon": {
+    "_winoe": {
         "noContent": True,
         "reason": "NO_DRAFT_AT_CUTOFF",
     }

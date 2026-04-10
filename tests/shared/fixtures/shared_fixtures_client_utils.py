@@ -53,8 +53,8 @@ async def async_client(db_session: AsyncSession):
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated"
             )
         perms = (
-            ["recruiter:access"]
-            if kind == "recruiter"
+            ["talent_partner:access"]
+            if kind == "talent_partner"
             else ["candidate:access"]
             if kind == "candidate"
             else [kind]

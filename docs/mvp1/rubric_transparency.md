@@ -1,6 +1,6 @@
-# MVP1 Rubric Transparency (Recruiter / Enterprise)
+# MVP1 Rubric Transparency (Talent Partner / Enterprise)
 
-This document explains the high-level rubric structure used in MVP1 fit-profile evaluation outputs.
+This document explains the high-level rubric structure used in MVP1 winoe-report evaluation outputs.
 
 ## Day-by-day rubric overview
 
@@ -24,13 +24,13 @@ Rubric criteria are versioned and traceable:
 
 - Scenario version stores rubric metadata (`scenario_versions.rubric_version`).
 - Evaluation runs store the applied rubric version (`evaluation_runs.rubric_version`).
-- Fit-profile API responses include report version metadata (`report.version.rubricVersion`).
+- Winoe Report API responses include report version metadata (`report.version.rubricVersion`).
 
 ## Per-day AI toggles and human review path
 
 AI evaluation can be enabled/disabled per day:
 
-- Simulation config stores `ai_eval_enabled_by_day`.
+- Trial config stores `ai_eval_enabled_by_day`.
 - API payload shape uses `evalEnabledByDay`.
 - If AI is disabled for a day, that day is marked `human_review_required` and excluded from AI scoring for that run.
 

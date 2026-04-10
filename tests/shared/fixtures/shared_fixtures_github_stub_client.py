@@ -7,8 +7,8 @@ class StubGithubClient:
     _workflow_text = "\n".join(
         [
             "uses: actions/upload-artifact@v4",
-            "name: tenon-test-results",
-            "path: artifacts/tenon-test-results.json",
+            "name: winoe-test-results",
+            "path: artifacts/winoe-test-results.json",
         ]
     )
 

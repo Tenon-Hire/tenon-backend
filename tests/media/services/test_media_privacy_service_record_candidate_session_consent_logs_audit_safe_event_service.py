@@ -13,13 +13,13 @@ async def test_record_candidate_session_consent_logs_audit_safe_event(
     caplog.set_level(
         "INFO", logger="app.media.services.media_services_media_privacy_service"
     )
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="privacy-consent-log@test.com"
     )
-    sim, _tasks = await create_simulation(async_session, created_by=recruiter)
+    sim, _tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         invite_email="consent-log-candidate@test.com",
         consent_version=None,
         consent_timestamp=None,

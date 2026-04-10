@@ -18,7 +18,7 @@ from tests.candidates.routes.test_candidates_sessions_router_routes import (
 async def test_claim_route_uses_claim_service(monkeypatch):
     stub_db = StubSession()
     expires_at = datetime.now(UTC)
-    simulation = SimpleNamespace(
+    trial = SimpleNamespace(
         id=10,
         title="Sim",
         role="Backend",
@@ -33,9 +33,9 @@ async def test_claim_route_uses_claim_service(monkeypatch):
         completed_at=None,
         started_at=expires_at,
         candidate_name="Jane",
-        simulation=simulation,
+        trial=trial,
         scenario_version=SimpleNamespace(
-            ai_policy_snapshot_json=build_ai_policy_snapshot(simulation=simulation)
+            ai_policy_snapshot_json=build_ai_policy_snapshot(trial=trial)
         ),
     )
 

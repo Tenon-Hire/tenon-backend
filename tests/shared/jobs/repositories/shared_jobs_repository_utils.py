@@ -17,8 +17,8 @@ from tests.shared.factories import (
     create_candidate_session,
     create_company,
     create_job,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 

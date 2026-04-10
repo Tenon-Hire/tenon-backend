@@ -40,18 +40,16 @@ async def invite_list_for_principal(
     invite_item_parameters = inspect.signature(build_invite_item).parameters
     supports_completed_ids = "completed_ids" in invite_item_parameters
 
-    async def _tasks_for_simulation(simulation_id: int) -> list[Task]:
-        if simulation_id not in tasks_cache:
-            tasks_cache[simulation_id] = await cs_repo.tasks_for_simulation(
-                db, simulation_id
-            )
-        return tasks_cache[simulation_id]
+    async def _tasks_for_trial(trial_id: int) -> list[Task]:
+        if trial_id not in tasks_cache:
+            tasks_cache[trial_id] = await cs_repo.tasks_for_trial(db, trial_id)
+        return tasks_cache[trial_id]
 
     for cs in sessions:
         build_kwargs = {
             "now": now,
             "last_submitted_map": last_submitted_map,
-            "tasks_loader": _tasks_for_simulation,
+            "tasks_loader": _tasks_for_trial,
         }
         if supports_completed_ids:
             build_kwargs["completed_ids"] = completed_ids_map.get(cs.id, set())

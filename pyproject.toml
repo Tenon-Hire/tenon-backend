@@ -1,8 +1,8 @@
 [tool.poetry]
-name = "tenon-backend"
+name = "winoe-backend"
 version = "0.1.0"
-description = "Tenon backend – simulation-based hiring platform"
-authors = ["Tenon <founders@tenon.com>"]
+description = "Winoe backend – trial-based hiring platform"
+authors = ["Winoe <founders@winoe.ai>"]
 packages = [{ include = "app" }]
 
 [tool.poetry.dependencies]

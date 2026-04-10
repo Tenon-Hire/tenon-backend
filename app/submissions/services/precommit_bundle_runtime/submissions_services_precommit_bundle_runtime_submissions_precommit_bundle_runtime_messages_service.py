@@ -16,7 +16,7 @@ def build_precommit_commit_marker(bundle_id: int, checksum: str) -> str:
 def build_precommit_commit_message(bundle_id: int, checksum: str) -> str:
     """Build precommit commit message."""
     marker = build_precommit_commit_marker(bundle_id, checksum)
-    return f"chore(tenon): apply scenario scaffolding\n\n{marker}"
+    return f"chore(winoe): apply scenario scaffolding\n\n{marker}"
 
 
 __all__ = ["build_precommit_commit_marker", "build_precommit_commit_message"]

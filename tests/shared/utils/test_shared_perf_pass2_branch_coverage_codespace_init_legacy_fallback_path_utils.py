@@ -7,11 +7,11 @@ from tests.shared.utils.shared_perf_pass2_branch_coverage_utils import *
 
 @pytest.mark.asyncio
 async def test_codespace_init_legacy_fallback_path(monkeypatch):
-    candidate_session = SimpleNamespace(id=1, simulation_id=2)
-    task = SimpleNamespace(id=5, simulation_id=2, type="code")
+    candidate_session = SimpleNamespace(id=1, trial_id=2)
+    task = SimpleNamespace(id=5, trial_id=2, type="code")
 
     async def _raise_missing_tasks(*_args, **_kwargs):
-        raise HTTPException(status_code=500, detail="Simulation has no tasks")
+        raise HTTPException(status_code=500, detail="Trial has no tasks")
 
     monkeypatch.setattr(
         codespace_init_use_case,

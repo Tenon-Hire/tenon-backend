@@ -19,9 +19,9 @@ from app.tasks.routes import (
 )
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
     create_submission,
+    create_talent_partner,
+    create_trial,
 )
 
 __all__ = [name for name in globals() if not name.startswith("__")]

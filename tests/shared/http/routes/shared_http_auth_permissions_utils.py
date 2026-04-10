@@ -8,20 +8,20 @@ from app.shared.auth import dependencies as security_deps
 from app.shared.auth.dependencies import get_current_user
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 
 @pytest.fixture(autouse=True)
 def patch_auth0_decode(monkeypatch):
-    """Parse shorthand tokens like recruiter:email or candidate:email for tests."""
+    """Parse shorthand tokens like talent_partner:email or candidate:email for tests."""
 
     def fake_decode(token: str):
         kind, email = token.split(":", 1) if ":" in token else ("candidate", token)
         perms: list[str] = []
-        if kind == "recruiter":
-            perms = ["recruiter:access"]
+        if kind == "talent_partner":
+            perms = ["talent_partner:access"]
         elif kind == "candidate":
             perms = ["candidate:access"]
         email_claim = settings.auth.AUTH0_EMAIL_CLAIM

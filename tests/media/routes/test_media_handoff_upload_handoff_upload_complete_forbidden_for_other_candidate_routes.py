@@ -9,12 +9,14 @@ from tests.media.routes.media_handoff_upload_api_utils import *
 async def test_handoff_upload_complete_forbidden_for_other_candidate(
     async_client, async_session, candidate_header_factory
 ):
-    recruiter = await create_recruiter(async_session, email="handoff-owner@test.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="handoff-owner@test.com"
+    )
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     task = _handoff_task(tasks)
     candidate_session_a = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         invite_email="candidate-a@test.com",
         status="in_progress",
         with_default_schedule=True,
@@ -22,7 +24,7 @@ async def test_handoff_upload_complete_forbidden_for_other_candidate(
     )
     candidate_session_b = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         invite_email="candidate-b@test.com",
         status="in_progress",
         with_default_schedule=True,

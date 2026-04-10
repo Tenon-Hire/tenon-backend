@@ -26,7 +26,7 @@ async def test_live_health_zip_missing_test_results_json():
             return [_completed_run()]
 
         async def list_artifacts(self, *args, **kwargs):
-            return [{"id": 1, "name": "tenon-test-results", "expired": False}]
+            return [{"id": 1, "name": "winoe-test-results", "expired": False}]
 
         async def download_artifact_zip(self, *args, **kwargs):
             return _make_zip({"other.json": "{}"})
@@ -34,7 +34,7 @@ async def test_live_health_zip_missing_test_results_json():
     template_key = next(iter(TEMPLATE_CATALOG))
     response = await check_template_health(
         StubGithubClient(),
-        workflow_file="tenon-ci.yml",
+        workflow_file="winoe-ci.yml",
         mode="live",
         template_keys=[template_key],
         timeout_seconds=5,

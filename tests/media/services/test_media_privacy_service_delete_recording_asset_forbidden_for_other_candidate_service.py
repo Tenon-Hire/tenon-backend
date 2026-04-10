@@ -7,19 +7,19 @@ from tests.media.services.media_privacy_service_utils import *
 
 @pytest.mark.asyncio
 async def test_delete_recording_asset_forbidden_for_other_candidate(async_session):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="privacy-delete-403@test.com"
     )
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     task = _handoff_task(tasks)
     owner_session = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         invite_email="owner@test.com",
     )
     other_session = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         invite_email="other@test.com",
     )
 

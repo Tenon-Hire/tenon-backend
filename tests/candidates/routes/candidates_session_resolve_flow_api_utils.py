@@ -9,23 +9,23 @@ from app.candidates.candidate_sessions.services.scheduling.candidates_candidate_
 )
 from app.shared.database.shared_database_models_model import (
     CandidateSession,
-    Simulation,
+    Trial,
 )
 from app.shared.jobs import worker
 
 
-async def _create_simulation(async_client, async_session, recruiter_email: str) -> int:
+async def _create_trial(async_client, async_session, talent_partner_email: str) -> int:
     payload = {
-        "title": "Backend Node Simulation",
+        "title": "Backend Node Trial",
         "role": "Backend Engineer",
         "techStack": "Node.js, PostgreSQL",
         "seniority": "Mid",
         "focus": "Build new API feature and debug an issue",
     }
     res = await async_client.post(
-        "/api/simulations",
+        "/api/trials",
         json=payload,
-        headers={"x-dev-user-email": recruiter_email},
+        headers={"x-dev-user-email": talent_partner_email},
     )
     assert res.status_code in (200, 201), res.text
     sim_id = res.json()["id"]
@@ -44,9 +44,9 @@ async def _create_simulation(async_client, async_session, recruiter_email: str) 
         worker.clear_handlers()
     assert handled is True
     activate = await async_client.post(
-        f"/api/simulations/{sim_id}/activate",
+        f"/api/trials/{sim_id}/activate",
         json={"confirm": True},
-        headers={"x-dev-user-email": recruiter_email},
+        headers={"x-dev-user-email": talent_partner_email},
     )
     assert activate.status_code == 200, activate.text
     return sim_id
@@ -65,9 +65,7 @@ async def _apply_schedule(
         )
     ).scalar_one()
     sim = (
-        await async_session.execute(
-            select(Simulation).where(Simulation.id == cs.simulation_id)
-        )
+        await async_session.execute(select(Trial).where(Trial.id == cs.trial_id))
     ).scalar_one()
     day_windows = derive_day_windows(
         scheduled_start_at_utc=scheduled_start_at,

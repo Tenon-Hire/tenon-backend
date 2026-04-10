@@ -16,7 +16,7 @@ def parse_dev_principal_token(token: str) -> tuple[str, str] | None:
         return None
     prefix, _, email = token.partition(":")
     email = email.strip().lower()
-    if not email or prefix not in {"candidate", "recruiter"}:
+    if not email or prefix not in {"candidate", "talent_partner"}:
         return None
     return prefix, email
 

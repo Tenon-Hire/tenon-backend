@@ -7,11 +7,9 @@ from tests.submissions.services.test_submissions_candidate_service_utils import 
 
 @pytest.mark.asyncio
 async def test_record_run_result_persists_fields(async_session):
-    recruiter = await create_recruiter(async_session, email="record@sim.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
-    cs = await create_candidate_session(
-        async_session, simulation=sim, status="in_progress"
-    )
+    talent_partner = await create_talent_partner(async_session, email="record@sim.com")
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
+    cs = await create_candidate_session(async_session, trial=sim, status="in_progress")
     now = datetime.now(UTC)
     workspace = await workspace_repo.create_workspace(
         async_session,

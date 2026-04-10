@@ -23,9 +23,9 @@ class SettingsValidationMixin:
     def _coerce_demo_allowlists(cls, value):
         return parse_env_list(value)
 
-    @field_validator("DEMO_ADMIN_ALLOWLIST_RECRUITER_IDS", mode="before")
+    @field_validator("DEMO_ADMIN_ALLOWLIST_TALENT_PARTNER_IDS", mode="before")
     @classmethod
-    def _coerce_demo_allowlist_recruiter_ids(cls, value):
+    def _coerce_demo_allowlist_talent_partner_ids(cls, value):
         parsed = parse_env_list(value)
         if parsed in (None, "", []):
             return []

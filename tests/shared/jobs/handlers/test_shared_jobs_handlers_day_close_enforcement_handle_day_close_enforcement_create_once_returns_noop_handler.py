@@ -11,7 +11,7 @@ async def test_handle_day_close_enforcement_create_once_returns_noop(
     monkeypatch,
 ):
     (
-        _simulation,
+        _trial,
         candidate_session,
         day2_task,
         cutoff_at,

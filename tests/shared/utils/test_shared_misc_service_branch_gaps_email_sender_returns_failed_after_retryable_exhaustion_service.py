@@ -18,7 +18,7 @@ async def test_email_sender_returns_failed_after_retryable_exhaustion(monkeypatc
         return None
 
     monkeypatch.setattr(asyncio, "sleep", _no_sleep)
-    sender = EmailSender(_Provider(), sender="noreply@tenon.ai", max_attempts=2)
+    sender = EmailSender(_Provider(), sender="noreply@winoe.ai", max_attempts=2)
 
     result = await sender.send_email(
         to="candidate@example.com",

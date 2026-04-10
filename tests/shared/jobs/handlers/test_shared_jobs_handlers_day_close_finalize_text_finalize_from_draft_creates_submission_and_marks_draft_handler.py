@@ -9,11 +9,13 @@ from tests.shared.jobs.handlers.shared_jobs_handlers_day_close_finalize_text_uti
 async def test_finalize_from_draft_creates_submission_and_marks_draft(
     async_session, monkeypatch
 ):
-    recruiter = await create_recruiter(async_session, email="finalize-draft@test.com")
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="finalize-draft@test.com"
+    )
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         status="in_progress",
         with_default_schedule=False,
     )

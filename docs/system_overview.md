@@ -1,12 +1,12 @@
 # System Overview
 
-This file is the canonical documentation index for the Tenon backend.
+This file is the canonical documentation index for the Winoe backend.
 
 ## Canonical Architecture Docs
 
 - [Architecture Overview](architecture_overview.md)
 - [Data Model Relationships](data_model_relationships.md)
-- [Simulation Lifecycle](simulation_lifecycle.md)
+- [Trial Lifecycle](trial_lifecycle.md)
 - [GitHub Integration](github_integration.md)
 - [AI Evaluation and Jobs Integration](ai_evaluation_jobs_integration.md)
 

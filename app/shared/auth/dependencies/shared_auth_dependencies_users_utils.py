@@ -13,8 +13,8 @@ from app.shared.database.shared_database_models_model import User
 
 from .shared_auth_dependencies_db_utils import lookup_user as lookup_user_default
 from .shared_auth_dependencies_env_utils import env_name
-from .shared_auth_dependencies_local_recruiter_company_utils import (
-    ensure_local_recruiter_company,
+from .shared_auth_dependencies_local_talent_partner_company_utils import (
+    ensure_local_talent_partner_company,
 )
 from .shared_auth_dependencies_modules_utils import current_user_module
 
@@ -24,7 +24,7 @@ def _role_from_principal(principal: Principal) -> str:
     roles = {str(r).lower() for r in (getattr(principal, "roles", []) or [])}
     if "candidate:access" in permissions or "candidate" in roles:
         return "candidate"
-    return "recruiter"
+    return "talent_partner"
 
 
 async def _resolve_local_company_id(
@@ -32,13 +32,13 @@ async def _resolve_local_company_id(
 ) -> int | None:
     normalized_email = (email or "").strip().lower()
     if (
-        role != "recruiter"
+        role != "talent_partner"
         or company_id is not None
         or env_name() != "local"
         or not normalized_email.endswith("@local.test")
     ):
         return company_id
-    company = await ensure_local_recruiter_company(db)
+    company = await ensure_local_talent_partner_company(db)
     return company.id
 
 

@@ -4,8 +4,8 @@ import pytest
 
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 
@@ -13,10 +13,12 @@ from tests.shared.factories import (
 async def test_put_then_get_task_draft_round_trips(
     async_client, async_session, candidate_header_factory
 ):
-    recruiter = await create_recruiter(async_session, email="draft-put-get@test.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="draft-put-get@test.com"
+    )
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
-        async_session, simulation=sim, status="in_progress", with_default_schedule=True
+        async_session, trial=sim, status="in_progress", with_default_schedule=True
     )
     await async_session.commit()
     day1_task = tasks[0]
@@ -53,10 +55,12 @@ async def test_put_then_get_task_draft_round_trips(
 async def test_get_task_draft_missing_returns_not_found(
     async_client, async_session, candidate_header_factory
 ):
-    recruiter = await create_recruiter(async_session, email="draft-missing@test.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="draft-missing@test.com"
+    )
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
-        async_session, simulation=sim, status="in_progress", with_default_schedule=True
+        async_session, trial=sim, status="in_progress", with_default_schedule=True
     )
     await async_session.commit()
     response = await async_client.get(

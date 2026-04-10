@@ -21,7 +21,7 @@ async def test_codespace_init_legacy_fallback_reraises_unrelated_http_error(
     with pytest.raises(HTTPException) as excinfo:
         await _validate_codespace_request_with_legacy_fallback(
             object(),
-            SimpleNamespace(id=1, simulation_id=2),
+            SimpleNamespace(id=1, trial_id=2),
             99,
         )
     assert excinfo.value.status_code == 404

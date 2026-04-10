@@ -11,20 +11,20 @@ async def test_delete_recording_forbidden_for_different_candidate(
     async_session,
     candidate_header_factory,
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="privacy-delete-auth@test.com"
     )
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     task = _handoff_task(tasks)
     owner_session = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         invite_email="delete-owner@test.com",
         status="in_progress",
     )
     other_session = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         invite_email="delete-other@test.com",
         status="in_progress",
     )

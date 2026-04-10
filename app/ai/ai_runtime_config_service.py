@@ -91,53 +91,53 @@ def resolve_codespace_specializer_config() -> AIFeatureConfig:
     )
 
 
-def resolve_fit_profile_day1_config() -> AIFeatureConfig:
+def resolve_winoe_report_day1_config() -> AIFeatureConfig:
     return _build_feature_config(
-        runtime_mode=getattr(settings, "FIT_PROFILE_DAY1_RUNTIME_MODE", None),
-        provider=settings.FIT_PROFILE_DAY1_PROVIDER,
-        model=settings.FIT_PROFILE_DAY1_MODEL,
-        timeout_seconds=settings.FIT_PROFILE_DAY1_TIMEOUT_SECONDS,
-        max_retries=settings.FIT_PROFILE_DAY1_MAX_RETRIES,
+        runtime_mode=getattr(settings, "WINOE_REPORT_DAY1_RUNTIME_MODE", None),
+        provider=settings.WINOE_REPORT_DAY1_PROVIDER,
+        model=settings.WINOE_REPORT_DAY1_MODEL,
+        timeout_seconds=settings.WINOE_REPORT_DAY1_TIMEOUT_SECONDS,
+        max_retries=settings.WINOE_REPORT_DAY1_MAX_RETRIES,
     )
 
 
-def resolve_fit_profile_day23_config() -> AIFeatureConfig:
+def resolve_winoe_report_day23_config() -> AIFeatureConfig:
     return _build_feature_config(
-        runtime_mode=getattr(settings, "FIT_PROFILE_DAY23_RUNTIME_MODE", None),
-        provider=settings.FIT_PROFILE_DAY23_PROVIDER,
-        model=settings.FIT_PROFILE_DAY23_MODEL,
-        timeout_seconds=settings.FIT_PROFILE_DAY23_TIMEOUT_SECONDS,
-        max_retries=settings.FIT_PROFILE_DAY23_MAX_RETRIES,
+        runtime_mode=getattr(settings, "WINOE_REPORT_DAY23_RUNTIME_MODE", None),
+        provider=settings.WINOE_REPORT_DAY23_PROVIDER,
+        model=settings.WINOE_REPORT_DAY23_MODEL,
+        timeout_seconds=settings.WINOE_REPORT_DAY23_TIMEOUT_SECONDS,
+        max_retries=settings.WINOE_REPORT_DAY23_MAX_RETRIES,
     )
 
 
-def resolve_fit_profile_day4_config() -> AIFeatureConfig:
+def resolve_winoe_report_day4_config() -> AIFeatureConfig:
     return _build_feature_config(
-        runtime_mode=getattr(settings, "FIT_PROFILE_DAY4_RUNTIME_MODE", None),
-        provider=settings.FIT_PROFILE_DAY4_PROVIDER,
-        model=settings.FIT_PROFILE_DAY4_MODEL,
-        timeout_seconds=settings.FIT_PROFILE_DAY4_TIMEOUT_SECONDS,
-        max_retries=settings.FIT_PROFILE_DAY4_MAX_RETRIES,
+        runtime_mode=getattr(settings, "WINOE_REPORT_DAY4_RUNTIME_MODE", None),
+        provider=settings.WINOE_REPORT_DAY4_PROVIDER,
+        model=settings.WINOE_REPORT_DAY4_MODEL,
+        timeout_seconds=settings.WINOE_REPORT_DAY4_TIMEOUT_SECONDS,
+        max_retries=settings.WINOE_REPORT_DAY4_MAX_RETRIES,
     )
 
 
-def resolve_fit_profile_day5_config() -> AIFeatureConfig:
+def resolve_winoe_report_day5_config() -> AIFeatureConfig:
     return _build_feature_config(
-        runtime_mode=getattr(settings, "FIT_PROFILE_DAY5_RUNTIME_MODE", None),
-        provider=settings.FIT_PROFILE_DAY5_PROVIDER,
-        model=settings.FIT_PROFILE_DAY5_MODEL,
-        timeout_seconds=settings.FIT_PROFILE_DAY5_TIMEOUT_SECONDS,
-        max_retries=settings.FIT_PROFILE_DAY5_MAX_RETRIES,
+        runtime_mode=getattr(settings, "WINOE_REPORT_DAY5_RUNTIME_MODE", None),
+        provider=settings.WINOE_REPORT_DAY5_PROVIDER,
+        model=settings.WINOE_REPORT_DAY5_MODEL,
+        timeout_seconds=settings.WINOE_REPORT_DAY5_TIMEOUT_SECONDS,
+        max_retries=settings.WINOE_REPORT_DAY5_MAX_RETRIES,
     )
 
 
-def resolve_fit_profile_aggregator_config() -> AIFeatureConfig:
+def resolve_winoe_report_aggregator_config() -> AIFeatureConfig:
     return _build_feature_config(
-        runtime_mode=getattr(settings, "FIT_PROFILE_AGGREGATOR_RUNTIME_MODE", None),
-        provider=settings.FIT_PROFILE_AGGREGATOR_PROVIDER,
-        model=settings.FIT_PROFILE_AGGREGATOR_MODEL,
-        timeout_seconds=settings.FIT_PROFILE_AGGREGATOR_TIMEOUT_SECONDS,
-        max_retries=settings.FIT_PROFILE_AGGREGATOR_MAX_RETRIES,
+        runtime_mode=getattr(settings, "WINOE_REPORT_AGGREGATOR_RUNTIME_MODE", None),
+        provider=settings.WINOE_REPORT_AGGREGATOR_PROVIDER,
+        model=settings.WINOE_REPORT_AGGREGATOR_MODEL,
+        timeout_seconds=settings.WINOE_REPORT_AGGREGATOR_TIMEOUT_SECONDS,
+        max_retries=settings.WINOE_REPORT_AGGREGATOR_MAX_RETRIES,
     )
 
 
@@ -159,11 +159,11 @@ __all__ = [
     "allow_demo_or_test_mode",
     "require_real_mode",
     "resolve_codespace_specializer_config",
-    "resolve_fit_profile_aggregator_config",
-    "resolve_fit_profile_day1_config",
-    "resolve_fit_profile_day23_config",
-    "resolve_fit_profile_day4_config",
-    "resolve_fit_profile_day5_config",
+    "resolve_winoe_report_aggregator_config",
+    "resolve_winoe_report_day1_config",
+    "resolve_winoe_report_day23_config",
+    "resolve_winoe_report_day4_config",
+    "resolve_winoe_report_day5_config",
     "resolve_runtime_mode",
     "resolve_scenario_generation_config",
     "resolve_transcription_config",

@@ -4,13 +4,13 @@ from tests.config.config_test_utils import *
 
 
 def test_merge_legacy_prefers_env(monkeypatch):
-    monkeypatch.setenv("TENON_GITHUB_TOKEN", "t0k3n")
-    monkeypatch.setenv("TENON_GITHUB_ACTIONS_WORKFLOW_FILE", "ci.yml")
-    monkeypatch.setenv("TENON_WORKSPACE_RETENTION_DAYS", "15")
-    monkeypatch.setenv("TENON_WORKSPACE_CLEANUP_MODE", "archive")
-    monkeypatch.setenv("TENON_WORKSPACE_DELETE_ENABLED", "0")
-    monkeypatch.setenv("TENON_GITHUB_WEBHOOK_SECRET", "merge-secret")
-    monkeypatch.setenv("TENON_GITHUB_WEBHOOK_MAX_BODY_BYTES", "2048")
+    monkeypatch.setenv("WINOE_GITHUB_TOKEN", "t0k3n")
+    monkeypatch.setenv("WINOE_GITHUB_ACTIONS_WORKFLOW_FILE", "ci.yml")
+    monkeypatch.setenv("WINOE_WORKSPACE_RETENTION_DAYS", "15")
+    monkeypatch.setenv("WINOE_WORKSPACE_CLEANUP_MODE", "archive")
+    monkeypatch.setenv("WINOE_WORKSPACE_DELETE_ENABLED", "0")
+    monkeypatch.setenv("WINOE_GITHUB_WEBHOOK_SECRET", "merge-secret")
+    monkeypatch.setenv("WINOE_GITHUB_WEBHOOK_MAX_BODY_BYTES", "2048")
     monkeypatch.setenv("SMTP_PASSWORD", "supers3cret")
     merged = Settings._merge_legacy(
         {

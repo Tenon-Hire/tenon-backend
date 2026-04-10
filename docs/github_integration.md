@@ -21,8 +21,8 @@ This document describes implemented GitHub integration behavior in the backend.
 
 ## Workflow and Artifact Contract
 
-- Workflow file configured by `TENON_GITHUB_ACTIONS_WORKFLOW_FILE`.
-- Artifact parser prefers `tenon-test-results` style artifacts and extracts normalized test summary payloads.
+- Workflow file configured by `WINOE_GITHUB_ACTIONS_WORKFLOW_FILE`.
+- Artifact parser prefers `winoe-test-results` style artifacts and extracts normalized test summary payloads.
 - Submission/workspace models persist:
   - workflow run IDs/status/conclusion/timestamps
   - commit and checkpoint SHAs
@@ -48,13 +48,13 @@ This document describes implemented GitHub integration behavior in the backend.
 
 ## Required Configuration
 
-- `TENON_GITHUB_TOKEN`
-- `TENON_GITHUB_API_BASE`
-- `TENON_GITHUB_ORG`
-- `TENON_GITHUB_TEMPLATE_OWNER`
-- `TENON_GITHUB_ACTIONS_WORKFLOW_FILE`
-- `TENON_GITHUB_WEBHOOK_SECRET`
-- `TENON_GITHUB_WEBHOOK_MAX_BODY_BYTES`
+- `WINOE_GITHUB_TOKEN`
+- `WINOE_GITHUB_API_BASE`
+- `WINOE_GITHUB_ORG`
+- `WINOE_GITHUB_TEMPLATE_OWNER`
+- `WINOE_GITHUB_ACTIONS_WORKFLOW_FILE`
+- `WINOE_GITHUB_WEBHOOK_SECRET`
+- `WINOE_GITHUB_WEBHOOK_MAX_BODY_BYTES`
 
 ## Operational Caveats
 

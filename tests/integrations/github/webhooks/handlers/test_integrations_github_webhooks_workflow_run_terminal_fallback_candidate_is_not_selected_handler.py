@@ -7,13 +7,13 @@ from tests.integrations.github.webhooks.handlers.integrations_github_webhooks_wo
 
 @pytest.mark.asyncio
 async def test_terminal_fallback_candidate_is_not_selected(async_session):
-    recruiter = await create_recruiter(
-        async_session, email="webhook-terminal@tenon.dev"
+    talent_partner = await create_talent_partner(
+        async_session, email="webhook-terminal@winoe.dev"
     )
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         with_default_schedule=True,
     )
 

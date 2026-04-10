@@ -9,21 +9,21 @@ from tests.integrations.github.webhooks.handlers.integrations_github_webhooks_wo
 async def test_exact_workflow_run_id_match_takes_precedence_over_fallback(
     async_session,
 ):
-    recruiter = await create_recruiter(
-        async_session, email="webhook-priority@tenon.dev"
+    talent_partner = await create_talent_partner(
+        async_session, email="webhook-priority@winoe.dev"
     )
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
 
     primary_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
-        invite_email="webhook-priority-primary@tenon.dev",
+        trial=trial,
+        invite_email="webhook-priority-primary@winoe.dev",
         with_default_schedule=True,
     )
     fallback_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
-        invite_email="webhook-priority-fallback@tenon.dev",
+        trial=trial,
+        invite_email="webhook-priority-fallback@winoe.dev",
         with_default_schedule=True,
     )
 

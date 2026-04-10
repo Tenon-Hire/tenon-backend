@@ -60,9 +60,9 @@ def _columns_for(sqlite_url: str, table_name: str) -> set[str]:
 
 def _run_alembic(repo_root: Path, *, sqlite_url: str, args: list[str]) -> None:
     env = os.environ.copy()
-    env["TENON_ENV"] = "test"
-    env["TENON_DATABASE_URL_SYNC"] = sqlite_url
-    env["TENON_DATABASE_URL"] = sqlite_url
+    env["WINOE_ENV"] = "test"
+    env["WINOE_DATABASE_URL_SYNC"] = sqlite_url
+    env["WINOE_DATABASE_URL"] = sqlite_url
     result = subprocess.run(
         [sys.executable, "-m", "alembic", "-c", str(repo_root / "alembic.ini"), *args],
         cwd=repo_root,

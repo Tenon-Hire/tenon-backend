@@ -4,9 +4,6 @@ from __future__ import annotations
 
 import logging
 
-from app.simulations.repositories.scenario_versions import (
-    simulations_repositories_scenario_versions_simulations_scenario_versions_repository as scenario_repo,
-)
 from app.submissions.repositories.precommit_bundles import repository as bundle_repo
 from app.submissions.services.precommit_bundle_runtime.submissions_services_precommit_bundle_runtime_submissions_precommit_bundle_runtime_core_model import (
     BundleFileChange as _BundleFileChange,
@@ -29,6 +26,9 @@ from app.submissions.services.precommit_bundle_runtime.submissions_services_prec
 )
 from app.submissions.services.precommit_bundle_runtime.submissions_services_precommit_bundle_runtime_submissions_precommit_bundle_runtime_patch_parser_service import (
     parse_patch_entries as _parse_patch_entries_impl,
+)
+from app.trials.repositories.scenario_versions import (
+    trials_repositories_scenario_versions_trials_scenario_versions_repository as scenario_repo,
 )
 
 logger = logging.getLogger(__name__)

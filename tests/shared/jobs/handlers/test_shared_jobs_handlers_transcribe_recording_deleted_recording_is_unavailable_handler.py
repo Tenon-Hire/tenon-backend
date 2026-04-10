@@ -9,12 +9,12 @@ from tests.shared.jobs.handlers.shared_jobs_handlers_transcribe_recording_utils 
 async def test_transcribe_recording_handler_deleted_recording_is_unavailable(
     async_session,
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="transcribe-deleted@test.com"
     )
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     task = _handoff_task(tasks)
-    candidate_session = await create_candidate_session(async_session, simulation=sim)
+    candidate_session = await create_candidate_session(async_session, trial=sim)
     recording = await recordings_repo.create_recording_asset(
         async_session,
         candidate_session_id=candidate_session.id,

@@ -9,11 +9,13 @@ from tests.candidates.routes.candidates_session_api_utils import *
 async def test_current_task_marks_complete_when_all_tasks_done(
     async_client, async_session
 ):
-    recruiter = await create_recruiter(async_session, email="progress@test.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="progress@test.com"
+    )
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     cs = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         status="in_progress",
         started_at=datetime.now(UTC) - timedelta(hours=1),
         with_default_schedule=True,

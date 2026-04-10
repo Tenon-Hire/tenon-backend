@@ -10,13 +10,13 @@ async def test_finalize_reschedule_not_due_raises_when_requeue_did_not_happen(
     async_session,
     monkeypatch,
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="finalize-window-terminal@test.com"
     )
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         status="in_progress",
         with_default_schedule=False,
     )
@@ -50,7 +50,7 @@ async def test_finalize_reschedule_not_due_raises_when_requeue_did_not_happen(
             day_index=1,
             window_end_at=future_window_end,
         ),
-        company_id=simulation.company_id,
+        company_id=trial.company_id,
         candidate_session_id=candidate_session.id,
         next_run_at=future_window_end,
         commit=True,

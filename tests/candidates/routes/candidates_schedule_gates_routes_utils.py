@@ -11,7 +11,7 @@ _START_0900 = time(hour=9)
 _END_1700 = time(hour=17)
 
 
-def _simulation(*, start: time = _START_0900, end: time = _END_1700):
+def _trial(*, start: time = _START_0900, end: time = _END_1700):
     return SimpleNamespace(
         day_window_start_local=start,
         day_window_end_local=end,
@@ -40,7 +40,7 @@ def _session_with_windows() -> SimpleNamespace:
             },
         ],
         scheduled_start_at=datetime(2026, 3, 10, 13, 0, tzinfo=UTC),
-        simulation=_simulation(),
+        trial=_trial(),
         candidate_timezone="UTC",
     )
 

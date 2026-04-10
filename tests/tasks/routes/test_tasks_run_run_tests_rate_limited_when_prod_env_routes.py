@@ -16,11 +16,11 @@ async def test_run_tests_rate_limited_when_prod_env(
         "run"
     ] = candidate_submissions.rate_limit.RateLimitRule(limit=1, window_seconds=60.0)
 
-    recruiter = await create_recruiter(async_session, email="rate@sim.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(async_session, email="rate@sim.com")
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     cs = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         status="in_progress",
         with_default_schedule=True,
     )

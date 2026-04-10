@@ -9,7 +9,7 @@ from tests.candidates.routes.candidates_session_schedule_api_utils import *
 async def test_schedule_endpoint_rejects_expired_token_with_error_code(
     async_client, async_session, override_dependencies
 ):
-    _recruiter, _simulation, cs = await _seed_claimed_session(async_session)
+    _talent_partner, _trial, cs = await _seed_claimed_session(async_session)
     await _claim(async_client, cs.token, cs.invite_email)
     cs.expires_at = datetime.now(UTC) - timedelta(minutes=1)
     await async_session.commit()

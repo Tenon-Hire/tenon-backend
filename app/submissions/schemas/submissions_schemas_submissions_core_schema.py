@@ -12,19 +12,6 @@ from .submissions_schemas_submissions_handoff_schema import (
     HandoffUploadInitRequest,
     HandoffUploadInitResponse,
 )
-from .submissions_schemas_submissions_recruiter_base_schema import (
-    RecruiterCodeArtifactOut,
-    RecruiterRecordingAssetOut,
-    RecruiterTaskMetaOut,
-    RecruiterTestResultsOut,
-    RecruiterTranscriptOut,
-)
-from .submissions_schemas_submissions_recruiter_outputs_schema import (
-    RecruiterHandoffOut,
-    RecruiterSubmissionDetailOut,
-    RecruiterSubmissionListItemOut,
-    RecruiterSubmissionListOut,
-)
 from .submissions_schemas_submissions_requests_schema import (
     CodespaceInitRequest,
     CodespaceInitResponse,
@@ -33,6 +20,19 @@ from .submissions_schemas_submissions_requests_schema import (
     RunTestsResponse,
     SubmissionCreateRequest,
     SubmissionCreateResponse,
+)
+from .submissions_schemas_submissions_talent_partner_base_schema import (
+    TalentPartnerCodeArtifactOut,
+    TalentPartnerRecordingAssetOut,
+    TalentPartnerTaskMetaOut,
+    TalentPartnerTestResultsOut,
+    TalentPartnerTranscriptOut,
+)
+from .submissions_schemas_submissions_talent_partner_outputs_schema import (
+    TalentPartnerHandoffOut,
+    TalentPartnerSubmissionDetailOut,
+    TalentPartnerSubmissionListItemOut,
+    TalentPartnerSubmissionListOut,
 )
 
 __all__ = [
@@ -52,13 +52,13 @@ __all__ = [
     "HandoffStatusResponse",
     "SubmissionCreateResponse",
     "ProgressSummary",
-    "RecruiterTaskMetaOut",
-    "RecruiterCodeArtifactOut",
-    "RecruiterTestResultsOut",
-    "RecruiterRecordingAssetOut",
-    "RecruiterTranscriptOut",
-    "RecruiterHandoffOut",
-    "RecruiterSubmissionDetailOut",
-    "RecruiterSubmissionListItemOut",
-    "RecruiterSubmissionListOut",
+    "TalentPartnerTaskMetaOut",
+    "TalentPartnerCodeArtifactOut",
+    "TalentPartnerTestResultsOut",
+    "TalentPartnerRecordingAssetOut",
+    "TalentPartnerTranscriptOut",
+    "TalentPartnerHandoffOut",
+    "TalentPartnerSubmissionDetailOut",
+    "TalentPartnerSubmissionListItemOut",
+    "TalentPartnerSubmissionListOut",
 ]

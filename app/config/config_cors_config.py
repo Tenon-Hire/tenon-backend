@@ -14,7 +14,7 @@ class CorsSettings(BaseSettings):
     CORS_ALLOW_ORIGINS: list[str] | str = Field(default_factory=list)
     CORS_ALLOW_ORIGIN_REGEX: str | None = None
 
-    model_config = SettingsConfigDict(extra="ignore", env_prefix="TENON_")
+    model_config = SettingsConfigDict(extra="ignore", env_prefix="WINOE_")
 
     @field_validator("CORS_ALLOW_ORIGINS", mode="before")
     @classmethod

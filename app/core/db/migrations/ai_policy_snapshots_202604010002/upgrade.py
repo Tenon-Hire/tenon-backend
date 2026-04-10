@@ -8,10 +8,14 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 
 from app.ai import build_ai_policy_snapshot
+from app.core.db.migrations.shared_trial_schema_compat import (
+    resolve_trial_parent_table_name,
+)
 
 
 def run_upgrade(bind: Connection) -> None:
     """Populate missing scenario-version snapshots from current stored config."""
+    parent_table_name = resolve_trial_parent_table_name(bind)
     metadata = sa.MetaData()
     companies = sa.Table(
         "companies",
@@ -19,8 +23,8 @@ def run_upgrade(bind: Connection) -> None:
         sa.Column("id", sa.Integer),
         sa.Column("ai_prompt_overrides_json", sa.JSON),
     )
-    simulations = sa.Table(
-        "simulations",
+    trials = sa.Table(
+        parent_table_name,
         metadata,
         sa.Column("id", sa.Integer),
         sa.Column("company_id", sa.Integer),
@@ -33,39 +37,37 @@ def run_upgrade(bind: Connection) -> None:
         "scenario_versions",
         metadata,
         sa.Column("id", sa.Integer),
-        sa.Column("simulation_id", sa.Integer),
+        sa.Column("trial_id", sa.Integer),
         sa.Column("ai_policy_snapshot_json", sa.JSON),
     )
 
     rows = bind.execute(
         sa.select(
             scenario_versions.c.id.label("scenario_version_id"),
-            simulations.c.ai_notice_version,
-            simulations.c.ai_notice_text,
-            simulations.c.ai_eval_enabled_by_day,
-            simulations.c.ai_prompt_overrides_json.label(
-                "simulation_prompt_overrides_json"
-            ),
+            trials.c.ai_notice_version,
+            trials.c.ai_notice_text,
+            trials.c.ai_eval_enabled_by_day,
+            trials.c.ai_prompt_overrides_json.label("trial_prompt_overrides_json"),
             companies.c.ai_prompt_overrides_json.label("company_prompt_overrides_json"),
         )
         .select_from(
             scenario_versions.join(
-                simulations, simulations.c.id == scenario_versions.c.simulation_id
-            ).join(companies, companies.c.id == simulations.c.company_id)
+                trials, trials.c.id == scenario_versions.c.trial_id
+            ).join(companies, companies.c.id == trials.c.company_id)
         )
         .where(scenario_versions.c.ai_policy_snapshot_json.is_(None))
     ).mappings()
 
     for row in rows:
-        simulation = SimpleNamespace(
+        trial = SimpleNamespace(
             ai_notice_version=row["ai_notice_version"],
             ai_notice_text=row["ai_notice_text"],
             ai_eval_enabled_by_day=row["ai_eval_enabled_by_day"],
         )
         snapshot_json = build_ai_policy_snapshot(
-            simulation=simulation,
+            trial=trial,
             company_prompt_overrides_json=row["company_prompt_overrides_json"],
-            simulation_prompt_overrides_json=row["simulation_prompt_overrides_json"],
+            trial_prompt_overrides_json=row["trial_prompt_overrides_json"],
         )
         bind.execute(
             scenario_versions.update()

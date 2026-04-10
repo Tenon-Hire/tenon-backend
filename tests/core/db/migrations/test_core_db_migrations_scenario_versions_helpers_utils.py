@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import sqlalchemy as sa
 
@@ -20,6 +21,9 @@ scenario_versions_schema_ops = importlib.import_module(
 table_refs = importlib.import_module(
     "app.core.db.migrations.scenario_versions_202603090001.table_refs"
 ).table_refs
+trial_schema_compat = importlib.import_module(
+    "app.core.db.migrations.shared_trial_schema_compat"
+)
 
 
 class _RecordingOp:
@@ -41,13 +45,30 @@ class _RecordingOp:
 
 
 def test_scenario_versions_table_refs_expose_expected_table_shapes():
-    simulations, scenario_versions, candidate_sessions = table_refs()
-    assert simulations.name == "simulations"
+    trials, scenario_versions, candidate_sessions = table_refs()
+    assert trials.name == "trials"
     assert scenario_versions.name == "scenario_versions"
     assert candidate_sessions.name == "candidate_sessions"
-    assert "active_scenario_version_id" in simulations.c
+    assert "active_scenario_version_id" in trials.c
     assert "version_index" in scenario_versions.c
     assert "scenario_version_id" in candidate_sessions.c
+
+
+def test_scenario_versions_table_refs_support_legacy_schema_names(monkeypatch):
+    inspector = SimpleNamespace(
+        get_table_names=lambda: ["simulations", "candidate_sessions"],
+        get_columns=lambda table_name: (
+            [{"name": "simulation_id"}, {"name": "scenario_version_id"}]
+            if table_name == "candidate_sessions"
+            else []
+        ),
+    )
+    monkeypatch.setattr(trial_schema_compat.sa, "inspect", lambda _bind: inspector)
+
+    trials, _scenario_versions, candidate_sessions = table_refs(object())
+
+    assert trials.name == "simulations"
+    assert "simulation_id" in candidate_sessions.c
 
 
 def test_scenario_versions_row_get_supports_mapping_dict_and_object():
@@ -64,8 +85,8 @@ def test_scenario_versions_row_get_supports_mapping_dict_and_object():
 def test_scenario_versions_run_backfill_inserts_versions_and_links_sessions():
     engine = sa.create_engine("sqlite+pysqlite:///:memory:")
     metadata = sa.MetaData()
-    simulations = sa.Table(
-        "simulations",
+    trials = sa.Table(
+        "trials",
         metadata,
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("active_scenario_version_id", sa.Integer(), nullable=True),
@@ -85,7 +106,7 @@ def test_scenario_versions_run_backfill_inserts_versions_and_links_sessions():
         "scenario_versions",
         metadata,
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column("simulation_id", sa.Integer(), nullable=False),
+        sa.Column("trial_id", sa.Integer(), nullable=False),
         sa.Column("version_index", sa.Integer(), nullable=False),
         sa.Column("status", sa.String(), nullable=False),
         sa.Column("storyline_md", sa.Text(), nullable=False),
@@ -102,14 +123,14 @@ def test_scenario_versions_run_backfill_inserts_versions_and_links_sessions():
         "candidate_sessions",
         metadata,
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column("simulation_id", sa.Integer(), nullable=False),
+        sa.Column("trial_id", sa.Integer(), nullable=False),
         sa.Column("scenario_version_id", sa.Integer(), nullable=True),
     )
     metadata.create_all(engine)
 
     with engine.begin() as conn:
         conn.execute(
-            simulations.insert(),
+            trials.insert(),
             [
                 {
                     "id": 1,
@@ -144,8 +165,8 @@ def test_scenario_versions_run_backfill_inserts_versions_and_links_sessions():
         conn.execute(
             candidate_sessions.insert(),
             [
-                {"simulation_id": 1, "scenario_version_id": None},
-                {"simulation_id": 2, "scenario_version_id": None},
+                {"trial_id": 1, "scenario_version_id": None},
+                {"trial_id": 2, "scenario_version_id": None},
             ],
         )
 
@@ -154,11 +175,11 @@ def test_scenario_versions_run_backfill_inserts_versions_and_links_sessions():
         version_rows = (
             conn.execute(
                 sa.select(
-                    scenario_versions.c.simulation_id,
+                    scenario_versions.c.trial_id,
                     scenario_versions.c.status,
                     scenario_versions.c.template_key,
                     scenario_versions.c.locked_at,
-                ).order_by(scenario_versions.c.simulation_id)
+                ).order_by(scenario_versions.c.trial_id)
             )
             .mappings()
             .all()
@@ -177,7 +198,7 @@ def test_scenario_versions_run_backfill_inserts_versions_and_links_sessions():
         linked_sessions = (
             conn.execute(
                 sa.select(candidate_sessions.c.scenario_version_id).order_by(
-                    candidate_sessions.c.simulation_id
+                    candidate_sessions.c.trial_id
                 )
             )
             .scalars()
@@ -187,9 +208,7 @@ def test_scenario_versions_run_backfill_inserts_versions_and_links_sessions():
 
         active_ids = (
             conn.execute(
-                sa.select(simulations.c.active_scenario_version_id).order_by(
-                    simulations.c.id
-                )
+                sa.select(trials.c.active_scenario_version_id).order_by(trials.c.id)
             )
             .scalars()
             .all()
@@ -219,8 +238,33 @@ def test_scenario_versions_schema_ops_create_finalize_and_downgrade():
     )
     assert (
         check_call[0]
-        == scenario_versions_constants.SIMULATION_ACTIVE_SCENARIO_REQUIRED_CHECK_NAME
+        == scenario_versions_constants.TRIAL_ACTIVE_SCENARIO_REQUIRED_CHECK_NAME
     )
+
+
+def test_scenario_versions_schema_ops_use_legacy_parent_table(monkeypatch):
+    inspector = SimpleNamespace(get_table_names=lambda: ["simulations"])
+    monkeypatch.setattr(
+        scenario_versions_schema_ops.sa, "inspect", lambda _bind: inspector
+    )
+    op = _RecordingOp()
+
+    scenario_versions_schema_ops.create_schema(op)
+
+    create_table_call = next(
+        args for name, args, _ in op.calls if name == "create_table"
+    )
+    foreign_key = next(
+        iter(
+            arg
+            for arg in create_table_call[1:]
+            if isinstance(arg, sa.ForeignKeyConstraint)
+        )
+    )
+    add_column_call = next(args for name, args, _ in op.calls if name == "add_column")
+
+    assert next(iter(foreign_key.elements)).target_fullname == "simulations.id"
+    assert add_column_call[0] == "simulations"
 
 
 def test_scenario_versions_runner_delegates_upgrade_and_downgrade(monkeypatch):

@@ -11,7 +11,7 @@ async def test_handle_day_close_enforcement_missing_branch_sha_raises(
     monkeypatch,
 ):
     (
-        _simulation,
+        _trial,
         candidate_session,
         _day2_task,
         _cutoff_at,

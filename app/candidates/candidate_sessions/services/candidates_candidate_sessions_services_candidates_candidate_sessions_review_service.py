@@ -47,7 +47,7 @@ async def build_candidate_completed_review(
     if changed:
         await db.commit()
         await db.refresh(
-            candidate_session, attribute_names=["simulation", "scenario_version"]
+            candidate_session, attribute_names=["trial", "scenario_version"]
         )
 
     if (
@@ -56,10 +56,10 @@ async def build_candidate_completed_review(
     ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Simulation is not complete yet",
+            detail="Trial is not complete yet",
         )
 
-    tasks = await _load_tasks(db, simulation_id=candidate_session.simulation_id)
+    tasks = await _load_tasks(db, trial_id=candidate_session.trial_id)
     submissions = await _load_submissions(
         db,
         candidate_session_id=candidate_session.id,
@@ -93,7 +93,7 @@ async def build_candidate_completed_review(
             submission,
             task,
             candidate_session,
-            candidate_session.simulation,
+            candidate_session.trial,
             day_audit=day_audits.get(task.day_index),
             recording=recording,
             transcript=transcript,
@@ -109,10 +109,10 @@ async def build_candidate_completed_review(
         candidateSessionId=candidate_session.id,
         status=candidate_session.status,
         completedAt=completed_at,
-        simulation={
-            "id": candidate_session.simulation.id,
-            "title": candidate_session.simulation.title,
-            "role": candidate_session.simulation.role,
+        trial={
+            "id": candidate_session.trial.id,
+            "title": candidate_session.trial.title,
+            "role": candidate_session.trial.role,
         },
         candidateTimezone=getattr(candidate_session, "candidate_timezone", None),
         dayWindows=(getattr(candidate_session, "day_windows_json", None) or []),
@@ -120,10 +120,10 @@ async def build_candidate_completed_review(
     )
 
 
-async def _load_tasks(db: AsyncSession, *, simulation_id: int) -> list[Task]:
+async def _load_tasks(db: AsyncSession, *, trial_id: int) -> list[Task]:
     stmt = (
         select(Task)
-        .where(Task.simulation_id == simulation_id)
+        .where(Task.trial_id == trial_id)
         .order_by(Task.day_index.asc(), Task.id.asc())
     )
     return list((await db.execute(stmt)).scalars().all())

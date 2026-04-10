@@ -11,8 +11,8 @@ from app.candidates.candidate_sessions.services.scheduling.candidates_candidate_
 )
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 _START_0900 = time(hour=9)
@@ -36,12 +36,10 @@ async def _set_schedule(
     day_windows = derive_day_windows(
         scheduled_start_at_utc=scheduled_start_at,
         candidate_tz=timezone_name,
-        day_window_start_local=candidate_session.simulation.day_window_start_local,
-        day_window_end_local=candidate_session.simulation.day_window_end_local,
-        overrides=candidate_session.simulation.day_window_overrides_json,
-        overrides_enabled=bool(
-            candidate_session.simulation.day_window_overrides_enabled
-        ),
+        day_window_start_local=candidate_session.trial.day_window_start_local,
+        day_window_end_local=candidate_session.trial.day_window_end_local,
+        overrides=candidate_session.trial.day_window_overrides_json,
+        overrides_enabled=bool(candidate_session.trial.day_window_overrides_enabled),
         total_days=5,
     )
     candidate_session.scheduled_start_at = scheduled_start_at
@@ -68,7 +66,7 @@ def _window_iso(window: dict[str, object], key: str) -> str:
     return value.isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-def _simulation(*, start: time = _START_0900, end: time = _END_1700):
+def _trial(*, start: time = _START_0900, end: time = _END_1700):
     return SimpleNamespace(
         day_window_start_local=start,
         day_window_end_local=end,
@@ -97,7 +95,7 @@ def _session_with_windows() -> SimpleNamespace:
             },
         ],
         scheduled_start_at=datetime(2026, 3, 10, 13, 0, tzinfo=UTC),
-        simulation=_simulation(),
+        trial=_trial(),
         candidate_timezone="UTC",
     )
 

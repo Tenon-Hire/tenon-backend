@@ -31,9 +31,9 @@ from app.submissions.repositories.task_drafts import repository as task_drafts_r
 from app.submissions.services.task_drafts import NO_DRAFT_AT_CUTOFF_MARKER
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
     create_submission,
+    create_talent_partner,
+    create_trial,
 )
 
 

@@ -54,6 +54,6 @@ class SettingsShimMixin:
     @property
     def dev_auth_bypass_enabled(self) -> bool:
         """Execute dev auth bypass enabled."""
-        env_val = os.getenv("DEV_AUTH_BYPASS") or os.getenv("TENON_DEV_AUTH_BYPASS")
+        env_val = os.getenv("DEV_AUTH_BYPASS") or os.getenv("WINOE_DEV_AUTH_BYPASS")
         value = (env_val if env_val is not None else self.DEV_AUTH_BYPASS) or ""
         return value.strip() == "1"

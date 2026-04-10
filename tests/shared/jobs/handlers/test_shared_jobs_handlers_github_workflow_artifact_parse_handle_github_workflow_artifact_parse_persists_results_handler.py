@@ -10,11 +10,13 @@ async def test_handle_github_workflow_artifact_parse_persists_results(
     async_session,
     monkeypatch,
 ):
-    recruiter = await create_recruiter(async_session, email="parse-handler@tenon.dev")
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="parse-handler@winoe.dev"
+    )
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         with_default_schedule=True,
     )
 

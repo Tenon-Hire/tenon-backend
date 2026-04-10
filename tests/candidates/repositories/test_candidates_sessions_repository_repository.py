@@ -9,13 +9,13 @@ from app.candidates.candidate_sessions.repositories import (
 from app.candidates.candidate_sessions.repositories import (
     repository_tokens as cs_tokens_repo,
 )
-from app.simulations.repositories.simulations_repositories_simulations_simulation_model import (
-    SIMULATION_STATUS_TERMINATED,
+from app.trials.repositories.trials_repositories_trials_trial_model import (
+    TRIAL_STATUS_TERMINATED,
 )
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 
@@ -35,7 +35,7 @@ def test_get_by_id_for_update_locks_only_candidate_sessions():
     assert "for update" in lower_sql
     assert "for update of" in lower_sql
     assert "of candidate_sessions" in lower_sql
-    assert "of simulations" not in lower_sql
+    assert "of trials" not in lower_sql
 
 
 def test_get_by_token_for_update_locks_only_candidate_sessions():
@@ -45,31 +45,33 @@ def test_get_by_token_for_update_locks_only_candidate_sessions():
     assert "for update" in lower_sql
     assert "for update of" in lower_sql
     assert "of candidate_sessions" in lower_sql
-    assert "of simulations" not in lower_sql
+    assert "of trials" not in lower_sql
 
 
 @pytest.mark.asyncio
 async def test_get_by_token_for_update(async_session):
-    recruiter = await create_recruiter(async_session, email="tok@test.com")
-    sim, _ = await create_simulation(async_session, created_by=recruiter)
-    cs = await create_candidate_session(async_session, simulation=sim)
+    talent_partner = await create_talent_partner(async_session, email="tok@test.com")
+    sim, _ = await create_trial(async_session, created_by=talent_partner)
+    cs = await create_candidate_session(async_session, trial=sim)
     found_by_token = await cs_repo.get_by_token(async_session, cs.token)
     assert found_by_token is not None
     assert found_by_token.id == cs.id
-    assert "simulation" not in inspect(found_by_token).unloaded
+    assert "trial" not in inspect(found_by_token).unloaded
 
     found = await cs_repo.get_by_token_for_update(async_session, cs.token)
     assert found is not None
     assert found.id == cs.id
-    assert "simulation" not in inspect(found).unloaded
+    assert "trial" not in inspect(found).unloaded
 
 
 @pytest.mark.asyncio
-async def test_get_by_token_hides_terminated_simulations(async_session):
-    recruiter = await create_recruiter(async_session, email="tok-term@test.com")
-    sim, _ = await create_simulation(async_session, created_by=recruiter)
-    cs = await create_candidate_session(async_session, simulation=sim)
-    sim.status = SIMULATION_STATUS_TERMINATED
+async def test_get_by_token_hides_terminated_trials(async_session):
+    talent_partner = await create_talent_partner(
+        async_session, email="tok-term@test.com"
+    )
+    sim, _ = await create_trial(async_session, created_by=talent_partner)
+    cs = await create_candidate_session(async_session, trial=sim)
+    sim.status = TRIAL_STATUS_TERMINATED
     await async_session.commit()
 
     found_by_token = await cs_repo.get_by_token(async_session, cs.token)
@@ -80,11 +82,13 @@ async def test_get_by_token_hides_terminated_simulations(async_session):
 
 
 @pytest.mark.asyncio
-async def test_get_by_id_hides_terminated_simulations(async_session):
-    recruiter = await create_recruiter(async_session, email="id-term@test.com")
-    sim, _ = await create_simulation(async_session, created_by=recruiter)
-    cs = await create_candidate_session(async_session, simulation=sim)
-    sim.status = SIMULATION_STATUS_TERMINATED
+async def test_get_by_id_hides_terminated_trials(async_session):
+    talent_partner = await create_talent_partner(
+        async_session, email="id-term@test.com"
+    )
+    sim, _ = await create_trial(async_session, created_by=talent_partner)
+    cs = await create_candidate_session(async_session, trial=sim)
+    sim.status = TRIAL_STATUS_TERMINATED
     await async_session.commit()
 
     found_by_id = await cs_repo.get_by_id(async_session, cs.id)

@@ -27,14 +27,14 @@ async def collect_artifact_status(
     except GithubError as exc:
         return [_classify_github_error(exc) or "artifact_missing"], None
 
-    tenon_artifact, legacy_artifact, artifact_name_found = select_artifacts(artifacts)
-    if tenon_artifact is None:
+    winoe_artifact, legacy_artifact, artifact_name_found = select_artifacts(artifacts)
+    if winoe_artifact is None:
         errors.append(
-            "artifact_legacy_name_simuhire" if legacy_artifact else "artifact_missing"
+            "artifact_legacy_name_winoe" if legacy_artifact else "artifact_missing"
         )
         return errors, artifact_name_found
 
-    artifact_id = tenon_artifact.get("id")
+    artifact_id = winoe_artifact.get("id")
     if not artifact_id:
         errors.append("artifact_missing")
         return errors, artifact_name_found

@@ -20,10 +20,10 @@ async def test_auth_me_creates_and_returns_user(
 
     def fake_decode_auth0_token(_token: str) -> dict[str, str]:
         return {
-            "email": "recruiter@example.com",
-            "name": "Recruiter One",
+            "email": "talent_partner@example.com",
+            "name": "TalentPartner One",
             "sub": "auth0|test",
-            "permissions": ["recruiter:access"],
+            "permissions": ["talent_partner:access"],
         }
 
     session_maker = async_sessionmaker(
@@ -47,15 +47,15 @@ async def test_auth_me_creates_and_returns_user(
 
     assert response.status_code == 200
     body = response.json()
-    assert body["email"] == "recruiter@example.com"
-    assert body["role"] == "recruiter"
+    assert body["email"] == "talent_partner@example.com"
+    assert body["role"] == "talent_partner"
     assert body["companyId"] is None
     assert body["companyName"] is None
     assert body["onboardingComplete"] is False
 
 
 @pytest.mark.asyncio
-async def test_auth_me_returns_company_name_for_onboarded_recruiter(
+async def test_auth_me_returns_company_name_for_onboarded_talent_partner(
     async_session, monkeypatch, override_dependencies
 ):
     company = Company(name="Acme Recruiting")
@@ -63,9 +63,9 @@ async def test_auth_me_returns_company_name_for_onboarded_recruiter(
     await async_session.flush()
     async_session.add(
         User(
-            name="Recruiter One",
-            email="recruiter@example.com",
-            role="recruiter",
+            name="TalentPartner One",
+            email="talent_partner@example.com",
+            role="talent_partner",
             company_id=company.id,
             password_hash="",
         )
@@ -74,10 +74,10 @@ async def test_auth_me_returns_company_name_for_onboarded_recruiter(
 
     def fake_decode_auth0_token(_token: str) -> dict[str, str]:
         return {
-            "email": "recruiter@example.com",
-            "name": "Recruiter One",
+            "email": "talent_partner@example.com",
+            "name": "TalentPartner One",
             "sub": "auth0|test",
-            "permissions": ["recruiter:access"],
+            "permissions": ["talent_partner:access"],
         }
 
     session_maker = async_sessionmaker(
@@ -107,7 +107,7 @@ async def test_auth_me_returns_company_name_for_onboarded_recruiter(
 
 
 @pytest.mark.asyncio
-async def test_recruiter_onboarding_assigns_company_and_updates_name(
+async def test_talent_partner_onboarding_assigns_company_and_updates_name(
     async_session, monkeypatch, override_dependencies
 ):
     def fake_decode_auth0_token(_token: str) -> dict[str, str]:
@@ -115,7 +115,7 @@ async def test_recruiter_onboarding_assigns_company_and_updates_name(
             "email": "signup@example.com",
             "name": "Signup Placeholder",
             "sub": "auth0|signup",
-            "permissions": ["recruiter:access"],
+            "permissions": ["talent_partner:access"],
         }
 
     session_maker = async_sessionmaker(
@@ -133,18 +133,18 @@ async def test_recruiter_onboarding_assigns_company_and_updates_name(
             transport=transport, base_url="http://testserver"
         ) as client:
             response = await client.post(
-                "/api/auth/recruiter-onboarding",
+                "/api/auth/talent-partner-onboarding",
                 headers={"Authorization": "Bearer fake-token"},
                 json={
-                    "name": "  Robel Recruiter  ",
-                    "companyName": "  Tenon Labs  ",
+                    "name": "  Robel TalentPartner  ",
+                    "companyName": "  Winoe Labs  ",
                 },
             )
 
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["name"] == "Robel Recruiter"
-    assert body["companyName"] == "Tenon Labs"
+    assert body["name"] == "Robel TalentPartner"
+    assert body["companyName"] == "Winoe Labs"
     assert body["onboardingComplete"] is True
 
     persisted_user = (
@@ -154,7 +154,7 @@ async def test_recruiter_onboarding_assigns_company_and_updates_name(
     ).scalar_one()
     company = await async_session.get(Company, persisted_user.company_id)
     assert company is not None
-    assert company.name == "Tenon Labs"
+    assert company.name == "Winoe Labs"
 
 
 @pytest.mark.asyncio
@@ -163,10 +163,10 @@ async def test_auth_me_rate_limited_in_prod(
 ):
     def fake_decode_auth0_token(_token: str) -> dict[str, str]:
         return {
-            "email": "recruiter@example.com",
-            "name": "Recruiter One",
+            "email": "talent_partner@example.com",
+            "name": "TalentPartner One",
             "sub": "auth0|test",
-            "permissions": ["recruiter:access"],
+            "permissions": ["talent_partner:access"],
         }
 
     session_maker = async_sessionmaker(

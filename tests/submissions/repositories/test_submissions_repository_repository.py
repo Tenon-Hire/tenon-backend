@@ -11,26 +11,28 @@ from app.submissions.repositories import (
 )
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
     create_submission,
+    create_talent_partner,
+    create_trial,
 )
 
 
 @pytest.mark.asyncio
 async def test_find_duplicate_false(async_session):
-    recruiter = await create_recruiter(async_session, email="dupfalse@test.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
-    cs = await create_candidate_session(async_session, simulation=sim)
+    talent_partner = await create_talent_partner(
+        async_session, email="dupfalse@test.com"
+    )
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
+    cs = await create_candidate_session(async_session, trial=sim)
     dup = await submissions_repo.find_duplicate(async_session, cs.id, tasks[0].id)
     assert dup is False
 
 
 @pytest.mark.asyncio
 async def test_find_duplicate_true(async_session):
-    recruiter = await create_recruiter(async_session, email="duptru@test.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
-    cs = await create_candidate_session(async_session, simulation=sim)
+    talent_partner = await create_talent_partner(async_session, email="duptru@test.com")
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
+    cs = await create_candidate_session(async_session, trial=sim)
     await create_submission(async_session, candidate_session=cs, task=tasks[0])
     dup = await submissions_repo.find_duplicate(async_session, cs.id, tasks[0].id)
     assert dup is True
@@ -38,9 +40,11 @@ async def test_find_duplicate_true(async_session):
 
 @pytest.mark.asyncio
 async def test_create_handoff_submission_flush_path(async_session):
-    recruiter = await create_recruiter(async_session, email="handoff-flush@test.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
-    cs = await create_candidate_session(async_session, simulation=sim)
+    talent_partner = await create_talent_partner(
+        async_session, email="handoff-flush@test.com"
+    )
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
+    cs = await create_candidate_session(async_session, trial=sim)
     task = tasks[0]
 
     created = await submissions_repo_impl.create_handoff_submission(

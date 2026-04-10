@@ -19,7 +19,7 @@ async def test_template_health_workflow_file_unreadable_other_error():
 
     response = await check_template_health(
         StubGithubClient(),
-        workflow_file="tenon-ci.yml",
+        workflow_file="winoe-ci.yml",
         mode="static",
         template_keys=[next(iter(TEMPLATE_CATALOG))],
     )

@@ -16,9 +16,11 @@ async def test_candidate_claim_rate_limited_in_prod(
         candidate_routes.rate_limit.RateLimitRule(limit=1, window_seconds=60.0)
     )
 
-    recruiter = await create_recruiter(async_session, email="claim-rate@test.com")
-    sim, _ = await create_simulation(async_session, created_by=recruiter)
-    cs = await create_candidate_session(async_session, simulation=sim)
+    talent_partner = await create_talent_partner(
+        async_session, email="claim-rate@test.com"
+    )
+    sim, _ = await create_trial(async_session, created_by=talent_partner)
+    cs = await create_candidate_session(async_session, trial=sim)
 
     first = await async_client.get(
         f"/api/candidate/session/{cs.token}",

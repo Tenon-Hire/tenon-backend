@@ -9,21 +9,21 @@ from app.shared.jobs.repositories.shared_jobs_repositories_models_repository imp
 from tests.shared.factories import (
     create_candidate_session,
     create_job,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 
 @pytest.mark.asyncio
 async def test_get_job_status_candidate_ownership(async_client, async_session):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="jobs-candidate-owner@test.com"
     )
-    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    sim, _ = await create_trial(async_session, created_by=talent_partner)
     cs = await create_candidate_session(
-        async_session, simulation=sim, invite_email="candidate-owner@test.com"
+        async_session, trial=sim, invite_email="candidate-owner@test.com"
     )
-    company = await async_session.get(Company, recruiter.company_id)
+    company = await async_session.get(Company, talent_partner.company_id)
     assert company is not None
     job = await create_job(
         async_session,
@@ -57,17 +57,17 @@ async def test_get_job_status_candidate_ownership(async_client, async_session):
 async def test_get_job_status_candidate_sub_mismatch_returns_404(
     async_client, async_session
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="jobs-candidate-sub-owner@test.com"
     )
-    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    sim, _ = await create_trial(async_session, created_by=talent_partner)
     cs = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         invite_email="candidate-sub-owner@test.com",
         candidate_auth0_sub="candidate-someone-else@test.com",
     )
-    company = await async_session.get(Company, recruiter.company_id)
+    company = await async_session.get(Company, talent_partner.company_id)
     assert company is not None
     job = await create_job(
         async_session,
@@ -92,21 +92,21 @@ async def test_get_job_status_candidate_sub_mismatch_returns_404(
 async def test_get_job_status_candidate_cannot_read_company_scoped_job(
     async_client, async_session
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="jobs-candidate-company-scope@test.com"
     )
-    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    sim, _ = await create_trial(async_session, created_by=talent_partner)
     cs = await create_candidate_session(
-        async_session, simulation=sim, invite_email="candidate-company-scope@test.com"
+        async_session, trial=sim, invite_email="candidate-company-scope@test.com"
     )
-    company = await async_session.get(Company, recruiter.company_id)
+    company = await async_session.get(Company, talent_partner.company_id)
     assert company is not None
     job = await create_job(
         async_session,
         company=company,
         status=JOB_STATUS_SUCCEEDED,
         job_type="scenario_generation",
-        payload_json={"simulationId": sim.id},
+        payload_json={"trialId": sim.id},
         result_json={"ok": True},
         candidate_session=None,
     )

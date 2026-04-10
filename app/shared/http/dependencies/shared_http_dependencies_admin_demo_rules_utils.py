@@ -40,7 +40,7 @@ def is_admin_claim(principal: Principal) -> bool:
     role_tokens.extend(_normalized_tokens(principal.roles))
     role_tokens.extend(_normalized_tokens(claims.get("role")))
     role_tokens.extend(_normalized_tokens(claims.get("roles")))
-    role_tokens.extend(_normalized_tokens(claims.get("tenon_roles")))
+    role_tokens.extend(_normalized_tokens(claims.get("winoe_roles")))
     role_tokens.extend(_normalized_tokens(claims.get(settings.auth.AUTH0_ROLES_CLAIM)))
     return "admin" in role_tokens
 
@@ -49,8 +49,8 @@ def _normalize_subject(value: str | None) -> str:
     return (value or "").strip()
 
 
-async def lookup_recruiter_id(db: AsyncSession, *, email: str) -> int | None:
-    """Look up recruiter id."""
+async def lookup_talent_partner_id(db: AsyncSession, *, email: str) -> int | None:
+    """Look up Talent Partner id."""
     normalized_email = _normalize_email(email)
     if not normalized_email:
         return None
@@ -83,25 +83,27 @@ def allowlist_contains_subject(subject: str) -> bool:
     return bool(normalized_subject and normalized_subject in allowed)
 
 
-def allowlist_contains_recruiter_id(recruiter_id: int | None) -> bool:
-    """Execute allowlist contains recruiter id."""
-    if recruiter_id is None:
+def allowlist_contains_talent_partner_id(talent_partner_id: int | None) -> bool:
+    """Execute allowlist contains Talent Partner id."""
+    if talent_partner_id is None:
         return False
-    return recruiter_id in set(settings.DEMO_ADMIN_ALLOWLIST_RECRUITER_IDS or [])
+    return talent_partner_id in set(
+        settings.DEMO_ADMIN_ALLOWLIST_TALENT_PARTNER_IDS or []
+    )
 
 
-def build_actor(principal: Principal, recruiter_id: int | None) -> DemoAdminActor:
+def build_actor(principal: Principal, talent_partner_id: int | None) -> DemoAdminActor:
     """Build actor."""
-    if recruiter_id is not None:
+    if talent_partner_id is not None:
         return DemoAdminActor(
             principal=principal,
-            actor_type="recruiter_admin",
-            actor_id=str(recruiter_id),
-            recruiter_id=recruiter_id,
+            actor_type="talent_partner_admin",
+            actor_id=str(talent_partner_id),
+            talent_partner_id=talent_partner_id,
         )
     return DemoAdminActor(
         principal=principal,
         actor_type="principal_admin",
         actor_id=_normalize_subject(principal.sub),
-        recruiter_id=None,
+        talent_partner_id=None,
     )

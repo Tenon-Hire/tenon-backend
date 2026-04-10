@@ -11,16 +11,16 @@ async def test_token_session_mismatch_rejected_403(
 ):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
 
-    recruiter_email = "recruiterA@tenon.com"
-    await seed_recruiter(
-        async_session, email=recruiter_email, company_name="Recruiter A"
+    talent_partner_email = "talent_partnerA@winoe.com"
+    await seed_talent_partner(
+        async_session, email=talent_partner_email, company_name="TalentPartner A"
     )
 
-    sim = await create_simulation(async_client, async_session, recruiter_email)
+    sim = await create_trial(async_client, async_session, talent_partner_email)
 
     email_a = "jane@example.com"
     invite_a = await invite_candidate(
-        async_client, sim["id"], recruiter_email, invite_email=email_a
+        async_client, sim["id"], talent_partner_email, invite_email=email_a
     )
     await claim_session(async_client, invite_a["token"], email_a)
     cs_id_a = invite_a["candidateSessionId"]
@@ -29,7 +29,7 @@ async def test_token_session_mismatch_rejected_403(
 
     email_b = "other@example.com"
     invite_b = await invite_candidate(
-        async_client, sim["id"], recruiter_email, invite_email=email_b
+        async_client, sim["id"], talent_partner_email, invite_email=email_b
     )
     await claim_session(async_client, invite_b["token"], email_b)
     cs_id_b = invite_b["candidateSessionId"]

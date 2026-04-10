@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import os
 
-os.environ.setdefault("TENON_ENV", "test")
-os.environ.setdefault("TENON_ADMIN_API_KEY", "test-admin-key")
+os.environ.setdefault("WINOE_ENV", "test")
+os.environ.setdefault("WINOE_ADMIN_API_KEY", "test-admin-key")
 
 pytest_plugins = [
     "tests.shared.fixtures.shared_fixtures_core_utils",

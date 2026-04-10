@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.shared.database.shared_database_models_model import (
     CandidateSession,
-    Simulation,
+    Trial,
 )
 
 from .shared_factories_candidate_session_helpers_utils import (
@@ -19,7 +19,7 @@ from .shared_factories_candidate_session_helpers_utils import (
 async def create_candidate_session(
     session: AsyncSession,
     *,
-    simulation: Simulation,
+    trial: Trial,
     candidate_name: str = "Jane Candidate",
     invite_email: str = "jane@example.com",
     status: str = "not_started",
@@ -52,7 +52,7 @@ async def create_candidate_session(
     )
     resolved_scenario_version_id = await _resolve_candidate_session_scenario_version_id(
         session,
-        simulation=simulation,
+        trial=trial,
         scenario_version_id=scenario_version_id,
     )
     consent_time = (
@@ -61,7 +61,7 @@ async def create_candidate_session(
         else None
     )
     cs = CandidateSession(
-        simulation_id=simulation.id,
+        trial_id=trial.id,
         scenario_version_id=resolved_scenario_version_id,
         candidate_user_id=None,
         candidate_name=candidate_name,

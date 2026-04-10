@@ -12,7 +12,7 @@ def env_name() -> str:
     configured = getattr(settings, "ENV", None)
     if configured:
         return str(configured).lower()
-    return str(os.getenv("TENON_ENV") or os.getenv("ENV") or "local").lower()
+    return str(os.getenv("WINOE_ENV") or os.getenv("ENV") or "local").lower()
 
 
 def is_local_or_test() -> bool:

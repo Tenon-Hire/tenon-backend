@@ -11,27 +11,27 @@ async def test_invite_resends_existing_active(
 ):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
 
-    await seed_recruiter(
+    await seed_talent_partner(
         async_session,
-        email="recruiterA@tenon.com",
-        company_name="Recruiter A Co",
+        email="talent_partnerA@winoe.com",
+        company_name="TalentPartner A Co",
     )
 
-    sim_id = await _create_and_activate_simulation(
-        async_client, async_session, "recruiterA@tenon.com"
+    sim_id = await _create_and_activate_trial(
+        async_client, async_session, "talent_partnerA@winoe.com"
     )
 
     first = await async_client.post(
-        f"/api/simulations/{sim_id}/invite",
-        headers={"x-dev-user-email": "recruiterA@tenon.com"},
+        f"/api/trials/{sim_id}/invite",
+        headers={"x-dev-user-email": "talent_partnerA@winoe.com"},
         json={"candidateName": "Jane Doe", "inviteEmail": "jane@example.com"},
     )
     assert first.status_code == 200
     first_body = first.json()
 
     second = await async_client.post(
-        f"/api/simulations/{sim_id}/invite",
-        headers={"x-dev-user-email": "recruiterA@tenon.com"},
+        f"/api/trials/{sim_id}/invite",
+        headers={"x-dev-user-email": "talent_partnerA@winoe.com"},
         json={"candidateName": "Jane Doe", "inviteEmail": "jane@example.com"},
     )
     assert second.status_code == 200
@@ -39,6 +39,6 @@ async def test_invite_resends_existing_active(
     assert second_body["candidateSessionId"] == first_body["candidateSessionId"]
     assert second_body["outcome"] == "resent"
 
-    stmt = select(CandidateSession).where(CandidateSession.simulation_id == sim_id)
+    stmt = select(CandidateSession).where(CandidateSession.trial_id == sim_id)
     rows = (await async_session.execute(stmt)).scalars().all()
     assert len(rows) == 1

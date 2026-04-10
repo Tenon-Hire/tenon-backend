@@ -13,28 +13,28 @@ async def test_delete_recording_forbidden_for_cross_company_candidate(
 ):
     company_a = await create_company(async_session, name="Delete Co A")
     company_b = await create_company(async_session, name="Delete Co B")
-    recruiter_a = await create_recruiter(
+    talent_partner_a = await create_talent_partner(
         async_session,
         email="privacy-delete-company-a@test.com",
         company=company_a,
     )
-    recruiter_b = await create_recruiter(
+    talent_partner_b = await create_talent_partner(
         async_session,
         email="privacy-delete-company-b@test.com",
         company=company_b,
     )
-    sim_a, tasks_a = await create_simulation(async_session, created_by=recruiter_a)
-    sim_b, _tasks_b = await create_simulation(async_session, created_by=recruiter_b)
+    sim_a, tasks_a = await create_trial(async_session, created_by=talent_partner_a)
+    sim_b, _tasks_b = await create_trial(async_session, created_by=talent_partner_b)
     task_a = _handoff_task(tasks_a)
     owner_session = await create_candidate_session(
         async_session,
-        simulation=sim_a,
+        trial=sim_a,
         invite_email="delete-cross-owner@test.com",
         status="in_progress",
     )
     other_company_session = await create_candidate_session(
         async_session,
-        simulation=sim_b,
+        trial=sim_b,
         invite_email="delete-cross-other@test.com",
         status="in_progress",
     )

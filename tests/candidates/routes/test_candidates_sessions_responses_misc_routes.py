@@ -8,15 +8,15 @@ from app.submissions.services.task_drafts import (
 )
 
 
-def test_resolve_simulation_summary_includes_content_sections_branch():
-    summary = cs_responses._resolve_simulation_summary(
+def test_resolve_trial_summary_includes_content_sections_branch():
+    summary = cs_responses._resolve_trial_summary(
         SimpleNamespace(
-            simulation=SimpleNamespace(id=1, title="Demo Simulation", role="Backend")
+            trial=SimpleNamespace(id=1, title="Demo Trial", role="Backend")
         ),
         include_content_sections=True,
     )
     assert summary.id == 1
-    assert summary.title == "Demo Simulation"
+    assert summary.title == "Demo Trial"
     assert summary.role == "Backend"
 
 

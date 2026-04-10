@@ -17,10 +17,10 @@ async def test_build_invite_item_uses_progress_snapshot_when_completed_ids_missi
     now = datetime(2026, 3, 26, 12, 0, tzinfo=UTC)
     candidate_session = SimpleNamespace(
         id=7,
-        simulation_id=19,
-        simulation=SimpleNamespace(
+        trial_id=19,
+        trial=SimpleNamespace(
             id=19,
-            title="Simulation",
+            title="Trial",
             role="Engineer",
             company=SimpleNamespace(name="Acme"),
         ),
@@ -32,7 +32,7 @@ async def test_build_invite_item_uses_progress_snapshot_when_completed_ids_missi
         status="in_progress",
     )
 
-    async def _tasks_loader(_simulation_id: int):
+    async def _tasks_loader(_trial_id: int):
         return [SimpleNamespace(id=1), SimpleNamespace(id=2), SimpleNamespace(id=3)]
 
     async def _progress_snapshot(_db, _candidate_session, *, tasks):
@@ -62,7 +62,7 @@ async def test_build_invite_item_uses_progress_snapshot_when_completed_ids_missi
     )
 
     assert item.candidateSessionId == 7
-    assert item.simulationId == 19
+    assert item.trialId == 19
     assert item.progress.completed == 2
     assert item.progress.total == 3
     assert item.companyName == "Acme"

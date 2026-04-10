@@ -11,11 +11,11 @@ async def test_resolve_company_id_queries_and_returns_int(async_session):
         async_session,
         "service-company-query@test.com",
     )
-    candidate_session.__dict__.pop("simulation", None)
+    candidate_session.__dict__.pop("trial", None)
 
     resolved = await _resolve_company_id(
         async_session,
         candidate_session=candidate_session,
-        simulation_id=task.simulation_id,
+        trial_id=task.trial_id,
     )
     assert isinstance(resolved, int)

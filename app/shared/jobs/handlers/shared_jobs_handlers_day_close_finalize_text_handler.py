@@ -73,7 +73,7 @@ async def handle_day_close_finalize_text(
                 "dayIndex": day_index,
             }
         task = await _load_task_for_session(
-            db, task_id=task_id, simulation_id=candidate_session.simulation_id
+            db, task_id=task_id, trial_id=candidate_session.trial_id
         )
         if task is None:
             return {

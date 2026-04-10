@@ -72,7 +72,7 @@ async def test_get_current_task_marks_completed(monkeypatch):
         id=2,
         status="in_progress",
         completed_at=None,
-        simulation_id=1,
+        trial_id=1,
     )
     current_task = SimpleNamespace(
         id=99, day_index=3, title="Task", type="code", description="desc"

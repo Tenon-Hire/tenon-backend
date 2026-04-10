@@ -9,11 +9,9 @@ from tests.submissions.services.test_submissions_candidate_service_utils import 
 async def test_ensure_workspace_existing_and_missing_template(
     monkeypatch, async_session
 ):
-    recruiter = await create_recruiter(async_session, email="exist@sim.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
-    cs = await create_candidate_session(
-        async_session, simulation=sim, status="in_progress"
-    )
+    talent_partner = await create_talent_partner(async_session, email="exist@sim.com")
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
+    cs = await create_candidate_session(async_session, trial=sim, status="in_progress")
     now = datetime.now(UTC)
     existing = await workspace_repo.create_workspace(
         async_session,
@@ -51,9 +49,7 @@ async def test_ensure_workspace_existing_and_missing_template(
     assert ws.id == existing.id
     assert stub.invites == [("org/existing", "octocat")]
 
-    bad_task = SimpleNamespace(
-        id=99, template_repo=" ", simulation_id=sim.id, type="code"
-    )
+    bad_task = SimpleNamespace(id=99, template_repo=" ", trial_id=sim.id, type="code")
     with pytest.raises(HTTPException):
         await svc.ensure_workspace(
             async_session,

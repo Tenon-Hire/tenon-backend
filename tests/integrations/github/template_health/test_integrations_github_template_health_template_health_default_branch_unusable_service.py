@@ -22,7 +22,7 @@ async def test_template_health_default_branch_unusable():
     template_key = next(iter(TEMPLATE_CATALOG))
     response = await check_template_health(
         StubGithubClient(),
-        workflow_file="tenon-ci.yml",
+        workflow_file="winoe-ci.yml",
         mode="static",
         template_keys=[template_key],
     )

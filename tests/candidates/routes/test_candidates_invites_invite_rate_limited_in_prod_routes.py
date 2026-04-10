@@ -19,26 +19,26 @@ async def test_invite_rate_limited_in_prod(
         limit=1, window_seconds=60.0
     )
 
-    await seed_recruiter(
+    await seed_talent_partner(
         async_session,
-        email="recruiter-rate@tenon.com",
-        company_name="Recruiter Rate Co",
+        email="talent_partner-rate@winoe.com",
+        company_name="TalentPartner Rate Co",
     )
 
-    sim_id = await _create_and_activate_simulation(
-        async_client, async_session, "recruiter-rate@tenon.com"
+    sim_id = await _create_and_activate_trial(
+        async_client, async_session, "talent_partner-rate@winoe.com"
     )
 
     first = await async_client.post(
-        f"/api/simulations/{sim_id}/invite",
-        headers={"x-dev-user-email": "recruiter-rate@tenon.com"},
+        f"/api/trials/{sim_id}/invite",
+        headers={"x-dev-user-email": "talent_partner-rate@winoe.com"},
         json={"candidateName": "Jane Doe", "inviteEmail": "jane@example.com"},
     )
     assert first.status_code == 200, first.text
 
     second = await async_client.post(
-        f"/api/simulations/{sim_id}/invite",
-        headers={"x-dev-user-email": "recruiter-rate@tenon.com"},
+        f"/api/trials/{sim_id}/invite",
+        headers={"x-dev-user-email": "talent_partner-rate@winoe.com"},
         json={"candidateName": "Jane Doe", "inviteEmail": "jane@example.com"},
     )
     assert second.status_code == 429

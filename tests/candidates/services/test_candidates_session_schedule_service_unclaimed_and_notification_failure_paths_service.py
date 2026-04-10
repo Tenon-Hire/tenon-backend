@@ -9,13 +9,13 @@ from tests.candidates.services.candidates_session_schedule_service_utils import 
 async def test_schedule_candidate_session_unclaimed_and_notification_failure_paths(
     async_session, monkeypatch
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="schedule-service-errors@test.com"
     )
-    simulation, _tasks = await create_simulation(async_session, created_by=recruiter)
+    trial, _tasks = await create_trial(async_session, created_by=talent_partner)
     claimed = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         invite_email="claimed-errors@test.com",
         status="in_progress",
         candidate_auth0_sub="candidate-claimed-errors@test.com",
@@ -23,7 +23,7 @@ async def test_schedule_candidate_session_unclaimed_and_notification_failure_pat
     )
     unclaimed = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         invite_email="unclaimed-errors@test.com",
     )
     await async_session.commit()
@@ -49,8 +49,8 @@ async def test_schedule_candidate_session_unclaimed_and_notification_failure_pat
     assert unclaimed_exc.value.status_code == status.HTTP_403_FORBIDDEN
     assert unclaimed_exc.value.error_code == "SCHEDULE_NOT_CLAIMED"
 
-    simulation.day_window_start_local = time(hour=9, minute=0)
-    simulation.day_window_end_local = time(hour=17, minute=0)
+    trial.day_window_start_local = time(hour=9, minute=0)
+    trial.day_window_end_local = time(hour=17, minute=0)
     claimed.schedule_locked_at = None
     claimed.scheduled_start_at = None
     claimed.candidate_timezone = None

@@ -4,18 +4,27 @@ from __future__ import annotations
 
 import sqlalchemy as sa
 
-from .constants import (
-    SIMULATION_ACTIVE_SCENARIO_REQUIRED_CHECK_EXPR,
-    SIMULATION_ACTIVE_SCENARIO_REQUIRED_CHECK_NAME,
+from app.core.db.migrations.shared_trial_schema_compat import (
+    resolve_trial_parent_table_name,
 )
+
+from .constants import (
+    TRIAL_ACTIVE_SCENARIO_REQUIRED_CHECK_EXPR,
+    TRIAL_ACTIVE_SCENARIO_REQUIRED_CHECK_NAME,
+)
+
+
+def _parent_table_name(op: object) -> str:
+    return resolve_trial_parent_table_name(op.get_bind())
 
 
 def create_schema(op: object) -> None:
     """Create schema."""
+    parent_table_name = _parent_table_name(op)
     op.create_table(
         "scenario_versions",
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("simulation_id", sa.Integer(), nullable=False),
+        sa.Column("trial_id", sa.Integer(), nullable=False),
         sa.Column("version_index", sa.Integer(), nullable=False),
         sa.Column("status", sa.String(length=50), nullable=False),
         sa.Column("storyline_md", sa.Text(), nullable=False),
@@ -36,27 +45,27 @@ def create_schema(op: object) -> None:
         sa.CheckConstraint(
             "status IN ('draft','ready','locked')", name="ck_scenario_versions_status"
         ),
-        sa.ForeignKeyConstraint(["simulation_id"], ["simulations.id"]),
+        sa.ForeignKeyConstraint(["trial_id"], [f"{parent_table_name}.id"]),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
-            "simulation_id",
+            "trial_id",
             "version_index",
-            name="uq_scenario_versions_simulation_version_index",
+            name="uq_scenario_versions_trial_version_index",
         ),
     )
     op.create_index(
-        "ix_scenario_versions_simulation_id",
+        "ix_scenario_versions_trial_id",
         "scenario_versions",
-        ["simulation_id"],
+        ["trial_id"],
         unique=False,
     )
     op.add_column(
-        "simulations",
+        parent_table_name,
         sa.Column("active_scenario_version_id", sa.Integer(), nullable=True),
     )
     op.create_foreign_key(
-        "fk_simulations_active_scenario_version_id",
-        "simulations",
+        "fk_trials_active_scenario_version_id",
+        parent_table_name,
         "scenario_versions",
         ["active_scenario_version_id"],
         ["id"],
@@ -82,6 +91,7 @@ def create_schema(op: object) -> None:
 
 def finalize_upgrade(op: object) -> None:
     """Execute finalize upgrade."""
+    parent_table_name = _parent_table_name(op)
     op.alter_column(
         "candidate_sessions",
         "scenario_version_id",
@@ -89,16 +99,19 @@ def finalize_upgrade(op: object) -> None:
         nullable=False,
     )
     op.create_check_constraint(
-        SIMULATION_ACTIVE_SCENARIO_REQUIRED_CHECK_NAME,
-        "simulations",
-        SIMULATION_ACTIVE_SCENARIO_REQUIRED_CHECK_EXPR,
+        TRIAL_ACTIVE_SCENARIO_REQUIRED_CHECK_NAME,
+        parent_table_name,
+        TRIAL_ACTIVE_SCENARIO_REQUIRED_CHECK_EXPR,
     )
 
 
 def run_downgrade_schema(op: object) -> None:
     """Run downgrade schema."""
+    parent_table_name = _parent_table_name(op)
     op.drop_constraint(
-        SIMULATION_ACTIVE_SCENARIO_REQUIRED_CHECK_NAME, "simulations", type_="check"
+        TRIAL_ACTIVE_SCENARIO_REQUIRED_CHECK_NAME,
+        parent_table_name,
+        type_="check",
     )
     op.alter_column(
         "candidate_sessions",
@@ -116,8 +129,10 @@ def run_downgrade_schema(op: object) -> None:
     )
     op.drop_column("candidate_sessions", "scenario_version_id")
     op.drop_constraint(
-        "fk_simulations_active_scenario_version_id", "simulations", type_="foreignkey"
+        "fk_trials_active_scenario_version_id",
+        parent_table_name,
+        type_="foreignkey",
     )
-    op.drop_column("simulations", "active_scenario_version_id")
-    op.drop_index("ix_scenario_versions_simulation_id", table_name="scenario_versions")
+    op.drop_column(parent_table_name, "active_scenario_version_id")
+    op.drop_index("ix_scenario_versions_trial_id", table_name="scenario_versions")
     op.drop_table("scenario_versions")

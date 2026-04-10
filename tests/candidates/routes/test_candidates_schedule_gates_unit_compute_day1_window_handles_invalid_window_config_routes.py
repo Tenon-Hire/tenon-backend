@@ -8,7 +8,7 @@ def test_compute_day1_window_handles_invalid_window_config() -> None:
     candidate_session = SimpleNamespace(
         day_windows_json=None,
         scheduled_start_at=scheduled_start,
-        simulation=_simulation(start=time(hour=17), end=time(hour=9)),
+        trial=_trial(start=time(hour=17), end=time(hour=9)),
         candidate_timezone="America/New_York",
     )
 

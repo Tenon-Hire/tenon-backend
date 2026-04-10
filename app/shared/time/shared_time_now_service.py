@@ -6,7 +6,7 @@ import os
 from datetime import UTC, datetime
 
 _TEST_NOW_ENV_KEYS = (
-    "TENON_TEST_NOW_UTC",
+    "WINOE_TEST_NOW_UTC",
     "CONTRACT_LIVE_FAKE_TIME_UTC",
     "CONTRACT_LIVE_FAKE_TIME",
 )

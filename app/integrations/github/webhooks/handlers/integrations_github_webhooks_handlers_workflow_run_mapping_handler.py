@@ -11,8 +11,8 @@ from app.integrations.github.webhooks.handlers.integrations_github_webhooks_hand
 )
 from app.shared.database.shared_database_models_model import (
     CandidateSession,
-    Simulation,
     Submission,
+    Trial,
     Workspace,
 )
 
@@ -84,8 +84,8 @@ async def company_id_for_submission(
 ) -> int | None:
     """Execute company id for submission."""
     stmt = (
-        select(Simulation.company_id)
-        .join(CandidateSession, CandidateSession.simulation_id == Simulation.id)
+        select(Trial.company_id)
+        .join(CandidateSession, CandidateSession.trial_id == Trial.id)
         .where(CandidateSession.id == submission.candidate_session_id)
     )
     return (await db.execute(stmt)).scalar_one_or_none()

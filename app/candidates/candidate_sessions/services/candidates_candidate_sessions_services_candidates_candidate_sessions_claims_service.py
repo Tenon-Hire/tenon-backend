@@ -39,5 +39,5 @@ async def claim_invite_with_principal(
             changed = True
     if changed:
         await db.commit()
-        await db.refresh(cs, attribute_names=["simulation", "scenario_version"])
+        await db.refresh(cs, attribute_names=["trial", "scenario_version"])
     return cs

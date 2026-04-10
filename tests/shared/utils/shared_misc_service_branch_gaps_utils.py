@@ -5,10 +5,10 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 from app.evaluations.services import (
-    evaluations_services_evaluations_fit_profile_composer_service as fit_profile_composer,
+    evaluations_services_evaluations_runs_service as evaluation_runs,
 )
 from app.evaluations.services import (
-    evaluations_services_evaluations_runs_service as evaluation_runs,
+    evaluations_services_evaluations_winoe_report_composer_service as winoe_report_composer,
 )
 from app.integrations.email.email_provider.integrations_email_email_provider_base_client import (
     EmailSendError,
@@ -18,17 +18,17 @@ from app.media.services import media_services_media_privacy_service as media_pri
 from app.notifications.services.notifications_services_notifications_email_sender_service import (
     EmailSender,
 )
-from app.simulations.services import (
-    simulations_services_simulations_candidates_compare_formatting_service as candidates_compare,
+from app.trials.services import (
+    trials_services_trials_candidates_compare_formatting_service as candidates_compare,
 )
-from app.simulations.services import (
-    simulations_services_simulations_invite_factory_service as invite_factory,
+from app.trials.services import (
+    trials_services_trials_invite_factory_service as invite_factory,
 )
-from app.simulations.services import (
-    simulations_services_simulations_scenario_payload_builder_service as scenario_payload_builder,
+from app.trials.services import (
+    trials_services_trials_scenario_payload_builder_service as scenario_payload_builder,
 )
-from app.simulations.services import (
-    simulations_services_simulations_update_service as simulations_update,
+from app.trials.services import (
+    trials_services_trials_update_service as trials_update,
 )
 
 if not hasattr(candidates_compare, "_display_name"):  # compat for older test helpers

@@ -25,17 +25,17 @@ def _load_or_derive_day_windows_impl(
     scheduled_start_at = normalize_optional_datetime(
         getattr(candidate_session, "scheduled_start_at", None)
     )
-    simulation = getattr(candidate_session, "simulation", None)
+    trial = getattr(candidate_session, "trial", None)
     candidate_timezone = (
         getattr(candidate_session, "candidate_timezone", None) or ""
     ).strip()
-    if scheduled_start_at is None or simulation is None or not candidate_timezone:
+    if scheduled_start_at is None or trial is None or not candidate_timezone:
         return []
     window_start_local = (
-        getattr(simulation, "day_window_start_local", None) or default_window_start
+        getattr(trial, "day_window_start_local", None) or default_window_start
     )
     window_end_local = (
-        getattr(simulation, "day_window_end_local", None) or default_window_end
+        getattr(trial, "day_window_end_local", None) or default_window_end
     )
     try:
         return derive_windows(
@@ -43,9 +43,9 @@ def _load_or_derive_day_windows_impl(
             candidate_tz=candidate_timezone,
             day_window_start_local=window_start_local,
             day_window_end_local=window_end_local,
-            overrides=getattr(simulation, "day_window_overrides_json", None),
+            overrides=getattr(trial, "day_window_overrides_json", None),
             overrides_enabled=bool(
-                getattr(simulation, "day_window_overrides_enabled", False)
+                getattr(trial, "day_window_overrides_enabled", False)
             ),
             total_days=max(1, minimum_total_days),
         )

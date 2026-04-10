@@ -10,7 +10,7 @@ def test_parse_test_results_prefers_json():
     buf = io.BytesIO()
     with ZipFile(buf, "w") as zf:
         zf.writestr(
-            "tenon-test-results.json",
+            "winoe-test-results.json",
             '{"passed":2,"failed":1,"total":3,"stdout":"ok","stderr":""}',
         )
     parsed = parse_test_results_zip(buf.getvalue())
@@ -24,7 +24,7 @@ def test_parse_test_results_prefers_json():
 def test_parse_test_results_handles_malformed_json_gracefully():
     buf = io.BytesIO()
     with ZipFile(buf, "w") as zf:
-        zf.writestr("tenon-test-results.json", "{not-json")
+        zf.writestr("winoe-test-results.json", "{not-json")
     assert parse_test_results_zip(buf.getvalue()) is None
 
 

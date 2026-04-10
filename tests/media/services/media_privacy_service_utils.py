@@ -28,8 +28,8 @@ from app.media.services.media_services_media_privacy_service import (
 )
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 

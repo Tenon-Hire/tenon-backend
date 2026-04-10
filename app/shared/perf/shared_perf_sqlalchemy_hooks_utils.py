@@ -40,9 +40,9 @@ def register_listeners(engine, *, event_impl=sa_event, perf_ctx, perf_module):
     ):
         if not perf_module.perf_logging_enabled():
             return
-        context._tenon_perf_start = time.perf_counter()
+        context._winoe_perf_start = time.perf_counter()
         if perf_module.perf_sql_fingerprints_enabled():
-            context._tenon_perf_statement = _statement
+            context._winoe_perf_statement = _statement
 
     @event_impl.listens_for(sync_engine, "after_cursor_execute")
     def after_cursor_execute(
@@ -50,7 +50,7 @@ def register_listeners(engine, *, event_impl=sa_event, perf_ctx, perf_module):
     ):
         if not perf_module.perf_logging_enabled():
             return
-        start = getattr(context, "_tenon_perf_start", None)
+        start = getattr(context, "_winoe_perf_start", None)
         if start is None:
             return
         stats = perf_ctx.get()
@@ -61,7 +61,7 @@ def register_listeners(engine, *, event_impl=sa_event, perf_ctx, perf_module):
         stats.db_time_ms += elapsed_ms
         if not perf_module.perf_sql_fingerprints_enabled():
             return
-        statement = getattr(context, "_tenon_perf_statement", None)
+        statement = getattr(context, "_winoe_perf_statement", None)
         fingerprint = normalize_sql_statement(statement)
         stats.record_sql(fingerprint, elapsed_ms)
 

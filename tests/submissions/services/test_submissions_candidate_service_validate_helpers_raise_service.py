@@ -6,8 +6,8 @@ from tests.submissions.services.test_submissions_candidate_service_utils import 
 
 
 def test_validate_helpers_raise():
-    cs = SimpleNamespace(simulation_id=1)
-    task = SimpleNamespace(id=2, simulation_id=2)
+    cs = SimpleNamespace(trial_id=1)
+    task = SimpleNamespace(id=2, trial_id=2)
     with pytest.raises(HTTPException):
         svc.ensure_task_belongs(task, cs)
 

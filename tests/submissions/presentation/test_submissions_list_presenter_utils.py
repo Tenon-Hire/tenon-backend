@@ -40,7 +40,7 @@ def test_present_list_item_commit_url_fallback_and_test_result_link_enrichment(
         return {"status": "passed"}
 
     monkeypatch.setattr(
-        presenter.recruiter_sub_service,
+        presenter.talent_partner_sub_service,
         "parse_test_output",
         lambda _output: {"status": "ok"},
     )
@@ -72,7 +72,7 @@ def test_present_list_item_commit_url_fallback_and_test_result_link_enrichment(
 
 def test_present_list_item_does_not_overwrite_existing_result_links(monkeypatch):
     monkeypatch.setattr(
-        presenter.recruiter_sub_service,
+        presenter.talent_partner_sub_service,
         "parse_test_output",
         lambda _output: {"status": "ok"},
     )

@@ -1,14 +1,14 @@
 # AI Evaluation and Jobs Integration
 
-This document describes how fit-profile generation uses durable jobs and evaluation services.
+This document describes how winoe-report generation uses durable jobs and evaluation services.
 
 ## Entry Points
 
-- API trigger: `POST /api/candidate_sessions/{candidate_session_id}/fit_profile/generate`
-  - route: `app/evaluations/routes/evaluations_routes_evaluations_fit_profile_routes.py`
-  - service: `generate_fit_profile` in `app/evaluations/services/evaluations_services_evaluations_fit_profile_api_service.py`
-- API status/read: `GET /api/candidate_sessions/{candidate_session_id}/fit_profile`
-  - service: `fetch_fit_profile` in the same module
+- API trigger: `POST /api/candidate_sessions/{candidate_session_id}/winoe_report/generate`
+  - route: `app/evaluations/routes/evaluations_routes_evaluations_winoe_report_routes.py`
+  - service: `generate_winoe_report` in `app/evaluations/services/evaluations_services_evaluations_winoe_report_api_service.py`
+- API status/read: `GET /api/candidate_sessions/{candidate_session_id}/winoe_report`
+  - service: `fetch_winoe_report` in the same module
 
 ## Job Enqueue Path
 
@@ -20,19 +20,19 @@ This document describes how fit-profile generation uses durable jobs and evaluat
 ## Worker Processing Path
 
 - Worker handler: `handle_evaluation_run` in `app/shared/jobs/handlers/shared_jobs_handlers_evaluation_run_handler.py`.
-- Handler delegates to: `fit_profile_pipeline.process_evaluation_run_job(payload_json)`.
+- Handler delegates to: `winoe_report_pipeline.process_evaluation_run_job(payload_json)`.
 - Failure behavior: if pipeline returns `status=failed`, handler raises permanent job error.
 
 ## Persistence Outputs
 
 - `evaluation_runs` stores run lifecycle, model metadata, basis fingerprint, and final report fields.
 - `evaluation_day_scores` stores per-day score/rubric/evidence payloads.
-- `fit_profiles` stores generated marker rows per candidate session.
+- `winoe_reports` stores generated marker rows per candidate session.
 - `jobs` tracks queue/runtime state and serialized payload/result/error for polling/debugging.
 
 ## Read Model Behavior
 
-`fetch_fit_profile(...)` resolves recruiter/company access and returns:
+`fetch_winoe_report(...)` resolves talent_partner/company access and returns:
 
 - `ready`: latest successful run composed into response payload.
 - `running`: no successful run yet but active job exists.
@@ -41,13 +41,13 @@ This document describes how fit-profile generation uses durable jobs and evaluat
 
 ## Access and Safety Controls
 
-- Recruiter/company ownership enforcement via candidate-session evaluation context lookup.
+- Talent Partner/company ownership enforcement via candidate-session evaluation context lookup.
 - Candidate session not found -> 404.
 - Unauthorized company access -> 403.
 - Job payload includes candidate/company/requesting user IDs for auditability.
 
 ## Operational Notes
 
-- Evaluation jobs are asynchronous by default; clients should poll fit-profile status endpoint.
+- Evaluation jobs are asynchronous by default; clients should poll winoe-report status endpoint.
 - Worker registration must include the `evaluation_run` job handler.
 - Downstream evaluator and composition services are modularized under `app/evaluations/services/*` for deterministic unit testing.

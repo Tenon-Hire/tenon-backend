@@ -18,7 +18,7 @@ def test_compute_day1_window_falls_back_to_first_sorted_window() -> None:
             },
         ],
         scheduled_start_at=None,
-        simulation=None,
+        trial=None,
         candidate_timezone=None,
     )
 

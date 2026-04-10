@@ -9,11 +9,13 @@ from tests.tasks.routes.test_tasks_api_submit_utils import *
 async def test_submit_code_task_persists_actions_results(
     async_client, async_session, candidate_header_factory, actions_stubber
 ):
-    recruiter = await create_recruiter(async_session, email="code-submit@sim.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="code-submit@sim.com"
+    )
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     cs = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         status="in_progress",
         with_default_schedule=True,
     )
@@ -73,7 +75,7 @@ async def test_submit_code_task_persists_actions_results(
 
     detail = await async_client.get(
         f"/api/submissions/{sub.id}",
-        headers={"x-dev-user-email": recruiter.email},
+        headers={"x-dev-user-email": talent_partner.email},
     )
     assert detail.status_code == 200, detail.text
     detail_body = detail.json()

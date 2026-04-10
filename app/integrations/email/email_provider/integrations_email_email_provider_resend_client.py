@@ -15,7 +15,7 @@ class ResendEmailProvider:
 
     def __init__(self, api_key: str, *, sender: str, transport=None):
         if not api_key:
-            raise ValueError("TENON_RESEND_API_KEY is required for Resend provider")
+            raise ValueError("WINOE_RESEND_API_KEY is required for Resend provider")
         self.api_key = api_key
         self.sender = sender
         self.transport = transport

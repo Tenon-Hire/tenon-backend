@@ -8,11 +8,13 @@ from tests.evaluations.repositories.evaluations_runs_repository_utils import *
 @pytest.mark.asyncio
 async def test_get_run_by_job_id_filters_by_session_and_for_update(async_session):
     candidate_session = await _seed_candidate_session(async_session)
-    recruiter = await create_recruiter(async_session, email="eval-repo-jobid@test.com")
-    simulation, _ = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="eval-repo-jobid@test.com"
+    )
+    trial, _ = await create_trial(async_session, created_by=talent_partner)
     other_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         status="completed",
     )
     await async_session.commit()

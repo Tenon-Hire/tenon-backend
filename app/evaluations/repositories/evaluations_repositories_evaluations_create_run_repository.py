@@ -40,7 +40,7 @@ async def create_run(
     transcript_reference: str,
     job_id: str | None = None,
     basis_fingerprint: str | None = None,
-    overall_fit_score: float | None = None,
+    overall_winoe_score: float | None = None,
     recommendation: str | None = None,
     confidence: float | None = None,
     generated_at: datetime | None = None,
@@ -84,8 +84,8 @@ async def create_run(
         basis_fingerprint=normalize_optional_non_empty_str(
             basis_fingerprint, field_name="basis_fingerprint"
         ),
-        overall_fit_score=coerce_unit_interval_score(
-            overall_fit_score, field_name="overall_fit_score"
+        overall_winoe_score=coerce_unit_interval_score(
+            overall_winoe_score, field_name="overall_winoe_score"
         ),
         recommendation=coerce_recommendation(recommendation),
         confidence=coerce_unit_interval_score(confidence, field_name="confidence"),

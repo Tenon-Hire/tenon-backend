@@ -12,9 +12,9 @@ from app.submissions.repositories.github_native.workspaces.submissions_repositor
 )
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
     create_submission,
+    create_talent_partner,
+    create_trial,
 )
 
 

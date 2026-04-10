@@ -7,10 +7,12 @@ from tests.media.services.media_privacy_service_utils import *
 
 @pytest.mark.asyncio
 async def test_delete_recording_asset_soft_deletes_and_hides_transcript(async_session):
-    recruiter = await create_recruiter(async_session, email="privacy-delete@test.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="privacy-delete@test.com"
+    )
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     task = _handoff_task(tasks)
-    candidate_session = await create_candidate_session(async_session, simulation=sim)
+    candidate_session = await create_candidate_session(async_session, trial=sim)
 
     recording = await recordings_repo.create_recording_asset(
         async_session,

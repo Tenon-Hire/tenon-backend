@@ -12,21 +12,21 @@ async def test_submission_detail_route_denies_other_company_before_media_signing
 ):
     owner_company = await create_company(async_session, name="Owner Co")
     other_company = await create_company(async_session, name="Other Co")
-    owner = await create_recruiter(
+    owner = await create_talent_partner(
         async_session,
         email="detail-route-owner@test.com",
         company=owner_company,
     )
-    outsider = await create_recruiter(
+    outsider = await create_talent_partner(
         async_session,
         email="detail-route-outsider@test.com",
         company=other_company,
     )
-    sim, tasks = await create_simulation(async_session, created_by=owner)
+    sim, tasks = await create_trial(async_session, created_by=owner)
     task = _handoff_task(tasks)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         status="in_progress",
     )
     submission = await create_submission(

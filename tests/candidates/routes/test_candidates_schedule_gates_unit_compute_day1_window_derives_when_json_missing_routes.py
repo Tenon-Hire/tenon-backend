@@ -8,7 +8,7 @@ def test_compute_day1_window_derives_when_json_missing() -> None:
     candidate_session = SimpleNamespace(
         day_windows_json=None,
         scheduled_start_at=scheduled_start,
-        simulation=_simulation(),
+        trial=_trial(),
         candidate_timezone="America/New_York",
     )
 

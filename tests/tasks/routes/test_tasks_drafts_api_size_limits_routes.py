@@ -4,8 +4,8 @@ import pytest
 
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 
@@ -13,10 +13,12 @@ from tests.shared.factories import (
 async def test_put_task_draft_rejects_oversized_content_text(
     async_client, async_session, candidate_header_factory
 ):
-    recruiter = await create_recruiter(async_session, email="draft-size-text@test.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="draft-size-text@test.com"
+    )
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
-        async_session, simulation=sim, status="in_progress", with_default_schedule=True
+        async_session, trial=sim, status="in_progress", with_default_schedule=True
     )
     await async_session.commit()
     oversized_text = "x" * (200 * 1024 + 1)
@@ -35,10 +37,12 @@ async def test_put_task_draft_rejects_oversized_content_text(
 async def test_put_task_draft_rejects_oversized_content_json(
     async_client, async_session, candidate_header_factory
 ):
-    recruiter = await create_recruiter(async_session, email="draft-size-json@test.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="draft-size-json@test.com"
+    )
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
-        async_session, simulation=sim, status="in_progress", with_default_schedule=True
+        async_session, trial=sim, status="in_progress", with_default_schedule=True
     )
     await async_session.commit()
     oversized_json = {"blob": "y" * (200 * 1024 + 128)}

@@ -14,4 +14,4 @@ class DemoAdminActor:
     principal: Principal
     actor_type: str
     actor_id: str
-    recruiter_id: int | None
+    talent_partner_id: int | None

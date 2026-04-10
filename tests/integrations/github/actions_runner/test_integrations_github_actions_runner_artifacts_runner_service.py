@@ -59,14 +59,14 @@ def test_is_dispatched_run_filters_event_and_created_at():
 async def test_parse_artifacts_prefers_named():
     preferred_buf = io.BytesIO()
     with ZipFile(preferred_buf, "w") as zf:
-        zf.writestr("tenon-test-results.json", '{"passed":5,"failed":1,"total":6}')
+        zf.writestr("winoe-test-results.json", '{"passed":5,"failed":1,"total":6}')
     other_buf = io.BytesIO()
     with ZipFile(other_buf, "w") as zf:
         zf.writestr("other.json", '{"passed":1,"failed":0,"total":1}')
     client = StubClient(
         artifacts=[
             {"id": 1, "name": "unrelated"},
-            {"id": 2, "name": "tenon-test-results"},
+            {"id": 2, "name": "winoe-test-results"},
         ],
         contents={1: other_buf.getvalue(), 2: preferred_buf.getvalue()},
     )
@@ -83,9 +83,9 @@ async def test_parse_artifacts_prefers_named():
 async def test_parse_artifacts_skips_expired():
     buf = io.BytesIO()
     with ZipFile(buf, "w") as zf:
-        zf.writestr("tenon-test-results.json", '{"passed":2,"failed":0,"total":2}')
+        zf.writestr("winoe-test-results.json", '{"passed":2,"failed":0,"total":2}')
     client = StubClient(
-        artifacts=[{"id": 1, "name": "tenon-test-results", "expired": True}],
+        artifacts=[{"id": 1, "name": "winoe-test-results", "expired": True}],
         contents={1: buf.getvalue()},
     )
     runner = GithubActionsRunner(client, workflow_file="ci.yml")
@@ -97,7 +97,7 @@ async def test_parse_artifacts_skips_expired():
 @pytest.mark.asyncio
 async def test_parse_artifacts_handles_bad_zip_without_crashing():
     client = StubClient(
-        artifacts=[{"id": 1, "name": "tenon-test-results"}],
+        artifacts=[{"id": 1, "name": "winoe-test-results"}],
         contents={1: b"this-is-not-a-zip"},
     )
     runner = GithubActionsRunner(client, workflow_file="ci.yml")

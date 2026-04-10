@@ -40,7 +40,7 @@ async def _process_cleanup_target(
 ) -> None:
     record = target.record
     candidate_session = target.candidate_session
-    simulation = target.simulation
+    trial = target.trial
     record.cleanup_attempted_at = now
     record.retention_expires_at = _retention_expires_at(
         _retention_anchor(record, candidate_session),
@@ -65,7 +65,7 @@ async def _process_cleanup_target(
             return
 
         if not _retention_cleanup_eligible(
-            candidate_session=candidate_session, simulation=simulation
+            candidate_session=candidate_session, trial=trial
         ):
             await _mark_pending_active(db=db, summary=summary, record=record)
             return

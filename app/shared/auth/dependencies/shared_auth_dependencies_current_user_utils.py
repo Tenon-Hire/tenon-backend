@@ -22,7 +22,7 @@ async def _resolve_current_user(
     db: Annotated[AsyncSession, Depends(get_session)],
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
     *,
-    require_recruiter: bool,
+    require_talent_partner: bool,
 ) -> User:
     """Resolve the current user via dev bypass (local/test) or Auth0 JWT."""
     dep_module = sys.modules.get("app.shared.auth.dependencies")
@@ -34,10 +34,10 @@ async def _resolve_current_user(
         return dev_user
 
     principal = await get_principal(credentials, request)
-    if require_recruiter and "recruiter:access" not in principal.permissions:
+    if require_talent_partner and "talent_partner:access" not in principal.permissions:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Recruiter access required",
+            detail="Talent Partner access required",
         )
 
     return await user_loader(principal, db)
@@ -48,8 +48,10 @@ async def get_current_user(
     db: Annotated[AsyncSession, Depends(get_session)],
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
 ) -> User:
-    """Return the current recruiter-facing user."""
-    return await _resolve_current_user(request, db, credentials, require_recruiter=True)
+    """Return the current Talent Partner-facing user."""
+    return await _resolve_current_user(
+        request, db, credentials, require_talent_partner=True
+    )
 
 
 async def get_authenticated_user(
@@ -57,7 +59,7 @@ async def get_authenticated_user(
     db: Annotated[AsyncSession, Depends(get_session)],
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
 ) -> User:
-    """Return any authenticated user (recruiter or candidate)."""
+    """Return any authenticated user (Talent Partner or candidate)."""
     return await _resolve_current_user(
-        request, db, credentials, require_recruiter=False
+        request, db, credentials, require_talent_partner=False
     )

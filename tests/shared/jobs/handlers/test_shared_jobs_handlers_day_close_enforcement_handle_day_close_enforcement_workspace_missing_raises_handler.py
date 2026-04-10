@@ -10,14 +10,14 @@ async def test_handle_day_close_enforcement_workspace_missing_raises(
     async_session,
     monkeypatch,
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="workspace-missing@test.com"
     )
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     day2_task = next(task for task in tasks if task.day_index == 2)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         status="in_progress",
         with_default_schedule=True,
     )

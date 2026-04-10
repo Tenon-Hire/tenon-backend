@@ -7,13 +7,13 @@ from tests.candidates.services.candidates_session_schedule_service_utils import 
 
 @pytest.mark.asyncio
 async def test_schedule_candidate_session_validation_errors(async_session):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="schedule-service-errors@test.com"
     )
-    simulation, _tasks = await create_simulation(async_session, created_by=recruiter)
+    trial, _tasks = await create_trial(async_session, created_by=talent_partner)
     claimed = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         invite_email="claimed-errors@test.com",
         status="in_progress",
         candidate_auth0_sub="candidate-claimed-errors@test.com",
@@ -54,8 +54,8 @@ async def test_schedule_candidate_session_validation_errors(async_session):
     assert tz_exc.value.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     assert tz_exc.value.error_code == "SCHEDULE_INVALID_TIMEZONE"
 
-    simulation.day_window_start_local = time(hour=17, minute=0)
-    simulation.day_window_end_local = time(hour=9, minute=0)
+    trial.day_window_start_local = time(hour=17, minute=0)
+    trial.day_window_end_local = time(hour=9, minute=0)
     await async_session.commit()
     with pytest.raises(ApiError) as window_exc:
         await schedule_service.schedule_candidate_session(

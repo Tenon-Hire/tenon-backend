@@ -7,11 +7,13 @@ from tests.shared.utils.shared_perf_pass2_branch_coverage_utils import *
 
 @pytest.mark.asyncio
 async def test_transcript_repository_commit_true_paths(async_session):
-    recruiter = await create_recruiter(async_session, email="transcript-pass2@test.com")
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="transcript-pass2@test.com"
+    )
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
     )
     recording = await recordings_repo.create_recording_asset(
         async_session,

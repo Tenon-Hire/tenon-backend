@@ -10,11 +10,13 @@ async def test_code_submission_requires_workspace_without_preprovision(
     async_client, async_session: AsyncSession, actions_stubber
 ):
     actions_stubber()
-    recruiter = await create_recruiter(async_session, email="no-preprov@test.com")
-    sim, tasks = await create_simulation_factory(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="no-preprov@test.com"
+    )
+    sim, tasks = await create_trial_factory(async_session, created_by=talent_partner)
     cs = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         status="in_progress",
         with_default_schedule=True,
     )

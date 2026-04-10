@@ -6,15 +6,22 @@ from datetime import UTC, datetime
 
 import sqlalchemy as sa
 
+from app.core.db.migrations.shared_trial_schema_compat import (
+    resolve_candidate_session_parent_column_name,
+    resolve_trial_parent_table_name,
+)
+
 from .constants import DEFAULT_TEMPLATE_KEY
 from .introspection import has_column, table_exists
 
 
 def ensure_scenario_versions_backfill(bind: sa.Connection) -> None:
     """Ensure scenario versions backfill."""
+    parent_table_name = resolve_trial_parent_table_name(bind)
+    candidate_session_parent_column = resolve_candidate_session_parent_column_name(bind)
     if not table_exists(bind, "scenario_versions"):
         return
-    if not has_column(bind, "simulations", "active_scenario_version_id"):
+    if not has_column(bind, parent_table_name, "active_scenario_version_id"):
         return
     if not has_column(bind, "candidate_sessions", "scenario_version_id"):
         return
@@ -22,7 +29,7 @@ def ensure_scenario_versions_backfill(bind: sa.Connection) -> None:
     scenario_versions = sa.table(
         "scenario_versions",
         sa.column("id", sa.Integer()),
-        sa.column("simulation_id", sa.Integer()),
+        sa.column("trial_id", sa.Integer()),
         sa.column("version_index", sa.Integer()),
         sa.column("status", sa.String()),
         sa.column("storyline_md", sa.Text()),
@@ -36,21 +43,21 @@ def ensure_scenario_versions_backfill(bind: sa.Connection) -> None:
         sa.column("locked_at", sa.DateTime(timezone=True)),
     )
 
-    simulation_rows = bind.execute(
+    trial_rows = bind.execute(
         sa.text(
             "SELECT id, status, title, role, tech_stack, seniority, focus, "
             "scenario_template, template_key, created_at, activated_at, terminated_at "
-            "FROM simulations"
+            f"FROM {parent_table_name}"
         )
     ).mappings()
-    for row in simulation_rows:
-        simulation_id = int(row["id"])
+    for row in trial_rows:
+        trial_id = int(row["id"])
         existing_id = bind.execute(
             sa.text(
                 "SELECT id FROM scenario_versions "
-                "WHERE simulation_id = :simulation_id AND version_index = 1"
+                "WHERE trial_id = :trial_id AND version_index = 1"
             ),
-            {"simulation_id": simulation_id},
+            {"trial_id": trial_id},
         ).scalar_one_or_none()
         scenario_id = (
             int(existing_id)
@@ -59,16 +66,17 @@ def ensure_scenario_versions_backfill(bind: sa.Connection) -> None:
         )
         bind.execute(
             sa.text(
-                "UPDATE simulations SET active_scenario_version_id = "
-                "COALESCE(active_scenario_version_id, :scenario_id) WHERE id = :simulation_id"
+                f"UPDATE {parent_table_name} SET active_scenario_version_id = "
+                "COALESCE(active_scenario_version_id, :scenario_id) WHERE id = :trial_id"
             ),
-            {"scenario_id": scenario_id, "simulation_id": simulation_id},
+            {"scenario_id": scenario_id, "trial_id": trial_id},
         )
 
     bind.execute(
         sa.text(
-            "UPDATE candidate_sessions cs SET scenario_version_id = s.active_scenario_version_id "
-            "FROM simulations s WHERE cs.simulation_id = s.id "
+            "UPDATE candidate_sessions cs SET scenario_version_id = "
+            "s.active_scenario_version_id "
+            f"FROM {parent_table_name} s WHERE cs.{candidate_session_parent_column} = s.id "
             "AND cs.scenario_version_id IS NULL AND s.active_scenario_version_id IS NOT NULL"
         )
     )
@@ -94,7 +102,7 @@ def _create_v1(
         bind.execute(
             sa.insert(scenario_versions)
             .values(
-                simulation_id=int(row["id"]),
+                trial_id=int(row["id"]),
                 version_index=1,
                 status="locked" if locked_at else "ready",
                 storyline_md=storyline_md,

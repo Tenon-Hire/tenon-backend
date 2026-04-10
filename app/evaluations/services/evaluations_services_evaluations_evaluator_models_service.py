@@ -40,11 +40,11 @@ class EvaluationInputBundle:
     rubric_version: str
     disabled_day_indexes: list[int]
     day_inputs: list[DayEvaluationInput]
-    simulation_context_json: dict[str, Any] | None = None
+    trial_context_json: dict[str, Any] | None = None
     ai_policy_snapshot_json: dict[str, Any] | None = None
     ai_policy_snapshot_digest: str | None = None
     company_prompt_overrides_json: dict[str, Any] | None = None
-    simulation_prompt_overrides_json: dict[str, Any] | None = None
+    trial_prompt_overrides_json: dict[str, Any] | None = None
 
 
 @dataclass(slots=True)
@@ -61,15 +61,15 @@ class DayEvaluationResult:
 class EvaluationResult:
     """Represent evaluation result data and behavior."""
 
-    overall_fit_score: float
+    overall_winoe_score: float
     recommendation: str
     confidence: float
     day_results: list[DayEvaluationResult]
     report_json: dict[str, Any]
 
 
-class FitProfileEvaluator(Protocol):
-    """Represent fit profile evaluator data and behavior."""
+class WinoeReportEvaluator(Protocol):
+    """Represent winoe report evaluator data and behavior."""
 
     async def evaluate(self, bundle: EvaluationInputBundle) -> EvaluationResult:
         """Execute evaluate."""
@@ -81,5 +81,5 @@ __all__ = [
     "DayEvaluationResult",
     "EvaluationInputBundle",
     "EvaluationResult",
-    "FitProfileEvaluator",
+    "WinoeReportEvaluator",
 ]

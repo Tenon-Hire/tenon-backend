@@ -19,9 +19,9 @@ from app.media.repositories.transcripts import (
 )
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
     create_submission,
+    create_talent_partner,
+    create_trial,
 )
 
 
@@ -33,12 +33,14 @@ def _task(tasks, day_index: int):
 async def test_candidate_session_review_returns_completed_artifacts(
     async_client, async_session
 ):
-    recruiter = await create_recruiter(async_session, email="review-route@test.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="review-route@test.com"
+    )
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     completed_at = datetime.now(UTC).replace(microsecond=0)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         status="completed",
         completed_at=completed_at,
         invite_email="review@example.com",
@@ -167,13 +169,13 @@ async def test_candidate_session_review_returns_completed_artifacts(
 async def test_candidate_session_review_rejects_incomplete_sessions(
     async_client, async_session
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="review-incomplete@test.com"
     )
-    sim, _tasks = await create_simulation(async_session, created_by=recruiter)
+    sim, _tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         status="in_progress",
         invite_email="review-incomplete@example.com",
         candidate_email="review-incomplete@example.com",
@@ -186,4 +188,4 @@ async def test_candidate_session_review_rejects_incomplete_sessions(
         headers={"Authorization": "Bearer candidate:review-incomplete@example.com"},
     )
     assert response.status_code == 409, response.text
-    assert response.json()["detail"] == "Simulation is not complete yet"
+    assert response.json()["detail"] == "Trial is not complete yet"

@@ -17,15 +17,15 @@ async def _load_candidate_session(db, *, candidate_session_id: int):
         await db.execute(
             select(CandidateSession)
             .where(CandidateSession.id == candidate_session_id)
-            .options(selectinload(CandidateSession.simulation))
+            .options(selectinload(CandidateSession.trial))
         )
     ).scalar_one_or_none()
 
 
-async def _load_task_for_session(db, *, task_id: int, simulation_id: int):
+async def _load_task_for_session(db, *, task_id: int, trial_id: int):
     return (
         await db.execute(
-            select(Task).where(Task.id == task_id, Task.simulation_id == simulation_id)
+            select(Task).where(Task.id == task_id, Task.trial_id == trial_id)
         )
     ).scalar_one_or_none()
 

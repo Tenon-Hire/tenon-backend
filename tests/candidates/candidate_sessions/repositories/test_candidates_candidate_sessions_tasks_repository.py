@@ -40,12 +40,12 @@ class _FakeDB:
 
 
 @pytest.mark.asyncio
-async def test_tasks_for_simulation_returns_task_scalars():
+async def test_tasks_for_trial_returns_task_scalars():
     task_one = SimpleNamespace(id=1, day_index=1)
     task_two = SimpleNamespace(id=2, day_index=2)
     db = _FakeDB(_FakeExecuteResult(scalar_values=[task_one, task_two]))
 
-    result = await tasks_repo.tasks_for_simulation(db, simulation_id=10)
+    result = await tasks_repo.tasks_for_trial(db, trial_id=10)
 
     assert result == [task_one, task_two]
     assert db.executed_stmt is not None

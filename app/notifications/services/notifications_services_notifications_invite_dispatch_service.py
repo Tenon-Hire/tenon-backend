@@ -12,21 +12,21 @@ from app.notifications.services.notifications_services_notifications_invite_cont
     invite_email_content,
     sanitize_error,
 )
-from app.shared.database.shared_database_models_model import Simulation
+from app.shared.database.shared_database_models_model import Trial
 
 
 async def dispatch_invite_email(
     email_service: EmailService,
     *,
     candidate_session,
-    simulation: Simulation,
+    trial: Trial,
     invite_url: str,
 ) -> EmailSendResult:
     """Dispatch invite email."""
     subject, text, html = invite_email_content(
         candidate_name=candidate_session.candidate_name,
         invite_url=invite_url,
-        simulation=simulation,
+        trial=trial,
         expires_at=candidate_session.expires_at,
     )
     return await email_service.send_email(

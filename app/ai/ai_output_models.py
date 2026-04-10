@@ -125,12 +125,12 @@ class AggregatorDayScore(BaseModel):
     reason: str | None = Field(default=None, max_length=4_000)
 
 
-class AggregatedFitProfileOutput(BaseModel):
-    """Strict output contract for the fit-profile aggregator agent."""
+class AggregatedWinoeReportOutput(BaseModel):
+    """Strict output contract for the winoe-report aggregator agent."""
 
     model_config = ConfigDict(extra="forbid")
 
-    overallFitScore: float = Field(ge=0.0, le=1.0)
+    overallWinoeScore: float = Field(ge=0.0, le=1.0)
     recommendation: Literal["strong_hire", "hire", "lean_hire", "no_hire"]
     confidence: float = Field(ge=0.0, le=1.0)
     dayScores: list[AggregatorDayScore] = Field(min_length=1, max_length=5)
@@ -140,7 +140,7 @@ class AggregatedFitProfileOutput(BaseModel):
 
 
 __all__ = [
-    "AggregatedFitProfileOutput",
+    "AggregatedWinoeReportOutput",
     "AggregatorDayScore",
     "CodespacePatchProposal",
     "CodespaceSpec",

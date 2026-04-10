@@ -9,9 +9,9 @@ from app.integrations.email.email_provider import (
 
 
 def test_parse_sender_with_name():
-    email, name = _parse_sender("Tenon <noreply@test.com>")
+    email, name = _parse_sender("Winoe <noreply@test.com>")
     assert email == "noreply@test.com"
-    assert name == "Tenon"
+    assert name == "Winoe"
 
 
 def test_parse_sender_without_name():

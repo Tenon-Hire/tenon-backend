@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.shared.database.shared_database_models_model import Simulation, Submission
+from app.shared.database.shared_database_models_model import Submission, Trial
 
 
 async def find_duplicate(
@@ -20,11 +20,9 @@ async def find_duplicate(
     return dup_res.scalar_one_or_none() is not None
 
 
-async def simulation_template(db: AsyncSession, simulation_id: int) -> str | None:
-    """Execute simulation template."""
-    stmt = select(Simulation.scenario_template, Simulation.focus).where(
-        Simulation.id == simulation_id
-    )
+async def trial_template(db: AsyncSession, trial_id: int) -> str | None:
+    """Execute trial template."""
+    stmt = select(Trial.scenario_template, Trial.focus).where(Trial.id == trial_id)
     res = await db.execute(stmt)
     row = res.first()
     if not row:

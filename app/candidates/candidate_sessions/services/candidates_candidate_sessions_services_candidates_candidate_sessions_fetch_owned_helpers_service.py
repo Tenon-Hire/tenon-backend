@@ -16,8 +16,8 @@ from app.candidates.candidate_sessions.services.candidates_candidate_sessions_se
 from app.shared.auth.principal import Principal
 from app.shared.database.shared_database_models_model import CandidateSession
 from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
-from app.simulations.repositories.simulations_repositories_simulations_simulation_model import (
-    SIMULATION_STATUS_TERMINATED,
+from app.trials.repositories.trials_repositories_trials_trial_model import (
+    TRIAL_STATUS_TERMINATED,
 )
 
 _NOT_FOUND = HTTPException(
@@ -25,20 +25,20 @@ _NOT_FOUND = HTTPException(
 )
 
 
-def _loaded_simulation_status(cs: CandidateSession) -> str | None:
+def _loaded_trial_status(cs: CandidateSession) -> str | None:
     try:
         state = inspect(cs)
     except NoInspectionAvailable:
-        simulation = getattr(cs, "simulation", None)
-        return getattr(simulation, "status", None)
+        trial = getattr(cs, "trial", None)
+        return getattr(trial, "status", None)
 
-    if "simulation" in state.unloaded:
+    if "trial" in state.unloaded:
         raise _NOT_FOUND
 
-    simulation = state.attrs.simulation.value
-    if simulation is None:
+    trial = state.attrs.trial.value
+    if trial is None:
         raise _NOT_FOUND
-    return getattr(simulation, "status", None)
+    return getattr(trial, "status", None)
 
 
 def ensure_can_access(
@@ -53,7 +53,7 @@ def ensure_can_access(
         raise _NOT_FOUND
     if cs is None:
         raise _NOT_FOUND
-    if _loaded_simulation_status(cs) == SIMULATION_STATUS_TERMINATED:
+    if _loaded_trial_status(cs) == TRIAL_STATUS_TERMINATED:
         raise _NOT_FOUND
     require_not_expired(cs, now=now or shared_utcnow())
     return cs

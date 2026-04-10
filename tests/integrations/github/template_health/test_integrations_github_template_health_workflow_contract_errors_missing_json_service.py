@@ -7,7 +7,7 @@ def test_workflow_contract_errors_missing_json():
     content = "\n".join(
         [
             "uses: actions/upload-artifact@v4",
-            "name: tenon-test-results",
+            "name: winoe-test-results",
             "path: artifacts/results.txt",
         ]
     )

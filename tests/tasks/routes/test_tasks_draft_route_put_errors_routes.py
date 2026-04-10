@@ -14,8 +14,8 @@ from app.tasks.routes.tasks import tasks_routes_tasks_tasks_draft_routes as draf
 
 @pytest.mark.asyncio
 async def test_put_task_draft_route_duplicate_submission_returns_finalized(monkeypatch):
-    candidate_session = SimpleNamespace(id=10, simulation_id=20)
-    task = SimpleNamespace(id=33, simulation_id=20)
+    candidate_session = SimpleNamespace(id=10, trial_id=20)
+    task = SimpleNamespace(id=33, trial_id=20)
 
     async def _load_task(_db, _task_id):
         return task
@@ -48,8 +48,8 @@ async def test_put_task_draft_route_duplicate_submission_returns_finalized(monke
 
 @pytest.mark.asyncio
 async def test_put_task_draft_route_finalized_draft_error(monkeypatch):
-    candidate_session = SimpleNamespace(id=10, simulation_id=20)
-    task = SimpleNamespace(id=33, simulation_id=20)
+    candidate_session = SimpleNamespace(id=10, trial_id=20)
+    task = SimpleNamespace(id=33, trial_id=20)
 
     async def _load_task(_db, _task_id):
         return task

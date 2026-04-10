@@ -7,8 +7,8 @@ from tests.shared.utils.shared_perf_pass2_branch_coverage_utils import *
 
 @pytest.mark.asyncio
 async def test_codespace_validation_falls_back_to_task_lookup(monkeypatch):
-    candidate_session = SimpleNamespace(id=7, simulation_id=9)
-    task = SimpleNamespace(id=11, simulation_id=9, type="code")
+    candidate_session = SimpleNamespace(id=7, trial_id=9)
+    task = SimpleNamespace(id=11, trial_id=9, type="code")
     called = {"belongs": False}
 
     async def _snapshot(*_args, **_kwargs):

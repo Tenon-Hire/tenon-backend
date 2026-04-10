@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 ###############################################################################
-# Tenon AI – Backend QA Runner
+# Winoe AI – Backend QA Runner
 #
 # Executes the full Postman collection against a running local backend server
 # using Newman (the Postman CLI runner).
 #
 # PREREQUISITES:
 #   1. Backend server running on localhost:8000 with:
-#        TENON_ENV=local  DEV_AUTH_BYPASS=1
+#        WINOE_ENV=local  DEV_AUTH_BYPASS=1
 #      (i.e. `./runBackend.sh` was executed successfully)
 #   2. Newman installed:  npm install -g newman
 #      (optional HTML reports: npm install -g newman-reporter-htmlextra)
@@ -21,15 +21,15 @@
 #
 # ENVIRONMENT OVERRIDES (optional):
 #   BASE_URL=http://localhost:9000  ./qa_verifications/API-Endpoints-QA/run_api_qa.sh
-#   RECRUITER_EMAIL=custom@co.com  ./qa_verifications/API-Endpoints-QA/run_api_qa.sh
+#   TALENT_PARTNER_EMAIL=custom@co.com  ./qa_verifications/API-Endpoints-QA/run_api_qa.sh
 #   ADMIN_API_KEY=secret           ./qa_verifications/API-Endpoints-QA/run_api_qa.sh
 ###############################################################################
 set -euo pipefail
 
 # ─── Paths ───────────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-COLLECTION="$SCRIPT_DIR/tenon-backend-qa-postman-collection.json"
-ENVIRONMENT="$SCRIPT_DIR/tenon-backend-qa-postman-environment.json"
+COLLECTION="$SCRIPT_DIR/winoe-backend-qa-postman-collection.json"
+ENVIRONMENT="$SCRIPT_DIR/winoe-backend-qa-postman-environment.json"
 LATEST_DIR="$SCRIPT_DIR/api_qa_latest"
 REPORT_MD="$LATEST_DIR/api_endpoints_qa_report.md"
 ARTIFACTS_DIR="$LATEST_DIR/artifacts"
@@ -42,8 +42,8 @@ RUN_STARTED_UTC="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
 # ─── Defaults (match runBackend.sh seed data) ────────────────────────────────
 BASE_URL="${BASE_URL:-http://localhost:8000}"
-RECRUITER_EMAIL="${RECRUITER_EMAIL:-recruiter1@local.test}"
-RECRUITER_TOKEN="${RECRUITER_TOKEN:-recruiter:${RECRUITER_EMAIL}}"
+TALENT_PARTNER_EMAIL="${TALENT_PARTNER_EMAIL:-talent_partner1@local.test}"
+TALENT_PARTNER_TOKEN="${TALENT_PARTNER_TOKEN:-talent_partner:${TALENT_PARTNER_EMAIL}}"
 CANDIDATE_EMAIL="${CANDIDATE_EMAIL:-e2e-candidate@test.com}"
 CANDIDATE_TOKEN="${CANDIDATE_TOKEN:-candidate:${CANDIDATE_EMAIL}}"
 ADMIN_API_KEY="${ADMIN_API_KEY:-my-super-secret-admin-key}"
@@ -95,7 +95,7 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Environment variables:"
             echo "  BASE_URL          Server URL (default: http://localhost:8000)"
-            echo "  RECRUITER_EMAIL   Seeded recruiter email (default: recruiter1@local.test)"
+            echo "  TALENT_PARTNER_EMAIL   Seeded talent_partner email (default: talent_partner1@local.test)"
             echo "  CANDIDATE_EMAIL   Candidate email for testing (default: e2e-candidate@test.com)"
             echo "  ADMIN_API_KEY     Admin API key (default: my-super-secret-admin-key)"
             exit 0
@@ -298,7 +298,7 @@ fi
 # ─── Build Newman command ────────────────────────────────────────────────────
 header "Configuration"
 info "Base URL:         ${BASE_URL}"
-info "Recruiter:        ${RECRUITER_EMAIL}"
+info "TalentPartner:        ${TALENT_PARTNER_EMAIL}"
 info "Candidate:        ${CANDIDATE_EMAIL}"
 info "Admin key:        ${ADMIN_API_KEY:0:8}..."
 info "Run mode:         ${RUN_MODE}"
@@ -315,8 +315,8 @@ NEWMAN_ARGS=(
     run "$COLLECTION"
     --environment "$ENVIRONMENT"
     --env-var "base_url=${BASE_URL}"
-    --env-var "recruiter_email=${RECRUITER_EMAIL}"
-    --env-var "recruiter_token=${RECRUITER_TOKEN}"
+    --env-var "talent_partner_email=${TALENT_PARTNER_EMAIL}"
+    --env-var "talent_partner_token=${TALENT_PARTNER_TOKEN}"
     --env-var "candidate_email=${CANDIDATE_EMAIL}"
     --env-var "candidate_token=${CANDIDATE_TOKEN}"
     --env-var "admin_api_key=${ADMIN_API_KEY}"

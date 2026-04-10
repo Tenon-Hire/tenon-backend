@@ -7,7 +7,7 @@ def test_task_templates_resolver_import_error_uses_catalog(monkeypatch):
     original_import = builtins.__import__
 
     def _import(name, globals=None, locals=None, fromlist=(), level=0):
-        if name == "app.simulations" and "services" in fromlist:
+        if name == "app.trials" and "services" in fromlist:
             raise ImportError("forced")
         return original_import(name, globals, locals, fromlist, level)
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from app.evaluations.services import fit_profile_pipeline
-from app.simulations.services import scenario_generation
+from app.evaluations.services import winoe_report_pipeline
+from app.trials.services import scenario_generation
 
 
 def test_template_display_name_handles_blank_catalog_value(monkeypatch):
@@ -67,14 +67,14 @@ def test_apply_generated_task_updates_handles_non_dict_day_weights():
 
 
 def test_normalize_transcript_segments_keeps_text_when_present():
-    normalized = fit_profile_pipeline._normalize_transcript_segments(
+    normalized = winoe_report_pipeline._normalize_transcript_segments(
         [{"startMs": 1, "endMs": 2, "text": "hello"}]
     )
     assert normalized == [{"startMs": 1, "endMs": 2, "text": "hello"}]
 
 
 def test_normalize_transcript_segments_allows_missing_text():
-    normalized = fit_profile_pipeline._normalize_transcript_segments(
+    normalized = winoe_report_pipeline._normalize_transcript_segments(
         [{"startMs": 1, "endMs": 2, "text": "   "}]
     )
     assert normalized == [{"startMs": 1, "endMs": 2}]

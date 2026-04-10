@@ -2,8 +2,8 @@
 GAP-FILLING TESTS: app/candidates/candidate_sessions/services/*fetch_owned_helpers*_service.py
 
 Gap identified:
-- Missing fail-closed branch coverage when SQLAlchemy marks `simulation` as loaded
-  but the value is `None` in `_loaded_simulation_status`.
+- Missing fail-closed branch coverage when SQLAlchemy marks `trial` as loaded
+  but the value is `None` in `_loaded_trial_status`.
 
 These tests supplement:
 - tests/candidates/services/test_candidates_fetch_owned_helpers_service.py
@@ -22,9 +22,9 @@ from app.candidates.candidate_sessions.services.candidates_candidate_sessions_se
 from app.shared.database.shared_database_models_model import CandidateSession
 
 
-def test_ensure_can_access_rejects_loaded_none_simulation_relationship():
+def test_ensure_can_access_rejects_loaded_none_trial_relationship():
     session = CandidateSession()
-    session.simulation = None
+    session.trial = None
     session.expires_at = None
 
     with pytest.raises(HTTPException) as excinfo:

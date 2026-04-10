@@ -1,26 +1,26 @@
 from . import evaluations_services_evaluations_evaluator_service as evaluator
-from . import (
-    evaluations_services_evaluations_fit_profile_access_service as fit_profile_access,
-)
-from . import (
-    evaluations_services_evaluations_fit_profile_api_service as fit_profile_api,
-)
-from . import (
-    evaluations_services_evaluations_fit_profile_composer_service as fit_profile_composer,
-)
-from . import (
-    evaluations_services_evaluations_fit_profile_jobs_service as fit_profile_jobs,
-)
-from . import (
-    evaluations_services_evaluations_fit_profile_pipeline_service as fit_profile_pipeline,
-)
-from . import (
-    evaluations_services_evaluations_fit_profile_pipeline_transcript_service as fit_profile_pipeline_transcript,
-)
 from . import evaluations_services_evaluations_runs_service as runs
+from . import (
+    evaluations_services_evaluations_winoe_report_access_service as winoe_report_access,
+)
+from . import (
+    evaluations_services_evaluations_winoe_report_api_service as winoe_report_api,
+)
+from . import (
+    evaluations_services_evaluations_winoe_report_composer_service as winoe_report_composer,
+)
+from . import (
+    evaluations_services_evaluations_winoe_report_jobs_service as winoe_report_jobs,
+)
+from . import (
+    evaluations_services_evaluations_winoe_report_pipeline_service as winoe_report_pipeline,
+)
+from . import (
+    evaluations_services_evaluations_winoe_report_pipeline_transcript_service as winoe_report_pipeline_transcript,
+)
 
-fetch_fit_profile = fit_profile_api.fetch_fit_profile
-generate_fit_profile = fit_profile_api.generate_fit_profile
+fetch_winoe_report = winoe_report_api.fetch_winoe_report
+generate_winoe_report = winoe_report_api.generate_winoe_report
 
 EvaluationRunStateError = runs.EvaluationRunStateError
 complete_run = runs.complete_run
@@ -32,14 +32,14 @@ __all__ = [
     "complete_run",
     "evaluator",
     "fail_run",
-    "fetch_fit_profile",
-    "fit_profile_access",
-    "fit_profile_api",
-    "fit_profile_composer",
-    "fit_profile_jobs",
-    "fit_profile_pipeline",
-    "fit_profile_pipeline_transcript",
-    "generate_fit_profile",
+    "fetch_winoe_report",
+    "winoe_report_access",
+    "winoe_report_api",
+    "winoe_report_composer",
+    "winoe_report_jobs",
+    "winoe_report_pipeline",
+    "winoe_report_pipeline_transcript",
+    "generate_winoe_report",
     "runs",
     "start_run",
 ]

@@ -8,12 +8,12 @@ from time import perf_counter
 from sqlalchemy import select
 
 from app.ai import build_ai_policy_snapshot
-from app.shared.database.shared_database_models_model import Company, Simulation, Task
-from app.simulations.repositories.simulations_repositories_simulations_simulation_model import (
-    SIMULATION_STATUS_ACTIVE_INVITING,
-    SIMULATION_STATUS_GENERATING,
-    SIMULATION_STATUS_READY_FOR_REVIEW,
-    SIMULATION_STATUS_TERMINATED,
+from app.shared.database.shared_database_models_model import Company, Task, Trial
+from app.trials.repositories.trials_repositories_trials_trial_model import (
+    TRIAL_STATUS_ACTIVE_INVITING,
+    TRIAL_STATUS_GENERATING,
+    TRIAL_STATUS_READY_FOR_REVIEW,
+    TRIAL_STATUS_TERMINATED,
 )
 
 
@@ -22,7 +22,7 @@ async def handle_scenario_generation_impl(
     *,
     parse_positive_int,
     async_session_maker,
-    normalize_simulation_status,
+    normalize_trial_status,
     generate_scenario_payload,
     apply_generated_task_updates,
     apply_status_transition,
@@ -32,9 +32,9 @@ async def handle_scenario_generation_impl(
 ):
     """Handle scenario generation impl."""
     started = perf_counter()
-    simulation_id = parse_positive_int(payload_json.get("simulationId"))
-    if simulation_id is None:
-        return {"status": "skipped_invalid_payload", "simulationId": None}
+    trial_id = parse_positive_int(payload_json.get("trialId"))
+    if trial_id is None:
+        return {"status": "skipped_invalid_payload", "trialId": None}
     requested_scenario_version_id = parse_positive_int(
         payload_json.get("scenarioVersionId")
     )
@@ -42,37 +42,35 @@ async def handle_scenario_generation_impl(
     scenario_version_id = None
     created_new = False
     async with async_session_maker() as db:
-        simulation = (
+        trial = (
             await db.execute(
-                select(Simulation)
-                .where(Simulation.id == simulation_id)
-                .with_for_update()
+                select(Trial).where(Trial.id == trial_id).with_for_update()
             )
         ).scalar_one_or_none()
-        if simulation is None:
-            return {"status": "simulation_not_found", "simulationId": simulation_id}
-        current_status = normalize_simulation_status(simulation.status)
-        if current_status == SIMULATION_STATUS_TERMINATED:
+        if trial is None:
+            return {"status": "trial_not_found", "trialId": trial_id}
+        current_status = normalize_trial_status(trial.status)
+        if current_status == TRIAL_STATUS_TERMINATED:
             return {
-                "status": "skipped_non_mutable_simulation",
-                "simulationId": simulation_id,
-                "simulationStatus": current_status,
+                "status": "skipped_non_mutable_trial",
+                "trialId": trial_id,
+                "trialStatus": current_status,
             }
         if current_status not in {
-            SIMULATION_STATUS_GENERATING,
-            SIMULATION_STATUS_READY_FOR_REVIEW,
-            SIMULATION_STATUS_ACTIVE_INVITING,
+            TRIAL_STATUS_GENERATING,
+            TRIAL_STATUS_READY_FOR_REVIEW,
+            TRIAL_STATUS_ACTIVE_INVITING,
         }:
             return {
                 "status": "skipped_unexpected_status",
-                "simulationId": simulation_id,
-                "simulationStatus": current_status,
+                "trialId": trial_id,
+                "trialStatus": current_status,
             }
         tasks = (
             (
                 await db.execute(
                     select(Task)
-                    .where(Task.simulation_id == simulation.id)
+                    .where(Task.trial_id == trial.id)
                     .order_by(Task.day_index.asc())
                 )
             )
@@ -83,33 +81,33 @@ async def handle_scenario_generation_impl(
             raise RuntimeError("scenario_generation_missing_seeded_tasks")
         company_prompt_overrides_json = await db.scalar(
             select(Company.ai_prompt_overrides_json).where(
-                Company.id == simulation.company_id
+                Company.id == trial.company_id
             )
         )
         ai_policy_snapshot_json = build_ai_policy_snapshot(
-            simulation=simulation,
+            trial=trial,
             company_prompt_overrides_json=company_prompt_overrides_json,
-            simulation_prompt_overrides_json=getattr(
-                simulation, "ai_prompt_overrides_json", None
+            trial_prompt_overrides_json=getattr(
+                trial, "ai_prompt_overrides_json", None
             ),
         )
         generated = generate_scenario_payload(
-            role=simulation.role,
-            tech_stack=simulation.tech_stack,
-            template_key=simulation.template_key,
-            scenario_template=simulation.scenario_template,
-            focus=simulation.focus,
-            company_context=simulation.company_context,
+            role=trial.role,
+            tech_stack=trial.tech_stack,
+            template_key=trial.template_key,
+            scenario_template=trial.scenario_template,
+            focus=trial.focus,
+            company_context=trial.company_context,
             company_prompt_overrides_json=company_prompt_overrides_json,
-            simulation_prompt_overrides_json=getattr(
-                simulation, "ai_prompt_overrides_json", None
+            trial_prompt_overrides_json=getattr(
+                trial, "ai_prompt_overrides_json", None
             ),
             ai_policy_snapshot_json=ai_policy_snapshot_json,
         )
         if requested_scenario_version_id is not None:
             early, scenario_version_id = await apply_requested_scenario_version(
                 db,
-                simulation=simulation,
+                trial=trial,
                 requested_scenario_version_id=requested_scenario_version_id,
                 generated=generated,
             )
@@ -122,7 +120,7 @@ async def handle_scenario_generation_impl(
                 created_new,
             ) = await apply_default_scenario_version(
                 db,
-                simulation=simulation,
+                trial=trial,
                 current_status=current_status,
                 generated=generated,
             )
@@ -134,8 +132,8 @@ async def handle_scenario_generation_impl(
             rubric_json=generated.rubric_json,
         )
         apply_status_transition(
-            simulation,
-            target_status=SIMULATION_STATUS_READY_FOR_REVIEW,
+            trial,
+            target_status=TRIAL_STATUS_READY_FOR_REVIEW,
             changed_at=datetime.now(UTC),
         )
         await db.commit()
@@ -148,7 +146,7 @@ async def handle_scenario_generation_impl(
     logger.info(
         "scenario_generation_job_completed",
         extra={
-            "simulationId": simulation_id,
+            "trialId": trial_id,
             "scenarioVersionId": scenario_version_id,
             "createdScenarioVersion": created_new,
             "source": source,
@@ -161,7 +159,7 @@ async def handle_scenario_generation_impl(
     )
     return {
         "status": "completed",
-        "simulationId": simulation_id,
+        "trialId": trial_id,
         "scenarioVersionId": scenario_version_id,
         "source": source,
         "modelName": model_name,

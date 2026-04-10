@@ -38,8 +38,8 @@ from app.submissions.services.submissions_services_submissions_workspace_cleanup
 )
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 
@@ -70,14 +70,14 @@ async def _prepare_workspace(
     completed_at: datetime | None,
     with_cutoff: bool,
 ) -> tuple[int, int, str, str]:
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session,
         email=f"workspace-cleanup-int-{uuid4().hex}@test.com",
     )
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         status="in_progress",
         completed_at=completed_at,
         with_default_schedule=True,
@@ -119,7 +119,7 @@ async def _prepare_workspace(
             commit=True,
         )
     await async_session.commit()
-    return simulation.company_id, candidate_session.id, workspace.id, workspace_group.id
+    return trial.company_id, candidate_session.id, workspace.id, workspace_group.id
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]

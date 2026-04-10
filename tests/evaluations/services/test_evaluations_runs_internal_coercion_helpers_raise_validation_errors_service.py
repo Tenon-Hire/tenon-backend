@@ -9,19 +9,19 @@ def test_internal_coercion_helpers_raise_validation_errors():
     with pytest.raises(eval_service.EvaluationRunStateError, match="is required"):
         eval_service._coerce_unit_interval_score(
             None,
-            field_name="overall_fit_score",
+            field_name="overall_winoe_score",
             required=True,
         )
     with pytest.raises(eval_service.EvaluationRunStateError, match="must be numeric"):
         eval_service._coerce_unit_interval_score(
             "bad",
-            field_name="overall_fit_score",
+            field_name="overall_winoe_score",
             required=False,
         )
     with pytest.raises(eval_service.EvaluationRunStateError, match="must be finite"):
         eval_service._coerce_unit_interval_score(
             float("nan"),
-            field_name="overall_fit_score",
+            field_name="overall_winoe_score",
             required=False,
         )
     with pytest.raises(
@@ -29,7 +29,7 @@ def test_internal_coercion_helpers_raise_validation_errors():
     ):
         eval_service._coerce_unit_interval_score(
             2,
-            field_name="overall_fit_score",
+            field_name="overall_winoe_score",
             required=False,
         )
 

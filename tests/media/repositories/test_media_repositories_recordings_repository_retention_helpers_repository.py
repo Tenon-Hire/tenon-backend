@@ -7,12 +7,12 @@ from tests.media.repositories.media_repositories_utils import *
 
 @pytest.mark.asyncio
 async def test_recordings_repository_retention_helpers(async_session):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="recordings-retention@test.com"
     )
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     task = _handoff_task(tasks)
-    candidate_session = await create_candidate_session(async_session, simulation=sim)
+    candidate_session = await create_candidate_session(async_session, trial=sim)
 
     old_recording = await recordings_repo.create_recording_asset(
         async_session,
@@ -58,12 +58,12 @@ async def test_recordings_repository_retention_helpers(async_session):
 async def test_recordings_repository_mark_deleted_and_mark_purged_preserve_terminal_fields(
     async_session,
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="recordings-terminal-paths@test.com"
     )
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     task = _handoff_task(tasks)
-    candidate_session = await create_candidate_session(async_session, simulation=sim)
+    candidate_session = await create_candidate_session(async_session, trial=sim)
 
     recording = await recordings_repo.create_recording_asset(
         async_session,

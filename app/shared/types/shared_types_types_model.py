@@ -4,7 +4,7 @@ from typing import Literal
 
 CandidateSessionStatus = Literal["not_started", "in_progress", "completed", "expired"]
 TaskType = Literal["design", "code", "debug", "handoff", "documentation"]
-SimulationStatus = Literal[
+TrialStatus = Literal[
     "draft",
     "generating",
     "ready_for_review",

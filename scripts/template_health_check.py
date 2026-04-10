@@ -13,7 +13,7 @@ from app.tasks.services.tasks_services_tasks_template_catalog_constants import (
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Tenon template health checker")
+    parser = argparse.ArgumentParser(description="Winoe template health checker")
     parser.add_argument(
         "--mode",
         choices=["static", "live"],
@@ -48,9 +48,9 @@ def _parse_args() -> argparse.Namespace:
 
 def _validate_config() -> tuple[bool, str]:
     if not (settings.github.GITHUB_TOKEN or "").strip():
-        return False, "TENON_GITHUB_TOKEN is required"
+        return False, "WINOE_GITHUB_TOKEN is required"
     if not (settings.github.GITHUB_ACTIONS_WORKFLOW_FILE or "").strip():
-        return False, "TENON_GITHUB_ACTIONS_WORKFLOW_FILE is required"
+        return False, "WINOE_GITHUB_ACTIONS_WORKFLOW_FILE is required"
     return True, ""
 
 

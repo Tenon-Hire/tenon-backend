@@ -88,51 +88,51 @@ async def test_user_from_principal_assigns_candidate_role(async_session):
 
 
 @pytest.mark.asyncio
-async def test_user_from_principal_creates_local_recruiter_with_company(
+async def test_user_from_principal_creates_local_talent_partner_with_company(
     async_session, monkeypatch
 ):
     principal = Principal(
-        sub="auth0|local-recruiter",
-        email="local-recruiter@local.test",
-        name="Local Recruiter",
-        roles=["recruiter"],
-        permissions=["recruiter:access"],
+        sub="auth0|local-talent_partner",
+        email="local-talent_partner@local.test",
+        name="Local TalentPartner",
+        roles=["talent_partner"],
+        permissions=["talent_partner:access"],
         claims={},
     )
     monkeypatch.setattr(users_utils, "env_name", lambda: "local")
 
     user = await dependencies._user_from_principal(principal, async_session)
 
-    assert user.role == "recruiter"
+    assert user.role == "talent_partner"
     assert user.company_id is not None
 
 
 @pytest.mark.asyncio
-async def test_user_from_principal_backfills_existing_local_recruiter_without_company(
+async def test_user_from_principal_backfills_existing_local_talent_partner_without_company(
     async_session, monkeypatch
 ):
-    recruiter = User(
-        name="Existing Recruiter",
+    talent_partner = User(
+        name="Existing TalentPartner",
         email="existing-local@local.test",
-        role="recruiter",
+        role="talent_partner",
         company_id=None,
         password_hash="",
     )
-    async_session.add(recruiter)
+    async_session.add(talent_partner)
     await async_session.commit()
 
     principal = Principal(
         sub="auth0|existing-local",
-        email=recruiter.email,
-        name=recruiter.name,
-        roles=["recruiter"],
-        permissions=["recruiter:access"],
+        email=talent_partner.email,
+        name=talent_partner.name,
+        roles=["talent_partner"],
+        permissions=["talent_partner:access"],
         claims={},
     )
     monkeypatch.setattr(users_utils, "env_name", lambda: "local")
 
     resolved = await dependencies._user_from_principal(principal, async_session)
-    await async_session.refresh(recruiter)
+    await async_session.refresh(talent_partner)
 
-    assert resolved.id == recruiter.id
-    assert recruiter.company_id is not None
+    assert resolved.id == talent_partner.id
+    assert talent_partner.company_id is not None

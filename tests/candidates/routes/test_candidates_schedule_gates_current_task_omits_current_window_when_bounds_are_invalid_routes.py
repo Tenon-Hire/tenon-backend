@@ -9,13 +9,13 @@ from tests.candidates.routes.candidates_schedule_gates_api_utils import *
 async def test_current_task_omits_current_window_when_bounds_are_invalid(
     async_client, async_session
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="current-window-invalid@test.com"
     )
-    sim, _tasks = await create_simulation(async_session, created_by=recruiter)
+    sim, _tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         invite_email="window-invalid-owner@example.com",
         with_default_schedule=False,
     )

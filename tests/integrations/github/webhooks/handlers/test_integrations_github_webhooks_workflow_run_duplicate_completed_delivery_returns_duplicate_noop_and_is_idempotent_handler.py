@@ -9,11 +9,13 @@ from tests.integrations.github.webhooks.handlers.integrations_github_webhooks_wo
 async def test_duplicate_completed_delivery_returns_duplicate_noop_and_is_idempotent(
     async_session,
 ):
-    recruiter = await create_recruiter(async_session, email="webhook-noop@tenon.dev")
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="webhook-noop@winoe.dev"
+    )
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         with_default_schedule=True,
     )
 

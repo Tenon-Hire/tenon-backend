@@ -9,10 +9,10 @@ from tests.candidates.routes.candidates_session_api_utils import *
 async def test_current_task_keeps_day4_handoff_until_day5_window_opens(
     async_client, async_session
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="current-day4-handoff-window@test.com"
     )
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     day1_task = _task_for_day(tasks, day_index=1)
     day2_task = _task_for_day(tasks, day_index=2)
     day3_task = _task_for_day(tasks, day_index=3)
@@ -21,7 +21,7 @@ async def test_current_task_keeps_day4_handoff_until_day5_window_opens(
 
     cs = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         status="in_progress",
         with_default_schedule=False,
         consent_version="mvp1",

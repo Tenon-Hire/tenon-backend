@@ -40,7 +40,7 @@ async def build_invite_item(
         else expires_at
     )
     is_expired = bool(expires_at and expires_at < now)
-    task_list = await tasks_loader(candidate_session.simulation_id)
+    task_list = await tasks_loader(candidate_session.trial_id)
     if completed_ids is None:
         _, completed_ids, _, completed, total, _ = await progress_snapshot(
             db, candidate_session, tasks=task_list
@@ -56,26 +56,26 @@ async def build_invite_item(
     schedule_payload = schedule_payload_for_candidate_session(
         candidate_session, now_utc=now
     )
-    sim = candidate_session.simulation
+    sim = candidate_session.trial
     company_name = getattr(sim.company, "name", None) if sim else None
-    recruiter_name = None
-    recruiter_email = None
-    recruiter_id = getattr(sim, "created_by", None) if sim else None
-    if recruiter_id:
-        recruiter = await db.get(User, recruiter_id)
-        if recruiter is not None:
-            recruiter_name = getattr(recruiter, "name", None) or getattr(
-                recruiter, "email", None
+    talent_partner_name = None
+    talent_partner_email = None
+    talent_partner_id = getattr(sim, "created_by", None) if sim else None
+    if talent_partner_id:
+        talent_partner = await db.get(User, talent_partner_id)
+        if talent_partner is not None:
+            talent_partner_name = getattr(talent_partner, "name", None) or getattr(
+                talent_partner, "email", None
             )
-            recruiter_email = getattr(recruiter, "email", None)
+            talent_partner_email = getattr(talent_partner, "email", None)
     return CandidateInviteListItem(
         candidateSessionId=candidate_session.id,
-        simulationId=sim.id if sim else candidate_session.simulation_id,
-        simulationTitle=sim.title if sim else "",
+        trialId=sim.id if sim else candidate_session.trial_id,
+        trialTitle=sim.title if sim else "",
         role=sim.role if sim else "",
         companyName=company_name,
-        recruiterName=recruiter_name,
-        recruiterEmail=recruiter_email,
+        talentPartnerName=talent_partner_name,
+        talentPartnerEmail=talent_partner_email,
         status=candidate_session.status,
         progress=ProgressSummary(completed=completed, total=total),
         lastActivityAt=last_activity,

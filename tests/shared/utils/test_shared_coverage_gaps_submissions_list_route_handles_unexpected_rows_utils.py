@@ -10,9 +10,11 @@ async def test_submissions_list_route_handles_unexpected_rows(monkeypatch):
     async def _fake_list(*_a, **_k):
         return [object(), ("sub", "task"), ("sub", None), ("sub", "task", "extra")]
 
-    monkeypatch.setattr(submissions_list_route, "ensure_recruiter", lambda _u: None)
     monkeypatch.setattr(
-        submissions_list_route.recruiter_sub_service,
+        submissions_list_route, "ensure_talent_partner", lambda _u: None
+    )
+    monkeypatch.setattr(
+        submissions_list_route.talent_partner_sub_service,
         "list_submissions",
         _fake_list,
     )

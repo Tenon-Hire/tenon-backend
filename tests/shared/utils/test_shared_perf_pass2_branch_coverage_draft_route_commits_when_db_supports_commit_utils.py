@@ -7,7 +7,7 @@ from tests.shared.utils.shared_perf_pass2_branch_coverage_utils import *
 
 @pytest.mark.asyncio
 async def test_draft_route_commits_when_db_supports_commit(monkeypatch):
-    task = SimpleNamespace(id=9, simulation_id=2)
+    task = SimpleNamespace(id=9, trial_id=2)
     draft = SimpleNamespace(updated_at=datetime.now(UTC))
     committed = {"count": 0}
 
@@ -37,7 +37,7 @@ async def test_draft_route_commits_when_db_supports_commit(monkeypatch):
     response = await draft_route.put_task_draft_route(
         task_id=task.id,
         payload=TaskDraftUpsertRequest(contentText="x", contentJson=None),
-        candidate_session=SimpleNamespace(id=1, simulation_id=2),
+        candidate_session=SimpleNamespace(id=1, trial_id=2),
         db=_DB(),
     )
     assert response.taskId == task.id

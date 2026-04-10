@@ -9,7 +9,7 @@ from tests.candidates.routes.candidates_session_schedule_api_utils import *
 async def test_schedule_endpoint_rejects_unclaimed_session(
     async_client, async_session, override_dependencies
 ):
-    _recruiter, _simulation, cs = await _seed_claimed_session(async_session)
+    _talent_partner, _trial, cs = await _seed_claimed_session(async_session)
 
     provider = MemoryEmailProvider()
     email_service = EmailService(provider, sender="noreply@test.com")

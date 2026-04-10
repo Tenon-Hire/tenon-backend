@@ -7,7 +7,7 @@ def test_compute_task_window_derives_with_real_timezone_dst_safe() -> None:
     candidate_session = SimpleNamespace(
         day_windows_json=None,
         scheduled_start_at=datetime(2026, 3, 8, 13, 0, tzinfo=UTC),
-        simulation=_simulation(),
+        trial=_trial(),
         candidate_timezone="America/New_York",
     )
     task = _task(day_index=1)

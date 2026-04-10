@@ -19,8 +19,8 @@ from app.shared.database.shared_database_models_model import Job
 from app.shared.utils.shared_utils_errors_utils import ApiError
 from tests.shared.factories import (
     create_candidate_session,
-    create_recruiter,
-    create_simulation,
+    create_talent_partner,
+    create_trial,
 )
 
 
@@ -54,15 +54,17 @@ def _principal(
 async def _seed_claimed_schedule_context(
     async_session,
     *,
-    recruiter_email: str = "schedule-service@test.com",
+    talent_partner_email: str = "schedule-service@test.com",
     invite_email: str = "claimed-schedule@test.com",
     candidate_sub: str = "candidate-claimed-schedule@test.com",
 ):
-    recruiter = await create_recruiter(async_session, email=recruiter_email)
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email=talent_partner_email
+    )
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         invite_email=invite_email,
         status="in_progress",
         candidate_auth0_sub=candidate_sub,

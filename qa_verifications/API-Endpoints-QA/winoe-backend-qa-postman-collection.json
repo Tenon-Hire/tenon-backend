@@ -1,0 +1,4915 @@
+{
+  "info": {
+    "_postman_id": "70285a6c-2282-406a-94c4-561ef57e0d96",
+    "name": "Winoe AI - Backend QA Collection",
+    "description": "Comprehensive QA test collection for the Winoe AI backend API. Covers all endpoints across auth, trials, candidate sessions, tasks, submissions, winoe reports, admin operations, and GitHub webhooks.\n\n**Setup:**\n1. Import the 'Winoe AI - Backend QA' environment\n2. Set base_url (default: http://localhost:8000)\n3. For local testing with DEV_AUTH_BYPASS=1, set:\n   - talent_partner_token = talent_partner:<talent_partner_email>\n   - candidate_token = candidate:<candidate_email>\n4. For production, use Auth0 JWT tokens\n5. Set admin_api_key for admin endpoints\n\n**Auth Patterns:**\n- TalentPartner endpoints: Bearer token with talent_partner role\n- Candidate endpoints: Bearer token with candidate role\n- Task endpoints: Bearer token + x-candidate-session-id header\n- Admin template endpoints: X-Admin-Key header\n- Admin demo endpoints: Bearer token (demo admin allowlisted)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 - Health & Server",
+      "description": "Server health and diagnostic endpoints. No authentication required.",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response time is under 1000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(1000); });",
+                  "pm.test(\"Content-Type is application/json\", function () { pm.response.to.have.header(\"Content-Type\"); pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"); });",
+                  "pm.test(\"Response has status ok\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.have.property(\"status\");",
+                  "    pm.expect(json.status).to.equal(\"ok\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 - Auth & Identity",
+      "description": "Authentication and user identity endpoints. Uses Auth0 JWT (or DEV_AUTH_BYPASS shorthand tokens in local/test). Set talent_partner_token and candidate_token in the environment before running.",
+      "item": [
+        {
+          "name": "Get Current User (TalentPartner)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(\"Fetching current talent_partner user profile\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response time is under 15000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Content-Type is application/json\", function () { pm.response.to.have.header(\"Content-Type\"); pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"); });",
+                  "pm.test(\"Response has user fields\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.have.property(\"id\");",
+                  "    pm.expect(json).to.have.property(\"name\");",
+                  "    pm.expect(json).to.have.property(\"email\");",
+                  "    pm.expect(json).to.have.property(\"role\");",
+                  "    pm.expect(json.id).to.be.a(\"number\");",
+                  "    pm.expect(json.email).to.be.a(\"string\");",
+                  "    pm.expect(json.role).to.equal(\"talent_partner\");",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    pm.environment.set(\"talent_partner_id\", json.id);",
+                  "    pm.environment.set(\"company_id\", json.company_id || \"\");",
+                  "    console.log(\"Stored talent_partner_id: \" + json.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Current User (Candidate)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(\"Fetching current candidate user profile\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Content-Type is application/json\", function () { pm.response.to.have.header(\"Content-Type\"); pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"); });",
+                  "pm.test(\"Response has user fields\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.have.property(\"id\");",
+                  "    pm.expect(json).to.have.property(\"email\");",
+                  "    pm.expect(json).to.have.property(\"role\");",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    pm.environment.set(\"candidate_id\", json.id);",
+                  "    console.log(\"Stored candidate_id: \" + json.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 204 No Content\", function () { pm.response.to.have.status(204); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Cache-Control header is set\", function () {",
+                  "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Error] Auth Me - No Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(\"Testing auth/me without token - expect 401/403\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 401 or 403\", function () {",
+                  "    pm.expect([401, 403]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Error response has detail\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.have.property(\"detail\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Error] Auth Me - Invalid Token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer invalid.token.here",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(\"Testing auth/me with invalid token\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 401 or 403\", function () {",
+                  "    pm.expect([401, 403]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 - Trials CRUD (TalentPartner)",
+      "description": "Create, read, update trials. Requires talent_partner authentication. Run 'Create Trial' first to populate trial_id.",
+      "item": [
+        {
+          "name": "Create Trial",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Instagram Feed Rendering Pipeline\",\n  \"role\": \"Mid Level Frontend Engineer\",\n  \"techStack\": \"react-typescript\",\n  \"seniority\": \"mid\",\n  \"focus\": \"Emphasize component architecture, state management patterns, and performance optimization. We want to see how the candidate handles complex UI state.\",\n  \"templateKey\": \"winoe-template-monorepo-react-express\",\n  \"company_context\": {\n    \"domain\": \"social-media\",\n    \"productArea\": \"feed-rendering\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(\"Creating a new trial\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Response time is under 5000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(5000); });",
+                  "pm.test(\"Content-Type is application/json\", function () { pm.response.to.have.header(\"Content-Type\"); pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"); });",
+                  "pm.test(\"Response has trial fields\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.have.property(\"id\");",
+                  "    pm.expect(json).to.have.property(\"title\");",
+                  "    pm.expect(json).to.have.property(\"role\");",
+                  "    pm.expect(json).to.have.property(\"techStack\");",
+                  "    pm.expect(json).to.have.property(\"seniority\");",
+                  "    pm.expect(json).to.have.property(\"focus\");",
+                  "    pm.expect(json).to.have.property(\"templateKey\");",
+                  "    pm.expect(json).to.have.property(\"status\");",
+                  "    pm.expect(json).to.have.property(\"scenarioGenerationJobId\");",
+                  "    pm.expect(json).to.have.property(\"tasks\");",
+                  "});",
+                  "pm.test(\"Status is generating after creation\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.status).to.equal(\"generating\");",
+                  "});",
+                  "pm.test(\"Tasks array has 5 items\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.tasks).to.be.an(\"array\").with.lengthOf(5);",
+                  "});",
+                  "pm.test(\"Field types are correct\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.id).to.be.a(\"number\");",
+                  "    pm.expect(json.title).to.be.a(\"string\");",
+                  "    pm.expect(json.seniority).to.be.a(\"string\");",
+                  "    pm.expect(json.templateKey).to.be.a(\"string\");",
+                  "});",
+                  "if (pm.response.code === 201) {",
+                  "    var json = pm.response.json();",
+                  "    pm.environment.set(\"trial_id\", json.id);",
+                  "    pm.environment.set(\"scenario_generation_job_id\", json.scenarioGenerationJobId);",
+                  "    if (json.tasks && json.tasks.length >= 5) {",
+                  "        pm.environment.set(\"task_id\", json.tasks[0].id);",
+                  "        pm.environment.set(\"task_id_day1\", json.tasks[0].id);",
+                  "        pm.environment.set(\"task_id_day2\", json.tasks[1].id);",
+                  "        pm.environment.set(\"task_id_day3\", json.tasks[2].id);",
+                  "        pm.environment.set(\"task_id_day4\", json.tasks[3].id);",
+                  "        pm.environment.set(\"task_id_day5\", json.tasks[4].id);",
+                  "    }",
+                  "    console.log(\"Stored trial_id=\" + json.id + \" jobId=\" + json.scenarioGenerationJobId);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Trials",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Content-Type is application/json\", function () { pm.response.to.have.header(\"Content-Type\"); pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"); });",
+                  "pm.test(\"Response is an array\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.be.an(\"array\");",
+                  "});",
+                  "pm.test(\"Each item has required fields\", function () {",
+                  "    var json = pm.response.json();",
+                  "    if (json.length > 0) {",
+                  "        var item = json[0];",
+                  "        pm.expect(item).to.have.property(\"id\");",
+                  "        pm.expect(item).to.have.property(\"title\");",
+                  "        pm.expect(item).to.have.property(\"status\");",
+                  "        pm.expect(item).to.have.property(\"templateKey\");",
+                  "        pm.expect(item).to.have.property(\"createdAt\");",
+                  "        pm.expect(item).to.have.property(\"numCandidates\");",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Trials (Include Terminated)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials"
+              ],
+              "query": [
+                {
+                  "key": "includeTerminated",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Response is an array\", function () { pm.expect(pm.response.json()).to.be.an(\"array\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Trial Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials/{{trial_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials",
+                "{{trial_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Content-Type is application/json\", function () { pm.response.to.have.header(\"Content-Type\"); pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"); });",
+                  "pm.test(\"Response has detail fields\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.have.property(\"id\");",
+                  "    pm.expect(json).to.have.property(\"title\");",
+                  "    pm.expect(json).to.have.property(\"status\");",
+                  "    pm.expect(json).to.have.property(\"tasks\");",
+                  "    pm.expect(json.tasks).to.be.an(\"array\");",
+                  "});",
+                  "pm.test(\"Scenario fields present\", function () {",
+                  "    var json = pm.response.json();",
+                  "    if (json.scenario) {",
+                  "        pm.expect(json.scenario).to.have.property(\"id\");",
+                  "        pm.expect(json.scenario).to.have.property(\"status\");",
+                  "    }",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.activeScenarioVersionId) {",
+                  "        pm.environment.set(\"scenario_version_id\", json.activeScenarioVersionId);",
+                  "    } else if (json.pendingScenarioVersionId) {",
+                  "        pm.environment.set(\"scenario_version_id\", json.pendingScenarioVersionId);",
+                  "    } else if (json.scenario && json.scenario.id) {",
+                  "        pm.environment.set(\"scenario_version_id\", json.scenario.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Trial (AI Config)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials/{{trial_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials",
+                "{{trial_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ai\": {\n    \"noticeVersion\": \"v2.0\",\n    \"noticeText\": \"This trial uses AI-assisted evaluation to generate your Winoe Report.\",\n    \"evalEnabledByDay\": {\n      \"1\": true,\n      \"2\": true,\n      \"3\": true,\n      \"4\": true,\n      \"5\": true\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Content-Type is application/json\", function () { pm.response.to.have.header(\"Content-Type\"); pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"); });",
+                  "pm.test(\"Response returns updated trial\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.have.property(\"id\");",
+                  "    pm.expect(json).to.have.property(\"status\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Error] Create Trial - Missing Required Fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Incomplete Trial\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 422 Validation Error\", function () { pm.response.to.have.status(422); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Error response has detail array\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.have.property(\"detail\");",
+                  "    pm.expect(json.detail).to.be.an(\"array\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Error] Create Trial - Invalid Seniority",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Bad Seniority Test\",\n  \"role\": \"Frontend Engineer\",\n  \"techStack\": \"react\",\n  \"seniority\": \"mega-senior-overlord\",\n  \"focus\": \"Testing invalid seniority\",\n  \"templateKey\": \"winoe-template-monorepo-react-express\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 422 for invalid seniority\", function () { pm.response.to.have.status(422); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Validation error references seniority\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(JSON.stringify(json)).to.include(\"seniority\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Error] Create Trial - Invalid Template Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Bad Template Test\",\n  \"role\": \"Backend Engineer\",\n  \"techStack\": \"python\",\n  \"seniority\": \"mid\",\n  \"focus\": \"Testing invalid template key\",\n  \"templateKey\": \"nonexistent-template-repo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 422 for invalid template key\", function () { pm.response.to.have.status(422); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Error] Get Trial - Non-existent ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials/999999",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials",
+                "999999"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404 Not Found\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Error response structure\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.have.property(\"detail\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Error] Get Trial - No Auth",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/trials/{{trial_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials",
+                "{{trial_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 401 or 403\", function () { pm.expect([401, 403]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 - Trial Lifecycle (TalentPartner)",
+      "description": "Activate and terminate trials. Requires confirm=true. Trial must be in ready_for_review state to activate, or active_inviting to terminate.",
+      "item": [
+        {
+          "name": "Activate Trial",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials/{{trial_id}}/activate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials",
+                "{{trial_id}}",
+                "activate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"confirm\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 409/400 (depends on state)\", function () {",
+                  "    pm.expect([200, 400, 409]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Content-Type is application/json\", function () { pm.response.to.have.header(\"Content-Type\"); pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has activation fields\", function () {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"trialId\");",
+                  "        pm.expect(json).to.have.property(\"status\");",
+                  "        pm.expect(json.status).to.equal(\"active_inviting\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Terminate Trial",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials/{{trial_id}}/terminate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials",
+                "{{trial_id}}",
+                "terminate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"confirm\": true,\n  \"reason\": \"QA testing - terminating trial\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 400/409 (depends on state)\", function () {",
+                  "    pm.expect([200, 400, 409]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has termination fields\", function () {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"trialId\");",
+                  "        pm.expect(json).to.have.property(\"status\");",
+                  "        pm.expect(json.status).to.equal(\"terminated\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Error] Activate - No Confirmation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials/{{trial_id}}/activate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials",
+                "{{trial_id}}",
+                "activate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"confirm\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400 when confirm=false\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Error code is TRIAL_CONFIRMATION_REQUIRED\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.errorCode).to.equal(\"TRIAL_CONFIRMATION_REQUIRED\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Error] Terminate - No Confirmation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials/{{trial_id}}/terminate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials",
+                "{{trial_id}}",
+                "terminate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"confirm\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400 when confirm=false\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Error code is TRIAL_CONFIRMATION_REQUIRED\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.errorCode).to.equal(\"TRIAL_CONFIRMATION_REQUIRED\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 - Scenario Management (TalentPartner)",
+      "description": "Manage AI-generated scenarios: regenerate, approve, update, and patch. Requires a trial_id and scenario_version_id populated from earlier steps.",
+      "item": [
+        {
+          "name": "Regenerate Scenario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials/{{trial_id}}/scenario/regenerate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials",
+                "{{trial_id}}",
+                "scenario",
+                "regenerate"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 400/409\", function () { pm.expect([200, 400, 409, 429]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 10000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(10000); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has regeneration fields\", function () {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"scenarioVersionId\");",
+                  "        pm.expect(json).to.have.property(\"jobId\");",
+                  "        pm.expect(json).to.have.property(\"status\");",
+                  "    });",
+                  "    var json = pm.response.json();",
+                  "    pm.environment.set(\"scenario_version_id\", json.scenarioVersionId);",
+                  "    pm.environment.set(\"job_id\", json.jobId);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Approve Scenario Version",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials/{{trial_id}}/scenario/{{scenario_version_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials",
+                "{{trial_id}}",
+                "scenario",
+                "{{scenario_version_id}}",
+                "approve"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 400/404/409\", function () { pm.expect([200, 400, 404, 409]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has approval fields\", function () {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"trialId\");",
+                  "        pm.expect(json).to.have.property(\"status\");",
+                  "        pm.expect(json).to.have.property(\"activeScenarioVersionId\");",
+                  "        pm.expect(json).to.have.property(\"scenario\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Active Scenario",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials/{{trial_id}}/scenario/active",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials",
+                "{{trial_id}}",
+                "scenario",
+                "active"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"storylineMd\": \"# Updated Storyline\\\\n\\\\nYou are joining a fast-paced social media company...\",\n  \"focusNotes\": \"Focus on performance optimization and accessibility\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 400/404/409\", function () { pm.expect([200, 400, 404, 409]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has update fields\", function () {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"trialId\");",
+                  "        pm.expect(json).to.have.property(\"scenario\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Patch Scenario Version",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials/{{trial_id}}/scenario/{{scenario_version_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials",
+                "{{trial_id}}",
+                "scenario",
+                "{{scenario_version_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"storylineMd\": \"# Patched Storyline\\\\n\\\\nUpdated scenario content for testing.\",\n  \"notes\": \"QA testing patch notes\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 400/404/409\", function () { pm.expect([200, 400, 404, 409]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has patch fields\", function () {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"scenarioVersionId\");",
+                  "        pm.expect(json).to.have.property(\"status\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 - Candidate Invites (TalentPartner)",
+      "description": "Invite candidates to trials, list candidates, compare candidates, and resend invites. Trial must be in active_inviting status for invites to work.",
+      "item": [
+        {
+          "name": "Invite Candidate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials/{{trial_id}}/invite",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials",
+                "{{trial_id}}",
+                "invite"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"candidateName\": \"Jane Smith\",\n  \"inviteEmail\": \"jane.smith@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var uniqueEmail = \"candidate_\" + Date.now() + \"@test.com\";",
+                  "pm.environment.set(\"unique_candidate_email\", uniqueEmail);",
+                  "console.log(\"Inviting candidate: \" + uniqueEmail);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 409 (duplicate)\", function () { pm.expect([200, 409]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Content-Type is application/json\", function () { pm.response.to.have.header(\"Content-Type\"); pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has invite fields\", function () {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"candidateSessionId\");",
+                  "        pm.expect(json).to.have.property(\"token\");",
+                  "        pm.expect(json).to.have.property(\"inviteUrl\");",
+                  "        pm.expect(json).to.have.property(\"outcome\");",
+                  "        pm.expect([\"created\", \"resent\"]).to.include(json.outcome);",
+                  "    });",
+                  "    var json = pm.response.json();",
+                  "    pm.environment.set(\"candidate_session_id\", json.candidateSessionId);",
+                  "    pm.environment.set(\"candidate_session_token\", json.token);",
+                  "    pm.environment.set(\"invite_url\", json.inviteUrl);",
+                  "    console.log(\"Stored candidate_session_id=\" + json.candidateSessionId + \" token=\" + json.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Candidates for Trial",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials/{{trial_id}}/candidates",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials",
+                "{{trial_id}}",
+                "candidates"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 404\", function () { pm.expect([200, 404]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Content-Type is application/json\", function () { pm.response.to.have.header(\"Content-Type\"); pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"); });",
+                  "    pm.test(\"Response is an array\", function () { pm.expect(pm.response.json()).to.be.an(\"array\"); });",
+                  "    pm.test(\"Each item has required fields\", function () {",
+                  "        var json = pm.response.json();",
+                  "        if (json.length > 0) {",
+                  "            pm.expect(json[0]).to.have.property(\"candidateSessionId\");",
+                  "            pm.expect(json[0]).to.have.property(\"inviteEmail\");",
+                  "            pm.expect(json[0]).to.have.property(\"candidateName\");",
+                  "            pm.expect(json[0]).to.have.property(\"status\");",
+                  "            pm.expect(json[0]).to.have.property(\"hasWinoeReport\");",
+                  "        }",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Compare Candidates",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials/{{trial_id}}/candidates/compare",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials",
+                "{{trial_id}}",
+                "candidates",
+                "compare"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Content-Type is application/json\", function () { pm.response.to.have.header(\"Content-Type\"); pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"); });",
+                  "pm.test(\"Response has compare fields\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.have.property(\"trialId\");",
+                  "    pm.expect(json).to.have.property(\"candidates\");",
+                  "    pm.expect(json.candidates).to.be.an(\"array\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resend Invite",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials/{{trial_id}}/candidates/{{candidate_session_id}}/invite/resend",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials",
+                "{{trial_id}}",
+                "candidates",
+                "{{candidate_session_id}}",
+                "invite",
+                "resend"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 400/404/409\", function () { pm.expect([200, 400, 404, 409]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Error] Invite - Missing Fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials/{{trial_id}}/invite",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials",
+                "{{trial_id}}",
+                "invite"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 422 for missing fields\", function () { pm.response.to.have.status(422); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Validation error present\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.have.property(\"detail\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Error] Invite - Invalid Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials/{{trial_id}}/invite",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials",
+                "{{trial_id}}",
+                "invite"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"candidateName\": \"Bad Email Test\",\n  \"inviteEmail\": \"not-an-email\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 422 for invalid email\", function () { pm.response.to.have.status(422); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 - Candidate Portal & Session",
+      "description": "Candidate-facing endpoints for resolving invites, claiming sessions, scheduling start dates, viewing current tasks, and recording privacy consent. Requires candidate authentication.",
+      "item": [
+        {
+          "name": "Resolve Session (Get by Token)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/candidate/session/{{candidate_session_token}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "candidate",
+                "session",
+                "{{candidate_session_token}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 404\", function () { pm.expect([200, 404]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Content-Type is application/json\", function () { pm.response.to.have.header(\"Content-Type\"); pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has session fields\", function () {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"candidateSessionId\");",
+                  "        pm.expect(json).to.have.property(\"status\");",
+                  "        pm.expect(json).to.have.property(\"candidateName\");",
+                  "        pm.expect(json).to.have.property(\"trial\");",
+                  "        pm.expect(json).to.have.property(\"aiNoticeText\");",
+                  "        pm.expect(json).to.have.property(\"aiNoticeVersion\");",
+                  "        pm.expect(json).to.have.property(\"evalEnabledByDay\");",
+                  "    });",
+                  "    var json = pm.response.json();",
+                  "    pm.environment.set(\"candidate_session_id\", json.candidateSessionId);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Claim Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/candidate/session/{{candidate_session_token}}/claim",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "candidate",
+                "session",
+                "{{candidate_session_token}}",
+                "claim"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 404\", function () { pm.expect([200, 404]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has session resolve fields\", function () {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"candidateSessionId\");",
+                  "        pm.expect(json).to.have.property(\"status\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Schedule Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/candidate/session/{{candidate_session_token}}/schedule",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "candidate",
+                "session",
+                "{{candidate_session_token}}",
+                "schedule"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scheduledStartAt\": \"2026-04-01T09:00:00Z\",\n  \"candidateTimezone\": \"America/New_York\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 400/404/409\", function () { pm.expect([200, 400, 404, 409]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has schedule fields\", function () {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"candidateSessionId\");",
+                  "        pm.expect(json).to.have.property(\"scheduledStartAt\");",
+                  "        pm.expect(json).to.have.property(\"candidateTimezone\");",
+                  "        pm.expect(json).to.have.property(\"dayWindows\");",
+                  "        pm.expect(json).to.have.property(\"scheduleLockedAt\");",
+                  "        pm.expect(json.dayWindows).to.be.an(\"array\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Current Task",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/candidate/session/{{candidate_session_id}}/current_task",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "candidate",
+                "session",
+                "{{candidate_session_id}}",
+                "current_task"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 403/404\", function () { pm.expect([200, 403, 404]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has current task fields\", function () {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"candidateSessionId\");",
+                  "        pm.expect(json).to.have.property(\"status\");",
+                  "        pm.expect(json).to.have.property(\"completedTaskIds\");",
+                  "        pm.expect(json).to.have.property(\"progress\");",
+                  "        pm.expect(json).to.have.property(\"isComplete\");",
+                  "        pm.expect(json.completedTaskIds).to.be.an(\"array\");",
+                  "    });",
+                  "    if (pm.response.json().currentTask) {",
+                  "        pm.environment.set(\"task_id\", pm.response.json().currentTask.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List My Invites",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/candidate/invites",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "candidate",
+                "invites"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Content-Type is application/json\", function () { pm.response.to.have.header(\"Content-Type\"); pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"); });",
+                  "pm.test(\"Response is an array\", function () { pm.expect(pm.response.json()).to.be.an(\"array\"); });",
+                  "pm.test(\"Each item has required fields\", function () {",
+                  "    var json = pm.response.json();",
+                  "    if (json.length > 0) {",
+                  "        pm.expect(json[0]).to.have.property(\"candidateSessionId\");",
+                  "        pm.expect(json[0]).to.have.property(\"trialId\");",
+                  "        pm.expect(json[0]).to.have.property(\"status\");",
+                  "        pm.expect(json[0]).to.have.property(\"progress\");",
+                  "        pm.expect(json[0]).to.have.property(\"isExpired\");",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List My Invites (Include Terminated)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/candidate/invites",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "candidate",
+                "invites"
+              ],
+              "query": [
+                {
+                  "key": "includeTerminated",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Response is an array\", function () { pm.expect(pm.response.json()).to.be.an(\"array\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Record Privacy Consent",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/candidate/session/{{candidate_session_id}}/privacy/consent",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "candidate",
+                "session",
+                "{{candidate_session_id}}",
+                "privacy",
+                "consent"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"noticeVersion\": \"v1.0\",\n  \"aiNoticeVersion\": \"v1.0\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 403/404\", function () { pm.expect([200, 403, 404]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Consent recorded\", function () {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"status\");",
+                  "        pm.expect(json.status).to.equal(\"consent_recorded\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Error] Resolve Session - Invalid Token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/candidate/session/this-is-an-invalid-token-for-testing",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "candidate",
+                "session",
+                "this-is-an-invalid-token-for-testing"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404\", function () { pm.expect(pm.response.code).to.equal(404); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07 - Tasks & Codespace (Candidate)",
+      "description": "Task execution endpoints for candidates. Uses x-candidate-session-id header for session context. Requires candidate_token and candidate_session_id to be set.",
+      "item": [
+        {
+          "name": "Init Codespace",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              },
+              {
+                "key": "x-candidate-session-id",
+                "value": "{{candidate_session_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/{{task_id}}/codespace/init",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{task_id}}",
+                "codespace",
+                "init"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"githubUsername\": \"test-candidate-github\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 400/404/409/422\", function () { pm.expect([200, 400, 404, 409, 422]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Codespace Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              },
+              {
+                "key": "x-candidate-session-id",
+                "value": "{{candidate_session_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/{{task_id}}/codespace/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{task_id}}",
+                "codespace",
+                "status"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 404/422\", function () { pm.expect([200, 404, 422]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Run Tests",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              },
+              {
+                "key": "x-candidate-session-id",
+                "value": "{{candidate_session_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/{{task_id}}/run",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{task_id}}",
+                "run"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 400/404/409/422/429\", function () { pm.expect([200, 400, 404, 409, 422, 429]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Poll Run Result",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              },
+              {
+                "key": "x-candidate-session-id",
+                "value": "{{candidate_session_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/{{task_id}}/run/{{run_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{task_id}}",
+                "run",
+                "{{run_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 404/405\", function () { pm.expect([200, 404, 405]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Task (Design Doc - Day 1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              },
+              {
+                "key": "x-candidate-session-id",
+                "value": "{{candidate_session_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/{{task_id_day1}}/submit",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{task_id_day1}}",
+                "submit"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contentText\": \"# Design Document\\n\\n## Overview\\nThis document outlines the architecture for the feed rendering pipeline.\\n\\n## Architecture\\n- Component-based design using React with TypeScript\\n- State management via Redux Toolkit\\n- API layer using RTK Query\\n\\n## Data Flow\\n1. User scrolls feed\\n2. Intersection Observer triggers fetch\\n3. Virtualized list renders visible items\\n4. Optimistic updates for interactions\\n\\n## Testing Strategy\\n- Unit tests for components\\n- Integration tests for data flow\\n- E2E tests for critical user journeys\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201 or 400/404/409/422\", function () { pm.expect([201, 400, 404, 409, 422]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Task (Code - Day 2)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              },
+              {
+                "key": "x-candidate-session-id",
+                "value": "{{candidate_session_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/{{task_id_day2}}/submit",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{task_id_day2}}",
+                "submit"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branch\": \"main\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201 or 400/404/409/422\", function () { pm.expect([201, 400, 404, 409, 422]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Task (Reflection - Day 5)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              },
+              {
+                "key": "x-candidate-session-id",
+                "value": "{{candidate_session_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/{{task_id_day5}}/submit",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{task_id_day5}}",
+                "submit"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contentText\": \"# Reflection\\n\\nThis trial challenged me to think about component architecture at scale. I learned that performance optimization requires careful consideration of rendering cycles and state management patterns.\\n\\n## What I Would Do Differently\\n- Start with a more detailed component hierarchy\\n- Write tests earlier in the process\\n- Spend more time on accessibility\\n\\n## Key Takeaways\\n- Virtual scrolling is essential for large lists\\n- Redux Toolkit simplifies state management significantly\\n- TypeScript catches many bugs at compile time\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201 or 400/404/409/422\", function () { pm.expect([201, 400, 404, 409, 422]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "08 - Draft Management (Candidate)",
+      "description": "Auto-save draft endpoints for design docs and reflection essays. Uses x-candidate-session-id header.",
+      "item": [
+        {
+          "name": "Save/Update Draft",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              },
+              {
+                "key": "x-candidate-session-id",
+                "value": "{{candidate_session_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/{{task_id}}/draft",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{task_id}}",
+                "draft"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contentText\": \"# Work in Progress Design Document\\n\\nThis is an auto-saved draft...\",\n  \"contentJson\": {\n    \"version\": 1,\n    \"blocks\": [\n      {\n        \"type\": \"heading\",\n        \"text\": \"Design Document\"\n      }\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 400/404/409/422\", function () { pm.expect([200, 400, 404, 409, 422]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Draft",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              },
+              {
+                "key": "x-candidate-session-id",
+                "value": "{{candidate_session_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/{{task_id}}/draft",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{task_id}}",
+                "draft"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 404/422\", function () { pm.expect([200, 404, 422]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Error] Get Draft - Non-existent Task",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              },
+              {
+                "key": "x-candidate-session-id",
+                "value": "{{candidate_session_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/999999/draft",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "999999",
+                "draft"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404 or 422\", function () { pm.expect([404, 422]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "09 - Handoff / Demo Upload (Candidate)",
+      "description": "Upload demo video and supplemental materials for Day 4 handoff. Uses signed URL upload flow: init -> upload to URL -> complete.",
+      "item": [
+        {
+          "name": "Init Handoff Upload",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              },
+              {
+                "key": "x-candidate-session-id",
+                "value": "{{candidate_session_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/{{task_id_day4}}/handoff/upload/init",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{task_id_day4}}",
+                "handoff",
+                "upload",
+                "init"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contentType\": \"video/mp4\",\n  \"sizeBytes\": 52428800,\n  \"filename\": \"demo-recording.mp4\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 400/404/409/422\", function () { pm.expect([200, 400, 404, 409, 422]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Complete Handoff Upload",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              },
+              {
+                "key": "x-candidate-session-id",
+                "value": "{{candidate_session_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/{{task_id_day4}}/handoff/upload/complete",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{task_id_day4}}",
+                "handoff",
+                "upload",
+                "complete"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recordingId\": \"{{recording_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 400/404/422\", function () { pm.expect([200, 400, 404, 422]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Handoff Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              },
+              {
+                "key": "x-candidate-session-id",
+                "value": "{{candidate_session_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/{{task_id_day4}}/handoff/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{task_id_day4}}",
+                "handoff",
+                "status"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 404/422\", function () { pm.expect([200, 404, 422]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10 - Submissions (TalentPartner)",
+      "description": "TalentPartner-facing submission list and detail endpoints. Filter by candidateSessionId, taskId, etc.",
+      "item": [
+        {
+          "name": "List Submissions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/submissions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "submissions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Content-Type is application/json\", function () { pm.response.to.have.header(\"Content-Type\"); pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\"); });",
+                  "pm.test(\"Response has items array\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.have.property(\"items\");",
+                  "    pm.expect(json.items).to.be.an(\"array\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Submissions (Filtered by Candidate Session)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/submissions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "submissions"
+              ],
+              "query": [
+                {
+                  "key": "candidateSessionId",
+                  "value": "{{candidate_session_id}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 422\", function () { pm.expect([200, 422]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has items array\", function () {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"items\");",
+                  "        pm.expect(json.items).to.be.an(\"array\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Submissions (Filtered by Task)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/submissions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "submissions"
+              ],
+              "query": [
+                {
+                  "key": "taskId",
+                  "value": "{{task_id_day1}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Response has items array\", function () { pm.expect(pm.response.json()).to.have.property(\"items\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Submission Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/submissions/{{submission_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "submissions",
+                "{{submission_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200, 404, or 422\", function () { pm.expect([200, 404, 422]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json && json.submissionId) {",
+                  "        pm.test(\"Response has submission detail fields\", function () {",
+                  "            pm.expect(json).to.have.property(\"submissionId\");",
+                  "            pm.expect(json).to.have.property(\"candidateSessionId\");",
+                  "            pm.expect(json).to.have.property(\"task\");",
+                  "            pm.expect(json).to.have.property(\"content\");",
+                  "        });",
+                  "    } else if (json && Array.isArray(json.items)) {",
+                  "        pm.test(\"Response has items array\", function () { pm.expect(json.items).to.be.an(\"array\"); });",
+                  "        if (json.items.length > 0 && json.items[0].submissionId) {",
+                  "            pm.environment.set(\"submission_id\", json.items[0].submissionId);",
+                  "        }",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Error] Get Submission - Non-existent ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/submissions/999999",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "submissions",
+                "999999"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404 for non-existent submission\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Error] List Submissions - No Auth",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/submissions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "submissions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 401 or 403\", function () { pm.expect([401, 403]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "11 - Winoe Report & Assessment (TalentPartner)",
+      "description": "Generate and retrieve AI-generated Winoe Reports for candidates. Requires talent_partner auth and a candidate_session_id.",
+      "item": [
+        {
+          "name": "Generate Winoe Report",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/candidate_sessions/{{candidate_session_id}}/winoe_report/generate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "candidate_sessions",
+                "{{candidate_session_id}}",
+                "winoe_report",
+                "generate"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 202 or 400/404/409\", function () { pm.expect([202, 400, 404, 409]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 10000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(10000); });",
+                  "if (pm.response.code === 202) {",
+                  "    pm.test(\"Response has generation fields\", function () {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"jobId\");",
+                  "        pm.expect(json).to.have.property(\"status\");",
+                  "        pm.expect(json.status).to.equal(\"queued\");",
+                  "    });",
+                  "    pm.environment.set(\"winoe_report_job_id\", pm.response.json().jobId);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Winoe Report Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/candidate_sessions/{{candidate_session_id}}/winoe_report",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "candidate_sessions",
+                "{{candidate_session_id}}",
+                "winoe_report"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 404\", function () { pm.expect([200, 404]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has winoe report fields\", function () {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"status\");",
+                  "        pm.expect([\"not_started\", \"running\", \"ready\", \"failed\"]).to.include(json.status);",
+                  "        if (json.status === \"ready\") {",
+                  "            pm.expect(json).to.have.property(\"report\");",
+                  "            pm.expect(json).to.have.property(\"generatedAt\");",
+                  "            pm.expect(json.report).to.have.property(\"overallWinoeScore\");",
+                  "            pm.expect(json.report).to.have.property(\"recommendation\");",
+                  "            pm.expect(json.report).to.have.property(\"confidence\");",
+                  "            pm.expect(json.report).to.have.property(\"dayScores\");",
+                  "            pm.expect(json.report).to.have.property(\"version\");",
+                  "        }",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Error] Generate Winoe Report - No Auth",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/candidate_sessions/{{candidate_session_id}}/winoe_report/generate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "candidate_sessions",
+                "{{candidate_session_id}}",
+                "winoe_report",
+                "generate"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 401, 403, or 404\", function () { pm.expect([401, 403, 404]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Error] Generate Winoe Report - Candidate Token (Wrong Role)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/candidate_sessions/{{candidate_session_id}}/winoe_report/generate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "candidate_sessions",
+                "{{candidate_session_id}}",
+                "winoe_report",
+                "generate"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 403 or 404\", function () { pm.expect([403, 404]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "12 - Recordings (Candidate)",
+      "description": "Candidate recording management. Currently supports deletion of recording assets.",
+      "item": [
+        {
+          "name": "Delete Recording",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/recordings/{{recording_id}}/delete",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "recordings",
+                "{{recording_id}}",
+                "delete"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 404/422\", function () { pm.expect([200, 404, 422]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Status is deleted\", function () {",
+                  "        pm.expect(pm.response.json().status).to.equal(\"deleted\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Error] Delete Recording - Non-existent ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/recordings/rec_999999/delete",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "recordings",
+                "rec_999999",
+                "delete"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404 or 422\", function () { pm.expect([404, 422]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "13 - Jobs",
+      "description": "Poll durable job status. Used to track scenario generation, winoe report generation, etc. Any authenticated principal can access.",
+      "item": [
+        {
+          "name": "Get Job Status (Scenario Generation)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/jobs/{{scenario_generation_job_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "jobs",
+                "{{scenario_generation_job_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 404\", function () { pm.expect([200, 404]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has job status fields\", function () {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"jobId\");",
+                  "        pm.expect(json).to.have.property(\"jobType\");",
+                  "        pm.expect(json).to.have.property(\"status\");",
+                  "        pm.expect(json).to.have.property(\"attempt\");",
+                  "        pm.expect(json).to.have.property(\"maxAttempts\");",
+                  "        pm.expect(json).to.have.property(\"pollAfterMs\");",
+                  "        pm.expect([\"queued\", \"running\", \"completed\", \"failed\"]).to.include(json.status);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Job Status (Generic)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/jobs/{{job_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "jobs",
+                "{{job_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 404\", function () { pm.expect([200, 404]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Job Status (Winoe Report)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/jobs/{{winoe_report_job_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "jobs",
+                "{{winoe_report_job_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 404\", function () { pm.expect([200, 404]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Error] Get Job - Not Found",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/jobs/00000000-0000-0000-0000-000000000000",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "jobs",
+                "00000000-0000-0000-0000-000000000000"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404 for non-existent job\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test(\"Error has JOB_NOT_FOUND code\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.errorCode).to.equal(\"JOB_NOT_FOUND\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Error] Get Job - No Auth",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/jobs/{{job_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "jobs",
+                "{{job_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 401, 403, or 404\", function () { pm.expect([401, 403, 404]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "14 - GitHub Webhooks",
+      "description": "Webhook receiver for GitHub workflow_run completion events. Requires X-GitHub-Delivery, X-GitHub-Event, and X-Hub-Signature-256 headers. In local testing, webhook secret must be configured.",
+      "item": [
+        {
+          "name": "Receive Webhook (workflow_run completed)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-GitHub-Delivery",
+                "value": "test-delivery-001",
+                "type": "text"
+              },
+              {
+                "key": "X-GitHub-Event",
+                "value": "workflow_run",
+                "type": "text"
+              },
+              {
+                "key": "X-Hub-Signature-256",
+                "value": "sha256=placeholder",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/github/webhooks",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "github",
+                "webhooks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"completed\",\n  \"workflow_run\": {\n    \"id\": 12345,\n    \"status\": \"completed\",\n    \"conclusion\": \"success\",\n    \"head_sha\": \"abc123def456\",\n    \"repository\": {\n      \"full_name\": \"winoe-org/winoe-ws-test\"\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 202, 401, or 503 (depends on config)\", function () {",
+                  "    pm.expect([202, 401, 503]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "if (pm.response.code === 202) {",
+                  "    pm.test(\"Response has accepted status\", function () {",
+                  "        pm.expect(pm.response.json().status).to.equal(\"accepted\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Receive Webhook (Ignored Event Type)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-GitHub-Delivery",
+                "value": "test-delivery-002",
+                "type": "text"
+              },
+              {
+                "key": "X-GitHub-Event",
+                "value": "push",
+                "type": "text"
+              },
+              {
+                "key": "X-Hub-Signature-256",
+                "value": "sha256=placeholder",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/github/webhooks",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "github",
+                "webhooks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"completed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 202, 401, or 503\", function () { pm.expect([202, 401, 503]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "15 - Admin Operations (Demo Mode)",
+      "description": "Admin endpoints that require demo mode to be enabled and admin authentication. Uses either talent_partner token (with demo admin allowlist) or admin API key depending on the endpoint.",
+      "item": [
+        {
+          "name": "Reset Candidate Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/candidate_sessions/{{candidate_session_id}}/reset",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "candidate_sessions",
+                "{{candidate_session_id}}",
+                "reset"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetState\": \"not_started\",\n  \"reason\": \"QA testing - resetting candidate session\",\n  \"overrideIfEvaluated\": false,\n  \"dryRun\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 403/404\", function () { pm.expect([200, 403, 404]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has reset fields\", function () {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"candidateSessionId\");",
+                  "        pm.expect(json).to.have.property(\"status\");",
+                  "        pm.expect(json).to.have.property(\"resetTo\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Requeue Job",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/jobs/{{job_id}}/requeue",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "jobs",
+                "{{job_id}}",
+                "requeue"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"QA testing - requeuing failed job\",\n  \"force\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 403/404\", function () { pm.expect([200, 403, 404]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has requeue fields\", function () {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"jobId\");",
+                  "        pm.expect(json).to.have.property(\"previousStatus\");",
+                  "        pm.expect(json).to.have.property(\"newStatus\");",
+                  "        pm.expect(json).to.have.property(\"auditId\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Use Fallback Scenario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/trials/{{trial_id}}/scenario/use_fallback",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "trials",
+                "{{trial_id}}",
+                "scenario",
+                "use_fallback"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scenarioVersionId\": 1,\n  \"applyTo\": \"future_invites_only\",\n  \"reason\": \"QA testing - switching to fallback scenario\",\n  \"dryRun\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 403/404\", function () { pm.expect([200, 403, 404]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has fallback fields\", function () {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"trialId\");",
+                  "        pm.expect(json).to.have.property(\"activeScenarioVersionId\");",
+                  "        pm.expect(json).to.have.property(\"applyTo\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Purge Expired Media",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/media/purge",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "media",
+                "purge"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"retentionDays\": 45,\n  \"batchLimit\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200, 403, or 404\", function () { pm.expect([200, 403, 404]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "16 - Admin Template Health",
+      "description": "Check health of GitHub template repositories against the Actions artifact contract. Requires X-Admin-Key header (WINOE_ADMIN_API_KEY).",
+      "item": [
+        {
+          "name": "Get Template Health (Static)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Admin-Key",
+                "value": "{{admin_api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/templates/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "templates",
+                "health"
+              ],
+              "query": [
+                {
+                  "key": "mode",
+                  "value": "static"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 404 (admin key invalid)\", function () { pm.expect([200, 404]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 10000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(10000); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has template health fields\", function () {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"ok\");",
+                  "        pm.expect(json).to.have.property(\"templates\");",
+                  "        pm.expect(json.templates).to.be.an(\"array\");",
+                  "    });",
+                  "    pm.test(\"Each template has required check fields\", function () {",
+                  "        var templates = pm.response.json().templates;",
+                  "        if (templates.length > 0) {",
+                  "            pm.expect(templates[0]).to.have.property(\"templateKey\");",
+                  "            pm.expect(templates[0]).to.have.property(\"repoFullName\");",
+                  "            pm.expect(templates[0]).to.have.property(\"ok\");",
+                  "            pm.expect(templates[0]).to.have.property(\"errors\");",
+                  "            pm.expect(templates[0]).to.have.property(\"checks\");",
+                  "        }",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Run Template Health (Live)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Admin-Key",
+                "value": "{{admin_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/templates/health/run",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "templates",
+                "health",
+                "run"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"templateKeys\": [\n    \"winoe-template-python-fastapi\",\n    \"winoe-template-node-express-ts\"\n  ],\n  \"mode\": \"live\",\n  \"timeoutSeconds\": 60,\n  \"concurrency\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 404 (admin key invalid)\", function () { pm.expect([200, 404]).to.include(pm.response.code); });",
+                  "pm.test(\"Response time is under 120000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(120000); });",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(\"Response has template health fields\", function () {",
+                  "        var json = pm.response.json();",
+                  "        pm.expect(json).to.have.property(\"ok\");",
+                  "        pm.expect(json).to.have.property(\"templates\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Error] Get Template Health - No Admin Key",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/templates/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "templates",
+                "health"
+              ],
+              "query": [
+                {
+                  "key": "mode",
+                  "value": "static"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404 (admin key hidden)\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Response time is under 3000ms\", function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "99 - Full E2E Happy Path Flow",
+      "description": "Complete end-to-end flow from talent_partner login through winoe report retrieval. Run sequentially with Postman Collection Runner. Each step chains to the next via environment variables. PREREQUISITES: DEV_AUTH_BYPASS=1, WINOE_ENV=local, running server on port 8000.",
+      "item": [
+        {
+          "name": "Step 01: TalentPartner Login (Get Me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(\"=== E2E STEP 01: TalentPartner Login ===\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "pm.environment.set(\"talent_partner_id\", json.id);",
+                  "pm.test(\"TalentPartner authenticated\", function () { pm.expect(json.role).to.equal(\"talent_partner\"); });",
+                  "console.log(\"TalentPartner ID: \" + json.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Step 02: Create Trial",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"E2E Test - Cloud Infrastructure Engineer\",\n  \"role\": \"Senior Backend Engineer\",\n  \"techStack\": \"python-fastapi\",\n  \"seniority\": \"senior\",\n  \"focus\": \"Design and implement a scalable API with proper error handling, testing, and documentation. Focus on clean architecture and code quality.\",\n  \"templateKey\": \"winoe-template-python-fastapi\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(\"=== E2E STEP 02: Create Trial ===\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () { pm.response.to.have.status(201); });",
+                  "var json = pm.response.json();",
+                  "pm.environment.set(\"trial_id\", json.id);",
+                  "pm.environment.set(\"scenario_generation_job_id\", json.scenarioGenerationJobId);",
+                  "if (json.tasks && json.tasks.length >= 5) {",
+                  "    pm.environment.set(\"task_id_day1\", json.tasks[0].id);",
+                  "    pm.environment.set(\"task_id_day2\", json.tasks[1].id);",
+                  "    pm.environment.set(\"task_id_day3\", json.tasks[2].id);",
+                  "    pm.environment.set(\"task_id_day4\", json.tasks[3].id);",
+                  "    pm.environment.set(\"task_id_day5\", json.tasks[4].id);",
+                  "    pm.environment.set(\"task_id\", json.tasks[0].id);",
+                  "}",
+                  "pm.test(\"Trial created with generating status\", function () { pm.expect(json.status).to.equal(\"generating\"); });",
+                  "console.log(\"Trial ID: \" + json.id + \" | Job: \" + json.scenarioGenerationJobId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Step 03: Poll Scenario Generation Job",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/jobs/{{scenario_generation_job_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "jobs",
+                "{{scenario_generation_job_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(\"=== E2E STEP 03: Poll Scenario Job ===\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 404\", function () { pm.expect([200, 404]).to.include(pm.response.code); });",
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    console.log(\"Job status: \" + json.status + \" attempt: \" + json.attempt + \"/\" + json.maxAttempts);",
+                  "    pm.environment.set(\"job_id\", json.jobId);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Step 04: Get Trial Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials/{{trial_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials",
+                "{{trial_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(\"=== E2E STEP 04: Get Trial Detail ===\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "if (json.activeScenarioVersionId) { pm.environment.set(\"scenario_version_id\", json.activeScenarioVersionId); }",
+                  "else if (json.pendingScenarioVersionId) { pm.environment.set(\"scenario_version_id\", json.pendingScenarioVersionId); }",
+                  "else if (json.scenario && json.scenario.id) { pm.environment.set(\"scenario_version_id\", json.scenario.id); }",
+                  "console.log(\"Trial status: \" + json.status);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Step 05: Invite Candidate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials/{{trial_id}}/invite",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials",
+                "{{trial_id}}",
+                "invite"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"candidateName\": \"E2E Test Candidate\",\n  \"inviteEmail\": \"e2e-candidate@test.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(\"=== E2E STEP 05: Invite Candidate ===\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 400/409\", function () { pm.expect([200, 400, 409]).to.include(pm.response.code); });",
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    pm.environment.set(\"candidate_session_id\", json.candidateSessionId);",
+                  "    pm.environment.set(\"candidate_session_token\", json.token);",
+                  "    pm.environment.set(\"invite_url\", json.inviteUrl);",
+                  "    console.log(\"Candidate Session ID: \" + json.candidateSessionId + \" Token: \" + json.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Step 06: Candidate Claims Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/candidate/session/{{candidate_session_token}}/claim",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "candidate",
+                "session",
+                "{{candidate_session_token}}",
+                "claim"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(\"=== E2E STEP 06: Candidate Claims Session ===\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 404\", function () { pm.expect([200, 404]).to.include(pm.response.code); });",
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    pm.environment.set(\"candidate_session_id\", json.candidateSessionId);",
+                  "    console.log(\"Session claimed. Status: \" + json.status);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Step 07: Candidate Schedules Start",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/candidate/session/{{candidate_session_token}}/schedule",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "candidate",
+                "session",
+                "{{candidate_session_token}}",
+                "schedule"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scheduledStartAt\": \"2026-04-01T09:00:00Z\",\n  \"candidateTimezone\": \"America/New_York\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(\"=== E2E STEP 07: Schedule Start ===\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 400/404/409\", function () { pm.expect([200, 400, 404, 409]).to.include(pm.response.code); });",
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    console.log(\"Scheduled for: \" + json.scheduledStartAt + \" TZ: \" + json.candidateTimezone);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Step 08: Record Privacy Consent",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/candidate/session/{{candidate_session_id}}/privacy/consent",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "candidate",
+                "session",
+                "{{candidate_session_id}}",
+                "privacy",
+                "consent"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"noticeVersion\": \"v1.0\",\n  \"aiNoticeVersion\": \"v1.0\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(\"=== E2E STEP 08: Privacy Consent ===\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 403/404\", function () { pm.expect([200, 403, 404]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Step 09: Get Current Task",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/candidate/session/{{candidate_session_id}}/current_task",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "candidate",
+                "session",
+                "{{candidate_session_id}}",
+                "current_task"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(\"=== E2E STEP 09: Get Current Task ===\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 403/404\", function () { pm.expect([200, 403, 404]).to.include(pm.response.code); });",
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.currentTask) {",
+                  "        pm.environment.set(\"task_id\", json.currentTask.id);",
+                  "        console.log(\"Current task: Day \" + json.currentDayIndex + \" - \" + json.currentTask.title);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Step 10: Save Draft (Day 1 Design Doc)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              },
+              {
+                "key": "x-candidate-session-id",
+                "value": "{{candidate_session_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/{{task_id_day1}}/draft",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{task_id_day1}}",
+                "draft"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contentText\": \"# Architecture Design\\n\\n## System Overview\\nA modular FastAPI service with clean separation of concerns...\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(\"=== E2E STEP 10: Save Draft ===\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 400/404/409/422\", function () { pm.expect([200, 400, 404, 409, 422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Step 11: Submit Day 1 Design Doc",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{candidate_token}}",
+                "type": "text"
+              },
+              {
+                "key": "x-candidate-session-id",
+                "value": "{{candidate_session_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tasks/{{task_id_day1}}/submit",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tasks",
+                "{{task_id_day1}}",
+                "submit"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contentText\": \"# Final Architecture Design\\n\\n## Overview\\nThis document describes the complete system architecture.\\n\\n## Components\\n- API Gateway Layer\\n- Service Layer\\n- Repository Layer\\n- Database Layer\\n\\n## Data Models\\n- User, Trial, Task, Submission\\n\\n## Testing Strategy\\n- 99% code coverage target\\n- Integration tests with real database\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(\"=== E2E STEP 11: Submit Day 1 ===\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201 or 400/404/409/422\", function () { pm.expect([201, 400, 404, 409, 422]).to.include(pm.response.code); });",
+                  "if (pm.response.code === 201) {",
+                  "    pm.environment.set(\"submission_id\", pm.response.json().submissionId);",
+                  "    console.log(\"Day 1 submitted. Progress: \" + JSON.stringify(pm.response.json().progress));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Step 12: TalentPartner Lists Submissions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/submissions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "submissions"
+              ],
+              "query": [
+                {
+                  "key": "candidateSessionId",
+                  "value": "{{candidate_session_id}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(\"=== E2E STEP 12: List Submissions ===\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 422\", function () { pm.expect([200, 422]).to.include(pm.response.code); });",
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json && Array.isArray(json.items)) {",
+                  "        console.log(\"Total submissions: \" + json.items.length);",
+                  "        if (json.items.length > 0 && json.items[0].submissionId) {",
+                  "            pm.environment.set(\"submission_id\", json.items[0].submissionId);",
+                  "        }",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Step 13: TalentPartner Gets Submission Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/submissions/{{submission_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "submissions",
+                "{{submission_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(\"=== E2E STEP 13: Get Submission Detail ===\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 404\", function () { pm.expect([200, 404]).to.include(pm.response.code); });",
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json && json.task && typeof json.task.dayIndex !== \"undefined\") {",
+                  "        console.log(\"Submission for task day \" + json.task.dayIndex + \" type: \" + json.task.type);",
+                  "    } else if (json && Array.isArray(json.items) && json.items.length > 0) {",
+                  "        var first = json.items[0];",
+                  "        console.log(\"Submission for task day \" + first.dayIndex + \" type: \" + first.type);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Step 14: Generate Winoe Report",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/candidate_sessions/{{candidate_session_id}}/winoe_report/generate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "candidate_sessions",
+                "{{candidate_session_id}}",
+                "winoe_report",
+                "generate"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(\"=== E2E STEP 14: Generate Winoe Report ===\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 202 or 400/404/409\", function () { pm.expect([202, 400, 404, 409]).to.include(pm.response.code); });",
+                  "if (pm.response.code === 202) {",
+                  "    pm.environment.set(\"winoe_report_job_id\", pm.response.json().jobId);",
+                  "    console.log(\"Winoe Report generation queued. Job: \" + pm.response.json().jobId);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Step 15: Get Winoe Report Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/candidate_sessions/{{candidate_session_id}}/winoe_report",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "candidate_sessions",
+                "{{candidate_session_id}}",
+                "winoe_report"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(\"=== E2E STEP 15: Get Winoe Report ===\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 or 404\", function () { pm.expect([200, 404]).to.include(pm.response.code); });",
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    console.log(\"Winoe Report status: \" + json.status);",
+                  "    if (json.status === \"ready\" && json.report) {",
+                  "        console.log(\"Score: \" + json.report.overallWinoeScore + \" Recommendation: \" + json.report.recommendation);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Step 16: Compare Candidates",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{talent_partner_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trials/{{trial_id}}/candidates/compare",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trials",
+                "{{trial_id}}",
+                "candidates",
+                "compare"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log(\"=== E2E STEP 16: Compare Candidates ===\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "console.log(\"Candidates compared: \" + json.candidates.length);",
+                  "console.log(\"=== E2E HAPPY PATH COMPLETE ===\");"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Collection-level Pre-request Script",
+          "console.log(\"========================================\");",
+          "console.log(\"Request: \" + pm.info.requestName);",
+          "console.log(\"Method:  \" + pm.request.method);",
+          "console.log(\"URL:     \" + pm.request.url.toString());",
+          "console.log(\"========================================\");"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Collection-level Test Script",
+          "var maxResponseTimeMs = Number(pm.environment.get(\"MAX_RESPONSE_TIME_MS\") || pm.collectionVariables.get(\"MAX_RESPONSE_TIME_MS\") || 120000);",
+          "pm.test(\"Response time is acceptable\", function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(maxResponseTimeMs);",
+          "});"
+        ]
+      }
+    }
+  ]
+}

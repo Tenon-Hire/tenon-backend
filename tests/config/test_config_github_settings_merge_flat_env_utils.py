@@ -6,9 +6,9 @@ from tests.config.config_test_utils import *
 def test_github_settings_merge_flat_env():
     s = Settings(
         GITHUB_API_BASE="https://api.github.com",
-        GITHUB_ORG="tenon",
+        GITHUB_ORG="winoe",
         GITHUB_TOKEN="ghp_123",
-        GITHUB_TEMPLATE_OWNER="tenon-templates",
+        GITHUB_TEMPLATE_OWNER="winoe-templates",
         GITHUB_ACTIONS_WORKFLOW_FILE="ci.yml",
         GITHUB_REPO_PREFIX="prefix-",
         GITHUB_CLEANUP_ENABLED="True",
@@ -20,9 +20,9 @@ def test_github_settings_merge_flat_env():
     )
 
     assert s.github.GITHUB_API_BASE == "https://api.github.com"
-    assert s.github.GITHUB_ORG == "tenon"
+    assert s.github.GITHUB_ORG == "winoe"
     assert s.github.GITHUB_TOKEN == "ghp_123"
-    assert s.github.GITHUB_TEMPLATE_OWNER == "tenon-templates"
+    assert s.github.GITHUB_TEMPLATE_OWNER == "winoe-templates"
     assert s.github.GITHUB_ACTIONS_WORKFLOW_FILE == "ci.yml"
     assert s.github.GITHUB_REPO_PREFIX == "prefix-"
     assert s.github.GITHUB_CLEANUP_ENABLED is True

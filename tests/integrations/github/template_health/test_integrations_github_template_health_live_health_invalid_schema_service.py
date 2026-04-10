@@ -26,18 +26,18 @@ async def test_live_health_invalid_schema():
             return [_completed_run()]
 
         async def list_artifacts(self, *args, **kwargs):
-            return [{"id": 1, "name": "tenon-test-results", "expired": False}]
+            return [{"id": 1, "name": "winoe-test-results", "expired": False}]
 
         async def download_artifact_zip(self, *args, **kwargs):
             body = (
                 '{"passed": "3", "failed": 0, "total": 3, "stdout": "", "stderr": ""}'
             )
-            return _make_zip({"tenon-test-results.json": body})
+            return _make_zip({"winoe-test-results.json": body})
 
     template_key = next(iter(TEMPLATE_CATALOG))
     response = await check_template_health(
         StubGithubClient(),
-        workflow_file="tenon-ci.yml",
+        workflow_file="winoe-ci.yml",
         mode="live",
         template_keys=[template_key],
         timeout_seconds=5,

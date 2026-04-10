@@ -12,8 +12,8 @@ from app.candidates.candidate_sessions.services.candidates_candidate_sessions_se
     require_not_expired,
 )
 from app.shared.database.shared_database_models_model import CandidateSession
-from app.simulations.repositories.simulations_repositories_simulations_simulation_model import (
-    SIMULATION_STATUS_TERMINATED,
+from app.trials.repositories.trials_repositories_trials_trial_model import (
+    TRIAL_STATUS_TERMINATED,
 )
 
 _INVALID_TOKEN = HTTPException(
@@ -22,24 +22,24 @@ _INVALID_TOKEN = HTTPException(
 )
 
 
-def _loaded_simulation_status(cs: CandidateSession) -> str | None:
+def _loaded_trial_status(cs: CandidateSession) -> str | None:
     try:
         state = inspect(cs)
     except NoInspectionAvailable:
-        simulation = getattr(cs, "simulation", None)
-        return getattr(simulation, "status", None)
+        trial = getattr(cs, "trial", None)
+        return getattr(trial, "status", None)
 
-    if "simulation" in state.unloaded:
+    if "trial" in state.unloaded:
         raise _INVALID_TOKEN
 
-    simulation = state.attrs.simulation.value
-    if simulation is None:
+    trial = state.attrs.trial.value
+    if trial is None:
         raise _INVALID_TOKEN
-    return getattr(simulation, "status", None)
+    return getattr(trial, "status", None)
 
 
-def _ensure_simulation_not_terminated(cs: CandidateSession) -> None:
-    if _loaded_simulation_status(cs) == SIMULATION_STATUS_TERMINATED:
+def _ensure_trial_not_terminated(cs: CandidateSession) -> None:
+    if _loaded_trial_status(cs) == TRIAL_STATUS_TERMINATED:
         raise _INVALID_TOKEN
 
 
@@ -48,7 +48,7 @@ async def fetch_by_token(db: AsyncSession, token: str, *, now=None) -> Candidate
     cs = await cs_repo.get_by_token(db, token)
     if cs is None:
         raise _INVALID_TOKEN
-    _ensure_simulation_not_terminated(cs)
+    _ensure_trial_not_terminated(cs)
     require_not_expired(cs, now=now)
     return cs
 
@@ -60,7 +60,7 @@ async def fetch_by_token_for_update(
     cs = await cs_repo.get_by_token_for_update(db, token)
     if cs is None:
         raise _INVALID_TOKEN
-    _ensure_simulation_not_terminated(cs)
+    _ensure_trial_not_terminated(cs)
     require_not_expired(cs, now=now)
     return cs
 

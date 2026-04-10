@@ -5,9 +5,10 @@ from __future__ import annotations
 from typing import Literal
 
 from app.shared.types.shared_types_base_model import APIModel
+from app.shared.utils.shared_utils_brand_utils import LEGACY_TEST_ARTIFACT_NAMESPACE
 
 WORKFLOW_DIR = ".github/workflows"
-LEGACY_ARTIFACT_NAME = "simuhire-test-results"
+LEGACY_ARTIFACT_NAME = LEGACY_TEST_ARTIFACT_NAMESPACE
 RunMode = Literal["static", "live"]
 
 

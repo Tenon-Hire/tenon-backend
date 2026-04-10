@@ -9,13 +9,13 @@ from tests.tasks.routes.test_tasks_run_api_utils import *
 async def test_codespace_status_day2_and_day3_share_single_repo(
     async_client, async_session, candidate_header_factory, override_dependencies
 ):
-    recruiter = await create_recruiter(
+    talent_partner = await create_talent_partner(
         async_session, email="status-shared-repo@sim.com"
     )
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     cs = await create_candidate_session(
         async_session,
-        simulation=sim,
+        trial=sim,
         status="in_progress",
         with_default_schedule=True,
     )

@@ -1,12 +1,12 @@
-# Tenon Backend
+# Winoe Backend
 
-FastAPI + PostgreSQL backend for Tenon's async simulation platform. Recruiters create and manage simulations, candidates complete session tasks, and GitHub-native workflows capture code/debug execution artifacts for recruiter review.
+FastAPI + PostgreSQL backend for Winoe's async trial platform. Talent Partners create and manage trials, candidates complete session tasks, and GitHub-native workflows capture code/debug execution artifacts for talent_partner review.
 
 ## Overview
 
-- Domain modules: simulations, candidate sessions, tasks, submissions, evaluations, media, notifications, recruiters/admin, and shared runtime infrastructure.
+- Domain modules: trials, candidate sessions, tasks, submissions, evaluations, media, notifications, talent_partners/admin, and shared runtime infrastructure.
 - GitHub-native flow: workspace repo provisioning from templates, Codespaces init/status, Actions run dispatch/polling, artifact parsing, and persisted run/test/diff metadata.
-- Auth model: bearer-token principal model with recruiter/candidate permission gates, plus admin key and demo admin dependency paths.
+- Auth model: bearer-token principal model with talent_partner/candidate permission gates, plus admin key and demo admin dependency paths.
 - Current API surface: 46 HTTP endpoints (generated from live OpenAPI).
 
 ## Stack (Poetry Constraints)
@@ -75,17 +75,17 @@ Canonical env keys are summarized below by primary group.
 
 | Group | Primary Keys |
 |---|---|
-| Core runtime | `TENON_ENV`, `TENON_API_PREFIX`, `DEV_AUTH_BYPASS`, `TENON_DEV_AUTH_BYPASS`, `TENON_RATE_LIMIT_ENABLED`, `TENON_MAX_REQUEST_BODY_BYTES` |
-| Perf / diagnostics | `TENON_DEBUG_PERF`, `TENON_PERF_SPANS_ENABLED`, `TENON_PERF_SQL_FINGERPRINTS_ENABLED`, `TENON_PERF_SPAN_SAMPLE_RATE` |
-| Demo/admin mode | `TENON_DEMO_MODE`, `TENON_SCENARIO_DEMO_MODE`, `TENON_DEMO_ADMIN_ALLOWLIST_*` |
-| Database | `TENON_DATABASE_URL`, `TENON_DATABASE_URL_SYNC` |
-| Auth0 | `TENON_AUTH0_*` |
-| CORS / CSRF | `TENON_CORS_ALLOW_*`, `TENON_CSRF_*` |
-| GitHub | `TENON_GITHUB_*`, `TENON_WORKSPACE_*` |
-| Scenario provider creds | `TENON_OPENAI_API_KEY`, `TENON_ANTHROPIC_API_KEY` |
-| Media | `TENON_MEDIA_*`, `TENON_SIGNED_URL_EXPIRY_SECONDS` |
-| Email | `TENON_EMAIL_PROVIDER`, `TENON_EMAIL_FROM`, `TENON_RESEND_API_KEY`, `SENDGRID_API_KEY`, `SMTP_*` |
-| Admin key | `TENON_ADMIN_API_KEY` |
+| Core runtime | `WINOE_ENV`, `WINOE_API_PREFIX`, `DEV_AUTH_BYPASS`, `WINOE_DEV_AUTH_BYPASS`, `WINOE_RATE_LIMIT_ENABLED`, `WINOE_MAX_REQUEST_BODY_BYTES` |
+| Perf / diagnostics | `WINOE_DEBUG_PERF`, `WINOE_PERF_SPANS_ENABLED`, `WINOE_PERF_SQL_FINGERPRINTS_ENABLED`, `WINOE_PERF_SPAN_SAMPLE_RATE` |
+| Demo/admin mode | `WINOE_DEMO_MODE`, `WINOE_SCENARIO_DEMO_MODE`, `WINOE_DEMO_ADMIN_ALLOWLIST_*` |
+| Database | `WINOE_DATABASE_URL`, `WINOE_DATABASE_URL_SYNC` |
+| Auth0 | `WINOE_AUTH0_*` |
+| CORS / CSRF | `WINOE_CORS_ALLOW_*`, `WINOE_CSRF_*` |
+| GitHub | `WINOE_GITHUB_*`, `WINOE_WORKSPACE_*` |
+| Scenario provider creds | `WINOE_OPENAI_API_KEY`, `WINOE_ANTHROPIC_API_KEY` |
+| Media | `WINOE_MEDIA_*`, `WINOE_SIGNED_URL_EXPIRY_SECONDS` |
+| Email | `WINOE_EMAIL_PROVIDER`, `WINOE_EMAIL_FROM`, `WINOE_RESEND_API_KEY`, `SENDGRID_API_KEY`, `SMTP_*` |
+| Admin key | `WINOE_ADMIN_API_KEY` |
 
 ## Project Structure
 
@@ -94,13 +94,13 @@ Canonical env keys are summarized below by primary group.
 | `app/api/main.py` | App entrypoint wiring and exported `app` |
 | `app/shared/http/*` | App builder, middleware, router registry, error handlers |
 | `app/config/*` | Environment settings models/validators/merge behavior |
-| `app/simulations/*` | Simulation lifecycle, invites, scenario versions, compare views |
+| `app/trials/*` | Trial lifecycle, invites, scenario versions, compare views |
 | `app/candidates/*` | Candidate session resolve/claim/schedule/privacy/current-task flows |
 | `app/tasks/*` | Codespace/run/submit/draft/handoff route orchestration |
-| `app/submissions/*` | Workspace provisioning, run persistence, recruiter presentation |
-| `app/evaluations/*` | Fit-profile API, evaluators, evaluation repositories |
+| `app/submissions/*` | Workspace provisioning, run persistence, talent_partner presentation |
+| `app/evaluations/*` | Winoe Report API, evaluators, evaluation repositories |
 | `app/media/*` | Recording/transcript storage + privacy services |
-| `app/recruiters/*` | Recruiter admin/template and demo admin operations |
+| `app/talent_partners/*` | Talent Partner admin/template and demo admin operations |
 | `app/shared/jobs/*` | Durable job models, handlers, worker services |
 | `alembic/` | DB migrations |
 | `docs/` | Canonical architecture/API documentation |
@@ -121,29 +121,29 @@ Canonical env keys are summarized below by primary group.
 - `POST /api/admin/templates/health/run`
 - `POST /api/admin/candidate_sessions/{candidate_session_id}/reset`
 - `POST /api/admin/jobs/{job_id}/requeue`
-- `POST /api/admin/simulations/{simulation_id}/scenario/use_fallback`
+- `POST /api/admin/trials/{trial_id}/scenario/use_fallback`
 - `POST /api/admin/media/purge`
 
-### Recruiter Simulation + Submission APIs
+### Talent Partner Trial + Submission APIs
 
-- `GET /api/simulations`
-- `POST /api/simulations`
-- `GET /api/simulations/{simulation_id}`
-- `PUT /api/simulations/{simulation_id}`
-- `POST /api/simulations/{simulation_id}/invite`
-- `POST /api/simulations/{simulation_id}/candidates/{candidate_session_id}/invite/resend`
-- `GET /api/simulations/{simulation_id}/candidates`
-- `GET /api/simulations/{simulation_id}/candidates/compare`
-- `POST /api/simulations/{simulation_id}/activate`
-- `POST /api/simulations/{simulation_id}/terminate`
-- `POST /api/simulations/{simulation_id}/scenario/regenerate`
-- `POST /api/simulations/{simulation_id}/scenario/{scenario_version_id}/approve`
-- `PATCH /api/simulations/{simulation_id}/scenario/active`
-- `PATCH /api/simulations/{simulation_id}/scenario/{scenario_version_id}`
+- `GET /api/trials`
+- `POST /api/trials`
+- `GET /api/trials/{trial_id}`
+- `PUT /api/trials/{trial_id}`
+- `POST /api/trials/{trial_id}/invite`
+- `POST /api/trials/{trial_id}/candidates/{candidate_session_id}/invite/resend`
+- `GET /api/trials/{trial_id}/candidates`
+- `GET /api/trials/{trial_id}/candidates/compare`
+- `POST /api/trials/{trial_id}/activate`
+- `POST /api/trials/{trial_id}/terminate`
+- `POST /api/trials/{trial_id}/scenario/regenerate`
+- `POST /api/trials/{trial_id}/scenario/{scenario_version_id}/approve`
+- `PATCH /api/trials/{trial_id}/scenario/active`
+- `PATCH /api/trials/{trial_id}/scenario/{scenario_version_id}`
 - `GET /api/submissions`
 - `GET /api/submissions/{submission_id}`
-- `GET /api/candidate_sessions/{candidate_session_id}/fit_profile`
-- `POST /api/candidate_sessions/{candidate_session_id}/fit_profile/generate`
+- `GET /api/candidate_sessions/{candidate_session_id}/winoe_report`
+- `POST /api/candidate_sessions/{candidate_session_id}/winoe_report/generate`
 
 ### Candidate Session APIs
 
@@ -179,7 +179,7 @@ Detailed schema-level API docs are generated at [`docs/api.md`](docs/api.md).
 
 - Domain-first package organization with thin entrypoints and shared runtime composition (`app/shared/http`).
 - Settings use pydantic-settings with merge compatibility for nested legacy env structures.
-- Recruiter/candidate authorization is dependency-based; admin template endpoints use explicit API key dependency.
+- Talent Partner/candidate authorization is dependency-based; admin template endpoints use explicit API key dependency.
 - GitHub integration keeps transport/client/actions/artifact parsing concerns separated for testability.
 - Durable job status uses polling endpoints plus worker handlers for async side effects.
 

@@ -15,11 +15,13 @@ async def test_github_webhook_unmatched_payload_is_accepted_without_mutation(
     secret = "test-webhook-secret"
     monkeypatch.setattr(webhook_routes.settings.github, "GITHUB_WEBHOOK_SECRET", secret)
 
-    recruiter = await create_recruiter(async_session, email="webhooks-3@tenon.dev")
-    simulation, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="webhooks-3@winoe.dev"
+    )
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         with_default_schedule=True,
     )
     submission = await create_submission(

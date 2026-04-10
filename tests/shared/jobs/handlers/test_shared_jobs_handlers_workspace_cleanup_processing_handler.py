@@ -53,7 +53,7 @@ async def test_process_cleanup_target_not_expired_keeps_completed_non_pending_st
     target = SimpleNamespace(
         record=record,
         candidate_session=SimpleNamespace(id=11, completed_at=now),
-        simulation=SimpleNamespace(status="terminated"),
+        trial=SimpleNamespace(status="terminated"),
     )
     summary: dict[str, int] = {"processed": 0}
     config = SimpleNamespace(
@@ -112,7 +112,7 @@ async def test_process_cleanup_target_retryable_error_preserves_existing_cleanup
     target = SimpleNamespace(
         record=record,
         candidate_session=SimpleNamespace(id=12, completed_at=now),
-        simulation=SimpleNamespace(status="terminated"),
+        trial=SimpleNamespace(status="terminated"),
     )
     summary: dict[str, int] = {"processed": 0}
     config = SimpleNamespace(

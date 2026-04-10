@@ -14,19 +14,19 @@ def _raise_missing_tasks() -> None:
 
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail="Simulation has no tasks",
+        detail="Trial has no tasks",
     )
 
 
 async def load_tasks(
     db: AsyncSession,
-    simulation_id: int,
+    trial_id: int,
     *,
-    tasks_for_simulation=None,
+    tasks_for_trial=None,
 ) -> list[Task]:
     """Load tasks."""
-    loader = tasks_for_simulation or cs_repo.tasks_for_simulation
-    tasks = await loader(db, simulation_id)
+    loader = tasks_for_trial or cs_repo.tasks_for_trial
+    tasks = await loader(db, trial_id)
     if not tasks:
         _raise_missing_tasks()
     return tasks
@@ -46,7 +46,7 @@ async def completed_task_ids(
 async def load_tasks_with_completion_state(
     db: AsyncSession,
     *,
-    simulation_id: int,
+    trial_id: int,
     candidate_session_id: int,
 ) -> tuple[list[Task], set[int]]:
     """Load tasks with completion state."""
@@ -59,7 +59,7 @@ async def load_tasks_with_completion_state(
                 Submission.candidate_session_id == candidate_session_id,
             ),
         )
-        .where(Task.simulation_id == simulation_id)
+        .where(Task.trial_id == trial_id)
         .order_by(Task.day_index.asc(), Task.id.asc())
     )
     rows = (await db.execute(stmt)).all()

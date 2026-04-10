@@ -11,20 +11,20 @@ async def test_invite_creates_candidate_session(
 ):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
 
-    await seed_recruiter(
+    await seed_talent_partner(
         async_session,
-        email="recruiterA@tenon.com",
-        company_name="Recruiter A Co",
+        email="talent_partnerA@winoe.com",
+        company_name="TalentPartner A Co",
     )
 
-    sim_id = await _create_and_activate_simulation(
-        async_client, async_session, "recruiterA@tenon.com"
+    sim_id = await _create_and_activate_trial(
+        async_client, async_session, "talent_partnerA@winoe.com"
     )
 
     # Invite candidate
     resp = await async_client.post(
-        f"/api/simulations/{sim_id}/invite",
-        headers={"x-dev-user-email": "recruiterA@tenon.com"},
+        f"/api/trials/{sim_id}/invite",
+        headers={"x-dev-user-email": "talent_partnerA@winoe.com"},
         json={"candidateName": "Jane Doe", "inviteEmail": "jane@example.com"},
     )
     assert resp.status_code == 200
@@ -47,7 +47,7 @@ async def test_invite_creates_candidate_session(
     )
     cs = (await async_session.execute(stmt)).scalar_one()
 
-    assert cs.simulation_id == sim_id
+    assert cs.trial_id == sim_id
     assert cs.invite_email == "jane@example.com"
     assert cs.status == "not_started"
     assert cs.token == body["token"]

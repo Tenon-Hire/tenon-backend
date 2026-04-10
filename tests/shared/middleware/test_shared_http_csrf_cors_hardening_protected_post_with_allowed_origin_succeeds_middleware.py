@@ -14,7 +14,7 @@ async def test_protected_post_with_allowed_origin_succeeds(monkeypatch):
         response = await client.post(
             "/api/demo",
             headers={
-                "Origin": "https://frontend.tenon.ai",
+                "Origin": "https://frontend.winoe.ai",
                 "Cookie": "session=abc",
             },
         )

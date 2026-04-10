@@ -7,11 +7,11 @@ from tests.candidates.routes.candidates_session_resolve_api_utils import *
 
 @pytest.mark.asyncio
 async def test_resolve_transitions_to_in_progress(async_client, async_session):
-    recruiter_email = "recruiter1@tenon.com"
-    await _seed_recruiter(async_session, recruiter_email)
+    talent_partner_email = "talent_partner1@winoe.com"
+    await _seed_talent_partner(async_session, talent_partner_email)
 
-    sim_id = await _create_simulation(async_client, async_session, recruiter_email)
-    invite = await _invite_candidate(async_client, sim_id, recruiter_email)
+    sim_id = await _create_trial(async_client, async_session, talent_partner_email)
+    invite = await _invite_candidate(async_client, sim_id, talent_partner_email)
 
     token = invite["token"]
     cs_id = invite["candidateSessionId"]

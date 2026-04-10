@@ -9,10 +9,12 @@ from tests.shared.jobs.handlers.shared_jobs_handlers_transcribe_recording_utils 
 async def test_transcribe_recording_handler_empty_transcript_marks_failed(
     async_session, monkeypatch
 ):
-    recruiter = await create_recruiter(async_session, email="transcribe-empty@test.com")
-    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="transcribe-empty@test.com"
+    )
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
     task = _handoff_task(tasks)
-    candidate_session = await create_candidate_session(async_session, simulation=sim)
+    candidate_session = await create_candidate_session(async_session, trial=sim)
 
     recording = await recordings_repo.create_recording_asset(
         async_session,

@@ -10,7 +10,7 @@ async def test_submit_task_enqueues_completion_notification_when_complete(
     monkeypatch,
 ):
     db = _DummyDB()
-    candidate_session = SimpleNamespace(id=12, simulation_id=44)
+    candidate_session = SimpleNamespace(id=12, trial_id=44)
     task = SimpleNamespace(id=33, type="design")
     payload = SimpleNamespace(contentText="design text")
     created_submission = SimpleNamespace(id=501)
@@ -38,11 +38,11 @@ async def test_submit_task_enqueues_completion_notification_when_complete(
     async def _progress_after_submission(*_args, **_kwargs):
         return (5, 5, True)
 
-    async def _enqueue(_db, *, candidate_session_id, simulation_id, commit):
+    async def _enqueue(_db, *, candidate_session_id, trial_id, commit):
         captured.update(
             {
                 "candidate_session_id": candidate_session_id,
-                "simulation_id": simulation_id,
+                "trial_id": trial_id,
                 "commit": commit,
             }
         )
@@ -90,6 +90,6 @@ async def test_submit_task_enqueues_completion_notification_when_complete(
     assert (completed, total, is_complete) == (5, 5, True)
     assert captured == {
         "candidate_session_id": 12,
-        "simulation_id": 44,
+        "trial_id": 44,
         "commit": True,
     }

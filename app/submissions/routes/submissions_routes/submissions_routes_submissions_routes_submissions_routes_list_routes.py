@@ -8,22 +8,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.candidates.candidate_sessions.repositories import repository as cs_repo
 from app.shared.auth.shared_auth_current_user_utils import get_current_user
-from app.shared.auth.shared_auth_roles_utils import ensure_recruiter
+from app.shared.auth.shared_auth_roles_utils import ensure_talent_partner
 from app.shared.database import get_session
 from app.shared.database.shared_database_models_model import User
 from app.submissions.presentation import present_list_item
 from app.submissions.schemas.submissions_schemas_submissions_core_schema import (
-    RecruiterSubmissionListItemOut,
-    RecruiterSubmissionListOut,
+    TalentPartnerSubmissionListItemOut,
+    TalentPartnerSubmissionListOut,
 )
-from app.submissions.services import service_recruiter as recruiter_sub_service
+from app.submissions.services import (
+    service_talent_partner as talent_partner_sub_service,
+)
 
 router = APIRouter(prefix="/submissions", tags=["submissions"])
 
 
 @router.get(
     "",
-    response_model=RecruiterSubmissionListOut,
+    response_model=TalentPartnerSubmissionListOut,
     response_model_exclude={"items": {"__all__": {"testResults": {"output"}}}},
 )
 async def list_submissions_route(
@@ -33,10 +35,10 @@ async def list_submissions_route(
     taskId: int | None = Query(default=None),
     limit: int | None = Query(default=None, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
-) -> RecruiterSubmissionListOut:
-    """List submissions visible to the recruiter with optional filters."""
-    ensure_recruiter(user)
-    rows = await recruiter_sub_service.list_submissions(
+) -> TalentPartnerSubmissionListOut:
+    """List submissions visible to the Talent Partner with optional filters."""
+    ensure_talent_partner(user)
+    rows = await talent_partner_sub_service.list_submissions(
         db, user.id, candidateSessionId, taskId, limit, offset
     )
     parsed_rows: list[tuple[object, object]] = []
@@ -67,7 +69,7 @@ async def list_submissions_route(
         (audit.candidate_session_id, audit.day_index): audit for audit in day_audits
     }
 
-    items: list[RecruiterSubmissionListItemOut] = []
+    items: list[TalentPartnerSubmissionListItemOut] = []
     for sub, task in parsed_rows:
         day_audit = None
         candidate_session_id = getattr(sub, "candidate_session_id", None)
@@ -78,5 +80,5 @@ async def list_submissions_route(
             payload = present_list_item(sub, task, day_audit=day_audit)
         except TypeError:
             payload = present_list_item(sub, task)
-        items.append(RecruiterSubmissionListItemOut(**payload))
-    return RecruiterSubmissionListOut(items=items)
+        items.append(TalentPartnerSubmissionListItemOut(**payload))
+    return TalentPartnerSubmissionListOut(items=items)

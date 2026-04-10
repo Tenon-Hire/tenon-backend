@@ -57,8 +57,8 @@ def _workflow_file_contents() -> dict[str, str]:
     content = "\n".join(
         [
             "uses: actions/upload-artifact@v4",
-            "name: tenon-test-results",
-            "path: artifacts/tenon-test-results.json",
+            "name: winoe-test-results",
+            "path: artifacts/winoe-test-results.json",
         ]
     )
     encoded = base64.b64encode(content.encode("utf-8")).decode("ascii")

@@ -18,4 +18,4 @@ async def test_load_task_with_company_or_404_rejects_non_integer_company_id():
     with pytest.raises(HTTPException) as exc_info:
         await _load_task_with_company_or_404(_FakeDB(), task_id=1)
     assert exc_info.value.status_code == 500
-    assert exc_info.value.detail == "Simulation metadata unavailable"
+    assert exc_info.value.detail == "Trial metadata unavailable"

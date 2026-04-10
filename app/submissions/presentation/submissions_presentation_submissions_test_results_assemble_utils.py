@@ -48,7 +48,7 @@ def assemble_result(
         "commitSha": commit_sha,
         "workflowUrl": workflow_url,
         "commitUrl": commit_url,
-        "artifactName": "tenon-test-results" if artifact_present else None,
+        "artifactName": "winoe-test-results" if artifact_present else None,
         "artifactPresent": True if artifact_present else None,
         "artifactErrorCode": artifact_error,
     }

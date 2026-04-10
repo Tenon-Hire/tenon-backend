@@ -6,26 +6,26 @@ This document summarizes the core relational structure from SQLAlchemy metadata 
 
 - `companies`
   - 1:N `users`
-  - 1:N `simulations`
+  - 1:N `trials`
   - 1:N `jobs`
 - `users`
-  - 1:N `simulations` (`created_by`, `terminated_by_recruiter_id`)
+  - 1:N `trials` (`created_by`, `terminated_by_talent partner_id`)
   - 1:N `scenario_edit_audit`
   - optional link from `candidate_sessions.candidate_user_id`
-- `simulations`
+- `trials`
   - N:1 `companies`
   - 1:N `tasks`
   - 1:N `candidate_sessions`
   - 1:N `scenario_versions`
   - optional FK to active/pending scenario versions
 - `scenario_versions`
-  - N:1 `simulations`
+  - N:1 `trials`
   - 1:N `candidate_sessions`
   - 1:N `evaluation_runs`
   - 1:N `precommit_bundles`
   - 1:N `scenario_edit_audit`
 - `candidate_sessions`
-  - N:1 `simulations`
+  - N:1 `trials`
   - N:1 `scenario_versions`
   - optional N:1 `users`
   - 1:N `submissions`
@@ -33,10 +33,10 @@ This document summarizes the core relational structure from SQLAlchemy metadata 
   - 1:N `workspaces` and `workspace_groups`
   - 1:N `candidate_day_audits`
   - 1:N `evaluation_runs`
-  - 1:N `fit_profiles`
+  - 1:N `winoe_reports`
   - optional N:1 from `jobs`
 - `tasks`
-  - N:1 `simulations`
+  - N:1 `trials`
   - 1:N `submissions`
   - 1:N `task_drafts`
   - 1:N `recording_assets`
@@ -71,12 +71,12 @@ This document summarizes the core relational structure from SQLAlchemy metadata 
 
 ## Evaluation / Reporting Subgraph
 
-- `evaluation_runs` is the canonical run-level record for fit profile generation.
+- `evaluation_runs` is the canonical run-level record for winoe report generation.
 - `evaluation_day_scores` stores day-level rubric/evidence snapshots per run.
-- `fit_profiles` tracks generated profile marker timestamps per candidate session.
+- `winoe_reports` tracks generated profile marker timestamps per candidate session.
 
 ## Data Integrity Patterns
 
-- Lifecycle and status constraints are enforced in model/service layers (for example simulation status transitions and invite gating).
+- Lifecycle and status constraints are enforced in model/service layers (for example trial status transitions and invite gating).
 - Candidate ownership and company-scoped access checks are enforced at service boundaries before repository mutations.
 - Job processing persists payload/result/error metadata on durable job rows to support retry/debug workflows.

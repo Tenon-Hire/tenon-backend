@@ -7,12 +7,12 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from app.shared.jobs import worker
 
 
-async def create_simulation(async_client, async_session, recruiter_email: str) -> dict:
+async def create_trial(async_client, async_session, talent_partner_email: str) -> dict:
     resp = await async_client.post(
-        "/api/simulations",
-        headers={"x-dev-user-email": recruiter_email},
+        "/api/trials",
+        headers={"x-dev-user-email": talent_partner_email},
         json={
-            "title": "Backend Node Simulation",
+            "title": "Backend Node Trial",
             "role": "Backend Engineer",
             "techStack": "Node.js, PostgreSQL",
             "seniority": "Mid",
@@ -20,7 +20,7 @@ async def create_simulation(async_client, async_session, recruiter_email: str) -
         },
     )
     assert resp.status_code == 201, resp.text
-    simulation = resp.json()
+    trial = resp.json()
     session_maker = async_sessionmaker(
         bind=async_session.bind,
         expire_on_commit=False,
@@ -38,12 +38,12 @@ async def create_simulation(async_client, async_session, recruiter_email: str) -
         worker.clear_handlers()
     assert handled is True
     activate = await async_client.post(
-        f"/api/simulations/{simulation['id']}/activate",
-        headers={"x-dev-user-email": recruiter_email},
+        f"/api/trials/{trial['id']}/activate",
+        headers={"x-dev-user-email": talent_partner_email},
         json={"confirm": True},
     )
     assert activate.status_code == 200, activate.text
-    return simulation
+    return trial
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]

@@ -21,7 +21,7 @@ class SettingsFields(BaseSettings):
         env_file_encoding="utf-8",
         extra="allow",
         env_nested_delimiter="__",
-        env_prefix="TENON_",
+        env_prefix="WINOE_",
     )
 
     ENV: str = "local"
@@ -36,21 +36,23 @@ class SettingsFields(BaseSettings):
     DEMO_MODE: bool = False
     DEMO_ADMIN_ALLOWLIST_EMAILS: list[str] | str = Field(default_factory=list)
     DEMO_ADMIN_ALLOWLIST_SUBJECTS: list[str] | str = Field(default_factory=list)
-    DEMO_ADMIN_ALLOWLIST_RECRUITER_IDS: list[int] | str = Field(default_factory=list)
+    DEMO_ADMIN_ALLOWLIST_TALENT_PARTNER_IDS: list[int] | str = Field(
+        default_factory=list
+    )
     DEMO_ADMIN_JOB_STALE_SECONDS: int = 900
     AI_RUNTIME_MODE: str = "real"
     DEV_AUTH_BYPASS: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("DEV_AUTH_BYPASS", "TENON_DEV_AUTH_BYPASS"),
+        validation_alias=AliasChoices("DEV_AUTH_BYPASS", "WINOE_DEV_AUTH_BYPASS"),
     )
     SCHEDULE_DAY_WINDOW_OVERRIDES_ENABLED: bool = False
     OPENAI_API_KEY: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("OPENAI_API_KEY", "TENON_OPENAI_API_KEY"),
+        validation_alias=AliasChoices("OPENAI_API_KEY", "WINOE_OPENAI_API_KEY"),
     )
     ANTHROPIC_API_KEY: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("ANTHROPIC_API_KEY", "TENON_ANTHROPIC_API_KEY"),
+        validation_alias=AliasChoices("ANTHROPIC_API_KEY", "WINOE_ANTHROPIC_API_KEY"),
     )
 
     SCENARIO_GENERATION_RUNTIME_MODE: str | None = None
@@ -68,37 +70,37 @@ class SettingsFields(BaseSettings):
     CODESPACE_SPECIALIZER_REASONING_EFFORT: str = "none"
     CODESPACE_SPECIALIZER_TEXT_VERBOSITY: str = "low"
 
-    FIT_PROFILE_DAY1_RUNTIME_MODE: str | None = None
-    FIT_PROFILE_DAY1_PROVIDER: str = "openai"
-    FIT_PROFILE_DAY1_MODEL: str = "gpt-5.4-mini"
-    FIT_PROFILE_DAY1_TIMEOUT_SECONDS: int = 90
-    FIT_PROFILE_DAY1_MAX_RETRIES: int = 2
+    WINOE_REPORT_DAY1_RUNTIME_MODE: str | None = None
+    WINOE_REPORT_DAY1_PROVIDER: str = "openai"
+    WINOE_REPORT_DAY1_MODEL: str = "gpt-5.4-mini"
+    WINOE_REPORT_DAY1_TIMEOUT_SECONDS: int = 90
+    WINOE_REPORT_DAY1_MAX_RETRIES: int = 2
 
-    FIT_PROFILE_DAY23_RUNTIME_MODE: str | None = None
-    FIT_PROFILE_DAY23_PROVIDER: str = "openai"
-    FIT_PROFILE_DAY23_MODEL: str = "gpt-5.4-mini"
-    FIT_PROFILE_DAY23_TIMEOUT_SECONDS: int = 120
-    FIT_PROFILE_DAY23_MAX_RETRIES: int = 2
+    WINOE_REPORT_DAY23_RUNTIME_MODE: str | None = None
+    WINOE_REPORT_DAY23_PROVIDER: str = "openai"
+    WINOE_REPORT_DAY23_MODEL: str = "gpt-5.4-mini"
+    WINOE_REPORT_DAY23_TIMEOUT_SECONDS: int = 120
+    WINOE_REPORT_DAY23_MAX_RETRIES: int = 2
 
-    FIT_PROFILE_DAY4_RUNTIME_MODE: str | None = None
-    FIT_PROFILE_DAY4_PROVIDER: str = "openai"
-    FIT_PROFILE_DAY4_MODEL: str = "gpt-5.4-mini"
-    FIT_PROFILE_DAY4_TIMEOUT_SECONDS: int = 90
-    FIT_PROFILE_DAY4_MAX_RETRIES: int = 2
+    WINOE_REPORT_DAY4_RUNTIME_MODE: str | None = None
+    WINOE_REPORT_DAY4_PROVIDER: str = "openai"
+    WINOE_REPORT_DAY4_MODEL: str = "gpt-5.4-mini"
+    WINOE_REPORT_DAY4_TIMEOUT_SECONDS: int = 90
+    WINOE_REPORT_DAY4_MAX_RETRIES: int = 2
 
-    FIT_PROFILE_DAY5_RUNTIME_MODE: str | None = None
-    FIT_PROFILE_DAY5_PROVIDER: str = "openai"
-    FIT_PROFILE_DAY5_MODEL: str = "gpt-5.4-mini"
-    FIT_PROFILE_DAY5_TIMEOUT_SECONDS: int = 90
-    FIT_PROFILE_DAY5_MAX_RETRIES: int = 2
+    WINOE_REPORT_DAY5_RUNTIME_MODE: str | None = None
+    WINOE_REPORT_DAY5_PROVIDER: str = "openai"
+    WINOE_REPORT_DAY5_MODEL: str = "gpt-5.4-mini"
+    WINOE_REPORT_DAY5_TIMEOUT_SECONDS: int = 90
+    WINOE_REPORT_DAY5_MAX_RETRIES: int = 2
 
-    FIT_PROFILE_AGGREGATOR_RUNTIME_MODE: str | None = None
-    FIT_PROFILE_AGGREGATOR_PROVIDER: str = "openai"
-    FIT_PROFILE_AGGREGATOR_MODEL: str = "gpt-5.2"
-    FIT_PROFILE_AGGREGATOR_TIMEOUT_SECONDS: int = 90
-    FIT_PROFILE_AGGREGATOR_MAX_RETRIES: int = 2
-    FIT_PROFILE_ANTHROPIC_FALLBACK_DAY_MODEL: str = "claude-sonnet-4-6"
-    FIT_PROFILE_ANTHROPIC_FALLBACK_AGGREGATOR_MODEL: str = "claude-sonnet-4-6"
+    WINOE_REPORT_AGGREGATOR_RUNTIME_MODE: str | None = None
+    WINOE_REPORT_AGGREGATOR_PROVIDER: str = "openai"
+    WINOE_REPORT_AGGREGATOR_MODEL: str = "gpt-5.2"
+    WINOE_REPORT_AGGREGATOR_TIMEOUT_SECONDS: int = 90
+    WINOE_REPORT_AGGREGATOR_MAX_RETRIES: int = 2
+    WINOE_REPORT_ANTHROPIC_FALLBACK_DAY_MODEL: str = "claude-sonnet-4-6"
+    WINOE_REPORT_ANTHROPIC_FALLBACK_AGGREGATOR_MODEL: str = "claude-sonnet-4-6"
 
     TRANSCRIPTION_RUNTIME_MODE: str | None = None
     TRANSCRIPTION_PROVIDER: str = "openai"
@@ -141,5 +143,5 @@ class SettingsFields(BaseSettings):
     CANDIDATE_PORTAL_BASE_URL: str = ""
     ADMIN_API_KEY: str = Field(
         default="",
-        validation_alias=AliasChoices("TENON_ADMIN_API_KEY", "ADMIN_API_KEY"),
+        validation_alias=AliasChoices("WINOE_ADMIN_API_KEY", "ADMIN_API_KEY"),
     )

@@ -12,8 +12,8 @@ from app.tasks.routes.tasks import tasks_routes_tasks_tasks_draft_routes as draf
 
 @pytest.mark.asyncio
 async def test_get_task_draft_route_success(monkeypatch):
-    candidate_session = SimpleNamespace(id=10, simulation_id=20)
-    task = SimpleNamespace(id=33, simulation_id=20)
+    candidate_session = SimpleNamespace(id=10, trial_id=20)
+    task = SimpleNamespace(id=33, trial_id=20)
     draft = SimpleNamespace(
         content_text="hello",
         content_json={"a": 1},
@@ -44,8 +44,8 @@ async def test_get_task_draft_route_success(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_task_draft_route_not_found(monkeypatch):
-    candidate_session = SimpleNamespace(id=10, simulation_id=20)
-    task = SimpleNamespace(id=33, simulation_id=20)
+    candidate_session = SimpleNamespace(id=10, trial_id=20)
+    task = SimpleNamespace(id=33, trial_id=20)
 
     async def _load_task(_db, _task_id):
         return task

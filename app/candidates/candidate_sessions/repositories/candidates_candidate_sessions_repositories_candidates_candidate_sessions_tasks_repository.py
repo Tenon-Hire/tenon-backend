@@ -8,12 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.shared.database.shared_database_models_model import Submission, Task
 
 
-async def tasks_for_simulation(db: AsyncSession, simulation_id: int) -> list[Task]:
-    """Execute tasks for simulation."""
+async def tasks_for_trial(db: AsyncSession, trial_id: int) -> list[Task]:
+    """Execute tasks for trial."""
     tasks_stmt = (
-        select(Task)
-        .where(Task.simulation_id == simulation_id)
-        .order_by(Task.day_index.asc())
+        select(Task).where(Task.trial_id == trial_id).order_by(Task.day_index.asc())
     )
     tasks_res = await db.execute(tasks_stmt)
     return list(tasks_res.scalars().all())
@@ -51,4 +49,4 @@ async def completed_task_ids_bulk(
     return result
 
 
-__all__ = ["tasks_for_simulation", "completed_task_ids", "completed_task_ids_bulk"]
+__all__ = ["tasks_for_trial", "completed_task_ids", "completed_task_ids_bulk"]

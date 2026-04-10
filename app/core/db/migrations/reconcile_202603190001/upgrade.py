@@ -4,24 +4,36 @@ from __future__ import annotations
 
 import sqlalchemy as sa
 
+from app.core.db.migrations.shared_trial_schema_compat import (
+    resolve_trial_parent_table_name,
+)
+
 from .introspection import index_names, unique_constraint_names
 from .recording_status import reconcile_recording_status_check
 from .safe_ops import add_column_if_missing, add_fk_if_missing, add_index_if_missing
 from .scenario_backfill import ensure_scenario_versions_backfill
-from .specs_columns import COLUMN_SPECS
-from .specs_constraints import FK_SPECS, INDEX_SPECS, WORKSPACES_GROUP_UNIQUE_NAME
+from .specs_columns import build_column_specs
+from .specs_constraints import (
+    INDEX_SPECS,
+    WORKSPACES_GROUP_UNIQUE_NAME,
+    build_fk_specs,
+)
 
 
 def run_upgrade(op: object, bind: sa.Connection) -> None:
     """Run upgrade."""
-    for table_name, name, type_ in COLUMN_SPECS:
+    parent_table_name = resolve_trial_parent_table_name(bind)
+    column_specs = build_column_specs(parent_table_name)
+    fk_specs = build_fk_specs(parent_table_name)
+
+    for table_name, name, type_ in column_specs:
         add_column_if_missing(
             op, bind, table_name, sa.Column(name, type_, nullable=True)
         )
 
     ensure_scenario_versions_backfill(bind)
 
-    for name, source_table, referent_table, local_cols, remote_cols in FK_SPECS:
+    for name, source_table, referent_table, local_cols, remote_cols in fk_specs:
         add_fk_if_missing(
             op,
             bind,

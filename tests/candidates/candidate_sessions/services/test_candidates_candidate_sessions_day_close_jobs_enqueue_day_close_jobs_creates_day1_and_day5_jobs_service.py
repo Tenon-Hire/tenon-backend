@@ -7,11 +7,13 @@ from tests.candidates.candidate_sessions.services.candidates_candidate_sessions_
 
 @pytest.mark.asyncio
 async def test_enqueue_day_close_jobs_creates_day1_and_day5_jobs(async_session):
-    recruiter = await create_recruiter(async_session, email="day-close-jobs@test.com")
-    simulation, _tasks = await create_simulation(async_session, created_by=recruiter)
+    talent_partner = await create_talent_partner(
+        async_session, email="day-close-jobs@test.com"
+    )
+    trial, _tasks = await create_trial(async_session, created_by=talent_partner)
     candidate_session = await create_candidate_session(
         async_session,
-        simulation=simulation,
+        trial=trial,
         status="in_progress",
         with_default_schedule=True,
     )

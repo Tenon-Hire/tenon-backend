@@ -16,12 +16,14 @@ from app.submissions.presentation.submissions_presentation_submissions_output_ut
 from app.submissions.presentation.submissions_presentation_submissions_test_results_utils import (
     build_test_results,
 )
-from app.submissions.services import service_recruiter as recruiter_sub_service
+from app.submissions.services import (
+    service_talent_partner as talent_partner_sub_service,
+)
 
 
 def present_list_item(sub, task, *, day_audit=None):
     """Present list item."""
-    parsed_output = recruiter_sub_service.parse_test_output(
+    parsed_output = talent_partner_sub_service.parse_test_output(
         getattr(sub, "test_output", None)
     )
     diff_summary = parse_diff_summary(sub.diff_summary_json)

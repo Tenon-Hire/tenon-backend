@@ -26,15 +26,21 @@ async def test_live_health_legacy_artifact_name():
             return [_completed_run()]
 
         async def list_artifacts(self, *args, **kwargs):
-            return [{"id": 1, "name": "simuhire-test-results", "expired": False}]
+            return [
+                {
+                    "id": 1,
+                    "name": template_health.LEGACY_ARTIFACT_NAME,
+                    "expired": False,
+                }
+            ]
 
     template_key = next(iter(TEMPLATE_CATALOG))
     response = await check_template_health(
         StubGithubClient(),
-        workflow_file="tenon-ci.yml",
+        workflow_file="winoe-ci.yml",
         mode="live",
         template_keys=[template_key],
         timeout_seconds=5,
     )
     item = response.templates[0]
-    assert "artifact_legacy_name_simuhire" in item.errors
+    assert "artifact_legacy_name_winoe" in item.errors

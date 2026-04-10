@@ -9,9 +9,11 @@ from tests.candidates.routes.candidates_session_api_utils import *
 async def test_claim_endpoint_rejects_unverified_email(
     async_client, async_session, override_dependencies
 ):
-    recruiter = await create_recruiter(async_session, email="verifyfalse@test.com")
-    sim, _ = await create_simulation(async_session, created_by=recruiter)
-    cs = await create_candidate_session(async_session, simulation=sim)
+    talent_partner = await create_talent_partner(
+        async_session, email="verifyfalse@test.com"
+    )
+    sim, _ = await create_trial(async_session, created_by=talent_partner)
+    cs = await create_candidate_session(async_session, trial=sim)
 
     async def _override_get_principal():
         return _principal(cs.invite_email, email_verified=False)
