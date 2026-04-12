@@ -11,5 +11,6 @@ from . import (
 
 router = APIRouter()
 router.include_router(demo_ops.router)
+router.include_router(dev_session_controls.router)
 
 __all__ = ["demo_ops", "dev_session_controls", "router"]

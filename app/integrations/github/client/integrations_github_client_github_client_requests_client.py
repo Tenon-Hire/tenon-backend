@@ -30,7 +30,13 @@ async def request_json(
     """Execute request json."""
     started = time.perf_counter()
     try:
-        resp = await transport.client().request(method, path, params=params, json=json)
+        resp = await transport.client().request(
+            method,
+            path,
+            params=params,
+            json=json,
+            follow_redirects=True,
+        )
     except httpx.HTTPError as exc:  # pragma: no cover - network
         logger.error(
             "github_request_failed",

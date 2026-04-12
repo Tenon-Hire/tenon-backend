@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import status
 
+from app.config import settings
 from app.candidates.candidate_sessions.services.candidates_candidate_sessions_services_candidates_candidate_sessions_email_service import (
     normalize_email,
 )
@@ -32,6 +33,8 @@ def ensure_email_verified(
 ) -> None:
     """Ensure email verified."""
     email_verified = principal.claims.get("email_verified")
+    if settings.ENV == "local":
+        return
     if email_verified is False or (
         require_verified_claim_present and email_verified is not True
     ):

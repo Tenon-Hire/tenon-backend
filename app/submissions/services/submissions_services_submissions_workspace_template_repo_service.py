@@ -36,11 +36,10 @@ async def generate_template_repo(
         task=task,
         workspace_key=workspace_key,
     )
-    template_owner = template_repo.split("/")[0] if "/" in template_repo else None
     generated = await github_client.generate_repo_from_template(
         template_full_name=template_repo,
         new_repo_name=new_repo_name,
-        owner=template_owner or template_default_owner,
+        owner=(template_default_owner or None),
         private=True,
     )
 
