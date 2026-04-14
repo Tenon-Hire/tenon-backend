@@ -163,12 +163,10 @@ async def run_worker_forever(
             if handled:
                 await asyncio.sleep(0)
             else:
-                try:
+                with suppress(TimeoutError):
                     await asyncio.wait_for(
                         stop_event.wait(), timeout=max(0.1, idle_sleep_seconds)
                     )
-                except TimeoutError:
-                    pass
             if heartbeat_task.done():
                 try:
                     heartbeat_task.result()

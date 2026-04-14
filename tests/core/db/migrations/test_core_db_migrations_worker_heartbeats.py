@@ -3,8 +3,8 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
-import sqlalchemy as sa
 import pytest
+import sqlalchemy as sa
 
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
@@ -108,7 +108,9 @@ def test_worker_heartbeats_migration_upgrade_backfills_index_when_table_exists()
                 sa.Column("instance_id", sa.String(length=255), nullable=False),
                 sa.Column("status", sa.String(length=32), nullable=False),
                 sa.Column("started_at", sa.DateTime(timezone=True), nullable=False),
-                sa.Column("last_heartbeat_at", sa.DateTime(timezone=True), nullable=False),
+                sa.Column(
+                    "last_heartbeat_at", sa.DateTime(timezone=True), nullable=False
+                ),
                 sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
                 sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
                 sa.PrimaryKeyConstraint("service_name"),
