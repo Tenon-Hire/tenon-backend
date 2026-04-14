@@ -21,6 +21,13 @@ load_environment() {
   if [[ -f ./setEnvVar.sh ]]; then
     source ./setEnvVar.sh
   fi
+  if [[ -n "${ENV_FILE:-}" && -f "${ENV_FILE}" ]]; then
+    # Keep CI/local runtime env overrides available to every child process.
+    set -a
+    # shellcheck disable=SC1090
+    source "${ENV_FILE}"
+    set +a
+  fi
 }
 
 apply_local_defaults() {
