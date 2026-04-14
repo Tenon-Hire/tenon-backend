@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +13,7 @@ from app.shared.database.shared_database_models_model import (
     Task,
     Trial,
 )
+from app.shared.utils.shared_utils_errors_utils import ApiError
 from app.trials.repositories.trials_repositories_trials_trial_model import (
     TRIAL_STATUS_ACTIVE_INVITING,
 )
@@ -21,9 +22,6 @@ from app.trials.services.trials_services_trials_codespace_specializer_service im
 )
 from app.trials.services.trials_services_trials_lifecycle_access_service import (
     require_owner_for_lifecycle,
-)
-from app.trials.services.trials_services_trials_lifecycle_actions_service import (
-    _transition_owned_trial_impl,
 )
 from app.trials.services.trials_services_trials_lifecycle_invitable_service import (
     require_trial_invitable,
@@ -79,6 +77,34 @@ async def _prepare_active_scenario_bundle_on_activation(
     return active_scenario_version
 
 
+async def _require_locked_active_scenario(
+    db: AsyncSession,
+    *,
+    trial: Trial,
+) -> ScenarioVersion:
+    active_scenario_version = await get_active_scenario_version(db, trial.id)
+    if active_scenario_version is None:
+        raise ApiError(
+            status_code=409,
+            detail="Scenario version must be locked before activation.",
+            error_code="SCENARIO_LOCK_REQUIRED",
+            retryable=False,
+            details={},
+        )
+    if active_scenario_version.locked_at is None:
+        raise ApiError(
+            status_code=409,
+            detail="Scenario version must be locked before activation.",
+            error_code="SCENARIO_LOCK_REQUIRED",
+            retryable=False,
+            details={
+                "scenarioVersionId": active_scenario_version.id,
+                "status": active_scenario_version.status,
+            },
+        )
+    return active_scenario_version
+
+
 async def activate_trial(
     db: AsyncSession,
     *,
@@ -87,17 +113,46 @@ async def activate_trial(
     now: datetime | None = None,
 ) -> Trial:
     """Activate trial."""
-    trial = await _transition_owned_trial_impl(
+    changed_at = now or datetime.now(UTC)
+    trial = await require_owner_for_lifecycle(
         db,
         trial_id=trial_id,
         actor_user_id=actor_user_id,
-        target_status=TRIAL_STATUS_ACTIVE_INVITING,
-        now=now,
-        require_owner=require_owner_for_lifecycle,
-        apply_transition=apply_status_transition,
-        normalize_status=normalize_trial_status,
-        logger=logger,
+        for_update=True,
     )
+    pending_scenario_version_id = getattr(trial, "pending_scenario_version_id", None)
+    if pending_scenario_version_id is not None:
+        raise ApiError(
+            status_code=409,
+            detail="Scenario approval is pending before inviting.",
+            error_code="SCENARIO_APPROVAL_PENDING",
+            retryable=False,
+            details={"pendingScenarioVersionId": pending_scenario_version_id},
+        )
+    await _require_locked_active_scenario(db, trial=trial)
+    from_status = normalize_trial_status(trial.status)
+    changed = apply_status_transition(
+        trial,
+        target_status=TRIAL_STATUS_ACTIVE_INVITING,
+        changed_at=changed_at,
+    )
+    await db.commit()
+    await db.refresh(trial)
+    if changed:
+        logger.info(
+            "Trial transition trialId=%s actorUserId=%s from=%s to=%s",
+            trial.id,
+            actor_user_id,
+            from_status,
+            normalize_trial_status(trial.status),
+        )
+    else:
+        logger.info(
+            "Trial transition idempotent trialId=%s actorUserId=%s status=%s",
+            trial.id,
+            actor_user_id,
+            normalize_trial_status(trial.status),
+        )
     await _prepare_active_scenario_bundle_on_activation(db, trial=trial)
     await db.refresh(trial)
     return trial

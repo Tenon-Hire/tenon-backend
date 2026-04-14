@@ -5,14 +5,14 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, status
-from sqlalchemy import select
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import build_ai_policy_snapshot
 from app.shared.auth.shared_auth_current_user_utils import get_current_user
 from app.shared.auth.shared_auth_roles_utils import ensure_talent_partner_or_none
 from app.shared.database import get_session
-from app.shared.database.shared_database_models_model import ScenarioVersion
+from app.shared.database.shared_database_models_model import Job, ScenarioVersion
 from app.submissions.repositories.precommit_bundles import (
     repository_lookup as bundle_lookup_repo,
 )
@@ -28,6 +28,9 @@ from app.trials.schemas.trials_schemas_trials_core_schema import (
 )
 from app.trials.services.trials_services_trials_codespace_specializer_service import (
     has_coding_tasks,
+)
+from app.trials.services.trials_services_trials_scenario_generation_constants import (
+    SCENARIO_GENERATION_JOB_TYPE,
 )
 
 router = APIRouter()
@@ -64,6 +67,21 @@ async def _resolve_bundle_status(
         template_key=template_key,
     )
     return getattr(bundle, "status", None) or "missing"
+
+
+async def _load_latest_scenario_generation_job(
+    db: AsyncSession, *, trial_id: int, company_id: int
+) -> Job | None:
+    stmt = (
+        select(Job)
+        .where(
+            Job.company_id == company_id,
+            Job.job_type == SCENARIO_GENERATION_JOB_TYPE,
+            Job.correlation_id.like(f"trial:{trial_id}%"),
+        )
+        .order_by(desc(Job.created_at), desc(Job.updated_at))
+    )
+    return await db.scalar(stmt)
 
 
 @router.get(
@@ -105,6 +123,11 @@ async def get_trial_detail(
         tasks=tasks,
         scenario_version=pending_scenario_version,
     )
+    scenario_generation_job = await _load_latest_scenario_generation_job(
+        db,
+        trial_id=trial_id,
+        company_id=sim.company_id,
+    )
     return render_trial_detail(
         sim,
         tasks,
@@ -113,4 +136,5 @@ async def get_trial_detail(
         current_ai_policy_snapshot_json=current_ai_policy_snapshot_json,
         active_bundle_status=active_bundle_status,
         pending_bundle_status=pending_bundle_status,
+        scenario_generation_job=scenario_generation_job,
     )

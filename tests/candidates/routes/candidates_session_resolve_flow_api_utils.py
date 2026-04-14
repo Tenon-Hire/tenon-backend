@@ -43,12 +43,6 @@ async def _create_trial(async_client, async_session, talent_partner_email: str) 
     finally:
         worker.clear_handlers()
     assert handled is True
-    activate = await async_client.post(
-        f"/api/trials/{sim_id}/activate",
-        json={"confirm": True},
-        headers={"x-dev-user-email": talent_partner_email},
-    )
-    assert activate.status_code == 200, activate.text
     return sim_id
 
 

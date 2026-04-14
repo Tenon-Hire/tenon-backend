@@ -25,12 +25,15 @@ async def test_regenerate_rate_limited_in_prod(
         first_sim_id = await _create_trial(async_client, async_session, headers)
         second_sim_id = await _create_trial(async_client, async_session, headers)
 
+        await _approve_trial(async_client, sim_id=first_sim_id, headers=headers)
+
         activate_first = await async_client.post(
             f"/api/trials/{first_sim_id}/activate",
             headers=headers,
             json={"confirm": True},
         )
         assert activate_first.status_code == 200, activate_first.text
+        await _approve_trial(async_client, sim_id=second_sim_id, headers=headers)
         activate_second = await async_client.post(
             f"/api/trials/{second_sim_id}/activate",
             headers=headers,

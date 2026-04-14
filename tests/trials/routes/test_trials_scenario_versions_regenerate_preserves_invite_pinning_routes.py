@@ -18,6 +18,7 @@ async def test_regenerate_preserves_existing_invite_pinning(
     )
     headers = auth_header_factory(talent_partner)
 
+    await _approve_trial(async_client, sim_id=sim_id, headers=headers)
     activate = await async_client.post(
         f"/api/trials/{sim_id}/activate",
         headers=headers,
@@ -49,6 +50,13 @@ async def test_regenerate_preserves_existing_invite_pinning(
         headers=headers,
     )
     assert approve.status_code == 200, approve.text
+
+    re_activate = await async_client.post(
+        f"/api/trials/{sim_id}/activate",
+        headers=headers,
+        json={"confirm": True},
+    )
+    assert re_activate.status_code == 200, re_activate.text
 
     second_candidate_session_id = await _invite_candidate(
         async_client,

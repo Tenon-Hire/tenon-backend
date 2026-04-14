@@ -92,6 +92,18 @@ async def _trial_detail(async_client, *, sim_id: int, headers) -> dict:
     return response.json()
 
 
+async def _approve_trial(async_client, *, sim_id: int, headers) -> dict:
+    detail = await _trial_detail(async_client, sim_id=sim_id, headers=headers)
+    scenario_version_id = detail["activeScenarioVersionId"]
+    assert scenario_version_id is not None
+    response = await async_client.post(
+        f"/api/trials/{sim_id}/scenario/{scenario_version_id}/approve",
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
 async def _active_scenario(async_session, *, sim_id: int):
     return (
         await async_session.execute(

@@ -121,3 +121,15 @@ async def test_requeue_dead_letter_jobs_deduplicates_requested_ids(async_session
     )
 
     assert count == 1
+
+
+@pytest.mark.asyncio
+async def test_requeue_dead_letter_jobs_returns_zero_when_no_dead_letters(
+    async_session,
+):
+    count = await jobs_repo.requeue_dead_letter_jobs(
+        async_session,
+        now=datetime(2026, 4, 14, 14, 15, tzinfo=UTC),
+    )
+
+    assert count == 0

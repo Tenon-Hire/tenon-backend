@@ -1,5 +1,19 @@
+from types import SimpleNamespace
+
 import pytest
 
+from app.shared.jobs.repositories.shared_jobs_repositories_models_repository import (
+    JOB_STATUS_QUEUED,
+    JOB_STATUS_RUNNING,
+)
+from app.trials.routes.trials_routes.trials_routes_trials_routes_trials_routes_detail_render_routes import (
+    _generation_failure_summary,
+    _generation_status,
+    _latest_relevant_scenario_version,
+    _scenario_agent_runtime_summary,
+    _scenario_review_bundle_status,
+    _scenario_snapshot_summary,
+)
 from tests.shared.factories import create_talent_partner, create_trial
 
 
@@ -21,6 +35,8 @@ async def test_get_trial_detail_happy_path(
 
     body = res.json()
     assert body["id"] == sim.id
+    assert body["status"] == sim.status
+    assert body["generationStatus"] == "ready_for_review"
     assert body["activeScenarioVersionId"] == sim.active_scenario_version_id
     assert body["pendingScenarioVersionId"] is None
     assert body["scenario"]["id"] == sim.active_scenario_version_id
@@ -103,3 +119,196 @@ async def test_trial_context_round_trips_on_create_and_detail(
     assert detail["ai"]["evalEnabledByDay"] == payload["ai"]["evalEnabledByDay"]
     assert detail["ai"]["promptPackVersion"] == "winoe-ai-pack-v1"
     assert detail["ai"]["changesPendingRegeneration"] is False
+
+
+def test_latest_relevant_scenario_version_prefers_reviewable_pending_only():
+    active = SimpleNamespace(id=1, status="ready", locked_at=None)
+    pending_generating = SimpleNamespace(id=2, status="generating", locked_at=None)
+    pending_ready = SimpleNamespace(id=3, status="ready", locked_at=None)
+
+    assert (
+        _latest_relevant_scenario_version(
+            active_scenario_version=active,
+            pending_scenario_version=pending_generating,
+        )
+        is active
+    )
+    assert (
+        _latest_relevant_scenario_version(
+            active_scenario_version=active,
+            pending_scenario_version=pending_ready,
+        )
+        is pending_ready
+    )
+
+
+def test_generation_failure_summary_accepts_terminal_failed_states():
+    for status in ("failed", "dead_letter"):
+        summary = _generation_failure_summary(
+            SimpleNamespace(id="job-1", status=status, last_error="boom")
+        )
+        assert summary is not None
+        assert summary.jobId == "job-1"
+        assert summary.status == "failed"
+        assert summary.error == "boom"
+        assert summary.retryable is True
+        assert summary.canRetry is True
+
+
+def test_generation_failure_summary_returns_none_for_missing_or_non_terminal_jobs():
+    assert _generation_failure_summary(None) is None
+    assert (
+        _generation_failure_summary(
+            SimpleNamespace(id="job-2", status="queued", last_error="boom")
+        )
+        is None
+    )
+
+
+def test_detail_helpers_handle_non_reviewable_and_non_mapping_state():
+    assert _scenario_agent_runtime_summary(None) is None
+    assert _scenario_agent_runtime_summary({"agents": ["bad"]}) is None
+
+    snapshot = {
+        "promptPackVersion": "pack-v2",
+        "agents": {
+            "prestart": {
+                "runtime": {
+                    "runtimeMode": "primary",
+                    "provider": "anthropic",
+                    "model": "claude-opus-4.6",
+                },
+                "promptVersion": "v9",
+                "rubricVersion": "r9",
+            },
+            "ignore-me": "not-a-mapping",
+        },
+    }
+    version = SimpleNamespace(id="sv-1", ai_policy_snapshot_json=snapshot)
+    summary = _scenario_snapshot_summary(version, bundle_status="ready")
+    assert summary is not None
+    assert summary["scenarioVersionId"] == "sv-1"
+    assert summary["promptPackVersion"] == "pack-v2"
+    assert summary["bundleStatus"] == "ready"
+    assert summary["agents"] == [
+        {
+            "key": "prestart",
+            "provider": "anthropic",
+            "model": "claude-opus-4.6",
+            "runtimeMode": "primary",
+            "promptVersion": "v9",
+            "rubricVersion": "r9",
+        }
+    ]
+
+    assert _scenario_snapshot_summary(None, bundle_status=None) is None
+    assert (
+        _scenario_snapshot_summary(
+            SimpleNamespace(id="sv-2", ai_policy_snapshot_json=[]),
+            bundle_status=None,
+        )
+        is None
+    )
+
+
+def test_detail_helpers_cover_bundle_and_generation_status_branches():
+    assert (
+        _scenario_review_bundle_status(
+            active_scenario_version=None,
+            pending_scenario_version=None,
+            active_bundle_status="active",
+            pending_bundle_status="pending",
+        )
+        is None
+    )
+    assert (
+        _scenario_review_bundle_status(
+            active_scenario_version=SimpleNamespace(id="a"),
+            pending_scenario_version=None,
+            active_bundle_status="active",
+            pending_bundle_status="pending",
+        )
+        == "active"
+    )
+    assert (
+        _scenario_review_bundle_status(
+            active_scenario_version=SimpleNamespace(id="a"),
+            pending_scenario_version=SimpleNamespace(id="p"),
+            active_bundle_status="active",
+            pending_bundle_status="pending",
+        )
+        == "pending"
+    )
+
+    assert (
+        _generation_status(
+            active_scenario_version=None,
+            pending_scenario_version=None,
+            scenario_generation_job=SimpleNamespace(status="failed"),
+            generation_failure=SimpleNamespace(),
+        )
+        == "failed"
+    )
+    assert (
+        _generation_status(
+            active_scenario_version=SimpleNamespace(status="generating"),
+            pending_scenario_version=None,
+            scenario_generation_job=None,
+            generation_failure=None,
+        )
+        == "generating"
+    )
+    assert (
+        _generation_status(
+            active_scenario_version=None,
+            pending_scenario_version=SimpleNamespace(status="generating"),
+            scenario_generation_job=None,
+            generation_failure=None,
+        )
+        == "generating"
+    )
+    assert (
+        _generation_status(
+            active_scenario_version=None,
+            pending_scenario_version=None,
+            scenario_generation_job=SimpleNamespace(status=JOB_STATUS_QUEUED),
+            generation_failure=None,
+        )
+        == "generating"
+    )
+    assert (
+        _generation_status(
+            active_scenario_version=None,
+            pending_scenario_version=None,
+            scenario_generation_job=SimpleNamespace(status=JOB_STATUS_RUNNING),
+            generation_failure=None,
+        )
+        == "generating"
+    )
+    assert (
+        _generation_status(
+            active_scenario_version=SimpleNamespace(status="ready"),
+            pending_scenario_version=None,
+            scenario_generation_job=None,
+            generation_failure=None,
+        )
+        == "ready_for_review"
+    )
+    assert (
+        _generation_status(
+            active_scenario_version=None,
+            pending_scenario_version=SimpleNamespace(status="locked"),
+            scenario_generation_job=None,
+            generation_failure=None,
+        )
+        == "ready_for_review"
+    )
+    assert (
+        _generation_status(
+            active_scenario_version=None,
+            pending_scenario_version=None,
+            scenario_generation_job=None,
+            generation_failure=None,
+        )
+        == "not_started"
+    )

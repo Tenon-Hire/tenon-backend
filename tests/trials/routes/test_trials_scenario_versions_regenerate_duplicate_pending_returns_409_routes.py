@@ -17,6 +17,7 @@ async def test_regenerate_duplicate_pending_returns_409(
     )
     headers = auth_header_factory(talent_partner)
 
+    await _approve_trial(async_client, sim_id=sim_id, headers=headers)
     activate = await async_client.post(
         f"/api/trials/{sim_id}/activate",
         headers=headers,

@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from tests.trials.routes.trials_lifecycle_api_utils import *
+from tests.trials.routes.trials_scenario_versions_api_utils import _approve_trial
 
 
 @pytest.mark.asyncio
@@ -16,6 +17,9 @@ async def test_invite_resend_blocked_after_termination(
         async_client, async_session, auth_header_factory(talent_partner)
     )
     sim_id = created["id"]
+    await _approve_trial(
+        async_client, sim_id=sim_id, headers=auth_header_factory(talent_partner)
+    )
 
     activate = await async_client.post(
         f"/api/trials/{sim_id}/activate",

@@ -17,6 +17,18 @@ from app.trials.schemas.trials_schemas_trials_scenario_summary_schema import (
 )
 
 
+class TrialGenerationFailure(BaseModel):
+    """Summary of the latest scenario-generation failure, if any."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    jobId: str
+    status: str
+    error: str | None = None
+    retryable: bool = False
+    canRetry: bool = False
+
+
 class TrialDetailTask(BaseModel):
     """Task summary for Talent Partner trial detail view."""
 
@@ -67,6 +79,12 @@ class TrialDetailResponse(BaseModel):
     pendingScenarioVersionId: int | None = None
     scenario: TrialDetailScenario | None = None
     status: TrialStatus
+    generationStatus: str | None = None
+    generationFailure: TrialGenerationFailure | None = None
+    scenarioLocked: bool = False
+    canApproveScenario: bool = False
+    canActivateTrial: bool = False
+    canRetryGeneration: bool = False
     generatingAt: datetime | None = None
     readyForReviewAt: datetime | None = None
     activatedAt: datetime | None = None
@@ -86,4 +104,5 @@ __all__ = [
     "TrialDetailResponse",
     "TrialDetailTask",
     "TrialLifecycleRequest",
+    "TrialGenerationFailure",
 ]

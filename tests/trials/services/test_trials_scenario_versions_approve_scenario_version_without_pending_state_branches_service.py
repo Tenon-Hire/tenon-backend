@@ -23,8 +23,9 @@ async def test_approve_scenario_version_without_pending_state_branches(async_ses
         scenario_version_id=active_id,
         actor_user_id=talent_partner.id,
     )
-    assert approved_sim.status == "active_inviting"
+    assert approved_sim.status == "ready_for_review"
     assert approved_version.id == active_id
+    assert approved_version.locked_at is not None
 
     non_active = ScenarioVersion(
         trial_id=sim.id,

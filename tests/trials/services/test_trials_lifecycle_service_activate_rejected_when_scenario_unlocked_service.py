@@ -1,19 +1,21 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 
 from tests.trials.services.trials_lifecycle_service_utils import *
 
 
 @pytest.mark.asyncio
-async def test_activate_rejected_transition_surfaces_api_error(async_session):
-    company = Company(name="Activate Reject Co")
+async def test_activate_rejected_when_scenario_unlocked(async_session):
+    company = Company(name="Activate Locked Guard Co")
     async_session.add(company)
     await async_session.flush()
 
     owner = User(
         name="Owner",
-        email="owner-activate-reject@test.com",
+        email="owner-activate-locked@test.com",
         role="talent_partner",
         company_id=company.id,
         password_hash="",
@@ -23,11 +25,11 @@ async def test_activate_rejected_transition_surfaces_api_error(async_session):
 
     trial = Trial(
         company_id=company.id,
-        title="Already Terminated",
+        title="Unlocked Scenario",
         role="Backend Engineer",
         tech_stack="Python",
         seniority="Mid",
-        focus="Rejected transition",
+        focus="Reject lifecycle activate unless scenario is locked",
         scenario_template="default-5day-node-postgres",
         created_by=owner.id,
         status=sim_service.TRIAL_STATUS_GENERATING,
@@ -36,12 +38,6 @@ async def test_activate_rejected_transition_surfaces_api_error(async_session):
     async_session.add(trial)
     await async_session.flush()
     await _attach_active_scenario(async_session, trial)
-    active = await async_session.get(ScenarioVersion, trial.active_scenario_version_id)
-    assert active is not None
-    active.status = "locked"
-    active.locked_at = datetime.now(UTC)
-    trial.status = sim_service.TRIAL_STATUS_TERMINATED
-    trial.terminated_at = datetime.now(UTC)
     await async_session.commit()
 
     with pytest.raises(ApiError) as excinfo:
@@ -51,4 +47,4 @@ async def test_activate_rejected_transition_surfaces_api_error(async_session):
             actor_user_id=owner.id,
         )
     assert excinfo.value.status_code == 409
-    assert excinfo.value.error_code == "TRIAL_INVALID_STATUS_TRANSITION"
+    assert excinfo.value.error_code == "SCENARIO_LOCK_REQUIRED"

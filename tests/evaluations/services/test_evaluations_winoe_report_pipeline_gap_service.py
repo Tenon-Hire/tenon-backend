@@ -18,6 +18,10 @@ from types import SimpleNamespace
 import pytest
 
 from app.evaluations.services import winoe_report_pipeline
+from app.evaluations.services.evaluations_services_evaluations_winoe_report_pipeline_runner_service import (
+    _is_retryable_winoe_report_provider_error,
+)
+from app.integrations.winoe_report_review import WinoeReportReviewProviderError
 
 
 class _ScalarOneResult:
@@ -47,6 +51,16 @@ def test_segment_text_returns_none_for_empty_keys():
             {"text": "   ", "content": None, "excerpt": ""}
         )
         is None
+    )
+
+
+def test_retryable_provider_error_helper_handles_blank_and_retryable_values():
+    assert not _is_retryable_winoe_report_provider_error(ValueError("rate limit"))
+    assert not _is_retryable_winoe_report_provider_error(
+        WinoeReportReviewProviderError("")
+    )
+    assert _is_retryable_winoe_report_provider_error(
+        WinoeReportReviewProviderError("Rate limit exceeded")
     )
 
 

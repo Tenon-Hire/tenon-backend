@@ -6,7 +6,7 @@ from tests.trials.services.trials_scenario_versions_service_utils import *
 
 
 @pytest.mark.asyncio
-async def test_approve_scenario_version_promotes_pending_to_active(async_session):
+async def test_approve_scenario_version_locks_pending_version(async_session):
     talent_partner = await create_talent_partner(
         async_session, email="scenario-approve-ok@test.com"
     )
@@ -35,7 +35,8 @@ async def test_approve_scenario_version_promotes_pending_to_active(async_session
     assert approved_sim.pending_scenario_version_id is None
     assert approved_sim.active_scenario_version_id == regenerated.id
     assert approved_sim.active_scenario_version_id != previous_active
-    assert approved_sim.status == "active_inviting"
+    assert approved_sim.status == "ready_for_review"
+    assert approved_version.locked_at is not None
 
     first_session_active = await async_session.get(ScenarioVersion, previous_active)
     assert first_session_active is not None

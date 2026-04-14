@@ -13,6 +13,7 @@ from app.shared.database.shared_database_models_model import (
 )
 from app.shared.jobs import worker
 from tests.shared.factories import create_talent_partner
+from tests.trials.routes.trials_scenario_versions_api_utils import _approve_trial
 
 
 def _task_id_by_day(sim_payload: dict, day_index: int) -> int:
@@ -86,6 +87,12 @@ async def test_full_flow_invite_through_first_submission(
     finally:
         worker.clear_handlers()
     assert handled is True
+
+    await _approve_trial(
+        async_client,
+        sim_id=sim_body["id"],
+        headers=auth_header_factory(talent_partner),
+    )
 
     activate_res = await async_client.post(
         f"/api/trials/{sim_body['id']}/activate",

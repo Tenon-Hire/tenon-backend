@@ -1,19 +1,22 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from types import SimpleNamespace
+
 import pytest
 
 from tests.trials.services.trials_lifecycle_service_utils import *
 
 
 @pytest.mark.asyncio
-async def test_activate_rejected_transition_surfaces_api_error(async_session):
-    company = Company(name="Activate Reject Co")
+async def test_activate_rejected_when_scenario_missing(async_session):
+    company = Company(name="Activate Missing Guard Co")
     async_session.add(company)
     await async_session.flush()
 
     owner = User(
         name="Owner",
-        email="owner-activate-reject@test.com",
+        email="owner-activate-missing@test.com",
         role="talent_partner",
         company_id=company.id,
         password_hash="",
@@ -23,11 +26,11 @@ async def test_activate_rejected_transition_surfaces_api_error(async_session):
 
     trial = Trial(
         company_id=company.id,
-        title="Already Terminated",
+        title="Missing Scenario",
         role="Backend Engineer",
         tech_stack="Python",
         seniority="Mid",
-        focus="Rejected transition",
+        focus="Reject lifecycle activate without a locked scenario",
         scenario_template="default-5day-node-postgres",
         created_by=owner.id,
         status=sim_service.TRIAL_STATUS_GENERATING,
@@ -35,13 +38,6 @@ async def test_activate_rejected_transition_surfaces_api_error(async_session):
     )
     async_session.add(trial)
     await async_session.flush()
-    await _attach_active_scenario(async_session, trial)
-    active = await async_session.get(ScenarioVersion, trial.active_scenario_version_id)
-    assert active is not None
-    active.status = "locked"
-    active.locked_at = datetime.now(UTC)
-    trial.status = sim_service.TRIAL_STATUS_TERMINATED
-    trial.terminated_at = datetime.now(UTC)
     await async_session.commit()
 
     with pytest.raises(ApiError) as excinfo:
@@ -51,4 +47,24 @@ async def test_activate_rejected_transition_surfaces_api_error(async_session):
             actor_user_id=owner.id,
         )
     assert excinfo.value.status_code == 409
-    assert excinfo.value.error_code == "TRIAL_INVALID_STATUS_TRANSITION"
+    assert excinfo.value.error_code == "SCENARIO_LOCK_REQUIRED"
+
+
+@pytest.mark.asyncio
+async def test_prepare_active_scenario_bundle_on_activation_returns_none_when_missing(
+    monkeypatch,
+):
+    async def _missing_active_scenario_version(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(
+        lifecycle_service,
+        "get_active_scenario_version",
+        _missing_active_scenario_version,
+    )
+
+    result = await lifecycle_service._prepare_active_scenario_bundle_on_activation(
+        object(), trial=SimpleNamespace(id=1)
+    )
+
+    assert result is None

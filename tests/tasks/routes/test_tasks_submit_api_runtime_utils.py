@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.shared.jobs import worker
+from tests.trials.routes.trials_scenario_versions_api_utils import _approve_trial
 
 
 async def create_trial(async_client, async_session, talent_partner_email: str) -> dict:
@@ -37,6 +38,11 @@ async def create_trial(async_client, async_session, talent_partner_email: str) -
     finally:
         worker.clear_handlers()
     assert handled is True
+    await _approve_trial(
+        async_client,
+        sim_id=trial["id"],
+        headers={"x-dev-user-email": talent_partner_email},
+    )
     activate = await async_client.post(
         f"/api/trials/{trial['id']}/activate",
         headers={"x-dev-user-email": talent_partner_email},

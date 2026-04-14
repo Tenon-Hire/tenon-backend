@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from tests.shared.jobs.handlers.shared_jobs_handlers_transcribe_recording_utils import *
@@ -51,3 +53,19 @@ async def test_transcribe_recording_handler_success(async_session):
     assert refreshed_transcript.segments_json
     assert refreshed_transcript.model_name == "fake-stt-v1"
     assert refreshed_transcript.last_error is None
+
+
+def test_transcription_job_has_retry_headroom_handles_missing_and_boundaries():
+    assert handler._transcription_job_has_retry_headroom(None) is False
+    assert (
+        handler._transcription_job_has_retry_headroom(
+            SimpleNamespace(attempt=1, max_attempts=2)
+        )
+        is True
+    )
+    assert (
+        handler._transcription_job_has_retry_headroom(
+            SimpleNamespace(attempt=2, max_attempts=2)
+        )
+        is False
+    )

@@ -23,6 +23,7 @@ TRIALS_SCHEMA_EXPORTS = [
     "TrialDetailResponse",
     "TrialDetailScenario",
     "TrialDetailTask",
+    "TrialGenerationFailure",
     "TrialLifecycleRequest",
     "TrialListItem",
     "TrialTerminateResponse",

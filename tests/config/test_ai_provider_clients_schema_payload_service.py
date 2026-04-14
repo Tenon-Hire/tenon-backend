@@ -3,10 +3,12 @@ from __future__ import annotations
 import sys
 import types
 
+import pytest
 from pydantic import BaseModel
 
 from app.ai import ScenarioGenerationOutput
 from app.ai.ai_provider_clients_service import (
+    AIProviderExecutionError,
     _openai_schema_validation_error,
     _schema_payload,
     call_anthropic_json,
@@ -32,6 +34,53 @@ class _RootPayload(BaseModel):
 
 class _TinyResponse(BaseModel):
     message: str
+
+
+def _scenario_generation_payload(
+    *, include_required_fields: bool = True
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "storyline_md": "A concise but realistic Winoe scenario.",
+        "task_prompts_json": [
+            {
+                "dayIndex": day_index,
+                "title": f"Day {day_index}",
+                "description": f"Deliverable for day {day_index}.",
+            }
+            for day_index in range(1, 6)
+        ],
+    }
+    if include_required_fields:
+        payload["rubric_json"] = {
+            "summary": "Concise rubric summary.",
+            "dayWeights": {"1": 10, "2": 20, "3": 30, "4": 20, "5": 20},
+            "dimensions": [
+                {
+                    "name": "Planning",
+                    "weight": 40,
+                    "description": "Plans the work well.",
+                },
+                {
+                    "name": "Execution",
+                    "weight": 60,
+                    "description": "Delivers the work cleanly.",
+                },
+            ],
+        }
+        payload["codespace_spec_json"] = {
+            "task_kind": "feature",
+            "summary": "Build the Winoe feature.",
+            "candidate_goal": "Implement the required backend changes.",
+            "acceptance_criteria": [
+                "The endpoint works.",
+                "The data is persisted correctly.",
+            ],
+            "target_files": ["app/example.py"],
+            "repo_adjustments": ["Add route and service logic"],
+            "test_focus": ["happy path", "failure path"],
+            "test_command": "poetry run pytest tests/example",
+        }
+    return payload
 
 
 def test_schema_payload_sets_additional_properties_false_recursively() -> None:
@@ -184,3 +233,91 @@ def test_call_anthropic_json_prefers_tool_schema_output(monkeypatch) -> None:
     request = client.messages.calls[0]
     assert request["tool_choice"] == {"type": "tool", "name": "_TinyResponse"}
     assert request["tools"][0]["name"] == "_TinyResponse"
+
+
+def test_call_anthropic_json_validates_complete_tool_payload(monkeypatch) -> None:
+    class _FakeBlock:
+        def __init__(self, *, block_type: str, input_payload=None) -> None:
+            self.type = block_type
+            self.input = input_payload
+
+    class _FakeMessages:
+        def create(self, **kwargs):
+            return types.SimpleNamespace(
+                content=[
+                    _FakeBlock(
+                        block_type="tool_use",
+                        input_payload=_scenario_generation_payload(),
+                    )
+                ]
+            )
+
+    class _FakeAnthropic:
+        def __init__(self, *, api_key, timeout, max_retries) -> None:
+            self.api_key = api_key
+            self.timeout = timeout
+            self.max_retries = max_retries
+            self.messages = _FakeMessages()
+
+    monkeypatch.setitem(
+        sys.modules, "anthropic", types.SimpleNamespace(Anthropic=_FakeAnthropic)
+    )
+
+    result = call_anthropic_json(
+        api_key="test-key",
+        model="claude-opus-4-6",
+        system_prompt="system",
+        user_prompt="user",
+        response_model=ScenarioGenerationOutput,
+        timeout_seconds=30,
+        max_retries=1,
+        max_tokens=512,
+    )
+
+    assert result.storyline_md == "A concise but realistic Winoe scenario."
+    assert len(result.task_prompts_json) == 5
+    assert result.rubric_json.summary == "Concise rubric summary."
+    assert result.codespace_spec_json.summary == "Build the Winoe feature."
+
+
+def test_call_anthropic_json_rejects_partial_tool_payload(monkeypatch) -> None:
+    class _FakeBlock:
+        def __init__(self, *, block_type: str, input_payload=None) -> None:
+            self.type = block_type
+            self.input = input_payload
+
+    class _FakeMessages:
+        def create(self, **kwargs):
+            return types.SimpleNamespace(
+                content=[
+                    _FakeBlock(
+                        block_type="tool_use",
+                        input_payload=_scenario_generation_payload(
+                            include_required_fields=False
+                        ),
+                    )
+                ]
+            )
+
+    class _FakeAnthropic:
+        def __init__(self, *, api_key, timeout, max_retries) -> None:
+            self.api_key = api_key
+            self.timeout = timeout
+            self.max_retries = max_retries
+            self.messages = _FakeMessages()
+
+    monkeypatch.setitem(
+        sys.modules, "anthropic", types.SimpleNamespace(Anthropic=_FakeAnthropic)
+    )
+
+    with pytest.raises(AIProviderExecutionError, match="anthropic_invalid_json_output"):
+        call_anthropic_json(
+            api_key="test-key",
+            model="claude-opus-4-6",
+            system_prompt="system",
+            user_prompt="user",
+            response_model=ScenarioGenerationOutput,
+            timeout_seconds=30,
+            max_retries=1,
+            max_tokens=512,
+        )

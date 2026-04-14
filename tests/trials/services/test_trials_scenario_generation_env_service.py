@@ -62,3 +62,12 @@ def test_choose_generation_source_handles_demo_and_errors():
         scenario_env_service.choose_generation_source(
             demo_mode_enabled=False, llm_available=False
         )
+
+
+def test_choose_generation_source_defaults_to_llm_when_available(monkeypatch):
+    monkeypatch.setattr(scenario_env_service, "is_demo_mode_enabled", lambda: False)
+    monkeypatch.setattr(scenario_env_service, "llm_credentials_available", lambda: True)
+    assert (
+        scenario_env_service.choose_generation_source()
+        == scenario_env_service.SCENARIO_SOURCE_LLM
+    )

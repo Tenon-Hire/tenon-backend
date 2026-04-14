@@ -18,6 +18,11 @@ from app.integrations.scenario_generation.base_client import (
 class AnthropicScenarioGenerationProvider:
     """Generate scenarios with Anthropic Messages API."""
 
+    # The prestart scenario payload is larger than the other Anthropic JSON
+    # contracts in this repo. A slightly higher output cap avoids truncating the
+    # final `codespace_spec_json` field while staying scoped to this provider.
+    _MAX_TOKENS = 6_144
+
     def generate_scenario(
         self,
         *,
@@ -32,6 +37,7 @@ class AnthropicScenarioGenerationProvider:
                 response_model=ScenarioGenerationOutput,
                 timeout_seconds=settings.SCENARIO_GENERATION_TIMEOUT_SECONDS,
                 max_retries=settings.SCENARIO_GENERATION_MAX_RETRIES,
+                max_tokens=self._MAX_TOKENS,
             )
         except AIProviderExecutionError as exc:
             raise ScenarioGenerationProviderError(str(exc)) from exc

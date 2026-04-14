@@ -16,6 +16,9 @@ async def test_mutating_locked_scenario_returns_scenario_locked(
         async_client, async_session, auth_header_factory(talent_partner)
     )
 
+    await _approve_trial(
+        async_client, sim_id=sim_id, headers=auth_header_factory(talent_partner)
+    )
     activate = await async_client.post(
         f"/api/trials/{sim_id}/activate",
         headers=auth_header_factory(talent_partner),

@@ -5,8 +5,17 @@ from types import SimpleNamespace
 import pytest
 
 from app.ai import AIPolicySnapshotError, build_ai_policy_snapshot
+from app.ai.ai_output_models import (
+    CodespaceSpec,
+    ScenarioGenerationOutput,
+    ScenarioRubric,
+    ScenarioRubricDimension,
+    ScenarioTaskPrompt,
+)
 from app.integrations.scenario_generation.base_client import (
     ScenarioGenerationProviderError,
+    ScenarioGenerationProviderRequest,
+    ScenarioGenerationProviderResponse,
 )
 from app.trials.services import scenario_generation
 
@@ -125,7 +134,7 @@ def test_generate_scenario_payload_fails_closed_when_llm_generation_errors(
         )
 
 
-def test_generate_scenario_payload_degrades_to_fallback_on_retryable_provider_error(
+def test_generate_scenario_payload_raises_on_retryable_provider_error(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
@@ -139,16 +148,13 @@ def test_generate_scenario_payload_degrades_to_fallback_on_retryable_provider_er
 
     monkeypatch.setattr(scenario_generation, "_generate_with_llm", _rate_limited)
 
-    payload = scenario_generation.generate_scenario_payload(
-        role="Backend Engineer",
-        tech_stack="Python",
-        template_key="python-fastapi",
-        ai_policy_snapshot_json=_snapshot(),
-    )
-
-    assert (
-        payload.metadata.source == scenario_generation.SCENARIO_SOURCE_TEMPLATE_FALLBACK
-    )
+    with pytest.raises(RuntimeError, match="openai_request_failed:RateLimitError"):
+        scenario_generation.generate_scenario_payload(
+            role="Backend Engineer",
+            tech_stack="Python",
+            template_key="python-fastapi",
+            ai_policy_snapshot_json=_snapshot(),
+        )
 
 
 def test_generate_scenario_payload_fails_closed_when_source_selection_fails(
@@ -221,6 +227,171 @@ def test_generate_with_llm_placeholder_raises(monkeypatch) -> None:
             template_key="python-fastapi",
             ai_policy_snapshot_json=_snapshot(),
         )
+
+
+def test_is_retryable_scenario_generation_error_detects_blank_and_marker() -> None:
+    assert not scenario_generation._is_retryable_scenario_generation_error(
+        Exception("")
+    )
+    assert not scenario_generation._is_retryable_scenario_generation_error(
+        Exception("temporary provider issue")
+    )
+    assert scenario_generation._is_retryable_scenario_generation_error(
+        Exception("Rate limit exceeded")
+    )
+
+
+def test_generate_with_llm_success_includes_override_context(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def _build_prompt(*, snapshot_json, agent_key, run_context_md):
+        captured["snapshot_json"] = snapshot_json
+        captured["agent_key"] = agent_key
+        captured["run_context_md"] = run_context_md
+        return "system prompt", "rubric guidance"
+
+    def _require_agent_runtime(snapshot_json, agent_key):
+        captured["runtime_snapshot_json"] = snapshot_json
+        captured["runtime_agent_key"] = agent_key
+        return {"provider": "anthropic", "model": "claude-opus-4.6"}
+
+    def _require_agent_policy_snapshot(snapshot_json, agent_key):
+        captured["policy_snapshot_json"] = snapshot_json
+        captured["policy_agent_key"] = agent_key
+        return {"promptVersion": "v9", "rubricVersion": "r9"}
+
+    class _Provider:
+        def generate_scenario(
+            self, *, request: ScenarioGenerationProviderRequest
+        ) -> ScenarioGenerationProviderResponse:
+            captured["request"] = request
+            return ScenarioGenerationProviderResponse(
+                result=ScenarioGenerationOutput(
+                    storyline_md="A custom storyline with a realistic demo path.",
+                    task_prompts_json=[
+                        ScenarioTaskPrompt(
+                            dayIndex=1,
+                            title="Plan the stack",
+                            description="Define the initial implementation plan.",
+                        ),
+                        ScenarioTaskPrompt(
+                            dayIndex=2,
+                            title="Build the core",
+                            description="Implement the core backend workflow.",
+                        ),
+                        ScenarioTaskPrompt(
+                            dayIndex=3,
+                            title="Integrate the UI",
+                            description="Wire the implementation into the UI.",
+                        ),
+                        ScenarioTaskPrompt(
+                            dayIndex=4,
+                            title="Polish for demo",
+                            description="Prepare the demo narrative and edge cases.",
+                        ),
+                        ScenarioTaskPrompt(
+                            dayIndex=5,
+                            title="Reflect and ship",
+                            description="Finalize the submission and document tradeoffs.",
+                        ),
+                    ],
+                    rubric_json=ScenarioRubric(
+                        summary="Generated rubric for the scenario.",
+                        dayWeights={
+                            "1": 10,
+                            "2": 20,
+                            "3": 25,
+                            "4": 20,
+                            "5": 25,
+                        },
+                        dimensions=[
+                            ScenarioRubricDimension(
+                                name="Scope",
+                                weight=40,
+                                description="Evaluates whether the work is well scoped.",
+                            ),
+                            ScenarioRubricDimension(
+                                name="Delivery",
+                                weight=60,
+                                description="Evaluates implementation quality and finish.",
+                            ),
+                        ],
+                    ),
+                    codespace_spec_json=CodespaceSpec(
+                        summary="A custom scenario requiring full-stack work.",
+                        candidate_goal="Ship the end-to-end implementation in the trial.",
+                        acceptance_criteria=[
+                            "Implement the requested flow.",
+                            "Keep the code testable.",
+                        ],
+                        test_focus=["happy path", "regression coverage"],
+                    ),
+                ),
+                model_name="claude-opus-4.6",
+                model_version="2024-11-15",
+            )
+
+    monkeypatch.setattr(
+        scenario_generation,
+        "build_required_snapshot_prompt",
+        _build_prompt,
+    )
+    monkeypatch.setattr(
+        scenario_generation,
+        "require_agent_runtime",
+        _require_agent_runtime,
+    )
+    monkeypatch.setattr(
+        scenario_generation,
+        "require_agent_policy_snapshot",
+        _require_agent_policy_snapshot,
+    )
+    monkeypatch.setattr(
+        scenario_generation,
+        "get_scenario_generation_provider",
+        lambda _provider: _Provider(),
+    )
+
+    payload = scenario_generation._generate_with_llm(
+        role="Backend Engineer",
+        tech_stack="Python",
+        template_key="python-fastapi",
+        scenario_template="custom-5day",
+        focus="Emphasize production realism.",
+        company_context={"domain": "payments", "productArea": "billing"},
+        company_prompt_overrides_json={"tone": "pragmatic"},
+        trial_prompt_overrides_json={"scope": "end-to-end"},
+        ai_policy_snapshot_json=_snapshot(),
+    )
+
+    assert payload.metadata.source == scenario_generation.SCENARIO_SOURCE_LLM
+    assert payload.metadata.model_name == "claude-opus-4.6"
+    assert payload.metadata.model_version == "2024-11-15"
+    assert payload.metadata.prompt_version == "v9"
+    assert payload.metadata.rubric_version == "r9"
+    assert payload.storyline_md.startswith("A custom storyline")
+    assert (
+        payload.codespace_spec_json["summary"]
+        == "A custom scenario requiring full-stack work."
+    )
+
+    assert captured["agent_key"] == "prestart"
+    assert captured["runtime_agent_key"] == "prestart"
+    assert captured["policy_agent_key"] == "prestart"
+    assert (
+        'Company prompt overrides: {"tone": "pragmatic"}' in captured["run_context_md"]
+    )
+    assert (
+        'Trial prompt overrides: {"scope": "end-to-end"}' in captured["run_context_md"]
+    )
+    request = captured["request"]
+    assert isinstance(request, ScenarioGenerationProviderRequest)
+    assert request.model == "claude-opus-4.6"
+    assert '"focus": "Emphasize production realism."' in request.user_prompt
+    assert (
+        '"companyContext": {\n    "domain": "payments",\n    "productArea": "billing"\n  }'
+        in request.user_prompt
+    )
 
 
 def test_generate_scenario_payload_requires_snapshot() -> None:

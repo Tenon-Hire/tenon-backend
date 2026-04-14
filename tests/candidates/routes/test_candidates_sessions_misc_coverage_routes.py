@@ -156,3 +156,76 @@ async def test_build_current_task_view_marks_complete_without_overwriting_comple
     assert result.completed_at == existing_completed_at
     assert db.commit_calls == 1
     assert db.refresh_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_build_current_task_view_fetches_recorded_submission_when_available(
+    monkeypatch,
+):
+    request = SimpleNamespace(
+        headers={"x-candidate-session-id": "7"},
+        client=SimpleNamespace(host="127.0.0.1"),
+    )
+    current_task = SimpleNamespace(
+        id=11, day_index=3, title="Task", type="code", description="desc"
+    )
+    candidate_session = SimpleNamespace(id=7, status="in_progress", completed_at=None)
+    captured: dict[str, object] = {}
+
+    class _FakeDB:
+        async def commit(self):
+            return None
+
+        async def refresh(self, _obj):
+            return None
+
+        async def execute(self, *_args, **_kwargs):
+            return SimpleNamespace()
+
+    async def _fetch_owned_session(_db, _session_id, _principal, now):
+        return candidate_session
+
+    async def _progress_snapshot(_db, _candidate_session, **_kwargs):
+        return ([], set(), current_task, 0, 1, False)
+
+    async def _get_day_audit(_db, *, candidate_session_id, day_index):
+        captured["day_audit_called"] = (candidate_session_id, day_index)
+        return SimpleNamespace(cutoff_commit_sha="sha", cutoff_at=None)
+
+    async def _get_by_candidate_session_task(_db, *, candidate_session_id, task_id):
+        captured["recorded_submission_called"] = (candidate_session_id, task_id)
+        return SimpleNamespace(id=99)
+
+    monkeypatch.setattr(
+        current_task_logic.cs_service, "fetch_owned_session", _fetch_owned_session
+    )
+    monkeypatch.setattr(
+        current_task_logic.cs_service,
+        "ensure_schedule_started_for_content",
+        lambda *_a, **_k: None,
+    )
+    monkeypatch.setattr(
+        current_task_logic.cs_service, "progress_snapshot", _progress_snapshot
+    )
+    monkeypatch.setattr(current_task_logic.cs_repo, "get_day_audit", _get_day_audit)
+    monkeypatch.setattr(
+        current_task_logic.submission_service.submissions_repo,
+        "get_by_candidate_session_task",
+        _get_by_candidate_session_task,
+    )
+    monkeypatch.setattr(
+        current_task_logic,
+        "build_current_task_response",
+        lambda *_a, **kwargs: kwargs["recorded_submission"],
+    )
+    monkeypatch.setattr(
+        current_task_logic.rate_limit, "rate_limit_enabled", lambda: False
+    )
+
+    result = await current_task_logic.build_current_task_view(
+        7, request, SimpleNamespace(sub="auth0|candidate"), _FakeDB()
+    )
+
+    assert captured["day_audit_called"] == (7, 3)
+    assert captured["recorded_submission_called"] == (7, 11)
+    assert result.id == 99

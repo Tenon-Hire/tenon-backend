@@ -16,6 +16,11 @@ async def test_first_invite_locks_active_scenario_and_pins_candidate_session(
         async_client, async_session, auth_header_factory(talent_partner)
     )
 
+    await _approve_trial(
+        async_client,
+        sim_id=sim_id,
+        headers=auth_header_factory(talent_partner),
+    )
     activate = await async_client.post(
         f"/api/trials/{sim_id}/activate",
         headers=auth_header_factory(talent_partner),
@@ -29,8 +34,8 @@ async def test_first_invite_locks_active_scenario_and_pins_candidate_session(
     assert detail_before.status_code == 200, detail_before.text
     scenario_before = detail_before.json()["scenario"]
     assert scenario_before["versionIndex"] == 1
-    assert scenario_before["status"] == "ready"
-    assert scenario_before["lockedAt"] is None
+    assert scenario_before["status"] == "locked"
+    assert scenario_before["lockedAt"] is not None
 
     invite = await async_client.post(
         f"/api/trials/{sim_id}/invite",

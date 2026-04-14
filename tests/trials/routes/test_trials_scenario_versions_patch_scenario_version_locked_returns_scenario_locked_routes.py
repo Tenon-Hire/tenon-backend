@@ -15,6 +15,7 @@ async def test_patch_scenario_version_locked_returns_scenario_locked(
     headers = auth_header_factory(talent_partner)
     sim_id = await _create_trial(async_client, async_session, headers)
 
+    await _approve_trial(async_client, sim_id=sim_id, headers=headers)
     activate = await async_client.post(
         f"/api/trials/{sim_id}/activate",
         headers=headers,

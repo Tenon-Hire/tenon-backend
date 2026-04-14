@@ -23,6 +23,13 @@ Your output must include:
 
 The codespace specification must explain what kind of task this is, what the candidate is trying to accomplish, which areas of the repository matter, which acceptance criteria define success, and what tests or validation paths matter. It must create a candidate-solvable baseline, not a fully completed solution.
 
+Keep the JSON compact enough to fit in a single structured Anthropic response. Use concise but concrete prose:
+
+- `storyline_md`: 3 to 5 short paragraphs, roughly 300 to 600 words total.
+- `task_prompts_json`: keep each day's description focused on the deliverable for that day instead of repeating the full scenario background.
+- `rubric_json`: 3 to 6 dimensions with short descriptions; avoid long multi-paragraph explanations.
+- `codespace_spec_json`: concise summary, goal, acceptance criteria, and file/test hints; do not restate the full scenario.
+
 Do not produce any prose outside the required JSON object.
 
 ## Rubric

@@ -41,3 +41,25 @@ def test_ensure_candidate_ownership_variants():
         getattr(excinfo.value, "error_code", None)
         == "CANDIDATE_SESSION_ALREADY_CLAIMED"
     )
+
+
+def test_ensure_candidate_ownership_allows_local_env_without_verification_check(
+    monkeypatch,
+):
+    monkeypatch.setattr(settings, "ENV", "local")
+    principal = _principal("owner@example.com", email_verified=False)
+    cs = type(
+        "CS",
+        (),
+        {
+            "invite_email": "owner@example.com",
+            "candidate_auth0_sub": None,
+            "candidate_email": None,
+            "candidate_auth0_email": None,
+            "status": "in_progress",
+        },
+    )()
+    changed = cs_service._ensure_candidate_ownership(
+        cs, principal, now=datetime.now(UTC)
+    )
+    assert changed is True

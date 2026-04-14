@@ -36,6 +36,10 @@ async def test_activate_and_terminate_service_idempotency(async_session):
     async_session.add(trial)
     await async_session.flush()
     await _attach_active_scenario(async_session, trial)
+    active = await async_session.get(ScenarioVersion, trial.active_scenario_version_id)
+    assert active is not None
+    active.status = "locked"
+    active.locked_at = datetime.now(UTC)
     trial.status = sim_service.TRIAL_STATUS_READY_FOR_REVIEW
     trial.ready_for_review_at = datetime.now(UTC)
     await async_session.commit()

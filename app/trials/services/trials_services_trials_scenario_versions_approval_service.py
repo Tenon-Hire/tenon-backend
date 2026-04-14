@@ -21,17 +21,14 @@ from app.trials.repositories.scenario_versions import (
 from app.trials.repositories.scenario_versions.trials_repositories_scenario_versions_trials_scenario_versions_model import (
     SCENARIO_VERSION_STATUS_READY,
 )
-from app.trials.repositories.trials_repositories_trials_trial_model import (
-    TRIAL_STATUS_ACTIVE_INVITING,
-)
 from app.trials.services.trials_services_trials_codespace_specializer_service import (
     ensure_precommit_bundle_prepared_for_approved_scenario,
 )
-from app.trials.services.trials_services_trials_lifecycle_service import (
-    apply_status_transition,
-)
 from app.trials.services.trials_services_trials_scenario_versions_access_service import (
     require_owned_trial_for_update,
+)
+from app.trials.services.trials_services_trials_scenario_versions_lock_service import (
+    lock_active_scenario_for_invites,
 )
 
 logger = logging.getLogger(__name__)
@@ -78,7 +75,7 @@ async def approve_scenario_version(
             retryable=False,
             details={"pendingScenarioVersionId": pending_id},
         )
-    if target.status != SCENARIO_VERSION_STATUS_READY:
+    if target.status not in {SCENARIO_VERSION_STATUS_READY, "locked"}:
         raise ApiError(
             status_code=status.HTTP_409_CONFLICT,
             detail="Scenario version is not ready for approval.",
@@ -88,10 +85,11 @@ async def approve_scenario_version(
         )
     trial.active_scenario_version_id = target.id
     trial.pending_scenario_version_id = None
-    apply_status_transition(
-        trial,
-        target_status=TRIAL_STATUS_ACTIVE_INVITING,
-        changed_at=approved_at,
+    target = await lock_active_scenario_for_invites(
+        db,
+        trial_id=trial.id,
+        now=approved_at,
+        trial=trial,
     )
     tasks = await _load_trial_tasks(db, trial.id)
     await ensure_precommit_bundle_prepared_for_approved_scenario(
@@ -127,10 +125,19 @@ async def _approve_without_pending(
             retryable=False,
             details={},
         )
-    apply_status_transition(
-        trial,
-        target_status=TRIAL_STATUS_ACTIVE_INVITING,
-        changed_at=approved_at,
+    if target.status not in {SCENARIO_VERSION_STATUS_READY, "locked"}:
+        raise ApiError(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Scenario version is not ready for approval.",
+            error_code="SCENARIO_NOT_READY",
+            retryable=False,
+            details={"status": target.status},
+        )
+    target = await lock_active_scenario_for_invites(
+        db,
+        trial_id=trial.id,
+        now=approved_at,
+        trial=trial,
     )
     tasks = await _load_trial_tasks(db, trial.id)
     await ensure_precommit_bundle_prepared_for_approved_scenario(

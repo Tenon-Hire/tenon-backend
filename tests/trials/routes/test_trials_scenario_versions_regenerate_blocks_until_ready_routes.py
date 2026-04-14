@@ -18,6 +18,7 @@ async def test_regenerate_blocks_activation_and_invites_until_ready(
     )
     headers = auth_header_factory(talent_partner)
 
+    await _approve_trial(async_client, sim_id=sim_id, headers=headers)
     activate = await async_client.post(
         f"/api/trials/{sim_id}/activate",
         headers=headers,
@@ -47,6 +48,9 @@ async def test_regenerate_blocks_activation_and_invites_until_ready(
         active_id=first_scenario.id,
         pending_id=regenerated_scenario_id,
     )
+    assert pending_body["scenario"]["id"] == first_scenario.id
+    assert pending_body["generationStatus"] == "generating"
+    assert pending_body["canApproveScenario"] is False
 
     activate_while_pending = await async_client.post(
         f"/api/trials/{sim_id}/activate",

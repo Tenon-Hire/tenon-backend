@@ -18,6 +18,7 @@ async def test_regenerate_approval_promotes_pending_scenario(
     )
     headers = auth_header_factory(talent_partner)
 
+    await _approve_trial(async_client, sim_id=sim_id, headers=headers)
     activate = await async_client.post(
         f"/api/trials/{sim_id}/activate",
         headers=headers,
@@ -53,6 +54,10 @@ async def test_regenerate_approval_promotes_pending_scenario(
         active_id=first_scenario.id,
         pending_id=regenerated_scenario_id,
     )
+    assert ready_body["scenario"]["id"] == regenerated_scenario_id
+    assert ready_body["scenario"]["lockedAt"] is None
+    assert ready_body["canApproveScenario"] is True
+    assert ready_body["scenarioLocked"] is False
 
     approve = await async_client.post(
         f"/api/trials/{sim_id}/scenario/{regenerated_scenario_id}/approve",
@@ -61,14 +66,16 @@ async def test_regenerate_approval_promotes_pending_scenario(
     assert approve.status_code == 200, approve.text
     _assert_trial_state(
         approve.json(),
-        status="active_inviting",
+        status="ready_for_review",
         active_id=regenerated_scenario_id,
         pending_id=None,
     )
     approved_detail = await _trial_detail(async_client, sim_id=sim_id, headers=headers)
     _assert_trial_state(
         approved_detail,
-        status="active_inviting",
+        status="ready_for_review",
         active_id=regenerated_scenario_id,
         pending_id=None,
     )
+    assert approved_detail["scenario"]["lockedAt"] is not None
+    assert approved_detail["canActivateTrial"] is True

@@ -42,7 +42,7 @@ async def seed_talent_partner(
     return user
 
 
-async def _create_and_activate_trial(
+async def _create_and_generate_trial(
     async_client,
     async_session: AsyncSession,
     talent_partner_email: str,
@@ -75,13 +75,6 @@ async def _create_and_activate_trial(
     finally:
         worker.clear_handlers()
     assert handled is True
-
-    activate = await async_client.post(
-        f"/api/trials/{sim_id}/activate",
-        headers={"x-dev-user-email": talent_partner_email},
-        json={"confirm": True},
-    )
-    assert activate.status_code == 200, activate.text
     return sim_id
 
 
@@ -90,7 +83,7 @@ __all__ = [
     "CANDIDATE_SESSION_STATUS_COMPLETED",
     "CandidateSession",
     "UTC",
-    "_create_and_activate_trial",
+    "_create_and_generate_trial",
     "datetime",
     "seed_talent_partner",
     "select",

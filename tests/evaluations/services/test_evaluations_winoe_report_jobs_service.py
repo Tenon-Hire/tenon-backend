@@ -34,3 +34,33 @@ async def test_enqueue_evaluation_run_uses_retry_budget(monkeypatch) -> None:
     assert observed["max_attempts"] == winoe_report_jobs.EVALUATION_RUN_JOB_MAX_ATTEMPTS
     assert observed["candidate_session_id"] == 42
     db.flush.assert_awaited_once()
+
+
+async def test_enqueue_evaluation_run_commits_and_refreshes_when_requested(
+    monkeypatch,
+) -> None:
+    observed: dict[str, object] = {}
+
+    async def _create_or_get_idempotent(db, **kwargs):
+        observed.update(kwargs)
+        return SimpleNamespace(id="job-2", payload_json={})
+
+    db = SimpleNamespace(commit=AsyncMock(), refresh=AsyncMock(), flush=AsyncMock())
+    monkeypatch.setattr(
+        winoe_report_jobs.jobs_repo,
+        "create_or_get_idempotent",
+        _create_or_get_idempotent,
+    )
+
+    result = await winoe_report_jobs.enqueue_evaluation_run(
+        db,
+        candidate_session_id=7,
+        company_id=11,
+        requested_by_user_id=13,
+        commit=True,
+    )
+
+    assert result.id == "job-2"
+    assert observed["company_id"] == 11
+    db.commit.assert_awaited_once()
+    db.refresh.assert_awaited_once()

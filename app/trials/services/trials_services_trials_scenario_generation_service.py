@@ -206,39 +206,21 @@ def generate_scenario_payload(
     ai_policy_snapshot_json: dict[str, Any] | None = None,
 ) -> GeneratedScenarioPayload:
     """Generate scenario payload."""
-    try:
-        return _generate_payload_impl(
-            role=role,
-            tech_stack=tech_stack,
-            template_key=template_key,
-            choose_source=choose_generation_source,
-            generate_with_llm=_generate_with_llm,
-            build_fallback=build_deterministic_template_scenario,
-            logger=logger,
-            scenario_template=scenario_template,
-            focus=focus,
-            company_context=company_context,
-            company_prompt_overrides_json=company_prompt_overrides_json,
-            trial_prompt_overrides_json=trial_prompt_overrides_json,
-            ai_policy_snapshot_json=ai_policy_snapshot_json,
-        )
-    except Exception as exc:
-        if not _is_retryable_scenario_generation_error(exc):
-            raise
-        logger.warning(
-            "scenario_generation_degraded_to_template_fallback",
-            extra={
-                "templateKey": template_key,
-                "errorType": type(exc).__name__,
-                "errorMessage": str(exc),
-            },
-        )
-        return build_deterministic_template_scenario(
-            role=role,
-            tech_stack=tech_stack,
-            template_key=template_key,
-            ai_policy_snapshot_json=ai_policy_snapshot_json,
-        )
+    return _generate_payload_impl(
+        role=role,
+        tech_stack=tech_stack,
+        template_key=template_key,
+        choose_source=choose_generation_source,
+        generate_with_llm=_generate_with_llm,
+        build_fallback=build_deterministic_template_scenario,
+        logger=logger,
+        scenario_template=scenario_template,
+        focus=focus,
+        company_context=company_context,
+        company_prompt_overrides_json=company_prompt_overrides_json,
+        trial_prompt_overrides_json=trial_prompt_overrides_json,
+        ai_policy_snapshot_json=ai_policy_snapshot_json,
+    )
 
 
 __all__ = [

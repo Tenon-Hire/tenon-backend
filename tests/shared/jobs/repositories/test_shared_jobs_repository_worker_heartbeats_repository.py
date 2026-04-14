@@ -105,3 +105,23 @@ async def test_worker_heartbeat_rejects_blank_fields_and_can_mark_stopped(
 
     assert stopped.status == heartbeat_service.WORKER_HEARTBEAT_STATUS_STOPPED
     assert _to_utc(stopped.last_heartbeat_at) == stopped_at
+
+
+@pytest.mark.asyncio
+async def test_get_latest_worker_heartbeat_returns_none_when_missing(async_session):
+    latest = await jobs_repo.get_latest_worker_heartbeat(
+        async_session, service_name="missing-worker"
+    )
+
+    assert latest is None
+
+
+@pytest.mark.asyncio
+async def test_worker_heartbeat_rejects_overlong_service_name(async_session):
+    with pytest.raises(ValueError):
+        await jobs_repo.upsert_worker_heartbeat(
+            async_session,
+            service_name="x" * 101,
+            instance_id="worker-overlong",
+            now=datetime(2026, 4, 14, 12, 12, tzinfo=UTC),
+        )

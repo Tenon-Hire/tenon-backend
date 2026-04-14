@@ -16,6 +16,7 @@ async def test_regenerate_enqueues_scenario_generation_job(
         async_client, async_session, auth_header_factory(talent_partner)
     )
     headers = auth_header_factory(talent_partner)
+    await _approve_trial(async_client, sim_id=sim_id, headers=headers)
     activate = await async_client.post(
         f"/api/trials/{sim_id}/activate",
         headers=headers,

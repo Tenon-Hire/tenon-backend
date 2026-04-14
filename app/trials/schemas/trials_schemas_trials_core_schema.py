@@ -38,6 +38,7 @@ from app.trials.schemas.trials_schemas_trials_limits_schema import (
 from app.trials.schemas.trials_schemas_trials_response_detail_schema import (
     TrialDetailResponse,
     TrialDetailTask,
+    TrialGenerationFailure,
     TrialLifecycleRequest,
 )
 from app.trials.schemas.trials_schemas_trials_response_overview_schema import (
@@ -125,6 +126,7 @@ _TRIALS_SCHEMA_REEXPORTS = (
     TrialDetailResponse,
     TrialDetailScenario,
     TrialDetailTask,
+    TrialGenerationFailure,
     TrialLifecycleRequest,
     TrialListItem,
     TrialTerminateResponse,

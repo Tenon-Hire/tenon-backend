@@ -27,3 +27,18 @@ def test_trial_ai_config_serializer_omits_none_fields():
     assert TrialAIConfig.model_validate(
         {"evalEnabledByDay": {"1": True}}
     ).model_dump() == {"evalEnabledByDay": {"1": True}}
+
+
+def test_trial_ai_config_serializes_prompt_overrides():
+    config = TrialAIConfig.model_validate(
+        {
+            "promptOverrides": {
+                "prestart": {"instructionsMd": "Use a realistic storyline."}
+            }
+        }
+    )
+    assert config.model_dump() == {
+        "promptOverrides": {
+            "prestart": {"instructionsMd": "Use a realistic storyline."}
+        }
+    }

@@ -75,3 +75,18 @@ async def test_scenario_generation_failure_marks_job_failed_and_keeps_generating
     assert job_status["jobType"] == "scenario_generation"
     assert job_status["status"] == "failed"
     assert "forced scenario generation failure" in (job_status["error"] or "")
+
+    detail_response = await async_client.get(
+        f"/api/trials/{trial_id}",
+        headers=auth_header_factory(talent_partner),
+    )
+    assert detail_response.status_code == 200, detail_response.text
+    detail = detail_response.json()
+    assert detail["generationStatus"] == "failed"
+    assert detail["generationFailure"] is not None
+    assert detail["generationFailure"]["jobId"] == job_id
+    assert detail["generationFailure"]["status"] == "failed"
+    assert detail["generationFailure"]["retryable"] is True
+    assert detail["generationFailure"]["canRetry"] is True
+    assert detail["canRetryGeneration"] is True
+    assert detail["scenario"] is None

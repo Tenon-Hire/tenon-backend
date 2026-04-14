@@ -55,3 +55,29 @@ async def test_approve_scenario_version_guards(async_session):
         )
     assert mismatch_exc.value.status_code == 409
     assert mismatch_exc.value.error_code == "SCENARIO_VERSION_NOT_PENDING"
+
+
+@pytest.mark.asyncio
+async def test_approve_scenario_version_without_pending_rejects_unready_active(
+    async_session,
+):
+    owner = await create_talent_partner(
+        async_session, email="scenario-approve-no-pending@test.com"
+    )
+    sim, _tasks = await create_trial(async_session, created_by=owner)
+    active_version = await scenario_service.get_active_scenario_version(
+        async_session, sim.id
+    )
+    assert active_version is not None
+    active_version.status = "generating"
+    await async_session.commit()
+
+    with pytest.raises(ApiError) as excinfo:
+        await scenario_service.approve_scenario_version(
+            async_session,
+            trial_id=sim.id,
+            scenario_version_id=active_version.id,
+            actor_user_id=owner.id,
+        )
+    assert excinfo.value.status_code == 409
+    assert excinfo.value.error_code == "SCENARIO_NOT_READY"
