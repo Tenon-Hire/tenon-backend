@@ -10,9 +10,9 @@ class GithubSettings(BaseSettings):
     """GitHub integration configuration."""
 
     GITHUB_API_BASE: str = "https://api.github.com"
-    GITHUB_ORG: str = ""
+    GITHUB_ORG: str = "winoe-ai-repos"
     GITHUB_TOKEN: str = ""
-    GITHUB_TEMPLATE_OWNER: str = ""
+    GITHUB_TEMPLATE_OWNER: str = "winoe-ai-repos"
     GITHUB_ACTIONS_WORKFLOW_FILE: str = "winoe-ci.yml"
     GITHUB_REPO_PREFIX: str = "winoe-ws-"
     GITHUB_CLEANUP_ENABLED: bool = False

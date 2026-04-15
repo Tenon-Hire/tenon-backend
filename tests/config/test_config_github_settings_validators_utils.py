@@ -6,6 +6,13 @@ from pydantic import ValidationError
 from app.config import GithubSettings
 
 
+def test_github_settings_defaults_canonical_destination_org():
+    settings = GithubSettings()
+
+    assert settings.GITHUB_ORG == "winoe-ai-repos"
+    assert settings.GITHUB_TEMPLATE_OWNER == "winoe-ai-repos"
+
+
 def test_github_settings_reject_negative_workspace_retention_days():
     with pytest.raises(ValidationError):
         GithubSettings(WORKSPACE_RETENTION_DAYS=-1)
