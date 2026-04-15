@@ -66,7 +66,7 @@ async def test_provision_single_workspace_returns_early_when_hydration_disabled(
         github_client=object(),
         github_username="octocat",
         repo_prefix="pref-",
-        template_default_owner="org",
+        destination_owner="org",
         now=datetime(2026, 3, 26, tzinfo=UTC),
         commit=False,
         hydrate_precommit_bundle=False,

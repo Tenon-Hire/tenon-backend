@@ -31,7 +31,7 @@ async def preprovision_workspaces(
 ) -> None:
     """Execute preprovision workspaces."""
     repo_prefix = settings.github.GITHUB_REPO_PREFIX
-    template_owner = settings.github.GITHUB_TEMPLATE_OWNER or settings.github.GITHUB_ORG
+    destination_owner = settings.github.GITHUB_ORG
     processed_workspace_keys: set[str] = set()
     ensure_workspace_params = inspect.signature(
         submission_service.ensure_workspace
@@ -55,7 +55,7 @@ async def preprovision_workspaces(
                 "github_client": github_client,
                 "github_username": "",
                 "repo_prefix": repo_prefix,
-                "template_default_owner": template_owner,
+                "destination_owner": destination_owner,
                 "now": now,
             }
             if (

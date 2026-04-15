@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.config import settings
 from tests.tasks.routes.test_tasks_run_api_utils import *
 
 
@@ -37,8 +38,11 @@ async def test_get_run_result_github_error_maps_to_502(
             owner=None,
             private=True,
         ):
+            destination_owner = settings.github.GITHUB_ORG
             return {
-                "full_name": f"org/{new_repo_name}",
+                "owner": {"login": destination_owner},
+                "name": new_repo_name,
+                "full_name": f"{destination_owner}/{new_repo_name}",
                 "id": 1,
                 "default_branch": "main",
             }

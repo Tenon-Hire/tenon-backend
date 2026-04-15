@@ -46,7 +46,7 @@ async def test_provision_workspace_non_group_path(monkeypatch):
         github_client=github_client,
         github_username="octocat",
         repo_prefix="pref-",
-        template_default_owner="org",
+        destination_owner="org",
         now=now,
     )
 

@@ -4,14 +4,19 @@ from __future__ import annotations
 
 from app.tasks.services.tasks_services_tasks_template_catalog_constants import (
     ALLOWED_TEMPLATE_KEYS,
-    DEFAULT_TEMPLATE_KEY,
     LEGACY_TEMPLATE_REPO_REWRITES,
     TEMPLATE_CATALOG,
+)
+from app.tasks.services.tasks_services_tasks_template_catalog_constants import (
+    DEFAULT_TEMPLATE_KEY as _DEFAULT_TEMPLATE_KEY,
 )
 
 
 class TemplateKeyError(ValueError):
     """Raised when a template key is invalid."""
+
+
+DEFAULT_TEMPLATE_KEY = _DEFAULT_TEMPLATE_KEY
 
 
 def _canonical_key_from_repo(repo_full_name: str) -> str | None:
@@ -38,6 +43,18 @@ def _build_template_key_aliases() -> dict[str, str]:
 
 
 TEMPLATE_KEY_ALIASES = _build_template_key_aliases()
+
+
+def _template_key_from_repo_value(repo_full_name: str | None) -> str | None:
+    repo_value = (repo_full_name or "").strip()
+    if not repo_value:
+        return None
+    for candidate in (repo_value, repo_value.rsplit("/", 1)[-1]):
+        try:
+            return validate_template_key(candidate)
+        except TemplateKeyError:
+            continue
+    return None
 
 
 def validate_template_key(template_key: str) -> str:
@@ -68,14 +85,22 @@ def normalize_template_repo_value(
             validated_key = validate_template_key(template_key)
         except TemplateKeyError:
             validated_key = None
-    default_repo = resolve_template_repo_full_name(DEFAULT_TEMPLATE_KEY)
     if template_repo in LEGACY_TEMPLATE_REPO_REWRITES:
-        return (
-            resolve_template_repo_full_name(validated_key)
-            if validated_key
-            else default_repo
-        )
+        if template_repo in {
+            "winoe-templates/node-day2-api",
+            "winoe-templates/node-day3-debug",
+            "winoe-dev/winoe-template-python",
+        }:
+            return (
+                resolve_template_repo_full_name(validated_key)
+                if validated_key
+                else LEGACY_TEMPLATE_REPO_REWRITES[template_repo]
+            )
+        return LEGACY_TEMPLATE_REPO_REWRITES[template_repo]
     if template_repo:
+        canonical_key = _template_key_from_repo_value(template_repo)
+        if canonical_key:
+            return resolve_template_repo_full_name(canonical_key)
         return template_repo
     if validated_key:
         return resolve_template_repo_full_name(validated_key)

@@ -44,7 +44,7 @@ async def test_get_or_create_workspace_group_handles_duplicate_insert(monkeypatc
         github_client=object(),
         github_username="octocat",
         repo_prefix="pref-",
-        template_default_owner="org",
+        destination_owner="org",
         now=datetime.now(UTC),
     )
 
@@ -95,7 +95,7 @@ async def test_get_or_create_workspace_group_raises_when_duplicate_recovery_look
             github_client=object(),
             github_username="octocat",
             repo_prefix="pref-",
-            template_default_owner="org",
+            destination_owner="org",
             now=datetime.now(UTC),
         )
 

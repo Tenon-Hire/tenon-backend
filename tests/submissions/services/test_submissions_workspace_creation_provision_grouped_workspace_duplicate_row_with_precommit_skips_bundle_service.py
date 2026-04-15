@@ -53,7 +53,7 @@ async def test_provision_grouped_workspace_duplicate_row_with_precommit_skips_bu
         github_client=object(),
         github_username="octocat",
         repo_prefix="pref-",
-        template_default_owner="org",
+        destination_owner="org",
         now=datetime.now(UTC),
     )
 

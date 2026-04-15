@@ -37,7 +37,7 @@ async def test_provision_workspace_coding_task_uses_grouped_path_when_eligible(
         github_client=object(),
         github_username="octocat",
         repo_prefix="pref-",
-        template_default_owner="org",
+        destination_owner="org",
         now=datetime.now(UTC),
     )
 

@@ -102,6 +102,36 @@ async def test_ensure_precommit_bundle_ready_for_invites_treats_retrying_bundle_
     assert exc.details["jobStatus"] == "queued"
 
 
+def test_resolve_codespace_template_repo_canonicalizes_stale_template_repo() -> None:
+    repo = specializer_service.resolve_codespace_template_repo(
+        [
+            SimpleNamespace(
+                day_index=2,
+                type="code",
+                template_repo="winoe-hire-dev/winoe-template-python-fastapi",
+            )
+        ],
+        template_key="python-fastapi",
+    )
+
+    assert repo == "winoe-ai-repos/winoe-ai-template-python-fastapi"
+
+
+def test_resolve_codespace_template_repo_rewrites_old_repo_owner() -> None:
+    repo = specializer_service.resolve_codespace_template_repo(
+        [
+            SimpleNamespace(
+                day_index=3,
+                type="debug",
+                template_repo="winoe-ai-repos/winoe-template-python-fastapi",
+            )
+        ],
+        template_key="python-fastapi",
+    )
+
+    assert repo == "winoe-ai-repos/winoe-ai-template-python-fastapi"
+
+
 async def test_run_codespace_specializer_job_degrades_to_context_bundle_after_retryable_provider_failures(
     monkeypatch,
 ) -> None:

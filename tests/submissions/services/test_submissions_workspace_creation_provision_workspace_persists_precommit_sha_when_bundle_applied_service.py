@@ -67,7 +67,7 @@ async def test_provision_workspace_persists_precommit_sha_when_bundle_applied(
         github_client=object(),
         github_username="octocat",
         repo_prefix="pref-",
-        template_default_owner="org",
+        destination_owner="org",
         now=now,
     )
 

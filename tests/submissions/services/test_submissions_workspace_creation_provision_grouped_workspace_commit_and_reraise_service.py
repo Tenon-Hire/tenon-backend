@@ -49,7 +49,7 @@ async def test_provision_grouped_workspace_commit_false_passes_commit_and_refres
         github_client=object(),
         github_username=None,
         repo_prefix="pref-",
-        template_default_owner="org",
+        destination_owner="org",
         now=datetime.now(UTC),
         commit=False,
         hydrate_precommit_bundle=False,
@@ -95,7 +95,7 @@ async def test_provision_grouped_workspace_reraises_integrity_error_when_lookup_
             github_client=object(),
             github_username="octocat",
             repo_prefix="pref-",
-            template_default_owner="org",
+            destination_owner="org",
             now=datetime.now(UTC),
         )
 

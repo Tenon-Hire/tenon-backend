@@ -77,7 +77,7 @@ async def test_provision_workspace_records_no_bundle_details(monkeypatch):
         github_client=object(),
         github_username="octocat",
         repo_prefix="pref-",
-        template_default_owner="org",
+        destination_owner="org",
         now=now,
     )
 

@@ -32,7 +32,7 @@ async def get_or_create_workspace_group(
     github_client: GithubClient,
     github_username: str | None,
     repo_prefix: str,
-    template_default_owner: str | None,
+    destination_owner: str | None,
     now: datetime,
     existing_group: WorkspaceGroup | None = None,
     commit: bool = True,
@@ -59,7 +59,7 @@ async def get_or_create_workspace_group(
             workspace_key=workspace_key,
             github_client=github_client,
             repo_prefix=repo_prefix,
-            template_default_owner=template_default_owner,
+            destination_owner=destination_owner,
         )
     except GithubError as exc:
         if exc.status_code == 422:

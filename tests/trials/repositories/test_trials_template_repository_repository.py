@@ -3,7 +3,7 @@ from tests.shared.factories import create_talent_partner, create_trial
 
 
 async def test_template_repo_mapping_code_and_debug(async_session):
-    expected = "winoe-hire-dev/winoe-template-python-fastapi"
+    expected = "winoe-ai-repos/winoe-ai-template-python-fastapi"
     assert _template_repo_for_task(2, "code", "python-fastapi") == expected
     assert _template_repo_for_task(3, "debug", "python-fastapi") == expected
 

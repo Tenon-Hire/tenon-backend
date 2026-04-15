@@ -40,7 +40,7 @@ async def test_ensure_workspace_reuses_existing(async_session):
         github_client=DummyGithub(),
         github_username="octocat",
         repo_prefix="pref-",
-        template_default_owner="owner",
+        destination_owner="owner",
         now=datetime.now(UTC),
     )
 

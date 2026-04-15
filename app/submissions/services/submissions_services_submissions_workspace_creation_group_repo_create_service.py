@@ -16,7 +16,7 @@ async def create_group_repo(
     workspace_key: str,
     github_client: GithubClient,
     repo_prefix: str,
-    template_default_owner: str | None,
+    destination_owner: str | None,
 ):
     """Create group repo."""
     return await generate_template_repo(
@@ -24,6 +24,6 @@ async def create_group_repo(
         candidate_session=candidate_session,
         task=task,
         repo_prefix=repo_prefix,
-        template_default_owner=template_default_owner,
+        destination_owner=destination_owner,
         workspace_key=workspace_key,
     )

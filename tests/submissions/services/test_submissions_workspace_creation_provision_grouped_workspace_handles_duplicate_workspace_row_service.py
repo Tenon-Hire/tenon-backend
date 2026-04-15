@@ -47,7 +47,7 @@ async def test_provision_grouped_workspace_handles_duplicate_workspace_row(monke
         github_client=object(),
         github_username="octocat",
         repo_prefix="pref-",
-        template_default_owner="org",
+        destination_owner="org",
         now=datetime.now(UTC),
     )
 

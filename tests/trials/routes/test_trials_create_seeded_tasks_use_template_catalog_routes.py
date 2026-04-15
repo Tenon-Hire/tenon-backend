@@ -50,5 +50,5 @@ async def test_seeded_tasks_use_template_catalog(
         tasks = list(rows)
         day2 = next(t for t in tasks if t.day_index == 2)
         day3 = next(t for t in tasks if t.day_index == 3)
-        assert day2.template_repo == "winoe-hire-dev/winoe-template-node-express-ts"
-        assert day3.template_repo == "winoe-hire-dev/winoe-template-node-express-ts"
+        assert day2.template_repo == "winoe-ai-repos/winoe-ai-template-node-express-ts"
+        assert day3.template_repo == "winoe-ai-repos/winoe-ai-template-node-express-ts"

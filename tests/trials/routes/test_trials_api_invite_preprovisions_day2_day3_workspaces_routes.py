@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import pytest
 
+from app.config import settings
 from tests.trials.routes.trials_api_utils import *
 
 
 @pytest.mark.asyncio
 async def test_invite_preprovisions_day2_day3_workspaces(
-    async_client, async_session, auth_header_factory, override_dependencies
+    async_client,
+    async_session,
+    auth_header_factory,
+    override_dependencies,
+    monkeypatch,
 ):
     talent_partner = await create_talent_partner(async_session, email="preprov@app.com")
     sim, tasks = await create_trial(async_session, created_by=talent_partner)
@@ -18,6 +23,8 @@ async def test_invite_preprovisions_day2_day3_workspaces(
     day2_tasks[0].type = "code"
     day3_tasks[0].type = "debug"
     await async_session.commit()
+    monkeypatch.setattr(settings.github, "GITHUB_ORG", "winoe-ai-repos")
+    monkeypatch.setattr(settings.github, "GITHUB_TEMPLATE_OWNER", "template-source")
 
     class StubGithubClient:
         def __init__(self):
@@ -28,6 +35,8 @@ async def test_invite_preprovisions_day2_day3_workspaces(
         ):
             self.generated.append((template_full_name, new_repo_name, owner))
             return {
+                "owner": {"login": owner},
+                "name": new_repo_name,
                 "full_name": f"{owner}/{new_repo_name}",
                 "id": 100 + len(self.generated),
                 "default_branch": "main",
@@ -82,9 +91,16 @@ async def test_invite_preprovisions_day2_day3_workspaces(
     )
 
     assert len(stub_client.generated) == 1
+    expected_repo_name = f"winoe-ws-{cs.id}-coding"
+    assert stub_client.generated[0] == (
+        tasks[1].template_repo,
+        expected_repo_name,
+        "winoe-ai-repos",
+    )
     assert len(workspace_groups) == 1
     assert workspace_groups[0].workspace_key == "coding"
     assert len(workspaces) == 1
     assert workspaces[0].workspace_group_id == workspace_groups[0].id
-    assert workspaces[0].repo_full_name == workspace_groups[0].repo_full_name
+    assert workspaces[0].repo_full_name == f"winoe-ai-repos/{expected_repo_name}"
+    assert workspace_groups[0].repo_full_name == f"winoe-ai-repos/{expected_repo_name}"
     assert all(ws.base_template_sha == "base-sha" for ws in workspaces)

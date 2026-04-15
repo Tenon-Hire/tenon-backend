@@ -34,8 +34,7 @@ async def handle_codespace_init(
             github_client=github_client,
             github_username=payload.githubUsername,
             repo_prefix=settings.github.GITHUB_REPO_PREFIX,
-            template_owner=settings.github.GITHUB_TEMPLATE_OWNER
-            or settings.github.GITHUB_ORG,
+            destination_owner=settings.github.GITHUB_ORG,
             now=shared_utcnow(),
         )
     except GithubError as exc:

@@ -22,7 +22,12 @@ class StubGithubClient:
     ):
         owner_prefix = owner or "org"
         return {
+            "owner": {"login": owner_prefix},
+            "name": new_repo_name,
             "full_name": f"{owner_prefix}/{new_repo_name}",
+            "canonical_owner": owner_prefix,
+            "canonical_name": new_repo_name,
+            "canonical_full_name": f"{owner_prefix}/{new_repo_name}",
             "id": 999,
             "default_branch": "main",
         }

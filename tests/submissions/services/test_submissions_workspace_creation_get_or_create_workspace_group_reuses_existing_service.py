@@ -27,7 +27,7 @@ async def test_get_or_create_workspace_group_reuses_existing(monkeypatch):
         github_client=object(),
         github_username="octocat",
         repo_prefix="pref-",
-        template_default_owner="org",
+        destination_owner="org",
         now=datetime.now(UTC),
     )
 

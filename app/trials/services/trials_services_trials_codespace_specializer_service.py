@@ -35,6 +35,7 @@ from app.submissions.repositories.precommit_bundles.submissions_repositories_pre
     PRECOMMIT_BUNDLE_STATUS_READY,
 )
 from app.tasks.services.tasks_services_tasks_template_catalog_service import (
+    normalize_template_repo_value,
     resolve_template_repo_full_name,
 )
 from app.trials.repositories.scenario_versions.trials_repositories_scenario_versions_trials_scenario_versions_model import (
@@ -500,7 +501,9 @@ def resolve_codespace_template_repo(
     """Return the canonical template repo backing the shared coding workspace."""
     for task in tasks:
         if _is_coding_task(task):
-            template_repo = (getattr(task, "template_repo", "") or "").strip()
+            template_repo = normalize_template_repo_value(
+                getattr(task, "template_repo", ""), template_key=template_key
+            )
             if template_repo:
                 return template_repo
     return resolve_template_repo_full_name(template_key)

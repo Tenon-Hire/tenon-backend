@@ -54,7 +54,7 @@ async def init_codespace(
     github_client: GithubClient,
     github_username: str,
     repo_prefix: str,
-    template_owner: str | None,
+    destination_owner: str | None,
     now: datetime | None = None,
 ):
     """Initialize codespace."""
@@ -69,7 +69,7 @@ async def init_codespace(
         github_client=github_client,
         github_username=github_username,
         repo_prefix=repo_prefix,
-        template_default_owner=template_owner,
+        destination_owner=destination_owner,
         now=now or datetime.now(UTC),
         commit=False,
     )

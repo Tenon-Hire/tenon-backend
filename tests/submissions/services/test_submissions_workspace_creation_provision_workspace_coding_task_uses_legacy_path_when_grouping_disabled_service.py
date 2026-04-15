@@ -60,7 +60,7 @@ async def test_provision_workspace_coding_task_uses_legacy_path_when_grouping_di
         github_client=object(),
         github_username="octocat",
         repo_prefix="pref-",
-        template_default_owner="org",
+        destination_owner="org",
         now=now,
     )
 

@@ -39,7 +39,7 @@ async def test_provision_workspace_day3_uses_existing_coding_group(monkeypatch):
         github_client=object(),
         github_username="octocat",
         repo_prefix="pref-",
-        template_default_owner="org",
+        destination_owner="org",
         now=datetime.now(UTC),
     )
 

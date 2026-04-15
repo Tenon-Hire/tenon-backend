@@ -30,7 +30,7 @@ async def provision_single_workspace(
     github_client,
     github_username,
     repo_prefix,
-    template_default_owner,
+    destination_owner,
     now,
     commit,
     hydrate_precommit_bundle,
@@ -46,7 +46,7 @@ async def provision_single_workspace(
         candidate_session=candidate_session,
         task=task,
         repo_prefix=repo_prefix,
-        template_default_owner=template_default_owner,
+        destination_owner=destination_owner,
         workspace_key=None,
     )
     base_template_sha = await fetch_base_template_sha(

@@ -54,7 +54,7 @@ async def test_init_codespace_skips_username_commit_when_unchanged(monkeypatch):
         github_client=SimpleNamespace(),
         github_username="  octocat  ",
         repo_prefix="winoe-",
-        template_owner=None,
+        destination_owner=None,
         now=datetime.now(UTC),
     )
 

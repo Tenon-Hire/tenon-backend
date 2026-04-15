@@ -12,8 +12,16 @@ async def test_ensure_workspace_creates_repo(async_session):
     cs = await create_candidate_session(async_session, trial=sim, status="in_progress")
 
     class StubGithubClient:
-        async def generate_repo_from_template(self, **_kw):
-            return {"full_name": "org/new-repo", "id": 5, "default_branch": "main"}
+        async def generate_repo_from_template(self, **kw):
+            owner = kw["owner"]
+            new_repo_name = kw["new_repo_name"]
+            return {
+                "owner": {"login": owner},
+                "name": new_repo_name,
+                "full_name": f"{owner}/{new_repo_name}",
+                "id": 5,
+                "default_branch": "main",
+            }
 
         async def add_collaborator(
             self, repo_full_name, username, *, permission="push"
@@ -30,8 +38,8 @@ async def test_ensure_workspace_creates_repo(async_session):
         github_client=StubGithubClient(),
         github_username="octocat",
         repo_prefix="prefix-",
-        template_default_owner="org",
+        destination_owner="org",
         now=datetime.now(UTC),
     )
-    assert ws.repo_full_name == "org/new-repo"
+    assert ws.repo_full_name == f"org/prefix-{cs.id}-coding"
     assert ws.base_template_sha == "base-sha"

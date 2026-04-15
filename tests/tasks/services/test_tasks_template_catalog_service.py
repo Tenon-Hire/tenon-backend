@@ -17,21 +17,21 @@ from app.tasks.services.tasks_services_tasks_template_catalog_service import (
 @pytest.mark.parametrize(
     ("template_key", "expected_repo"),
     [
-        ("python-fastapi", "winoe-hire-dev/winoe-template-python-fastapi"),
-        ("node-express-ts", "winoe-hire-dev/winoe-template-node-express-ts"),
+        ("python-fastapi", "winoe-ai-repos/winoe-ai-template-python-fastapi"),
+        ("node-express-ts", "winoe-ai-repos/winoe-ai-template-node-express-ts"),
         (
             "monorepo-nextjs-fastapi",
-            "winoe-hire-dev/winoe-template-monorepo-nextjs-fastapi",
+            "winoe-ai-repos/winoe-ai-template-monorepo-nextjs-fastapi",
         ),
         (
             "monorepo-react-springboot",
-            "winoe-hire-dev/winoe-template-monorepo-react-springboot",
+            "winoe-ai-repos/winoe-ai-template-monorepo-react-springboot",
         ),
         (
             "mobile-backend-fastapi",
-            "winoe-hire-dev/winoe-template-mobile-backend-fastapi",
+            "winoe-ai-repos/winoe-ai-template-mobile-backend-fastapi",
         ),
-        ("ml-infra-mlops", "winoe-hire-dev/winoe-template-ml-infra-mlops"),
+        ("ml-infra-mlops", "winoe-ai-repos/winoe-ai-template-ml-infra-mlops"),
     ],
 )
 def test_resolve_template_repo_full_name(template_key: str, expected_repo: str):
@@ -51,6 +51,18 @@ def test_invalid_template_key_raises():
     ("legacy_repo", "expected_repo"),
     [
         (
+            "winoe-hire-dev/winoe-template-python-fastapi",
+            "winoe-ai-repos/winoe-ai-template-python-fastapi",
+        ),
+        (
+            "winoe-ai-repos/winoe-template-python-fastapi",
+            "winoe-ai-repos/winoe-ai-template-python-fastapi",
+        ),
+        (
+            "winoe-ai-repos/winoe-template-node-express-ts",
+            "winoe-ai-repos/winoe-ai-template-node-express-ts",
+        ),
+        (
             "winoe-templates/node-day2-api",
             LEGACY_TEMPLATE_REPO_REWRITES["winoe-templates/node-day2-api"],
         ),
@@ -60,7 +72,7 @@ def test_invalid_template_key_raises():
         ),
         (
             "winoe-dev/winoe-template-python",
-            "winoe-hire-dev/winoe-template-python-fastapi",
+            "winoe-ai-repos/winoe-ai-template-python-fastapi",
         ),
     ],
 )
@@ -79,7 +91,7 @@ def test_normalize_template_repo_value_rewrites_legacy_with_template_key():
     repo = normalize_template_repo_value(
         "winoe-templates/node-day2-api", template_key="node-express-ts"
     )
-    assert repo == "winoe-hire-dev/winoe-template-node-express-ts"
+    assert repo == "winoe-ai-repos/winoe-ai-template-node-express-ts"
 
 
 def test_normalize_template_repo_value_returns_none_when_no_hints():
@@ -123,7 +135,7 @@ def test_build_template_key_aliases_skips_blank_repo_and_unknown_legacy_rewrite(
         "TEMPLATE_CATALOG",
         {
             "python-fastapi": {
-                "repo_full_name": "winoe-hire-dev/winoe-template-python-fastapi"
+                "repo_full_name": "winoe-ai-repos/winoe-ai-template-python-fastapi"
             },
             "blank-repo": {"repo_full_name": "   "},
         },
@@ -131,7 +143,7 @@ def test_build_template_key_aliases_skips_blank_repo_and_unknown_legacy_rewrite(
     monkeypatch.setattr(
         template_catalog_service,
         "LEGACY_TEMPLATE_REPO_REWRITES",
-        {"legacy/repo": "winoe-hire-dev/non-existent-template"},
+        {"legacy/repo": "winoe-ai-repos/non-existent-template"},
     )
 
     aliases = template_catalog_service._build_template_key_aliases()

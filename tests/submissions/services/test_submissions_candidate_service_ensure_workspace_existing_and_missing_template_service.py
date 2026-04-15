@@ -43,7 +43,7 @@ async def test_ensure_workspace_existing_and_missing_template(
         github_client=stub,
         github_username="octocat",
         repo_prefix="pref-",
-        template_default_owner="org",
+        destination_owner="org",
         now=now,
     )
     assert ws.id == existing.id
@@ -58,6 +58,6 @@ async def test_ensure_workspace_existing_and_missing_template(
             github_client=object(),
             github_username="octocat",
             repo_prefix="pref-",
-            template_default_owner="org",
+            destination_owner="org",
             now=now,
         )

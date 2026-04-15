@@ -1,89 +1,74 @@
-# Fix candidate row isolation — remove cross-contaminated candidates from new Trials #281
-Closes #281.
+# Fix GitHub template generation redirects and destination-org repo creation #282
+Closes #282.
 
 ## 2. TL;DR
-This PR closes the Trial row-isolation gap by hardening the read path so every candidate-facing aggregate stays inside the selected Trial boundary, proving that behavior with DB-backed regression coverage on the live backend surfaces, and validating the result with manual QA against the running local backend. The protected surfaces are the Talent Partner dashboard Trial candidate counts, the Candidate Portal invite/Trial listing, the Benchmarks compare summaries, and the compare day-completion aggregation. No migration was added here because the canonical Trial schema and child-FK repair was already handled in #277.
+This PR fixes GitHub template generation and provisioning so the backend resolves the real canonical template repos under `winoe-ai-repos`, follows redirects during template generation, and creates candidate repos in the configured destination org. Canonical template catalog entries now point at `winoe-ai-template-*`, backward normalization still accepts stale historical values, and repo identity validation is strict on owner, name, and `full_name`. Manual live QA confirmed the end-to-end Talent Partner flow and the created repo state.
 
 ## 3. Problem
-Candidate counts, invite lists, and compare views could pick up rows from unrelated Trials when identifiers overlapped numerically. That meant one Trial could surface candidates, Winoe Report state, Winoe Score values, or Evidence Trail completion data that belonged to a different Trial. The result was cross-contamination in the Talent Partner dashboard, the Candidate Portal, and the compare surfaces.
+GitHub template generation had two production-impacting issues:
+- The requests client used for template generation did not reliably follow redirects.
+- Candidate repos could be provisioned under the wrong org instead of the configured destination org, `WINOE_GITHUB_ORG` / `winoe-ai-repos`.
 
-## 4. Root cause
-The issue was not a schema migration gap in this PR. The blocker that required canonical Trial/FK repair was already addressed in #277. What remained was a set of read paths that were not yet fully proven and hardened around canonical Trial scoping on the surfaces that aggregate candidate rows:
-- Talent Partner dashboard Trial candidate counts
-- Candidate Portal invite/Trial listing
-- Benchmarks compare summaries
-- compare day-completion aggregation
+That created two failure modes:
+- Template catalog entries could become unreachable or resolve incorrectly.
+- Provisioning could create the workspace repo in the wrong org, which breaks the invite and coding flow.
 
-Because those selectors were not uniformly read-hardened, mixed-Trial data could leak into new Trial views whenever numeric IDs collided.
+## 4. What changed
+- Canonical template catalog entries now reference the real repos under `winoe-ai-repos` using the `winoe-ai-template-*` naming.
+- Backward normalization was preserved for stale historical template values, including:
+  - `winoe-hire-dev/...`
+  - `winoe-ai-repos/winoe-template-*`
+- Destination-org provisioning is enforced to `WINOE_GITHUB_ORG` / `winoe-ai-repos`.
+- Repo identity validation now checks `owner`, `name`, and `full_name` strictly before treating a GitHub repo as the expected destination.
+- Template generation is redirect-aware so template repo resolution follows GitHub redirects instead of failing on the initial response.
+- Template-health checks now resolve against the real canonical repositories instead of stale or redirected names.
 
-## 5. What changed
-- Iteration 1: hardened the runtime read paths around canonical Trial scoping so the affected surfaces only resolve rows that belong to the selected Trial.
-- Iteration 2: added DB-backed regression coverage on the real backend surfaces using mixed-Trial fixtures to prove cross-Trial isolation on the dashboard, Candidate Portal, compare summaries, and day-completion aggregation.
-- Iteration 3: ran live manual QA against the running local backend to verify route/data isolation end to end.
-- Kept the change read-path only. No migration was added in this PR because canonical schema and child-FK repair was already handled by #277.
-- Preserved the current product terminology and behavior around Trial, Talent Partner, Winoe Report, Winoe Score, and Evidence Trail objects.
+## 5. Scope / notable implementation details
+- This change is intentionally scoped to GitHub template resolution and provisioning correctness.
+- The normalization logic keeps older stored values readable, but the canonical source of truth is now the real repo set under `winoe-ai-repos`.
+- The repo validation logic is strict by design so provisioning does not silently accept a repo owned by the wrong org or with a mismatched identity.
+- The template-health path now checks the same canonical repo targets used by provisioning, which keeps health output aligned with real runtime behavior.
+- This PR does not broaden the GitHub provisioning surface beyond the acceptance criteria for #282.
 
-## 6. Acceptance criteria coverage
-- Dashboard candidate counts only include candidate rows for the selected Trial: covered by the Trial list/count path and the new isolation regressions.
-- Candidate Portal only shows Trials the candidate was invited to: covered by the candidate invite listing path and the new isolation regressions.
-- Benchmarks only include same-Trial candidates: covered by the compare summary path and the new isolation regressions.
-- No cross-contamination between legacy and new data: covered by mixed-Trial fixtures, compare day-completion regression coverage, and live QA on the running backend.
+## 6. Test plan
+- Start the backend API and worker.
+- Confirm readiness after startup with `GET /ready`.
+- Confirm template-health succeeds with `GET /api/admin/templates/health?mode=static`.
+- Run a live Talent Partner flow through trial creation, scenario approval, trial activation, and candidate invite.
+- Verify the provisioned repo exists in GitHub under the destination org and matches the expected repository metadata.
+- Verify the persisted database rows store the canonical template and repo full names.
 
 ## 7. Manual QA
-Live QA was run on the local backend with a temporary dev-auth-bypass env override. That validated route/data isolation on the running backend, but it did not re-verify the full auth stack.
+Manual live QA succeeded end to end.
 
-Concrete evidence:
-- `GET /api/trials` returned:
-  - Trial A id 11 with `numCandidates: 2`
-  - Trial B id 12 with `numCandidates: 3`
-  - Trial C id 13 with `numCandidates: 1`
-- `GET /api/candidate/invites` for `shared281.candidate@test.local` returned only:
-  - `trialIds: [11, 12]`
-  - `candidateSessionIds: [7, 9]`
-  - Trial 13 absent
-- `GET /api/trials/11/candidates/compare` returned only:
-  - `candidateSessionIds: [7, 8]`
-  - shared candidate row 7 with:
-    - `status: "in_progress"`
-    - `winoeReportStatus: "none"`
-    - `overallWinoeScore: null`
-    - `recommendation: null`
-    - `dayCompletion: {"1": true, "2": true, "3": false, "4": false, "5": false}`
-  - Trial B candidate 9 absent
-- `GET /api/trials/12/candidates/compare` returned only:
-  - `candidateSessionIds: [9, 10, 11]`
-  - shared candidate row 9 with:
-    - `status: "evaluated"`
-    - `winoeReportStatus: "ready"`
-    - `overallWinoeScore: 0.94`
-    - `recommendation: "hire"`
-    - `dayCompletion: {"1": true, "2": true, "3": true, "4": true, "5": true}`
-  - Trial A candidate 7 absent
+Verified sequence:
+- Backend API and worker started successfully.
+- `GET /ready` returned healthy after worker startup.
+- `GET /api/admin/templates/health?mode=static` returned success with all catalog entries healthy.
+- Live Talent Partner flow succeeded:
+  - Trial created
+  - scenario approved
+  - Trial activated
+  - candidate invited
 
-## 8. Automated test coverage
-- Initial targeted pytest run:
-  - `poetry run pytest tests/trials/routes/test_trials_list_counts_routes.py tests/candidates/routes/test_candidates_session_api_invites_list_shows_candidates_for_email_routes.py tests/trials/routes/test_trials_candidates_compare_api_compare_returns_summaries_with_winoe_report_statuses_and_nullable_fields_routes.py tests/trials/services/test_trials_candidates_compare_service_load_day_completion_tracks_completed_days_and_latest_submission_service.py -q`
-  - Passed test execution, then failed the repo default coverage gate because `addopts` enforce `--cov-fail-under=96`.
-  - Result: `5 passed in 7.70s`, then `FAIL Required test coverage of 96% not reached. Total coverage: 50.21%`
-- Targeted rerun with coverage addopts disabled:
-  - `poetry run pytest -o addopts='' tests/trials/routes/test_trials_list_counts_routes.py tests/candidates/routes/test_candidates_session_api_invites_list_shows_candidates_for_email_routes.py tests/trials/routes/test_trials_candidates_compare_api_compare_returns_summaries_with_winoe_report_statuses_and_nullable_fields_routes.py tests/trials/services/test_trials_candidates_compare_service_load_day_completion_tracks_completed_days_and_latest_submission_service.py -q`
-  - Result: `5 passed in 1.13s`
-- Adjacent route/service run:
-  - `poetry run pytest -o addopts='' tests/trials/routes/test_trials_candidates_compare_api_compare_updated_at_uses_fit_then_session_activity_precedence_routes.py tests/trials/services/test_trials_candidates_compare_service_load_day_completion_tracks_completed_days_and_latest_submission_service.py -q`
-  - Result: `2 passed in 0.76s`
-- Bytecode check:
-  - `poetry run python -m compileall app tests`
-  - Result: passed
-- Lint check:
-  - `poetry run ruff check app tests`
-  - Result: passed
+Provisioning and repo verification:
+- Live provisioning created `winoe-ai-repos/winoe-ws-13-coding`
+- Source template repo used: `winoe-ai-repos/winoe-ai-template-python-fastapi`
+- GitHub API confirmed the created repo exists, is private, and has `default_branch=main`
+- DB evidence confirmed persisted workspace/workspace_group rows with:
+  - `template_repo_full_name=winoe-ai-repos/winoe-ai-template-python-fastapi`
+  - `repo_full_name=winoe-ai-repos/winoe-ws-13-coding`
 
-## 9. Risks / follow-ups
-- The read-path fix is now proven on the covered surfaces, but any future Trial-scoped aggregate will need the same canonical boundary discipline to avoid reintroducing cross-Trial leakage.
-- Manual QA used a dev-auth-bypass override, so auth behavior should still be validated separately if the auth stack changes.
-- The schema/FK repair is intentionally out of scope here because #277 already handled that foundation.
+Non-blocking note:
+- Invite email delivery logged `email_send_failed`.
+- That did not block repo creation or provisioning and is separate from the #282 scope.
 
-## 10. Notes
-- This PR is the read-isolation follow-through after the schema repair work in #277.
-- The regression suite uses mixed-Trial fixtures specifically to prove that candidate rows stay pinned to the selected Trial.
-- Review focus should be on the canonical Trial boundary in the dashboard count path, invite listing path, compare summary path, and day-completion aggregation path.
+## 8. Risks / follow-ups
+- Any future GitHub template added to the catalog must follow the same canonical naming and redirect-safe resolution rules.
+- The backward normalization exists to protect old stored values; new writes should use the canonical `winoe-ai-template-*` names only.
+- Email delivery remains a separate follow-up item because it did not block the repo provisioning path verified here.
+
+## 9. Notes for reviewers
+- Review the canonical repo name changes first: `winoe-ai-template-*` under `winoe-ai-repos`.
+- The important behavioral checks are redirect handling, strict repo identity validation, and destination-org enforcement.
+- The manual QA evidence is the main end-to-end proof for this PR; the email send failure is explicitly out of scope for this issue.

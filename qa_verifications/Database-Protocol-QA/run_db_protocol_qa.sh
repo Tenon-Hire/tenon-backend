@@ -1215,11 +1215,11 @@ VALUES (
 
 INSERT INTO tasks (id, trial_id, day_index, type, title, description, starter_code_path, test_file_path, max_score, template_repo)
 VALUES
-  (980001, 980001, 1, 'design', 'Day 1', 'Design task', NULL, NULL, 20, 'winoe-hire-dev/winoe-template-python-fastapi'),
-  (980002, 980001, 2, 'code', 'Day 2', 'Code task', 'app/main.py', 'tests/test_main.py', 20, 'winoe-hire-dev/winoe-template-python-fastapi'),
-  (980003, 980001, 3, 'debug', 'Day 3', 'Debug task', 'app/service.py', 'tests/test_service.py', 20, 'winoe-hire-dev/winoe-template-python-fastapi'),
-  (980004, 980001, 4, 'handoff', 'Day 4', 'Demo task', NULL, NULL, 20, 'winoe-hire-dev/winoe-template-python-fastapi'),
-  (980005, 980001, 5, 'documentation', 'Day 5', 'Essay task', NULL, NULL, 20, 'winoe-hire-dev/winoe-template-python-fastapi');
+  (980001, 980001, 1, 'design', 'Day 1', 'Design task', NULL, NULL, 20, 'winoe-ai-repos/winoe-ai-template-python-fastapi'),
+  (980002, 980001, 2, 'code', 'Day 2', 'Code task', 'app/main.py', 'tests/test_main.py', 20, 'winoe-ai-repos/winoe-ai-template-python-fastapi'),
+  (980003, 980001, 3, 'debug', 'Day 3', 'Debug task', 'app/service.py', 'tests/test_service.py', 20, 'winoe-ai-repos/winoe-ai-template-python-fastapi'),
+  (980004, 980001, 4, 'handoff', 'Day 4', 'Demo task', NULL, NULL, 20, 'winoe-ai-repos/winoe-ai-template-python-fastapi'),
+  (980005, 980001, 5, 'documentation', 'Day 5', 'Essay task', NULL, NULL, 20, 'winoe-ai-repos/winoe-ai-template-python-fastapi');
 
 INSERT INTO candidate_sessions (
   id, trial_id, candidate_user_id, invite_email, token, status, started_at, completed_at,
@@ -2051,11 +2051,11 @@ WHERE id = 970001;
 
 INSERT INTO tasks (id, trial_id, day_index, type, title, description, starter_code_path, test_file_path, max_score, template_repo)
 VALUES
-  (970001, 970001, 1, 'design', 'Design', 'Design task', NULL, NULL, 20, 'winoe-hire-dev/winoe-template-python-fastapi'),
-  (970002, 970001, 2, 'code', 'Implement', 'Coding task', 'app/main.py', 'tests/test_main.py', 20, 'winoe-hire-dev/winoe-template-python-fastapi'),
-  (970003, 970001, 3, 'debug', 'Debug', 'Debug task', 'app/service.py', 'tests/test_service.py', 20, 'winoe-hire-dev/winoe-template-python-fastapi'),
-  (970004, 970001, 4, 'handoff', 'Demo', 'Handoff task', NULL, NULL, 20, 'winoe-hire-dev/winoe-template-python-fastapi'),
-  (970005, 970001, 5, 'documentation', 'Essay', 'Reflection task', NULL, NULL, 20, 'winoe-hire-dev/winoe-template-python-fastapi');
+  (970001, 970001, 1, 'design', 'Design', 'Design task', NULL, NULL, 20, 'winoe-ai-repos/winoe-ai-template-python-fastapi'),
+  (970002, 970001, 2, 'code', 'Implement', 'Coding task', 'app/main.py', 'tests/test_main.py', 20, 'winoe-ai-repos/winoe-ai-template-python-fastapi'),
+  (970003, 970001, 3, 'debug', 'Debug', 'Debug task', 'app/service.py', 'tests/test_service.py', 20, 'winoe-ai-repos/winoe-ai-template-python-fastapi'),
+  (970004, 970001, 4, 'handoff', 'Demo', 'Handoff task', NULL, NULL, 20, 'winoe-ai-repos/winoe-ai-template-python-fastapi'),
+  (970005, 970001, 5, 'documentation', 'Essay', 'Reflection task', NULL, NULL, 20, 'winoe-ai-repos/winoe-ai-template-python-fastapi');
 
 INSERT INTO candidate_sessions (
   id, trial_id, candidate_user_id, invite_email, token, status, started_at, completed_at,
@@ -2095,11 +2095,11 @@ INSERT INTO workspace_groups (
 VALUES
   (
     '97000100-0000-0000-0000-000000000001', 970001, 'qa-shared-workspace',
-    'winoe-hire-dev/winoe-template-python-fastapi', 'winoe-qa/qa-sim-970001', 'main', 'base_sha_970001', NOW() - INTERVAL '5 days'
+    'winoe-ai-repos/winoe-ai-template-python-fastapi', 'winoe-qa/qa-sim-970001', 'main', 'base_sha_970001', NOW() - INTERVAL '5 days'
   ),
   (
     '97000100-0000-0000-0000-000000000002', 970001, 'qa-shared-workspace-2',
-    'winoe-hire-dev/winoe-template-python-fastapi', 'winoe-qa/qa-sim-970001', 'main', 'base_sha_970001', NOW() - INTERVAL '5 days'
+    'winoe-ai-repos/winoe-ai-template-python-fastapi', 'winoe-qa/qa-sim-970001', 'main', 'base_sha_970001', NOW() - INTERVAL '5 days'
   );
 
 INSERT INTO workspaces (
@@ -2110,7 +2110,7 @@ INSERT INTO workspaces (
 VALUES
   (
     '97000200-0000-0000-0000-000000000001', 970001, 970002,
-    'winoe-hire-dev/winoe-template-python-fastapi', 'winoe-qa/qa-sim-970001-task-970002',
+    'winoe-ai-repos/winoe-ai-template-python-fastapi', 'winoe-qa/qa-sim-970001-task-970002',
     123456789, 'main', NOW() - INTERVAL '5 days', 'latest_commit_sha_970001', 'workflow_run_970001',
     'success', '{"testsPassed":12,"testsFailed":0}', 'base_sha_970001',
     'qa-codespace-970001', 'https://github.com/codespaces/qa-codespace-970001', 'available',
@@ -2118,7 +2118,7 @@ VALUES
   ),
   (
     '97000200-0000-0000-0000-000000000002', 970001, 970003,
-    'winoe-hire-dev/winoe-template-python-fastapi', 'winoe-qa/qa-sim-970001-task-970003',
+    'winoe-ai-repos/winoe-ai-template-python-fastapi', 'winoe-qa/qa-sim-970001-task-970003',
     123456790, 'main', NOW() - INTERVAL '4 days', 'latest_commit_sha_970002', 'workflow_run_970002',
     'success', '{"testsPassed":11,"testsFailed":1}', 'base_sha_970001',
     'qa-codespace-970002', 'https://github.com/codespaces/qa-codespace-970002', 'available',

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.config import settings
 from tests.tasks.routes.test_tasks_run_api_utils import *
 
 
@@ -33,8 +34,11 @@ async def test_codespace_init_response_shape_no_bundle(
             owner=None,
             private=True,
         ):
+            destination_owner = settings.github.GITHUB_ORG
             return {
-                "full_name": "org/init-shape-repo",
+                "owner": {"login": destination_owner},
+                "name": new_repo_name,
+                "full_name": f"{destination_owner}/{new_repo_name}",
                 "id": 909,
                 "default_branch": "main",
             }
@@ -59,9 +63,11 @@ async def test_codespace_init_response_shape_no_bundle(
 
     assert resp.status_code == 200, resp.text
     body = resp.json()
+    expected_repo_name = f"{settings.github.GITHUB_REPO_PREFIX}{cs.id}-coding"
+    expected_repo_full_name = f"{settings.github.GITHUB_ORG}/{expected_repo_name}"
     assert body == {
-        "repoFullName": "org/init-shape-repo",
-        "codespaceUrl": "https://codespaces.new/org/init-shape-repo?quickstart=1",
+        "repoFullName": expected_repo_full_name,
+        "codespaceUrl": f"https://codespaces.new/{expected_repo_full_name}?quickstart=1",
         "codespaceState": None,
         "defaultBranch": "main",
         "baseTemplateSha": "base-sha-shape",
