@@ -10,6 +10,7 @@ from app.shared.jobs.handlers.shared_jobs_handlers_workspace_cleanup_types_handl
     _WorkspaceCleanupRetryableError,
 )
 from app.shared.jobs.handlers.shared_jobs_handlers_workspace_cleanup_utils import (
+    _cleanup_is_complete,
     _is_transient_github_error,
     _normalize_repo_full_name,
     _workspace_error_code,
@@ -36,6 +37,8 @@ async def _enforce_collaborator_revocation(
 
     repo_full_name = _normalize_repo_full_name(record.repo_full_name)
     if repo_full_name is None:
+        if _cleanup_is_complete(record):
+            return "already_cleaned"
         record.access_revocation_error = "missing_repo_full_name"
         return "missing_repo"
 
