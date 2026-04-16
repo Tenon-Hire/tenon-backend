@@ -94,3 +94,23 @@ async def test_set_precommit_details_refresh_false_skips_refresh():
     assert db.commit_calls == 1
     assert db.flush_calls == 0
     assert db.refresh_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_set_codespace_state_refresh_false_skips_refresh():
+    db = _FakeDB()
+    workspace = SimpleNamespace(codespace_state="Provisioning")
+
+    updated = await mutations_repo.set_codespace_state(
+        db,
+        workspace=workspace,
+        codespace_state="Available",
+        commit=True,
+        refresh=False,
+    )
+
+    assert updated is workspace
+    assert workspace.codespace_state == "Available"
+    assert db.commit_calls == 1
+    assert db.flush_calls == 0
+    assert db.refresh_calls == 0

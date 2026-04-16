@@ -6,7 +6,7 @@ from tests.trials.routes.trials_create_api_utils import *
 
 
 @pytest.mark.asyncio
-async def test_default_template_key_applied(
+async def test_default_template_key_applied_without_task_template_repo(
     async_client, async_session, auth_header_factory
 ):
     company = Company(name="DefaultCo")
@@ -47,5 +47,5 @@ async def test_default_template_key_applied(
     tasks = list(rows)
     day2 = next(t for t in tasks if t.day_index == 2)
     day3 = next(t for t in tasks if t.day_index == 3)
-    assert day2.template_repo == "winoe-ai-repos/winoe-ai-template-python-fastapi"
-    assert day3.template_repo == "winoe-ai-repos/winoe-ai-template-python-fastapi"
+    assert day2.template_repo is None
+    assert day3.template_repo is None

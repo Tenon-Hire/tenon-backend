@@ -16,9 +16,8 @@ from pydantic import (
 )
 
 from app.config import settings
-from app.tasks.services.tasks_services_tasks_template_catalog_service import (
+from app.trials.constants.trials_constants_trials_template_keys_constants import (
     DEFAULT_TEMPLATE_KEY,
-    TemplateKeyError,
     validate_template_key,
 )
 from app.trials.schemas.trials_schemas_trials_ai_models_schema import (
@@ -78,10 +77,7 @@ class TrialCreate(BaseModel):
     @field_validator("templateKey")
     @classmethod
     def _validate_template_key(cls, value: str) -> str:
-        try:
-            return validate_template_key(value)
-        except TemplateKeyError as exc:
-            raise ValueError(str(exc)) from None
+        return validate_template_key(value)
 
     @field_validator("dayWindowOverrides", mode="before")
     @classmethod

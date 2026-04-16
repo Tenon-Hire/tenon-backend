@@ -7,10 +7,15 @@ from fastapi import APIRouter, Depends, Path, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.candidates.candidate_sessions.repositories import repository as cs_repo
+from app.config import settings
+from app.integrations.github import GithubClient
 from app.shared.database import get_session
 from app.shared.database.shared_database_models_model import CandidateSession
 from app.shared.http.dependencies.shared_http_dependencies_candidate_sessions_utils import (
     candidate_session_from_headers,
+)
+from app.shared.http.dependencies.shared_http_dependencies_github_native_utils import (
+    get_github_client,
 )
 from app.submissions.schemas.submissions_schemas_submissions_core_schema import (
     CodespaceStatusResponse,
@@ -33,10 +38,14 @@ async def codespace_status_route(
         CandidateSession, Depends(candidate_session_from_headers)
     ],
     db: Annotated[AsyncSession, Depends(get_session)],
+    github_client: Annotated[GithubClient, Depends(get_github_client)],
 ) -> CodespaceStatusResponse:
     """Return Codespace details and last known test status for a task."""
     workspace, last_test_summary, codespace_url, task = await codespace_status(
-        db, candidate_session=candidate_session, task_id=task_id
+        db,
+        candidate_session=candidate_session,
+        task_id=task_id,
+        github_client=github_client,
     )
     day_audit = await cs_repo.get_day_audit(
         db,
@@ -48,8 +57,15 @@ async def codespace_status_route(
     if isinstance(cutoff_at, datetime) and cutoff_at.tzinfo is None:
         cutoff_at = cutoff_at.replace(tzinfo=UTC)
 
+    public_repo_full_name = workspace.repo_full_name
+    if getattr(workspace, "workspace_group_id", None) is not None:
+        public_repo_full_name = (
+            f"{settings.github.GITHUB_ORG}/{settings.github.GITHUB_REPO_PREFIX}"
+            f"{candidate_session.id}"
+        )
+
     return CodespaceStatusResponse(
-        repoFullName=workspace.repo_full_name,
+        repoFullName=public_repo_full_name,
         codespaceUrl=codespace_url,
         codespaceState=getattr(workspace, "codespace_state", None),
         defaultBranch=workspace.default_branch,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.integrations.github import GithubError
 from tests.tasks.routes.test_tasks_run_api_utils import *
 
 
@@ -27,20 +28,20 @@ async def test_codespace_init_day2_and_day3_share_single_repo(
     calls: dict[str, int] = {"generate": 0}
 
     class StubGithubClient:
-        async def generate_repo_from_template(
-            self,
-            *,
-            template_full_name: str,
-            new_repo_name: str,
-            owner=None,
-            private=True,
+        async def create_empty_repo(
+            self, *, owner, repo_name, private=True, default_branch="main"
         ):
-            calls["generate"] += 1
+            calls["repo"] = calls.get("repo", 0) + 1
             return {
-                "full_name": f"{owner}/{new_repo_name}",
-                "id": 600 + calls["generate"],
-                "default_branch": "main",
+                "owner": {"login": owner},
+                "name": repo_name,
+                "full_name": f"{owner}/{repo_name}",
+                "id": 600 + calls["repo"],
+                "default_branch": default_branch,
             }
+
+        async def get_file_contents(self, *_args, **_kwargs):
+            raise GithubError("missing", status_code=404)
 
         async def add_collaborator(
             self, repo_full_name: str, username: str, *, permission: str = "push"
@@ -49,6 +50,34 @@ async def test_codespace_init_day2_and_day3_share_single_repo(
 
         async def get_branch(self, repo_full_name: str, branch: str):
             return {"commit": {"sha": "base-sha"}}
+
+        async def create_tree(self, repo_full_name, *, tree, base_tree=None):
+            return {"sha": "tree-sha"}
+
+        async def create_commit(self, repo_full_name, *, message, tree, parents):
+            return {"sha": "commit-sha"}
+
+        async def create_ref(self, repo_full_name, *, ref, sha):
+            return {"ref": ref, "sha": sha}
+
+        async def update_ref(self, repo_full_name, *, ref, sha, force=False):
+            return {"ref": ref, "sha": sha, "force": force}
+
+        async def create_codespace(
+            self,
+            repo_full_name,
+            *,
+            ref=None,
+            devcontainer_path=None,
+            machine=None,
+            location=None,
+        ):
+            calls["codespace"] = calls.get("codespace", 0) + 1
+            return {
+                "name": f"codespace-{calls['codespace']}",
+                "state": "available",
+                "web_url": f"https://codespace-{calls['codespace']}.github.dev",
+            }
 
     with override_dependencies(
         {candidate_submissions.get_github_client: lambda: StubGithubClient()}
@@ -75,7 +104,8 @@ async def test_codespace_init_day2_and_day3_share_single_repo(
 
     assert day3_init.status_code == 200, day3_init.text
     assert day3_init.json()["repoFullName"] == day2_repo
-    assert calls["generate"] == 1
+    assert calls["repo"] == 1
+    assert calls["codespace"] == 1
 
     groups = (
         (

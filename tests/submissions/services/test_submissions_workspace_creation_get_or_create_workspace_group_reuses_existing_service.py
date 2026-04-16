@@ -19,7 +19,13 @@ async def test_get_or_create_workspace_group_reuses_existing(monkeypatch):
     monkeypatch.setattr(wc.workspace_repo, "get_workspace_group", _get_workspace_group)
     monkeypatch.setattr(wc, "add_collaborator_if_needed", _add_collaborator_if_needed)
 
-    group, repo_id = await wc._get_or_create_workspace_group(
+    (
+        group,
+        repo_id,
+        codespace_name,
+        codespace_state,
+        codespace_url,
+    ) = await wc._get_or_create_workspace_group(
         object(),
         candidate_session=SimpleNamespace(id=1),
         task=SimpleNamespace(id=2),
@@ -33,4 +39,7 @@ async def test_get_or_create_workspace_group_reuses_existing(monkeypatch):
 
     assert group is existing
     assert repo_id is None
+    assert codespace_name is None
+    assert codespace_state is None
+    assert codespace_url is None
     assert calls == [("collab", "org/coding", "octocat")]

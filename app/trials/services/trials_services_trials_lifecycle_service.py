@@ -17,9 +17,6 @@ from app.shared.utils.shared_utils_errors_utils import ApiError
 from app.trials.repositories.trials_repositories_trials_trial_model import (
     TRIAL_STATUS_ACTIVE_INVITING,
 )
-from app.trials.services.trials_services_trials_codespace_specializer_service import (
-    ensure_precommit_bundle_prepared_for_approved_scenario,
-)
 from app.trials.services.trials_services_trials_lifecycle_access_service import (
     require_owner_for_lifecycle,
 )
@@ -66,13 +63,6 @@ async def _prepare_active_scenario_bundle_on_activation(
     active_scenario_version = await get_active_scenario_version(db, trial.id)
     if active_scenario_version is None:
         return None
-    tasks = await _load_trial_tasks(db, trial.id)
-    await ensure_precommit_bundle_prepared_for_approved_scenario(
-        db,
-        trial=trial,
-        scenario_version=active_scenario_version,
-        tasks=tasks,
-    )
     await db.commit()
     return active_scenario_version
 

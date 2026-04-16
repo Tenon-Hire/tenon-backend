@@ -26,13 +26,12 @@ def test_trial_detail_task_serializes_optional_fields():
         rubric=None,
         maxScore=10,
         preProvisioned=True,
-        templateRepoFullName="org/repo",
     )
 
     serialized = task.model_dump()
     assert serialized["maxScore"] == 10
     assert serialized["preProvisioned"] is True
-    assert serialized["templateRepoFullName"] == "org/repo"
+    assert "templateRepoFullName" not in serialized
 
 
 def test_trial_schema_helpers_cover_edge_cases():

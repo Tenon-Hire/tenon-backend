@@ -18,14 +18,14 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.shared.database.shared_database_base_model import Base, TimestampMixin
-from app.tasks.services.tasks_services_tasks_template_catalog_service import (
-    DEFAULT_TEMPLATE_KEY,
-)
 from app.trials.constants.trials_constants_trials_ai_config_constants import (
     AI_EVAL_ENABLED_BY_DAY_DEFAULT_JSON,
     AI_NOTICE_DEFAULT_TEXT,
     AI_NOTICE_DEFAULT_VERSION,
     default_ai_eval_enabled_by_day,
+)
+from app.trials.constants.trials_constants_trials_defaults_constants import (
+    DEFAULT_TEMPLATE_KEY,
 )
 
 from .trials_repositories_trials_trial_status_constants import (

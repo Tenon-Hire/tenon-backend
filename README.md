@@ -100,6 +100,12 @@ curl -s http://localhost:8000/ready
 poetry run python scripts/local_demo_smoke_test.py --base-url http://localhost:8000
 ```
 
+11. Local QA runtime for claim/invite flows with the supported dev bypass enabled.
+
+```bash
+bash scripts/local_qa_backend.sh
+```
+
 ## Environment
 
 Canonical env keys are summarized below by primary group.

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from app.integrations.github.client import GithubClient
+from app.integrations.github.client import GithubClient, GithubError
 from app.submissions.repositories.github_native.workspaces.submissions_repositories_github_native_workspaces_submissions_github_native_workspaces_core_model import (
     Workspace,
 )
@@ -17,7 +17,18 @@ async def build_diff_summary(
     github_client: GithubClient, workspace: Workspace, branch: str, head_sha: str
 ) -> str | None:
     """Build diff summary."""
-    base_sha = workspace.base_template_sha or branch
+    base_sha = workspace.base_template_sha
+    if not base_sha:
+        try:
+            branch_payload = await github_client.get_branch(
+                workspace.repo_full_name, branch
+            )
+        except GithubError:
+            branch_payload = None
+        if isinstance(branch_payload, dict):
+            base_sha = branch_payload.get("commit", {}).get("sha") or branch
+        else:
+            base_sha = branch
     compare = await github_client.get_compare(
         workspace.repo_full_name, base_sha, head_sha
     )

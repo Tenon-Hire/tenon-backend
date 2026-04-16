@@ -11,17 +11,35 @@ from app.submissions.services import (
 
 
 @pytest.mark.asyncio
-async def test_provision_single_workspace_returns_early_when_hydration_disabled(
+async def test_provision_single_workspace_bootstraps_empty_repo(
     monkeypatch,
 ):
     calls: dict[str, object] = {}
     workspace = SimpleNamespace(id="ws-1")
+    trial = SimpleNamespace(title="Trial title", role="Backend Engineer")
+    scenario_version = SimpleNamespace(
+        storyline_md="# Build from scratch",
+        codespace_spec_json={
+            "summary": "Build from scratch",
+            "candidate_goal": "Build the workspace baseline.",
+            "acceptance_criteria": ["Repo stays empty except bootstrap files."],
+            "target_files": ["README.md"],
+            "test_focus": ["Bootstrap contract"],
+        },
+    )
 
-    async def _generate_template_repo(**_kwargs):
-        return ("org/template", "org/repo", "main", 123)
-
-    async def _fetch_base_template_sha(_client, _repo, _branch):
-        return "base-sha"
+    async def _bootstrap_empty_candidate_repo(**kwargs):
+        calls["bootstrap"] = kwargs
+        return SimpleNamespace(
+            template_repo_full_name=None,
+            repo_full_name="org/repo",
+            default_branch="main",
+            repo_id=123,
+            bootstrap_commit_sha="base-sha",
+            codespace_name="codespace-123",
+            codespace_state="available",
+            codespace_url="https://codespace-123.github.dev",
+        )
 
     async def _add_collaborator_if_needed(*_args, **_kwargs):
         calls["collaborator"] = True
@@ -37,10 +55,9 @@ async def test_provision_single_workspace_returns_early_when_hydration_disabled(
         raise AssertionError("persist_precommit_result should not be called")
 
     monkeypatch.setattr(
-        workspace_creation_single, "generate_template_repo", _generate_template_repo
-    )
-    monkeypatch.setattr(
-        workspace_creation_single, "fetch_base_template_sha", _fetch_base_template_sha
+        workspace_creation_single,
+        "bootstrap_empty_candidate_repo",
+        _bootstrap_empty_candidate_repo,
     )
     monkeypatch.setattr(
         workspace_creation_single,
@@ -62,7 +79,9 @@ async def test_provision_single_workspace_returns_early_when_hydration_disabled(
     result = await workspace_creation_single.provision_single_workspace(
         db=object(),
         candidate_session=SimpleNamespace(id=11),
-        task=SimpleNamespace(id=101),
+        trial=trial,
+        scenario_version=scenario_version,
+        task=SimpleNamespace(id=101, title="Day 2 coding"),
         github_client=object(),
         github_username="octocat",
         repo_prefix="pref-",
@@ -70,9 +89,26 @@ async def test_provision_single_workspace_returns_early_when_hydration_disabled(
         now=datetime(2026, 3, 26, tzinfo=UTC),
         commit=False,
         hydrate_precommit_bundle=False,
+        bootstrap_empty_repo=True,
     )
 
     assert result is workspace
     assert calls["collaborator"] is True
-    assert calls["create_workspace"]["commit"] is False
-    assert calls["create_workspace"]["refresh"] is False
+    assert calls["bootstrap"]["candidate_session"].id == 11
+    assert calls["bootstrap"]["trial"] is trial
+    assert calls["bootstrap"]["scenario_version"] is scenario_version
+    assert calls["create_workspace"] == {
+        "candidate_session_id": 11,
+        "task_id": 101,
+        "template_repo_full_name": None,
+        "repo_full_name": "org/repo",
+        "repo_id": 123,
+        "default_branch": "main",
+        "base_template_sha": "base-sha",
+        "codespace_url": "https://codespace-123.github.dev",
+        "codespace_name": "codespace-123",
+        "codespace_state": "available",
+        "created_at": datetime(2026, 3, 26, tzinfo=UTC),
+        "commit": False,
+        "refresh": False,
+    }

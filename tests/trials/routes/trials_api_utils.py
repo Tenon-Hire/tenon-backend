@@ -23,9 +23,6 @@ from app.shared.http.dependencies.shared_http_dependencies_github_native_utils i
 from app.shared.http.dependencies.shared_http_dependencies_notifications_utils import (
     get_email_service,
 )
-from app.trials.services.trials_services_trials_codespace_specializer_service import (
-    ensure_precommit_bundle_prepared_for_approved_scenario,
-)
 from tests.shared.factories import create_talent_partner
 from tests.shared.factories import create_trial as _create_trial
 
@@ -38,12 +35,6 @@ async def create_trial(*args, **kwargs):
     )
     if scenario_version is not None:
         scenario_version.ai_policy_snapshot_json = build_ai_policy_snapshot(trial=sim)
-        await ensure_precommit_bundle_prepared_for_approved_scenario(
-            session,
-            trial=sim,
-            scenario_version=scenario_version,
-            tasks=tasks,
-        )
         await session.flush()
     return sim, tasks
 

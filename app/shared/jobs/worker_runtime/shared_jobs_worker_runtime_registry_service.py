@@ -41,7 +41,6 @@ def register_builtin_handlers() -> None:
     """Execute register builtin handlers."""
     from app.shared.jobs.handlers import (
         CANDIDATE_COMPLETED_NOTIFICATION_JOB_TYPE,
-        CODESPACE_SPECIALIZER_JOB_TYPE,
         DAY_CLOSE_ENFORCEMENT_JOB_TYPE,
         DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE,
         EVALUATION_RUN_JOB_TYPE,
@@ -52,7 +51,6 @@ def register_builtin_handlers() -> None:
         WINOE_REPORT_READY_NOTIFICATION_JOB_TYPE,
         WORKSPACE_CLEANUP_JOB_TYPE,
         handle_candidate_completed_notification,
-        handle_codespace_specializer,
         handle_day_close_enforcement,
         handle_day_close_finalize_text,
         handle_evaluation_run,
@@ -64,7 +62,6 @@ def register_builtin_handlers() -> None:
         handle_workspace_cleanup,
     )
 
-    register_handler(CODESPACE_SPECIALIZER_JOB_TYPE, handle_codespace_specializer)
     register_handler(
         CANDIDATE_COMPLETED_NOTIFICATION_JOB_TYPE,
         handle_candidate_completed_notification,

@@ -329,11 +329,6 @@ def render_trial_detail(
                 description=task.description,
                 rubric=None,
                 maxScore=task.max_score,
-                templateRepoFullName=(
-                    task.template_repo
-                    if task.day_index in {2, 3} and task.template_repo
-                    else None
-                ),
             )
             for task in tasks
         ],

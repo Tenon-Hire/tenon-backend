@@ -17,9 +17,6 @@ from app.integrations.scenario_generation import (
     ScenarioGenerationProviderRequest,
     get_scenario_generation_provider,
 )
-from app.tasks.services.tasks_services_tasks_template_catalog_service import (
-    TEMPLATE_CATALOG,
-)
 from app.trials.services.trials_services_trials_scenario_generation_constants import (
     SCENARIO_GENERATION_JOB_TYPE,
     SCENARIO_PROMPT_VERSION,
@@ -48,6 +45,9 @@ from app.trials.services.trials_services_trials_scenario_generation_updates_serv
 
 logger = logging.getLogger(__name__)
 
+# Optional test seam for template display-name fallback.
+TEMPLATE_CATALOG: dict[str, dict[str, Any]] = {}
+
 # Scenario generation is the first live AI gate in a brand-new trial. Give
 # the worker enough retry budget to absorb brief provider throttling without
 # dead-lettering the trial before it ever becomes invite-ready.
@@ -74,12 +74,13 @@ def _pick(options: tuple[str, ...], seed: int, salt: int) -> str:
 
 
 def _template_display_name(template_key: str) -> str:
-    entry = TEMPLATE_CATALOG.get(template_key)
-    if isinstance(entry, dict):
-        display_name = entry.get("display_name")
-        if isinstance(display_name, str) and display_name.strip():
-            return display_name.strip()
-    return template_key
+    catalog = globals().get("TEMPLATE_CATALOG", {})
+    if isinstance(catalog, dict):
+        entry = catalog.get(template_key) or {}
+        label = str(entry.get("display_name") or "").strip()
+        if label:
+            return label
+    return template_key or "Trial Template"
 
 
 def _is_retryable_scenario_generation_error(exc: Exception) -> bool:

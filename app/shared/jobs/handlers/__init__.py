@@ -1,4 +1,3 @@
-import app.shared.jobs.handlers.shared_jobs_handlers_codespace_specializer_handler as codespace_specializer
 import app.shared.jobs.handlers.shared_jobs_handlers_day_close_enforcement_handler as day_close_enforcement
 import app.shared.jobs.handlers.shared_jobs_handlers_day_close_enforcement_helpers_handler as day_close_enforcement_helpers
 import app.shared.jobs.handlers.shared_jobs_handlers_day_close_enforcement_runtime_handler as day_close_enforcement_runtime
@@ -30,10 +29,6 @@ import app.shared.jobs.handlers.shared_jobs_handlers_workspace_cleanup_revocatio
 import app.shared.jobs.handlers.shared_jobs_handlers_workspace_cleanup_runner_handler as workspace_cleanup_runner
 import app.shared.jobs.handlers.shared_jobs_handlers_workspace_cleanup_types_handler as workspace_cleanup_types
 import app.shared.jobs.handlers.shared_jobs_handlers_workspace_cleanup_utils as workspace_cleanup_utils
-from app.shared.jobs.handlers.shared_jobs_handlers_codespace_specializer_handler import (
-    CODESPACE_SPECIALIZER_JOB_TYPE,
-    handle_codespace_specializer,
-)
 from app.shared.jobs.handlers.shared_jobs_handlers_day_close_enforcement_handler import (
     DAY_CLOSE_ENFORCEMENT_JOB_TYPE,
     handle_day_close_enforcement,
@@ -76,8 +71,6 @@ from app.shared.jobs.handlers.shared_jobs_handlers_workspace_cleanup_handler imp
 __all__ = [
     "DAY_CLOSE_ENFORCEMENT_JOB_TYPE",
     "handle_day_close_enforcement",
-    "CODESPACE_SPECIALIZER_JOB_TYPE",
-    "handle_codespace_specializer",
     "DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE",
     "handle_day_close_finalize_text",
     "EVALUATION_RUN_JOB_TYPE",
@@ -99,7 +92,6 @@ __all__ = [
     "day_close_enforcement",
     "day_close_enforcement_helpers",
     "day_close_enforcement_runtime",
-    "codespace_specializer",
     "day_close_finalize_text",
     "day_close_finalize_text_parsing",
     "day_close_finalize_text_queries",

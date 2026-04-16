@@ -41,7 +41,6 @@ class TrialDetailTask(BaseModel):
     rubric: str | list[str] | dict | None = None
     maxScore: int | None = None
     preProvisioned: bool | None = None
-    templateRepoFullName: str | None = None
 
     @model_serializer(mode="plain")
     def _serialize(self):
@@ -56,8 +55,6 @@ class TrialDetailTask(BaseModel):
             data["maxScore"] = self.maxScore
         if self.preProvisioned is not None:
             data["preProvisioned"] = self.preProvisioned
-        if self.templateRepoFullName is not None:
-            data["templateRepoFullName"] = self.templateRepoFullName
         return data
 
 

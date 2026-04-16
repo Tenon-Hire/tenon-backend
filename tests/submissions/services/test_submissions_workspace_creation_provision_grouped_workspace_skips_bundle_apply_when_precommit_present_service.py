@@ -25,7 +25,7 @@ async def test_provision_grouped_workspace_skips_bundle_apply_when_precommit_pre
     )
 
     async def _get_or_create_group(*_args, **_kwargs):
-        return group, None
+        return group, None, None, None, None
 
     async def _get_by_group(*_args, **_kwargs):
         return existing

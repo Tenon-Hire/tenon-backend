@@ -25,6 +25,16 @@ def is_canonical_codespace_url(url: str | None) -> bool:
     return query.get("quickstart") == ["1"]
 
 
+def is_provisioned_codespace_url(url: str | None) -> bool:
+    """Check whether a URL points at a provisioned GitHub Codespace."""
+    if not url:
+        return False
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        return False
+    return parsed.netloc.endswith(".github.dev")
+
+
 async def ensure_canonical_workspace_url(
     db,
     workspace,
@@ -35,7 +45,7 @@ async def ensure_canonical_workspace_url(
     """Persist and return the canonical codespace URL for a workspace."""
     canonical = canonical_codespace_url(workspace.repo_full_name)
     url = workspace.codespace_url
-    if is_canonical_codespace_url(url):
+    if is_canonical_codespace_url(url) or is_provisioned_codespace_url(url):
         return url
     if url != canonical:
         workspace.codespace_url = canonical

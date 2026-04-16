@@ -15,7 +15,7 @@ async def create_workspace_group(
     *,
     candidate_session_id: int,
     workspace_key: str,
-    template_repo_full_name: str,
+    template_repo_full_name: str | None,
     repo_full_name: str,
     default_branch: str | None,
     base_template_sha: str | None,
@@ -46,12 +46,14 @@ async def create_workspace(
     workspace_group_id: str | None = None,
     candidate_session_id: int,
     task_id: int,
-    template_repo_full_name: str,
+    template_repo_full_name: str | None,
     repo_full_name: str,
     repo_id: int | None,
     default_branch: str | None,
     base_template_sha: str | None,
     codespace_url: str | None = None,
+    codespace_name: str | None = None,
+    codespace_state: str | None = None,
     precommit_sha: str | None = None,
     precommit_details_json: str | None = None,
     created_at,
@@ -69,6 +71,8 @@ async def create_workspace(
         default_branch=default_branch,
         base_template_sha=base_template_sha,
         codespace_url=codespace_url,
+        codespace_name=codespace_name,
+        codespace_state=codespace_state,
         precommit_sha=precommit_sha,
         precommit_details_json=precommit_details_json,
         created_at=created_at,
@@ -113,9 +117,26 @@ async def set_precommit_details(
     return workspace
 
 
+async def set_codespace_state(
+    db: AsyncSession,
+    *,
+    workspace: Workspace,
+    codespace_state: str | None,
+    commit: bool = True,
+    refresh: bool = True,
+) -> Workspace:
+    """Set the persisted Codespace state for a workspace."""
+    workspace.codespace_state = codespace_state
+    await (db.commit() if commit else db.flush())
+    if refresh:
+        await db.refresh(workspace)
+    return workspace
+
+
 __all__ = [
     "create_workspace",
     "create_workspace_group",
+    "set_codespace_state",
     "set_precommit_details",
     "set_precommit_sha",
 ]

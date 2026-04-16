@@ -7,7 +7,7 @@ from app.submissions.routes import github_webhooks, submissions, submissions_hel
 from app.submissions.routes import (
     submissions_routes_submissions_helpers_guard_routes as submissions_helpers_guard,
 )
-from app.talent_partners.routes import admin_routes, admin_templates
+from app.talent_partners.routes import admin_routes
 from app.tasks.routes import (
     tasks_routes_tasks_codespaces_routes as tasks_codespaces_routes,
 )
@@ -25,7 +25,6 @@ tasks_codespaces = tasks_codespaces_routes
 
 __all__ = [
     "admin_routes",
-    "admin_templates",
     "shared_http_routes_auth_routes",
     "shared_http_routes_companies_routes",
     "candidate_sessions",

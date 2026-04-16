@@ -34,5 +34,6 @@ async def test_codespace_status_missing_repo_full_name(monkeypatch, async_sessio
             task_id=task.id,
             candidate_session=cs,
             db=async_session,
+            github_client=object(),
         )
     assert excinfo.value.status_code == 409

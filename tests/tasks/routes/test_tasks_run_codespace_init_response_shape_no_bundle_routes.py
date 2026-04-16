@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from app.config import settings
+from app.integrations.github import GithubError
 from tests.tasks.routes.test_tasks_run_api_utils import *
 
 
@@ -26,30 +27,54 @@ async def test_codespace_init_response_shape_no_bundle(
     await async_session.commit()
 
     class StubGithubClient:
-        async def generate_repo_from_template(
-            self,
-            *,
-            template_full_name: str,
-            new_repo_name: str,
-            owner=None,
-            private=True,
+        async def create_empty_repo(
+            self, *, owner, repo_name, private=True, default_branch="main"
         ):
-            destination_owner = settings.github.GITHUB_ORG
             return {
-                "owner": {"login": destination_owner},
-                "name": new_repo_name,
-                "full_name": f"{destination_owner}/{new_repo_name}",
+                "owner": {"login": owner},
+                "name": repo_name,
+                "full_name": f"{owner}/{repo_name}",
                 "id": 909,
-                "default_branch": "main",
+                "default_branch": default_branch,
+            }
+
+        async def get_file_contents(self, *_args, **_kwargs):
+            raise GithubError("missing", status_code=404)
+
+        async def get_branch(self, repo_full_name: str, branch: str):
+            return {"commit": {"sha": "base-sha-shape"}}
+
+        async def create_tree(self, repo_full_name, *, tree, base_tree=None):
+            return {"sha": "tree-sha"}
+
+        async def create_commit(self, repo_full_name, *, message, tree, parents):
+            return {"sha": "commit-sha"}
+
+        async def create_ref(self, repo_full_name, *, ref, sha):
+            return {"ref": ref, "sha": sha}
+
+        async def update_ref(self, repo_full_name, *, ref, sha, force=False):
+            return {"ref": ref, "sha": sha, "force": force}
+
+        async def create_codespace(
+            self,
+            repo_full_name,
+            *,
+            ref=None,
+            devcontainer_path=None,
+            machine=None,
+            location=None,
+        ):
+            return {
+                "name": "codespace-909",
+                "state": "available",
+                "web_url": "https://codespace-909.github.dev",
             }
 
         async def add_collaborator(
             self, repo_full_name: str, username: str, *, permission: str = "push"
         ):
             return {"ok": True}
-
-        async def get_branch(self, repo_full_name: str, branch: str):
-            return {"commit": {"sha": "base-sha-shape"}}
 
     with override_dependencies(
         {candidate_submissions.get_github_client: lambda: StubGithubClient()}
@@ -63,14 +88,14 @@ async def test_codespace_init_response_shape_no_bundle(
 
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    expected_repo_name = f"{settings.github.GITHUB_REPO_PREFIX}{cs.id}-coding"
+    expected_repo_name = f"{settings.github.GITHUB_REPO_PREFIX}{cs.id}"
     expected_repo_full_name = f"{settings.github.GITHUB_ORG}/{expected_repo_name}"
     assert body == {
         "repoFullName": expected_repo_full_name,
-        "codespaceUrl": f"https://codespaces.new/{expected_repo_full_name}?quickstart=1",
-        "codespaceState": None,
+        "codespaceUrl": "https://codespace-909.github.dev",
+        "codespaceState": "available",
         "defaultBranch": "main",
-        "baseTemplateSha": "base-sha-shape",
+        "baseTemplateSha": "commit-sha",
         "precommitSha": None,
         "workspaceId": body["workspaceId"],
     }
@@ -84,9 +109,4 @@ async def test_codespace_init_response_shape_no_bundle(
     )
     assert workspace is not None
     assert workspace.precommit_sha is None
-    assert json.loads(workspace.precommit_details_json or "{}") == {
-        "reason": "bundle_not_found",
-        "scenarioVersionId": cs.scenario_version_id,
-        "state": "no_bundle",
-        "templateKey": sim.template_key,
-    }
+    assert workspace.precommit_details_json is None

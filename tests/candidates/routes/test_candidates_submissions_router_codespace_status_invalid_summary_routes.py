@@ -35,6 +35,7 @@ async def test_codespace_status_invalid_summary(monkeypatch, async_session):
         task_id=task.id,
         candidate_session=cs,
         db=async_session,
+        github_client=object(),
     )
     assert resp.lastTestSummary is None
     assert resp.repoFullName == workspace.repo_full_name
