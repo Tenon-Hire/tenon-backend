@@ -11,10 +11,6 @@ from app.shared.database.shared_database_models_model import (
     Trial,
     User,
 )
-from app.tasks.services.tasks_services_tasks_template_catalog_service import (
-    DEFAULT_TEMPLATE_KEY,
-    resolve_template_repo_full_name,
-)
 from app.trials.constants.trials_constants_trials_ai_config_constants import (
     AI_NOTICE_DEFAULT_TEXT,
     AI_NOTICE_DEFAULT_VERSION,
@@ -22,6 +18,9 @@ from app.trials.constants.trials_constants_trials_ai_config_constants import (
 )
 from app.trials.constants.trials_constants_trials_blueprints_constants import (
     DEFAULT_5_DAY_BLUEPRINT,
+)
+from app.trials.constants.trials_constants_trials_defaults_constants import (
+    DEFAULT_TEMPLATE_KEY,
 )
 
 
@@ -70,11 +69,7 @@ async def create_trial(
             type=blueprint_task["type"],
             title=blueprint_task["title"],
             description=blueprint_task["description"],
-            template_repo=(
-                resolve_template_repo_full_name(template_key)
-                if blueprint_task["type"] in {"code", "debug"}
-                else None
-            ),
+            template_repo=None,
         )
         session.add(task)
         tasks.append(task)

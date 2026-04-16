@@ -57,9 +57,6 @@ async def test_create_candidate_invite_happy_path(monkeypatch):
     async def _ensure_workspace(*_args, **_kwargs):
         return SimpleNamespace(id="ws")
 
-    async def _ensure_bundle(*_args, **_kwargs):
-        return None
-
     monkeypatch.setattr(
         talent_partner_sims, "ensure_talent_partner_or_none", lambda _u: None
     )
@@ -85,11 +82,6 @@ async def test_create_candidate_invite_happy_path(monkeypatch):
     )
     monkeypatch.setattr(
         talent_partner_sims.submission_service, "ensure_workspace", _ensure_workspace
-    )
-    monkeypatch.setattr(
-        invite_workflow.codespace_specializer,
-        "ensure_precommit_bundle_ready_for_invites",
-        _ensure_bundle,
     )
     monkeypatch.setattr(
         talent_partner_sims.sim_service,

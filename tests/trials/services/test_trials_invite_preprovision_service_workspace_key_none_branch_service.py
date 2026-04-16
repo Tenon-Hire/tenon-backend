@@ -20,6 +20,8 @@ async def test_preprovision_workspaces_skips_processed_key_tracking_when_key_mis
         _db,
         *,
         candidate_session,
+        trial,
+        scenario_version,
         task,
         github_client,
         github_username,
@@ -29,15 +31,19 @@ async def test_preprovision_workspaces_skips_processed_key_tracking_when_key_mis
         workspace_resolution=None,
         commit=True,
         hydrate_precommit_bundle=True,
+        bootstrap_empty_repo=False,
     ):
         captured_calls.append(
             {
                 "candidate_session_id": candidate_session.id,
+                "trial_id": trial.id,
+                "scenario_version_id": scenario_version.id,
                 "task_id": task.id,
                 "destination_owner": destination_owner,
                 "workspace_resolution": workspace_resolution,
                 "commit": commit,
                 "hydrate_precommit_bundle": hydrate_precommit_bundle,
+                "bootstrap_empty_repo": bootstrap_empty_repo,
             }
         )
 
@@ -45,11 +51,6 @@ async def test_preprovision_workspaces_skips_processed_key_tracking_when_key_mis
         preprovision_service.settings.github,
         "GITHUB_REPO_PREFIX",
         "winoe",
-    )
-    monkeypatch.setattr(
-        preprovision_service.settings.github,
-        "GITHUB_TEMPLATE_OWNER",
-        "templates",
     )
     monkeypatch.setattr(
         preprovision_service.settings.github, "GITHUB_ORG", "fallback-org"
@@ -64,13 +65,13 @@ async def test_preprovision_workspaces_skips_processed_key_tracking_when_key_mis
     )
 
     candidate_session = SimpleNamespace(id=42, trial_id=7)
-    tasks = [
-        SimpleNamespace(id=501, day_index=2, type="code", template_repo="org/template")
-    ]
+    tasks = [SimpleNamespace(id=501, day_index=2, type="code", template_repo=None)]
 
     await preprovision_service.preprovision_workspaces(
         db=object(),
         candidate_session=candidate_session,
+        trial=SimpleNamespace(id=7),
+        scenario_version=SimpleNamespace(id=11),
         tasks=tasks,
         github_client=object(),
         now=datetime(2026, 3, 27, 12, 0, tzinfo=UTC),
@@ -83,6 +84,7 @@ async def test_preprovision_workspaces_skips_processed_key_tracking_when_key_mis
     assert captured_calls[0]["workspace_resolution"] is None
     assert captured_calls[0]["commit"] is False
     assert captured_calls[0]["hydrate_precommit_bundle"] is False
+    assert captured_calls[0]["bootstrap_empty_repo"] is True
 
 
 @pytest.mark.asyncio
@@ -95,6 +97,8 @@ async def test_preprovision_workspaces_reraises_github_error_for_workspace_key(
         _db,
         *,
         candidate_session,
+        trial,
+        scenario_version,
         task,
         github_client,
         github_username,
@@ -104,15 +108,19 @@ async def test_preprovision_workspaces_reraises_github_error_for_workspace_key(
         workspace_resolution=None,
         commit=True,
         hydrate_precommit_bundle=True,
+        bootstrap_empty_repo=False,
     ):
         captured_calls.append(
             {
                 "candidate_session_id": candidate_session.id,
+                "trial_id": trial.id,
+                "scenario_version_id": scenario_version.id,
                 "task_id": task.id,
                 "destination_owner": destination_owner,
                 "workspace_resolution": workspace_resolution,
                 "commit": commit,
                 "hydrate_precommit_bundle": hydrate_precommit_bundle,
+                "bootstrap_empty_repo": bootstrap_empty_repo,
             }
         )
         raise preprovision_service.GithubError("boom", status_code=403)
@@ -141,13 +149,15 @@ async def test_preprovision_workspaces_reraises_github_error_for_workspace_key(
         id=501,
         day_index=2,
         type="code",
-        template_repo="org/template",
+        template_repo=None,
     )
 
     with pytest.raises(preprovision_service.GithubError):
         await preprovision_service.preprovision_workspaces(
             db=object(),
             candidate_session=candidate_session,
+            trial=SimpleNamespace(id=7),
+            scenario_version=SimpleNamespace(id=11),
             tasks=[task],
             github_client=object(),
             now=datetime(2026, 3, 27, 12, 0, tzinfo=UTC),
@@ -159,3 +169,4 @@ async def test_preprovision_workspaces_reraises_github_error_for_workspace_key(
     assert captured_calls[0]["workspace_resolution"].workspace_key == "coding"
     assert captured_calls[0]["commit"] is False
     assert captured_calls[0]["hydrate_precommit_bundle"] is False
+    assert captured_calls[0]["bootstrap_empty_repo"] is True

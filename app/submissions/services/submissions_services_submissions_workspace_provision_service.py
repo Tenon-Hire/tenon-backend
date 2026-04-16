@@ -29,6 +29,8 @@ async def ensure_workspace(
     db: AsyncSession,
     *,
     candidate_session: CandidateSession,
+    trial=None,
+    scenario_version=None,
     task: Task,
     github_client: GithubClient,
     github_username: str,
@@ -38,6 +40,7 @@ async def ensure_workspace(
     workspace_resolution: workspace_repo.WorkspaceResolution | None = None,
     commit: bool = True,
     hydrate_precommit_bundle: bool = True,
+    bootstrap_empty_repo: bool = False,
 ) -> Workspace:
     """Fetch or create a workspace for the candidate+task."""
     if github_username:
@@ -70,6 +73,8 @@ async def ensure_workspace(
     return await provision_workspace(
         db,
         candidate_session=candidate_session,
+        trial=trial,
+        scenario_version=scenario_version,
         task=task,
         github_client=github_client,
         github_username=github_username,
@@ -79,4 +84,5 @@ async def ensure_workspace(
         workspace_resolution=resolved_workspace,
         commit=commit,
         hydrate_precommit_bundle=hydrate_precommit_bundle,
+        bootstrap_empty_repo=bootstrap_empty_repo,
     )

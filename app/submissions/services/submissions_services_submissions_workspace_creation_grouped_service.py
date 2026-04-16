@@ -45,11 +45,16 @@ async def provision_grouped_workspace(
     hydrate_precommit_bundle: bool = True,
     existing_checked: bool = False,
     workspace_group_checked: bool = False,
+    bootstrap_empty_repo: bool = False,
+    trial=None,
+    scenario_version=None,
 ) -> Workspace:
     """Execute provision grouped workspace."""
-    group, repo_id = await get_or_create_workspace_group(
+    group_result = await get_or_create_workspace_group(
         db,
         candidate_session=candidate_session,
+        trial=trial,
+        scenario_version=scenario_version,
         task=task,
         workspace_key=workspace_key,
         github_client=github_client,
@@ -60,7 +65,21 @@ async def provision_grouped_workspace(
         existing_group=existing_group,
         commit=commit,
         workspace_group_checked=workspace_group_checked,
+        bootstrap_empty_repo=bootstrap_empty_repo,
     )
+    if isinstance(group_result, tuple) and len(group_result) == 2:
+        group, repo_id = group_result
+        codespace_name = None
+        codespace_state = None
+        codespace_url = None
+    else:
+        (
+            group,
+            repo_id,
+            codespace_name,
+            codespace_state,
+            codespace_url,
+        ) = group_result
     existing = (
         None
         if existing_checked
@@ -90,7 +109,11 @@ async def provision_grouped_workspace(
             "repo_id": repo_id,
             "default_branch": group.default_branch,
             "base_template_sha": group.base_template_sha,
-            "codespace_url": build_codespace_url(group.repo_full_name),
+            "codespace_url": codespace_url
+            if bootstrap_empty_repo and codespace_url
+            else build_codespace_url(group.repo_full_name),
+            "codespace_name": codespace_name if bootstrap_empty_repo else None,
+            "codespace_state": codespace_state if bootstrap_empty_repo else None,
             "created_at": now,
         }
         if not commit:

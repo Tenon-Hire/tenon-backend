@@ -4,7 +4,7 @@ import asyncio
 
 import pytest_asyncio
 from fastapi import HTTPException, Request, status
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -81,7 +81,8 @@ async def async_client(db_session: AsyncSession):
     app.dependency_overrides[get_current_user] = override_get_current_user
     app.dependency_overrides[get_principal] = override_get_principal
     app.dependency_overrides[get_github_client] = lambda: StubGithubClient()
-    async with AsyncClient(app=app, base_url="http://testserver") as client:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         yield client
     await asyncio.sleep(0)
     app.dependency_overrides.pop(get_session, None)

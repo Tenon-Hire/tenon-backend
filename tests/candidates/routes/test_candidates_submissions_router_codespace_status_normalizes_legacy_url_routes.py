@@ -38,6 +38,7 @@ async def test_codespace_status_normalizes_legacy_url(monkeypatch, async_session
         task_id=task.id,
         candidate_session=cs,
         db=async_session,
+        github_client=object(),
     )
     assert resp.codespaceUrl == "https://codespaces.new/org/repo?quickstart=1"
     assert workspace.codespace_url == "https://codespaces.new/org/repo?quickstart=1"

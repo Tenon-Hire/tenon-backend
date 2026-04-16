@@ -77,16 +77,12 @@ async def test_trial_routes_execute_service_calls(monkeypatch):
     async def _load_pending(*_a, **_k):
         return None
 
-    async def _resolve_bundle(*_a, **_k):
-        return None
-
     monkeypatch.setattr(sim_detail_route, "_load_scenario_version", _load_pending)
     monkeypatch.setattr(
         sim_detail_route,
         "build_ai_policy_snapshot",
         lambda **_kwargs: {"promptPackVersion": "winoe-ai-pack-v1"},
     )
-    monkeypatch.setattr(sim_detail_route, "_resolve_bundle_status", _resolve_bundle)
     monkeypatch.setattr(sim_list_route.sim_service, "list_trials", _list_sims)
 
     class _DbStub:

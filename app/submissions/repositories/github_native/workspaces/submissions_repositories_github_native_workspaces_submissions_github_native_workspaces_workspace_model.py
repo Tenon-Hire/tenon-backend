@@ -34,7 +34,9 @@ class Workspace(Base):
     task_id: Mapped[int] = mapped_column(
         ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False
     )
-    template_repo_full_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    template_repo_full_name: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
     repo_full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     repo_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     default_branch: Mapped[str | None] = mapped_column(String(120), nullable=True)

@@ -86,6 +86,86 @@ class RepoOperations:
     transport: GithubTransport
     default_org: str | None
 
+    async def create_empty_repo(
+        self,
+        *,
+        owner: str,
+        repo_name: str,
+        private: bool = True,
+        default_branch: str = "main",
+    ) -> dict:
+        """Create an empty repository under an organization."""
+        resolved_owner = (owner or "").strip()
+        resolved_repo_name = (repo_name or "").strip()
+        if not resolved_owner:
+            raise GithubError("Destination GitHub org is not configured")
+        if not resolved_repo_name:
+            raise GithubError("Repository name is not configured")
+        payload = {
+            "name": resolved_repo_name,
+            "private": private,
+            "auto_init": False,
+            "default_branch": default_branch,
+        }
+        path = f"/orgs/{resolved_owner}/repos"
+        generated = await self._post_json(path, json=payload)
+        (
+            response_owner,
+            response_repo,
+            response_full_name,
+        ) = _normalize_generated_repo_identity(
+            generated,
+            expected_owner=resolved_owner,
+            expected_repo_name=resolved_repo_name,
+        )
+        generated["name"] = response_repo
+        generated["full_name"] = response_full_name
+        generated["canonical_owner"] = response_owner
+        generated["canonical_name"] = response_repo
+        generated["canonical_full_name"] = response_full_name
+        return generated
+
+    async def create_codespace(
+        self,
+        repo_full_name: str,
+        *,
+        ref: str | None = None,
+        devcontainer_path: str = ".devcontainer/devcontainer.json",
+        machine: str | None = None,
+        location: str | None = None,
+    ) -> dict:
+        """Create a GitHub Codespace for a repository."""
+        owner, repo = split_full_name(repo_full_name)
+        payload: dict[str, str] = {}
+        if ref:
+            payload["ref"] = ref
+        if devcontainer_path:
+            payload["devcontainer_path"] = devcontainer_path
+        if machine:
+            payload["machine"] = machine
+        if location:
+            payload["location"] = location
+        return await self._post_json(
+            f"/repos/{owner}/{repo}/codespaces",
+            json=payload,
+        )
+
+    async def get_codespace(self, repo_full_name: str, codespace_name: str) -> dict:
+        """Return a GitHub Codespace by name."""
+        expected_owner, expected_repo = split_full_name(repo_full_name)
+        payload = await self._get_json(f"/user/codespaces/{codespace_name}")
+
+        repository = payload.get("repository")
+        if isinstance(repository, dict):
+            returned_full_name = str(repository.get("full_name") or "").strip()
+            if returned_full_name:
+                returned_owner, returned_repo = split_full_name(returned_full_name)
+                if returned_owner != expected_owner or returned_repo != expected_repo:
+                    raise GithubError(
+                        "GitHub Codespace lookup returned an unexpected repository"
+                    )
+        return payload
+
     async def generate_repo_from_template(
         self,
         *,
@@ -130,6 +210,12 @@ class RepoOperations:
         owner, repo = split_full_name(repo_full_name)
         path = f"/repos/{owner}/{repo}/collaborators/{username}"
         return await self._request("PUT", path, json={"permission": permission})
+
+    async def create_ref(self, repo_full_name: str, *, ref: str, sha: str) -> dict:
+        """Create a git ref."""
+        owner, repo = split_full_name(repo_full_name)
+        path = f"/repos/{owner}/{repo}/git/refs"
+        return await self._post_json(path, json={"ref": ref, "sha": sha})
 
     async def remove_collaborator(self, repo_full_name: str, username: str) -> dict:
         """Remove collaborator."""

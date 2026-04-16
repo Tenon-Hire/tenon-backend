@@ -1,33 +1,12 @@
 # Codespaces + GitHub Actions Flow
 
-Winoe now runs code tasks entirely on GitHub: template repositories per task, Codespaces for editing, and Actions for tests.
-
-## Template repositories
- - Each code/debug task sets `tasks.template_repo` to `owner/name`, resolved from `trials.template_key` (API: `templateKey`).
-- The backend is the source of truth for this mapping (see `app/tasks/services/tasks_services_tasks_template_catalog_service.py`); frontend should only pass the `templateKey`.
-- Available template keys -> repos:
-  - Backend: `python-fastapi`, `node-express-ts`, `node-nest-ts`, `java-springboot`, `go-gin`, `dotnet-webapi`
-  - Web full-stack: `monorepo-nextjs-nest`, `monorepo-nextjs-fastapi`, `monorepo-react-express`, `monorepo-react-springboot`
-  - Mobile: `mobile-fullstack-expo-fastapi`, `mobile-backend-fastapi`
-  - ML: `ml-backend-fastapi`, `ml-infra-mlops`
-- To add a new template: add to the catalog module, create a migration/backfill if needed, ensure the GitHub template repo has the Actions workflow.
-- Workflow file: `WINOE_GITHUB_ACTIONS_WORKFLOW_FILE` (e.g., `winoe-ci.yml`) must exist in each template.
-
-## Template health check (admin)
-- Requires `X-Admin-Key` header matching `WINOE_ADMIN_API_KEY`.
-- `GET /api/admin/templates/health?mode=static` validates each template repo's default branch, workflow file, and artifact contract (static).
-- `POST /api/admin/templates/health/run` runs live dispatch + artifact validation (opt-in).
-- Failures return per-template errors like `workflow_file_missing`, `workflow_run_not_success`, or `test_results_json_invalid_schema`.
-
-CLI:
-- Static check all: `poetry run python scripts/template_health_check.py --mode static --all`
-- Live check all (bounded): `poetry run python scripts/template_health_check.py --mode live --all --concurrency 2 --timeout-seconds 180`
+Winoe now runs code tasks entirely from an empty candidate repo, Codespaces for editing, and Actions for tests.
 
 ## Candidate flow (backend endpoints)
 0) `POST /api/trials/{trialId}/invite`
-   - Creates Day 2/Day 3 workspace repos from task templates (idempotent per trial + invite email).
+   - Creates an empty Day 2/Day 3 workspace repo with devcontainer, brief, and evidence workflow.
 1) `POST /api/tasks/{taskId}/codespace/init`
-   - Creates repo from template; invites candidate via GitHub username.
+   - Creates or resolves the candidate repo; invites candidate via GitHub username.
    - Returns repo URL + Codespaces URL, default branch, workspace id, and stores `base_template_sha` (default branch head).
 2) `POST /api/tasks/{taskId}/run`
    - Triggers `workflow_dispatch` on the workspace repo with optional `workflowInputs` + `branch`.
@@ -53,7 +32,6 @@ Talent Partner endpoints include repo/commit/workflow/diff URLs for detail and l
 - `WINOE_GITHUB_API_BASE` (default `https://api.github.com`)
 - `WINOE_GITHUB_ORG`
 - `WINOE_GITHUB_TOKEN` (bot/app token with repo + actions)
-- `WINOE_GITHUB_TEMPLATE_OWNER`
 - `WINOE_GITHUB_ACTIONS_WORKFLOW_FILE`
 - `WINOE_GITHUB_REPO_PREFIX`
 

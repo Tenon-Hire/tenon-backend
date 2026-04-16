@@ -25,7 +25,6 @@ from . import (
 from . import (
     trials_services_trials_scenario_versions_service as scenario_versions,
 )
-from . import trials_services_trials_task_templates_service as task_templates
 from . import trials_services_trials_update_service as update
 from .trials_services_trials_exports_service import TRIALS_EXPORTS
 
@@ -70,10 +69,6 @@ _SYMBOL_ALIASES: dict[str, tuple[str, str]] = {
     "_refresh_invite_token": (
         "app.trials.services.trials_services_trials_invite_tokens_service",
         "_refresh_invite_token",
-    ),
-    "_template_repo_for_task": (
-        "app.trials.services.trials_services_trials_task_templates_service",
-        "_template_repo_for_task",
     ),
     "TerminateTrialResult": (
         "app.trials.services.trials_services_trials_lifecycle_service",
@@ -196,10 +191,6 @@ _SYMBOL_ALIASES: dict[str, tuple[str, str]] = {
         "app.trials.services.trials_services_trials_lifecycle_service",
         "require_trial_invitable",
     ),
-    "resolve_template_repo_full_name": (
-        "app.tasks.services.tasks_services_tasks_template_catalog_service",
-        "resolve_template_repo_full_name",
-    ),
     "scenario_repo": ("app.trials.repositories.scenario_versions", "repository"),
     "settings": ("app.config", "settings"),
     "sim_repo": ("app.trials.repositories", "repository"),
@@ -236,7 +227,6 @@ __all__ = [
     "scenario_generation",
     "scenario_payload_builder",
     "scenario_versions",
-    "task_templates",
     "update",
 ]
 

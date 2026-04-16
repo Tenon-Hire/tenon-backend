@@ -63,9 +63,6 @@ async def test_create_candidate_invite_github_error(monkeypatch):
     monkeypatch.setattr(rate_limit, "rate_limit_enabled", lambda: False)
     task = SimpleNamespace(id=2, day_index=2, type="code", template_repo="owner/repo")
 
-    async def _ensure_bundle(*_args, **_kwargs):
-        return None
-
     async def fake_require(db, trial_id, user_id):
         return SimpleNamespace(id=1, title="t", role="r", status="active_inviting"), [
             task
@@ -84,11 +81,6 @@ async def test_create_candidate_invite_github_error(monkeypatch):
     monkeypatch.setattr(sim_service, "lock_active_scenario_for_invites", fake_lock)
     monkeypatch.setattr(sim_service, "create_or_resend_invite", fake_create)
     monkeypatch.setattr(trials.submission_service, "ensure_workspace", fail_workspace)
-    monkeypatch.setattr(
-        invite_workflow.codespace_specializer,
-        "ensure_precommit_bundle_ready_for_invites",
-        _ensure_bundle,
-    )
     with pytest.raises(error_utils.ApiError) as excinfo:
         await trials.create_candidate_invite(
             trial_id=1,

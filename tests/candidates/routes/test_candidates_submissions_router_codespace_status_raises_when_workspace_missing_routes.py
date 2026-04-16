@@ -26,5 +26,6 @@ async def test_codespace_status_raises_when_workspace_missing(
             task_id=task.id,
             candidate_session=cs,
             db=async_session,
+            github_client=object(),
         )
     assert excinfo.value.status_code == 404

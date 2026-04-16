@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.candidates.candidate_sessions import services as cs_service
 from app.integrations.github.client import GithubClient
-from app.shared.database.shared_database_models_model import CandidateSession
+from app.shared.database.shared_database_models_model import CandidateSession, Trial
 from app.shared.utils.shared_utils_errors_utils import ApiError
 from app.submissions.services import (
     submissions_services_submissions_candidate_service as submission_service,
@@ -20,8 +20,14 @@ from app.submissions.services.submissions_services_submissions_codespace_urls_se
 from app.submissions.services.submissions_services_submissions_rate_limits_constants import (
     apply_rate_limit,
 )
+from app.submissions.services.submissions_services_submissions_workspace_repo_state_service import (
+    refresh_codespace_state,
+)
 from app.submissions.services.use_cases.submissions_services_use_cases_submissions_use_cases_codespace_validations_service import (
     validate_codespace_request,
+)
+from app.trials.repositories.scenario_versions import (
+    trials_repositories_scenario_versions_trials_scenario_versions_repository as scenario_repo,
 )
 
 
@@ -62,9 +68,19 @@ async def init_codespace(
     task = await _validate_codespace_request_with_legacy_fallback(
         db, candidate_session, task_id
     )
+    trial = None
+    if getattr(task, "trial_id", None) is not None:
+        trial = await db.get(Trial, task.trial_id)
+    scenario_version = (
+        await scenario_repo.get_active_for_trial(db, trial.id)
+        if trial is not None
+        else None
+    )
     workspace = await submission_service.ensure_workspace(
         db,
         candidate_session=candidate_session,
+        trial=trial,
+        scenario_version=scenario_version,
         task=task,
         github_client=github_client,
         github_username=github_username,
@@ -72,6 +88,8 @@ async def init_codespace(
         destination_owner=destination_owner,
         now=now or datetime.now(UTC),
         commit=False,
+        hydrate_precommit_bundle=False,
+        bootstrap_empty_repo=True,
     )
     normalized_username = (github_username or "").strip()
     if (
@@ -95,6 +113,11 @@ async def init_codespace(
         )
     except TypeError:
         codespace_url = await ensure_canonical_workspace_url(db, workspace)
+    workspace = await refresh_codespace_state(
+        db,
+        workspace=workspace,
+        github_client=github_client,
+    )
     if isinstance(db, AsyncSession):
         await db.commit()
     return (

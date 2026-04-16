@@ -21,9 +21,6 @@ from app.trials.repositories.scenario_versions import (
 from app.trials.repositories.scenario_versions.trials_repositories_scenario_versions_trials_scenario_versions_model import (
     SCENARIO_VERSION_STATUS_READY,
 )
-from app.trials.services.trials_services_trials_codespace_specializer_service import (
-    ensure_precommit_bundle_prepared_for_approved_scenario,
-)
 from app.trials.services.trials_services_trials_scenario_versions_access_service import (
     require_owned_trial_for_update,
 )
@@ -91,13 +88,6 @@ async def approve_scenario_version(
         now=approved_at,
         trial=trial,
     )
-    tasks = await _load_trial_tasks(db, trial.id)
-    await ensure_precommit_bundle_prepared_for_approved_scenario(
-        db,
-        trial=trial,
-        scenario_version=target,
-        tasks=tasks,
-    )
     await db.commit()
     await db.refresh(trial)
     await db.refresh(target)
@@ -138,13 +128,6 @@ async def _approve_without_pending(
         trial_id=trial.id,
         now=approved_at,
         trial=trial,
-    )
-    tasks = await _load_trial_tasks(db, trial.id)
-    await ensure_precommit_bundle_prepared_for_approved_scenario(
-        db,
-        trial=trial,
-        scenario_version=target,
-        tasks=tasks,
     )
     await db.commit()
     await db.refresh(trial)

@@ -16,6 +16,8 @@ async def test_github_client_misc_methods(monkeypatch):
             if "sha" in params:
                 return [{"sha": "abc", "commit": {"message": "m"}}]
             return {"not": "a-list"}
+        if path.endswith("/user/codespaces/codespace-123"):
+            return {"repository": {"full_name": "owner/name"}, "state": "Available"}
         return {}
 
     async def _fake_post_json(path: str, *, json: dict, expect_body: bool = True):
@@ -48,6 +50,15 @@ async def test_github_client_misc_methods(monkeypatch):
     await client.get_ref("owner/name", "heads/main")
     await client.get_commit("owner/name", "abc123")
     await client.create_blob("owner/name", content="hello")
+    await client.create_or_update_file(
+        "owner/name",
+        "README.md",
+        content="hello",
+        message="init",
+        branch="main",
+    )
+    await client.create_codespace("owner/name", ref="main")
+    await client.get_codespace("owner/name", "codespace-123")
     await client.create_tree(
         "owner/name",
         tree=[{"path": "README.md", "mode": "100644", "type": "blob", "sha": "abc"}],
@@ -84,12 +95,21 @@ async def test_github_client_misc_methods(monkeypatch):
 
     assert any(path.endswith("/git/ref/heads/main") for path, _ in calls["get_json"])
     assert any(path.endswith("/git/commits/abc123") for path, _ in calls["get_json"])
+    assert any(
+        path == "/user/codespaces/codespace-123" for path, _ in calls["get_json"]
+    )
     assert any(path.endswith("/git/blobs") for path, _, _ in calls["post_json"])
     assert any(path.endswith("/git/trees") for path, _, _ in calls["post_json"])
     assert any(path.endswith("/git/commits") for path, _, _ in calls["post_json"])
     assert any(
         method == "PATCH" and path.endswith("/repos/owner/name")
         for method, path, *_rest in calls["request"]
+    )
+    assert any(
+        method == "PUT"
+        and path.endswith("/contents/README.md")
+        and json["branch"] == "main"
+        for method, path, _, json, _ in calls["request"]
     )
     assert any(
         method == "DELETE" and path.endswith("/repos/owner/name")
@@ -99,6 +119,7 @@ async def test_github_client_misc_methods(monkeypatch):
         method == "PATCH" and path.endswith("/git/refs/heads/main")
         for method, path, *_rest in calls["request"]
     )
+    assert any(path.endswith("/codespaces") for path, _, _ in calls["post_json"])
 
     with pytest.raises(GithubError):
         await client.get_repo("bad-name")

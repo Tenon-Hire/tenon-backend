@@ -81,7 +81,6 @@ _MODULE_ALIASES = {
     "workspace_provision": "app.submissions.services.submissions_services_submissions_workspace_provision_service",
     "workspace_records": "app.submissions.services.submissions_services_submissions_workspace_records_service",
     "workspace_repo_state": "app.submissions.services.submissions_services_submissions_workspace_repo_state_service",
-    "workspace_template_repo": "app.submissions.services.submissions_services_submissions_workspace_template_repo_service",
 }
 
 LAZY_SHIM_EXEMPTION_REASON = LAZY_MODULE_ALIAS_EXEMPTIONS[__name__]

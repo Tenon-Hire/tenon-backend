@@ -7,7 +7,6 @@ This document describes implemented GitHub integration behavior in the backend.
 - Client transport and operation modules: `app/integrations/github/client/*`
 - Actions runner: `app/integrations/github/actions_runner/*`
 - Artifact parsing: `app/integrations/github/artifacts/*`
-- Template health checks: `app/integrations/github/template_health/*`
 - Webhook handling: `app/integrations/github/webhooks/*`
 
 ## Candidate Workspace Flow
@@ -39,12 +38,6 @@ This document describes implemented GitHub integration behavior in the backend.
 - Current accepted processing path:
   - `workflow_run` events with `action=completed`
 - Endpoint returns `202 accepted` for handled/ignored deliveries.
-
-## Template Health Checks
-
-- Admin static check: `GET /api/admin/templates/health?mode=static`
-- Admin live run check: `POST /api/admin/templates/health/run`
-- Validates repo accessibility, workflow presence, and artifact expectations.
 
 ## Required Configuration
 

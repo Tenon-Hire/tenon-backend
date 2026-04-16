@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.ai import (
     allow_demo_or_test_mode,
-    resolve_codespace_specializer_config,
     resolve_scenario_generation_config,
     resolve_transcription_config,
     resolve_winoe_report_aggregator_config,
@@ -30,7 +29,6 @@ ReadinessStatus = Literal["ready", "not_ready", "skipped"]
 
 _AI_FEATURE_RESOLVERS = {
     "scenarioGeneration": resolve_scenario_generation_config,
-    "codespaceSpecializer": resolve_codespace_specializer_config,
     "transcription": resolve_transcription_config,
     "winoeReportDay1": resolve_winoe_report_day1_config,
     "winoeReportDay23": resolve_winoe_report_day23_config,

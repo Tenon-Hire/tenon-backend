@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 async def preprovision_workspaces(
     db,
     candidate_session,
+    trial,
+    scenario_version,
     tasks,
     github_client: GithubClient,
     *,
@@ -51,12 +53,15 @@ async def preprovision_workspaces(
         try:
             ensure_workspace_kwargs = {
                 "candidate_session": candidate_session,
+                "trial": trial,
+                "scenario_version": scenario_version,
                 "task": task,
                 "github_client": github_client,
                 "github_username": "",
                 "repo_prefix": repo_prefix,
                 "destination_owner": destination_owner,
                 "now": now,
+                "bootstrap_empty_repo": True,
             }
             if (
                 supports_workspace_resolution
@@ -86,7 +91,6 @@ async def preprovision_workspaces(
                     "candidate_session_id": getattr(candidate_session, "id", None),
                     "task_id": task.id,
                     "day_index": task.day_index,
-                    "template_repo": (task.template_repo or "").strip(),
                     "repo_name": submission_service.build_repo_name(
                         prefix=repo_prefix,
                         candidate_session=candidate_session,

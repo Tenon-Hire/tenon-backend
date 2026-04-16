@@ -32,6 +32,25 @@ class StubGithubClient:
             "default_branch": "main",
         }
 
+    async def create_empty_repo(
+        self,
+        *,
+        owner: str,
+        repo_name: str,
+        private: bool = True,
+        default_branch: str = "main",
+    ):
+        return {
+            "owner": {"login": owner},
+            "name": repo_name,
+            "full_name": f"{owner}/{repo_name}",
+            "canonical_owner": owner,
+            "canonical_name": repo_name,
+            "canonical_full_name": f"{owner}/{repo_name}",
+            "id": 999,
+            "default_branch": default_branch,
+        }
+
     async def add_collaborator(
         self, repo_full_name: str, username: str, *, permission: str = "push"
     ):
@@ -82,3 +101,27 @@ class StubGithubClient:
         self, repo_full_name: str, *, ref: str, sha: str, force: bool = False
     ):
         return {"ref": ref, "object": {"sha": sha}, "force": force}
+
+    async def create_codespace(
+        self,
+        repo_full_name: str,
+        *,
+        ref: str | None = None,
+        devcontainer_path: str = ".devcontainer/devcontainer.json",
+        machine: str | None = None,
+        location: str | None = None,
+    ):
+        return {
+            "name": f"codespace-{repo_full_name.split('/', 1)[-1]}",
+            "state": "Available",
+            "web_url": f"https://codespaces.example/{repo_full_name.replace('/', '-')}",
+            "ref": ref,
+            "devcontainer_path": devcontainer_path,
+        }
+
+    async def get_codespace(self, repo_full_name: str, codespace_name: str):
+        return {
+            "name": codespace_name,
+            "state": "Available",
+            "web_url": f"https://codespace.example/{repo_full_name.replace('/', '-')}",
+        }

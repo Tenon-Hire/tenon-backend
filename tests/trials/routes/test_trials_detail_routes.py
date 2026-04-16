@@ -57,8 +57,7 @@ async def test_get_trial_detail_happy_path(
     assert body["tasks"][0]["rubric"] is None
 
     day2 = next(task for task in body["tasks"] if task["dayIndex"] == 2)
-    assert "templateRepoFullName" in day2
-    assert day2["templateRepoFullName"]
+    assert "templateRepoFullName" not in day2 or day2["templateRepoFullName"] is None
     assert day2["maxScore"] == 42
     day1 = next(task for task in body["tasks"] if task["dayIndex"] == 1)
     assert "templateRepoFullName" not in day1

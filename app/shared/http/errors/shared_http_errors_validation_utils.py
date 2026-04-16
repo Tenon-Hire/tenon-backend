@@ -8,7 +8,7 @@ from fastapi import status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from app.tasks.services.tasks_services_tasks_template_catalog_service import (
+from app.trials.constants.trials_constants_trials_template_keys_constants import (
     ALLOWED_TEMPLATE_KEYS,
 )
 
@@ -32,7 +32,6 @@ def validation_error_handler(_request, exc: RequestValidationError) -> JSONRespo
             error_code = "INVALID_TEMPLATE_KEY"
             details = {"allowed": sorted(ALLOWED_TEMPLATE_KEYS)}
             break
-
     payload: dict[str, Any] = {
         "detail": sanitized,
         "errorCode": error_code,

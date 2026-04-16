@@ -25,9 +25,10 @@ async def test_codespace_status_route_normalizes_naive_cutoff_at_to_utc(monkeypa
     task = SimpleNamespace(day_index=2)
     naive_cutoff = datetime(2026, 3, 10, 14, 30)
 
-    async def _codespace_status(_db, *, candidate_session, task_id):
+    async def _codespace_status(_db, *, candidate_session, task_id, github_client=None):
         assert candidate_session.id == 7
         assert task_id == 12
+        assert github_client is not None
         return workspace, None, "https://codespaces.new/org/repo?quickstart=1", task
 
     async def _get_day_audit(_db, *, candidate_session_id, day_index):
@@ -42,6 +43,7 @@ async def test_codespace_status_route_normalizes_naive_cutoff_at_to_utc(monkeypa
         task_id=12,
         candidate_session=SimpleNamespace(id=7),
         db=object(),
+        github_client=object(),
     )
 
     assert response.cutoffCommitSha == "abc123"

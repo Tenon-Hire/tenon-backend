@@ -7,6 +7,7 @@ import json
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.candidates.candidate_sessions import services as cs_service
+from app.integrations.github.client import GithubClient
 from app.shared.database.shared_database_models_model import CandidateSession
 from app.submissions.constants.submissions_constants_submissions_exceptions_constants import (
     WorkspaceMissing,
@@ -17,10 +18,17 @@ from app.submissions.services import (
 from app.submissions.services.submissions_services_submissions_codespace_urls_service import (
     ensure_canonical_workspace_url,
 )
+from app.submissions.services.submissions_services_submissions_workspace_repo_state_service import (
+    refresh_codespace_state,
+)
 
 
 async def codespace_status(
-    db: AsyncSession, *, candidate_session: CandidateSession, task_id: int
+    db: AsyncSession,
+    *,
+    candidate_session: CandidateSession,
+    task_id: int,
+    github_client: GithubClient | None = None,
 ):
     """Return Codespace/workflow status for a candidate task."""
     task = await submission_service.load_task_or_404(db, task_id)
@@ -32,6 +40,12 @@ async def codespace_status(
     )
     if workspace is None:
         raise WorkspaceMissing(detail="Workspace not initialized", status_code=404)
+    if github_client is not None:
+        workspace = await refresh_codespace_state(
+            db,
+            workspace=workspace,
+            github_client=github_client,
+        )
     last_test_summary = None
     if workspace.last_test_summary_json:
         try:

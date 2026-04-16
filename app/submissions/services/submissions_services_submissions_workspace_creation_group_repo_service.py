@@ -19,7 +19,6 @@ from app.submissions.services.submissions_services_submissions_workspace_creatio
 )
 from app.submissions.services.submissions_services_submissions_workspace_repo_state_service import (
     add_collaborator_if_needed,
-    fetch_base_template_sha,
 )
 
 
@@ -37,7 +36,10 @@ async def get_or_create_workspace_group(
     existing_group: WorkspaceGroup | None = None,
     commit: bool = True,
     workspace_group_checked: bool = False,
-) -> tuple[WorkspaceGroup, int | None]:
+    bootstrap_empty_repo: bool = False,
+    trial=None,
+    scenario_version=None,
+) -> tuple[WorkspaceGroup, int | None, str | None, str | None, str | None]:
     """Return or create workspace group."""
     existing = existing_group or await _load_existing_group(
         db, candidate_session.id, workspace_key, workspace_group_checked
@@ -46,21 +48,27 @@ async def get_or_create_workspace_group(
         await add_collaborator_if_needed(
             github_client, existing.repo_full_name, github_username
         )
-        return existing, None
+        return existing, None, None, None, None
     try:
-        (
-            template_repo,
-            repo_full_name,
-            default_branch,
-            repo_id,
-        ) = await create_group_repo(
+        created_repo = await create_group_repo(
             candidate_session=candidate_session,
+            trial=trial,
+            scenario_version=scenario_version,
             task=task,
             workspace_key=workspace_key,
             github_client=github_client,
             repo_prefix=repo_prefix,
             destination_owner=destination_owner,
+            bootstrap_empty_repo=bootstrap_empty_repo,
         )
+        template_repo = created_repo.template_repo_full_name
+        repo_full_name = created_repo.repo_full_name
+        default_branch = created_repo.default_branch
+        repo_id = created_repo.repo_id
+        base_template_sha = created_repo.bootstrap_commit_sha
+        codespace_name = created_repo.codespace_name
+        codespace_state = created_repo.codespace_state
+        codespace_url = created_repo.codespace_url
     except GithubError as exc:
         if exc.status_code == 422:
             existing = await workspace_repo.get_workspace_group(
@@ -72,11 +80,8 @@ async def get_or_create_workspace_group(
                 await add_collaborator_if_needed(
                     github_client, existing.repo_full_name, github_username
                 )
-                return existing, None
+                return existing, None, None, None, None
         raise
-    base_template_sha = await fetch_base_template_sha(
-        github_client, repo_full_name, default_branch
-    )
     await add_collaborator_if_needed(github_client, repo_full_name, github_username)
     create_group_kwargs = {
         "candidate_session_id": candidate_session.id,
@@ -91,9 +96,13 @@ async def get_or_create_workspace_group(
         create_group_kwargs["commit"] = False
         create_group_kwargs["refresh"] = False
     try:
-        return await workspace_repo.create_workspace_group(
-            db, **create_group_kwargs
-        ), repo_id
+        return (
+            await workspace_repo.create_workspace_group(db, **create_group_kwargs),
+            repo_id,
+            codespace_name,
+            codespace_state,
+            codespace_url,
+        )
     except IntegrityError:
         await db.rollback()
         existing = await workspace_repo.get_workspace_group(
@@ -104,7 +113,7 @@ async def get_or_create_workspace_group(
         await add_collaborator_if_needed(
             github_client, existing.repo_full_name, github_username
         )
-        return existing, None
+        return existing, None, None, None, None
 
 
 async def _load_existing_group(

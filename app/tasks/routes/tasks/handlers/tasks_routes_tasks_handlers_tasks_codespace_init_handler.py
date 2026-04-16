@@ -40,8 +40,15 @@ async def handle_codespace_init(
     except GithubError as exc:
         raise map_github_error(exc) from exc
 
+    public_repo_full_name = workspace.repo_full_name
+    if getattr(workspace, "workspace_group_id", None) is not None:
+        public_repo_full_name = (
+            f"{settings.github.GITHUB_ORG}/{settings.github.GITHUB_REPO_PREFIX}"
+            f"{candidate_session.id}"
+        )
+
     return CodespaceInitResponse(
-        repoFullName=workspace.repo_full_name,
+        repoFullName=public_repo_full_name,
         codespaceUrl=codespace_url,
         codespaceState=getattr(workspace, "codespace_state", None),
         defaultBranch=workspace.default_branch,

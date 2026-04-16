@@ -13,9 +13,6 @@ from app.shared.auth.shared_auth_current_user_utils import get_current_user
 from app.shared.auth.shared_auth_roles_utils import ensure_talent_partner_or_none
 from app.shared.database import get_session
 from app.shared.database.shared_database_models_model import Job, ScenarioVersion
-from app.submissions.repositories.precommit_bundles import (
-    repository_lookup as bundle_lookup_repo,
-)
 from app.talent_partners.repositories.companies.talent_partners_repositories_companies_talent_partners_companies_core_model import (
     Company,
 )
@@ -25,9 +22,6 @@ from app.trials.routes.trials_routes.trials_routes_trials_routes_trials_routes_d
 )
 from app.trials.schemas.trials_schemas_trials_core_schema import (
     TrialDetailResponse,
-)
-from app.trials.services.trials_services_trials_codespace_specializer_service import (
-    has_coding_tasks,
 )
 from app.trials.services.trials_services_trials_scenario_generation_constants import (
     SCENARIO_GENERATION_JOB_TYPE,
@@ -44,29 +38,6 @@ async def _load_scenario_version(
     return await db.scalar(
         select(ScenarioVersion).where(ScenarioVersion.id == scenario_version_id)
     )
-
-
-async def _resolve_bundle_status(
-    db: AsyncSession,
-    *,
-    sim,
-    tasks,
-    scenario_version,
-) -> str | None:
-    if scenario_version is None or not has_coding_tasks(tasks):
-        return None
-    template_key = (
-        str(getattr(scenario_version, "template_key", "") or "").strip()
-        or str(getattr(sim, "template_key", "") or "").strip()
-    )
-    if not template_key:
-        return None
-    bundle = await bundle_lookup_repo.get_by_scenario_and_template(
-        db,
-        scenario_version_id=scenario_version.id,
-        template_key=template_key,
-    )
-    return getattr(bundle, "status", None) or "missing"
 
 
 async def _load_latest_scenario_generation_job(
@@ -111,18 +82,6 @@ async def get_trial_detail(
         ),
         trial_prompt_overrides_json=getattr(sim, "ai_prompt_overrides_json", None),
     )
-    active_bundle_status = await _resolve_bundle_status(
-        db,
-        sim=sim,
-        tasks=tasks,
-        scenario_version=active_scenario_version,
-    )
-    pending_bundle_status = await _resolve_bundle_status(
-        db,
-        sim=sim,
-        tasks=tasks,
-        scenario_version=pending_scenario_version,
-    )
     scenario_generation_job = await _load_latest_scenario_generation_job(
         db,
         trial_id=trial_id,
@@ -134,7 +93,7 @@ async def get_trial_detail(
         active_scenario_version,
         pending_scenario_version=pending_scenario_version,
         current_ai_policy_snapshot_json=current_ai_policy_snapshot_json,
-        active_bundle_status=active_bundle_status,
-        pending_bundle_status=pending_bundle_status,
+        active_bundle_status=None,
+        pending_bundle_status=None,
         scenario_generation_job=scenario_generation_job,
     )

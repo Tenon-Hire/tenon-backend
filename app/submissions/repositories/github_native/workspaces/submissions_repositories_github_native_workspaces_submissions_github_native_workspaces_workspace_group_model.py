@@ -30,7 +30,9 @@ class WorkspaceGroup(Base):
         ForeignKey("candidate_sessions.id", ondelete="CASCADE"), nullable=False
     )
     workspace_key: Mapped[str] = mapped_column(String(64), nullable=False)
-    template_repo_full_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    template_repo_full_name: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
     repo_full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     default_branch: Mapped[str | None] = mapped_column(String(120), nullable=True)
     base_template_sha: Mapped[str | None] = mapped_column(String(100), nullable=True)

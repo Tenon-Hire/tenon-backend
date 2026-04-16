@@ -8,7 +8,6 @@ from app.config import settings
 from app.shared.auth.shared_auth_admin_api_key_utils import is_admin_key_configured
 from app.shared.http.routes import (
     admin_routes,
-    admin_templates,
     candidate_sessions,
     github_webhooks,
     recordings,
@@ -32,7 +31,6 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(auth.router, prefix=f"{prefix}/auth", tags=["auth"])
     app.include_router(companies.router, prefix=f"{prefix}", tags=["companies"])
     app.include_router(jobs.router, prefix=f"{prefix}", tags=["jobs"])
-    app.include_router(admin_templates.router, prefix=f"{prefix}/admin", tags=["admin"])
     app.include_router(admin_routes.router, prefix=f"{prefix}/admin", tags=["admin"])
     if is_admin_key_configured():
         app.include_router(
