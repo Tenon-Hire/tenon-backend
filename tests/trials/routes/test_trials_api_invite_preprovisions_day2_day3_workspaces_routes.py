@@ -153,7 +153,8 @@ async def test_invite_preprovisions_day2_day3_workspaces(
         entry for entry in stub_client.tree_entries if entry["path"] == "README.md"
     )
     assert "Project Brief" in readme_entry["content"]
-    assert "Acceptance Criteria" in readme_entry["content"]
+    assert "Business Context" in readme_entry["content"]
+    assert "Acceptance Criteria" not in readme_entry["content"]
     assert stub_client.created_refs == [("refs/heads/main", "commit-sha")]
     assert len(workspace_groups) == 1
     assert workspace_groups[0].workspace_key == "coding"

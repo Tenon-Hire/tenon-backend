@@ -29,12 +29,12 @@ from app.trials.services.trials_services_trials_scenario_generation_payloads_ser
     build_task_prompts_json,
 )
 from app.trials.services.trials_services_trials_scenario_generation_story_service import (
+    build_project_brief_markdown,
     build_storyline_markdown,
     build_task_description,
 )
 
 PickFn = Callable[[tuple[str, ...], int, int], str]
-TemplateNameFn = Callable[[str], str]
 ChooseSourceFn = Callable[[], str]
 GenerateLlmFn = Callable[..., GeneratedScenarioPayload]
 FallbackBuilderFn = Callable[..., GeneratedScenarioPayload]
@@ -47,7 +47,6 @@ def _task_description_for_day(
     template_key: str,
     *,
     pick: PickFn,
-    template_display_name: TemplateNameFn,
 ) -> str:
     return build_task_description(
         day_index=day_index,
@@ -57,8 +56,27 @@ def _task_description_for_day(
         code_priorities=CODE_PRIORITIES,
         debug_signals=DEBUG_SIGNALS,
         pick=pick,
-        template_display_name=template_display_name,
     )
+
+
+def _preferred_language_framework(
+    *,
+    company_context: dict[str, Any] | None,
+    company_prompt_overrides_json: dict[str, Any] | None,
+    trial_prompt_overrides_json: dict[str, Any] | None,
+) -> str | None:
+    for payload in (
+        company_context,
+        company_prompt_overrides_json,
+        trial_prompt_overrides_json,
+    ):
+        if not isinstance(payload, dict):
+            continue
+        for key in ("preferred_language_framework", "preferredLanguageFramework"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return None
 
 
 def build_deterministic_template_scenario(
@@ -66,11 +84,13 @@ def build_deterministic_template_scenario(
     role: str,
     tech_stack: str,
     template_key: str,
+    company_context: dict[str, Any] | None = None,
+    focus: str | None = None,
+    preferred_language_framework: str | None = None,
     ai_policy_snapshot_json: dict[str, Any] | None,
     pick: PickFn,
-    template_display_name: TemplateNameFn,
 ) -> GeneratedScenarioPayload:
-    """Build deterministic template scenario."""
+    """Build deterministic scenario."""
     require_ai_policy_snapshot(ai_policy_snapshot_json)
     storyline_md = build_storyline_markdown(
         role=role,
@@ -79,7 +99,6 @@ def build_deterministic_template_scenario(
         storyline_contexts=STORYLINE_CONTEXTS,
         storyline_constraints=STORYLINE_CONSTRAINTS,
         pick=pick,
-        template_display_name=template_display_name,
     )
     task_prompts_json = build_task_prompts_json(
         role=role,
@@ -87,7 +106,7 @@ def build_deterministic_template_scenario(
         template_key=template_key,
         day_blueprint=DEFAULT_5_DAY_BLUEPRINT,
         task_description_builder=lambda day, r, t, k: _task_description_for_day(
-            day, r, t, k, pick=pick, template_display_name=template_display_name
+            day, r, t, k, pick=pick
         ),
     )
     prestart_snapshot = require_agent_policy_snapshot(
@@ -97,23 +116,13 @@ def build_deterministic_template_scenario(
     return GeneratedScenarioPayload(
         storyline_md=storyline_md,
         task_prompts_json=task_prompts_json,
-        rubric_json=build_rubric_json(role=role, tech_stack=tech_stack),
-        codespace_spec_json={
-            "task_kind": "feature",
-            "summary": f"Baseline deterministic trial for {role}",
-            "candidate_goal": (
-                f"Complete the {role} implementation task inside the {template_key} template."
-            ),
-            "acceptance_criteria": [
-                "Ship the requested task end-to-end.",
-                "Keep the implementation testable and well-scoped.",
-                "Document tradeoffs across design, coding, demo, and reflection stages.",
-            ],
-            "target_files": [],
-            "repo_adjustments": [],
-            "test_focus": ["core happy path", "edge-case behavior"],
-            "test_command": None,
-        },
+        project_brief_md=build_project_brief_markdown(
+            role=role,
+            company_context=company_context,
+            focus=focus,
+            preferred_language_framework=preferred_language_framework,
+        ),
+        rubric_json=build_rubric_json(role=role),
         ai_policy_snapshot_json=ai_policy_snapshot_json,
         metadata=ScenarioGenerationMetadata(
             source=SCENARIO_SOURCE_TEMPLATE_FALLBACK,
@@ -135,7 +144,6 @@ def generate_scenario_payload(
     role: str,
     tech_stack: str,
     template_key: str,
-    scenario_template: str | None = None,
     focus: str | None = None,
     company_context: dict[str, Any] | None = None,
     company_prompt_overrides_json: dict[str, Any] | None = None,
@@ -154,18 +162,29 @@ def generate_scenario_payload(
             role=role,
             tech_stack=tech_stack,
             template_key=template_key,
+            company_context=company_context,
+            focus=focus,
+            preferred_language_framework=_preferred_language_framework(
+                company_context=company_context,
+                company_prompt_overrides_json=company_prompt_overrides_json,
+                trial_prompt_overrides_json=trial_prompt_overrides_json,
+            ),
             ai_policy_snapshot_json=ai_policy_snapshot_json,
         )
+    preferred_language_framework = _preferred_language_framework(
+        company_context=company_context,
+        company_prompt_overrides_json=company_prompt_overrides_json,
+        trial_prompt_overrides_json=trial_prompt_overrides_json,
+    )
     try:
         return generate_with_llm(
             role=role,
-            tech_stack=tech_stack,
             template_key=template_key,
-            scenario_template=scenario_template,
             focus=focus,
             company_context=company_context,
             company_prompt_overrides_json=company_prompt_overrides_json,
             trial_prompt_overrides_json=trial_prompt_overrides_json,
+            preferred_language_framework=preferred_language_framework,
             ai_policy_snapshot_json=ai_policy_snapshot_json,
         )
     except Exception as exc:

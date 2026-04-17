@@ -20,6 +20,9 @@ from app.trials.repositories.scenario_versions import (
 from app.trials.repositories.scenario_versions.trials_repositories_scenario_versions_trials_scenario_versions_model import (
     SCENARIO_VERSION_STATUS_READY,
 )
+from app.trials.services.trials_services_trials_scenario_generation_story_service import (
+    build_project_brief_markdown,
+)
 from app.trials.services.trials_services_trials_scenario_versions_defaults_service import (
     default_storyline_md,
     task_prompts_payload,
@@ -44,6 +47,12 @@ async def create_initial_scenario_version(
         status=SCENARIO_VERSION_STATUS_READY,
         storyline_md=default_storyline_md(trial),
         task_prompts_json=task_prompts_payload(tasks),
+        project_brief_md=build_project_brief_markdown(
+            role=trial.role,
+            company_context=getattr(trial, "company_context", None),
+            focus=trial.focus,
+            preferred_language_framework=None,
+        ),
         rubric_json={},
         focus_notes=trial.focus or "",
         template_key=trial.template_key,

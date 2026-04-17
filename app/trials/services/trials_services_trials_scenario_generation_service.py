@@ -45,9 +45,6 @@ from app.trials.services.trials_services_trials_scenario_generation_updates_serv
 
 logger = logging.getLogger(__name__)
 
-# Optional test seam for template display-name fallback.
-TEMPLATE_CATALOG: dict[str, dict[str, Any]] = {}
-
 # Scenario generation is the first live AI gate in a brand-new trial. Give
 # the worker enough retry budget to absorb brief provider throttling without
 # dead-lettering the trial before it ever becomes invite-ready.
@@ -73,14 +70,30 @@ def _pick(options: tuple[str, ...], seed: int, salt: int) -> str:
     return options[index]
 
 
-def _template_display_name(template_key: str) -> str:
-    catalog = globals().get("TEMPLATE_CATALOG", {})
-    if isinstance(catalog, dict):
-        entry = catalog.get(template_key) or {}
-        label = str(entry.get("display_name") or "").strip()
-        if label:
-            return label
-    return template_key or "Trial Template"
+def _preferred_language_framework(
+    *,
+    company_context: dict[str, Any] | None,
+    company_prompt_overrides_json: dict[str, Any] | None,
+    trial_prompt_overrides_json: dict[str, Any] | None,
+    preferred_language_framework: str | None,
+) -> str | None:
+    if (
+        preferred_language_framework is not None
+        and preferred_language_framework.strip()
+    ):
+        return preferred_language_framework.strip()
+    for payload in (
+        company_context,
+        company_prompt_overrides_json,
+        trial_prompt_overrides_json,
+    ):
+        if not isinstance(payload, dict):
+            continue
+        for key in ("preferred_language_framework", "preferredLanguageFramework"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return None
 
 
 def _is_retryable_scenario_generation_error(exc: Exception) -> bool:
@@ -97,39 +110,48 @@ def build_deterministic_template_scenario(
     role: str,
     tech_stack: str,
     template_key: str,
+    company_context: dict[str, Any] | None = None,
+    focus: str | None = None,
+    preferred_language_framework: str | None = None,
     ai_policy_snapshot_json: dict[str, Any] | None = None,
 ) -> GeneratedScenarioPayload:
-    """Build deterministic template scenario."""
+    """Build deterministic scenario."""
     return _build_deterministic_impl(
         role=role,
         tech_stack=tech_stack,
         template_key=template_key,
+        company_context=company_context,
+        focus=focus,
+        preferred_language_framework=preferred_language_framework,
         ai_policy_snapshot_json=ai_policy_snapshot_json,
         pick=_pick,
-        template_display_name=_template_display_name,
     )
 
 
 def _generate_with_llm(
     *,
     role: str,
-    tech_stack: str,
     template_key: str,
-    scenario_template: str | None = None,
     focus: str | None = None,
     company_context: dict[str, Any] | None = None,
     company_prompt_overrides_json: dict[str, Any] | None = None,
     trial_prompt_overrides_json: dict[str, Any] | None = None,
+    preferred_language_framework: str | None = None,
     ai_policy_snapshot_json: dict[str, Any] | None = None,
 ) -> GeneratedScenarioPayload:
     require_ai_policy_snapshot(ai_policy_snapshot_json)
     normalized_company_overrides = company_prompt_overrides_json or None
     normalized_trial_overrides = trial_prompt_overrides_json or None
+    resolved_preferred_language_framework = _preferred_language_framework(
+        company_context=company_context,
+        company_prompt_overrides_json=normalized_company_overrides,
+        trial_prompt_overrides_json=normalized_trial_overrides,
+        preferred_language_framework=preferred_language_framework,
+    )
     run_context_md = (
         f"Role: {role}\n"
-        f"Tech stack: {tech_stack}\n"
-        f"Template key: {template_key}\n"
-        f"Scenario template: {(scenario_template or '').strip() or 'default-5day'}"
+        "Project brief guidance: blank-repo, from-scratch system design only.\n"
+        "Treat any Talent Partner context as optional and non-binding."
     )
     if normalized_company_overrides is not None:
         run_context_md += "\nCompany prompt overrides: " + json.dumps(
@@ -139,6 +161,11 @@ def _generate_with_llm(
         run_context_md += "\nTrial prompt overrides: " + json.dumps(
             normalized_trial_overrides, sort_keys=True
         )
+    if resolved_preferred_language_framework is not None:
+        run_context_md += (
+            "\nPreferred language/framework context (non-binding): "
+            f"{resolved_preferred_language_framework}"
+        )
     system_prompt, rubric_prompt = build_required_snapshot_prompt(
         snapshot_json=ai_policy_snapshot_json,
         agent_key="prestart",
@@ -147,13 +174,18 @@ def _generate_with_llm(
     user_prompt = json.dumps(
         {
             "role": role,
-            "techStack": tech_stack,
-            "templateKey": template_key,
-            "scenarioTemplate": (scenario_template or "").strip() or None,
             "focus": (focus or "").strip() or None,
             "companyContext": company_context or None,
             "companyPromptOverrides": normalized_company_overrides,
             "trialPromptOverrides": normalized_trial_overrides,
+            "preferredLanguageFramework": (
+                {
+                    "value": resolved_preferred_language_framework,
+                    "binding": "context_only",
+                }
+                if resolved_preferred_language_framework is not None
+                else None
+            ),
             "rubricGuidance": rubric_prompt,
         },
         indent=2,
@@ -173,15 +205,15 @@ def _generate_with_llm(
         raise RuntimeError(str(exc)) from exc
     logger.info(
         "scenario_generation_llm_completed",
-        extra={"role": role, "techStack": tech_stack, "templateKey": template_key},
+        extra={"role": role, "templateKey": template_key},
     )
     return GeneratedScenarioPayload(
         storyline_md=response.result.storyline_md,
         task_prompts_json=[
             prompt.model_dump() for prompt in response.result.task_prompts_json
         ],
+        project_brief_md=response.result.project_brief_md,
         rubric_json=response.result.rubric_json.model_dump(by_alias=True),
-        codespace_spec_json=response.result.codespace_spec_json.model_dump(),
         ai_policy_snapshot_json=ai_policy_snapshot_json,
         metadata=ScenarioGenerationMetadata(
             source=SCENARIO_SOURCE_LLM,
@@ -199,7 +231,6 @@ def generate_scenario_payload(
     role: str,
     tech_stack: str,
     template_key: str,
-    scenario_template: str | None = None,
     focus: str | None = None,
     company_context: dict[str, Any] | None = None,
     company_prompt_overrides_json: dict[str, Any] | None = None,
@@ -215,7 +246,6 @@ def generate_scenario_payload(
         generate_with_llm=_generate_with_llm,
         build_fallback=build_deterministic_template_scenario,
         logger=logger,
-        scenario_template=scenario_template,
         focus=focus,
         company_context=company_context,
         company_prompt_overrides_json=company_prompt_overrides_json,

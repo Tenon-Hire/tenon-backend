@@ -81,6 +81,7 @@ async def test_scenario_generation_job_creates_v1_and_updates_detail_read(
     assert (
         scenario_v1.storyline_md
         and scenario_v1.task_prompts_json
+        and scenario_v1.project_brief_md
         and isinstance(scenario_v1.rubric_json, dict)
     )
     assert scenario_v1.model_name == "template_catalog_fallback"
@@ -101,11 +102,13 @@ async def test_scenario_generation_job_creates_v1_and_updates_detail_read(
     assert detail["scenario"]["status"] == scenario_v1.status
     assert detail["scenario"]["storylineMd"] == scenario_v1.storyline_md
     assert detail["scenario"]["taskPromptsJson"] == scenario_v1.task_prompts_json
+    assert detail["scenario"]["projectBriefMd"] == scenario_v1.project_brief_md
     assert detail["scenario"]["rubricJson"] == scenario_v1.rubric_json
     assert detail["scenario"]["modelName"] == scenario_v1.model_name
     assert detail["scenario"]["modelVersion"] == scenario_v1.model_version
     assert detail["scenario"]["promptVersion"] == scenario_v1.prompt_version
     assert detail["scenario"]["rubricVersion"] == scenario_v1.rubric_version
+    assert "codespaceSpecJson" not in detail["scenario"]
 
     prompts_by_day = {
         int(prompt["dayIndex"]): prompt

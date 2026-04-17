@@ -1,14 +1,30 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
+from app.ai import build_ai_policy_snapshot
 from app.evaluations.services import winoe_report_pipeline
 from app.trials.services import scenario_generation
 
 
-def test_template_display_name_handles_blank_catalog_value(monkeypatch):
-    monkeypatch.setattr(
-        scenario_generation, "TEMPLATE_CATALOG", {"template-x": {"display_name": "   "}}
+def _snapshot():
+    trial = SimpleNamespace(
+        ai_notice_version="mvp1",
+        ai_notice_text="AI assistance may be used for evaluation support.",
+        ai_eval_enabled_by_day={"1": True, "2": True, "3": True, "4": True, "5": True},
     )
-    assert scenario_generation._template_display_name("template-x") == "template-x"
+    return build_ai_policy_snapshot(trial=trial)
+
+
+def test_project_brief_generation_stays_open_ended():
+    payload = scenario_generation.build_deterministic_template_scenario(
+        role="Backend Engineer",
+        tech_stack="Python",
+        template_key="template-x",
+        ai_policy_snapshot_json=_snapshot(),
+    )
+    assert payload.project_brief_md.startswith("# Project Brief")
+    assert "template" not in payload.project_brief_md.lower()
 
 
 def test_apply_generated_task_updates_covers_invalid_and_blank_inputs():

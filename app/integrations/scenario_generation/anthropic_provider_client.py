@@ -20,7 +20,7 @@ class AnthropicScenarioGenerationProvider:
 
     # The prestart scenario payload is larger than the other Anthropic JSON
     # contracts in this repo. A slightly higher output cap avoids truncating the
-    # final `codespace_spec_json` field while staying scoped to this provider.
+    # project brief while staying scoped to this provider.
     _MAX_TOKENS = 6_144
 
     def generate_scenario(

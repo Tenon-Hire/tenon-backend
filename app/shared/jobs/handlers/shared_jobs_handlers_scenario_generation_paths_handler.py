@@ -18,8 +18,8 @@ def _apply_generated_fields(target_scenario, *, trial, generated):
     target_scenario.status = SCENARIO_VERSION_STATUS_READY
     target_scenario.storyline_md = generated.storyline_md
     target_scenario.task_prompts_json = generated.task_prompts_json
+    target_scenario.project_brief_md = generated.project_brief_md
     target_scenario.rubric_json = generated.rubric_json
-    target_scenario.codespace_spec_json = generated.codespace_spec_json
     target_scenario.ai_policy_snapshot_json = generated.ai_policy_snapshot_json
     target_scenario.focus_notes = trial.focus or ""
     target_scenario.template_key = trial.template_key
@@ -97,6 +97,7 @@ async def _apply_default_scenario_version(
             status=SCENARIO_VERSION_STATUS_READY,
             storyline_md="",
             task_prompts_json=[],
+            project_brief_md="",
             rubric_json={},
             focus_notes=trial.focus or "",
             template_key=trial.template_key,

@@ -14,11 +14,11 @@ async def test_provision_workspace_coding_task_bootstraps_empty_repo_when_groupi
     scenario_version = SimpleNamespace(
         id=88,
         storyline_md="# Day 2",
-        codespace_spec_json={
-            "summary": "Day 2 work",
-            "candidate_goal": "Create the repo baseline.",
-            "acceptance_criteria": ["No template clone."],
-        },
+        project_brief_md=(
+            "# Project Brief\n\n## Business Context\n\nDay 2 work.\n"
+            "\n## System Requirements\n\nCreate the repo baseline.\n"
+            "\n## Deliverables\n\n- No pre-populated code.\n"
+        ),
     )
     task = SimpleNamespace(id=101, day_index=2, type="code")
     now = datetime.now(UTC)

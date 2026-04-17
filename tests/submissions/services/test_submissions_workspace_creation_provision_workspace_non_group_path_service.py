@@ -13,11 +13,11 @@ async def test_provision_workspace_non_group_path_bootstraps_empty_repo(monkeypa
     scenario_version = SimpleNamespace(
         id=88,
         storyline_md="# From scratch",
-        codespace_spec_json={
-            "summary": "Build from scratch",
-            "candidate_goal": "Create the repo baseline.",
-            "acceptance_criteria": ["Empty repo only."],
-        },
+        project_brief_md=(
+            "# Project Brief\n\n## Business Context\n\nBuild from scratch.\n"
+            "\n## System Requirements\n\nCreate the repo baseline.\n"
+            "\n## Deliverables\n\n- Empty repo only.\n"
+        ),
     )
     task = SimpleNamespace(id=101, day_index=1, type="design")
     now = datetime.now(UTC)

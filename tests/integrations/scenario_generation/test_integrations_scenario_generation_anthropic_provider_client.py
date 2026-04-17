@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from app.ai.ai_output_models import (
-    CodespaceSpec,
     ScenarioGenerationOutput,
     ScenarioRubric,
     ScenarioRubricDayWeights,
@@ -45,15 +44,7 @@ def _scenario_generation_output() -> ScenarioGenerationOutput:
                 ),
             ],
         ),
-        codespace_spec_json=CodespaceSpec(
-            summary="Build the feature.",
-            candidate_goal="Ship the requested backend changes.",
-            acceptance_criteria=["It works.", "It is tested."],
-            target_files=["app/example.py"],
-            repo_adjustments=["Add endpoint"],
-            test_focus=["happy path"],
-            test_command="poetry run pytest tests/example",
-        ),
+        project_brief_md="# Project Brief\n\n## Business Context\n\nBuild the feature.\n",
     )
 
 

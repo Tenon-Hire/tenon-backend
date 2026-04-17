@@ -6,7 +6,6 @@ import pytest
 
 from app.ai import AIPolicySnapshotError, build_ai_policy_snapshot
 from app.ai.ai_output_models import (
-    CodespaceSpec,
     ScenarioGenerationOutput,
     ScenarioRubric,
     ScenarioRubricDimension,
@@ -44,6 +43,7 @@ def test_deterministic_template_generation_is_stable_for_same_inputs() -> None:
     )
     assert first == second
     assert len(first.task_prompts_json) == 5
+    assert first.project_brief_md.startswith("# Project Brief")
     assert (
         first.metadata.source == scenario_generation.SCENARIO_SOURCE_TEMPLATE_FALLBACK
     )
@@ -113,13 +113,13 @@ def test_generate_scenario_payload_fails_closed_when_llm_generation_errors(
     def _explode(
         *,
         role: str,
-        tech_stack: str,
         template_key: str,
         scenario_template=None,
         focus=None,
         company_context=None,
         company_prompt_overrides_json=None,
         trial_prompt_overrides_json=None,
+        preferred_language_framework=None,
         ai_policy_snapshot_json=None,
     ):
         raise RuntimeError("llm exploded")
@@ -173,17 +173,17 @@ def test_generate_scenario_payload_fails_closed_when_source_selection_fails(
         )
 
 
-def test_template_display_name_falls_back_to_template_key_when_missing(
-    monkeypatch,
-) -> None:
-    monkeypatch.setattr(scenario_generation, "TEMPLATE_CATALOG", {})
+def test_project_brief_stays_open_ended_for_context_changes() -> None:
     payload = scenario_generation.build_deterministic_template_scenario(
         role="Backend Engineer",
         tech_stack="Python",
         template_key="missing-template",
         ai_policy_snapshot_json=_snapshot(),
     )
-    assert "missing-template" in payload.storyline_md
+    assert payload.project_brief_md.startswith("# Project Brief")
+    assert "codespace" not in payload.project_brief_md.lower()
+    assert "python" not in payload.project_brief_md.lower()
+    assert "template" not in payload.project_brief_md.lower()
 
 
 def test_deterministic_template_generation_uses_demo_and_reflection_language() -> None:
@@ -223,7 +223,6 @@ def test_generate_with_llm_placeholder_raises(monkeypatch) -> None:
     with pytest.raises(RuntimeError, match="missing_openai_api_key"):
         scenario_generation._generate_with_llm(
             role="Backend Engineer",
-            tech_stack="Python",
             template_key="python-fastapi",
             ai_policy_snapshot_json=_snapshot(),
         )
@@ -317,15 +316,7 @@ def test_generate_with_llm_success_includes_override_context(monkeypatch) -> Non
                             ),
                         ],
                     ),
-                    codespace_spec_json=CodespaceSpec(
-                        summary="A custom scenario requiring full-stack work.",
-                        candidate_goal="Ship the end-to-end implementation in the trial.",
-                        acceptance_criteria=[
-                            "Implement the requested flow.",
-                            "Keep the code testable.",
-                        ],
-                        test_focus=["happy path", "regression coverage"],
-                    ),
+                    project_brief_md="# Project Brief\n\n## Business Context\n\nA custom scenario requiring full-stack work.\n",
                 ),
                 model_name="claude-opus-4.6",
                 model_version="2024-11-15",
@@ -354,11 +345,13 @@ def test_generate_with_llm_success_includes_override_context(monkeypatch) -> Non
 
     payload = scenario_generation._generate_with_llm(
         role="Backend Engineer",
-        tech_stack="Python",
         template_key="python-fastapi",
-        scenario_template="custom-5day",
         focus="Emphasize production realism.",
-        company_context={"domain": "payments", "productArea": "billing"},
+        company_context={
+            "domain": "payments",
+            "productArea": "billing",
+            "preferred_language_framework": "TypeScript/Node",
+        },
         company_prompt_overrides_json={"tone": "pragmatic"},
         trial_prompt_overrides_json={"scope": "end-to-end"},
         ai_policy_snapshot_json=_snapshot(),
@@ -370,10 +363,9 @@ def test_generate_with_llm_success_includes_override_context(monkeypatch) -> Non
     assert payload.metadata.prompt_version == "v9"
     assert payload.metadata.rubric_version == "r9"
     assert payload.storyline_md.startswith("A custom storyline")
-    assert (
-        payload.codespace_spec_json["summary"]
-        == "A custom scenario requiring full-stack work."
-    )
+    assert payload.project_brief_md.startswith("# Project Brief")
+    assert "target stack" not in payload.rubric_json["summary"].lower()
+    assert "python" not in payload.rubric_json["summary"].lower()
 
     assert captured["agent_key"] == "prestart"
     assert captured["runtime_agent_key"] == "prestart"
@@ -384,13 +376,29 @@ def test_generate_with_llm_success_includes_override_context(monkeypatch) -> Non
     assert (
         'Trial prompt overrides: {"scope": "end-to-end"}' in captured["run_context_md"]
     )
+    assert (
+        "Project brief guidance: blank-repo, from-scratch system design only."
+        in captured["run_context_md"]
+    )
     request = captured["request"]
     assert isinstance(request, ScenarioGenerationProviderRequest)
     assert request.model == "claude-opus-4.6"
     assert '"focus": "Emphasize production realism."' in request.user_prompt
+    assert '"companyContext": {' in request.user_prompt
+    assert '"domain": "payments"' in request.user_prompt
+    assert '"productArea": "billing"' in request.user_prompt
+    assert '"techStack"' not in request.user_prompt
+    assert '"scenarioTemplate"' not in request.user_prompt
+    assert '"preferredLanguageFramework": {' in request.user_prompt
+    assert '"value": "TypeScript/Node"' in request.user_prompt
+    assert '"binding": "context_only"' in request.user_prompt
     assert (
-        '"companyContext": {\n    "domain": "payments",\n    "productArea": "billing"\n  }'
-        in request.user_prompt
+        "Preferred language/framework context (non-binding): TypeScript/Node"
+        in captured["run_context_md"]
+    )
+    assert (
+        "Treat any Talent Partner context as optional and non-binding."
+        in captured["run_context_md"]
     )
 
 

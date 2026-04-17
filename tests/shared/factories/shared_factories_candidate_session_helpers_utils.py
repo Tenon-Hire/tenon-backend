@@ -68,6 +68,10 @@ async def _resolve_candidate_session_scenario_version_id(
             version_index=1,
             status="ready",
             storyline_md=f"# {trial.title}",
+            project_brief_md=(
+                "# Project Brief\n\n## Business Context\n\n"
+                f"{trial.focus or trial.title}\n"
+            ),
             task_prompts_json=[],
             rubric_json={},
             focus_notes=trial.focus or "",

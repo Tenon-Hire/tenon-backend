@@ -40,12 +40,11 @@ def build_task_prompts_json(
     return prompts
 
 
-def build_rubric_json(*, role: str, tech_stack: str) -> dict[str, Any]:
+def build_rubric_json(*, role: str) -> dict[str, Any]:
     """Build rubric json."""
     role_label = normalize_text(role) or "Engineer"
-    stack_label = normalize_text(tech_stack) or "target stack"
     return {
-        "summary": f"Evaluate {role_label} performance across planning, implementation, debugging, demo presentation, and reflection in {stack_label}.",
+        "summary": f"Evaluate {role_label} performance across planning, implementation, debugging, demo presentation, and reflection in a from-scratch build.",
         "dayWeights": {"1": 20, "2": 30, "3": 25, "4": 15, "5": 10},
         "dimensions": [
             {

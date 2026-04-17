@@ -10,7 +10,6 @@ from app.trials.services.trials_services_trials_scenario_generation_text_service
 )
 
 PickFn = Callable[[tuple[str, ...], int, int], str]
-TemplateNameFn = Callable[[str], str]
 
 
 def build_storyline_markdown(
@@ -21,25 +20,115 @@ def build_storyline_markdown(
     storyline_contexts: tuple[str, ...],
     storyline_constraints: tuple[str, ...],
     pick: PickFn,
-    template_display_name: TemplateNameFn,
 ) -> str:
     """Build storyline markdown."""
     seed = seed_from_inputs(role, tech_stack, template_key)
-    display_name = template_display_name(template_key)
     context = pick(storyline_contexts, seed, 1)
     constraint = pick(storyline_constraints, seed, 2)
     role_label = normalize_text(role) or "Software Engineer"
-    stack_label = normalize_text(tech_stack) or "general backend stack"
     return "\n".join(
         [
             f"# {role_label} Scenario v1",
             "",
-            f"You are joining a product team shipping services on **{stack_label}**.",
-            f"The repository baseline uses the **{display_name}** template and the team is currently working on {context}.",
-            "Your mandate is to deliver a safe, production-quality increment with "
-            f"{constraint} while keeping communication clear for reviewers.",
+            "You are joining a product team with an empty repository and a blank slate.",
+            f"The team needs a from-scratch build for {context}.",
+            (
+                "The trial is intended to surface product judgment, build quality, "
+                f"and communication under a two-day implementation window with {constraint}."
+            ),
+            "Treat the scenario as production hiring work, not an interview toy.",
+            (
+                "The product area is framed around a realistic company need, and the candidate "
+                "is free to choose a reasonable implementation approach."
+            ),
         ]
     )
+
+
+def build_project_brief_markdown(
+    *,
+    role: str,
+    company_context: dict[str, object] | None = None,
+    focus: str | None = None,
+    preferred_language_framework: str | None = None,
+) -> str:
+    """Build project brief markdown."""
+    role_label = normalize_text(role) or "Software Engineer"
+    subject = normalize_text(focus) or "the requested product area"
+    preferred_stack = normalize_text(preferred_language_framework)
+    domain = None
+    product_area = None
+    if isinstance(company_context, dict):
+        domain = normalize_text(
+            company_context.get("domain") or company_context.get("businessDomain")
+        )
+        product_area = normalize_text(
+            company_context.get("productArea") or company_context.get("product_area")
+        )
+    business_context = "; ".join(
+        part
+        for part in (
+            f"Domain: {domain}" if domain else None,
+            f"Product area: {product_area}" if product_area else None,
+        )
+        if part
+    )
+    context_lines = [
+        "# Project Brief",
+        "",
+        "## Business Context",
+        "",
+        f"The team needs a candidate-built system in an empty repo for a {role_label.lower()} engagement.",
+        (
+            f"The product focus is {subject}. The scenario should feel realistic, scoped, and "
+            "open enough to support different valid architectures."
+        ),
+    ]
+    if business_context:
+        context_lines.extend([business_context, ""])
+    if preferred_stack:
+        context_lines.extend(
+            [
+                "",
+                "## Talent Partner Context",
+                "",
+            ]
+        )
+        if preferred_stack:
+            context_lines.extend(
+                [
+                    (
+                        f"Preferred language/framework: {preferred_stack}. Treat this as context "
+                        "only, not as a requirement."
+                    )
+                ]
+            )
+    context_lines.extend(
+        [
+            "",
+            "## System Requirements",
+            "",
+            "- Build the system from scratch in the empty workspace.",
+            "- Keep the scope small enough for two implementation days while still feeling production-grade.",
+            "- Support one or two core user journeys that require real product and engineering tradeoffs.",
+            "- Include enough detail for a strong design doc, implementation plan, demo, and reflection.",
+            "",
+            "## Technical Constraints",
+            "",
+            "- Do not prescribe a specific framework, language, or database.",
+            "- Keep the architecture open-ended so multiple reasonable stack choices are possible.",
+            "- Assume the repo starts with workspace configuration, evidence capture, and this README only.",
+            "- Do not require cloned starter code or pre-populated implementation files.",
+            "",
+            "## Deliverables",
+            "",
+            "- A working implementation of the requested system.",
+            "- Tests that verify the main user flows and a meaningful regression path.",
+            "- A concise demo narrative that explains decisions, tradeoffs, and remaining risks.",
+            "- A reflection that summarizes what was built and what would come next.",
+        ]
+    )
+    return "\n".join(context_lines).strip()
 
 
 def build_task_description(
@@ -51,18 +140,15 @@ def build_task_description(
     code_priorities: tuple[str, ...],
     debug_signals: tuple[str, ...],
     pick: PickFn,
-    template_display_name: TemplateNameFn,
 ) -> str:
     """Build task description."""
     seed = seed_from_inputs(role, tech_stack, template_key)
     priority = pick(code_priorities, seed, 10 + day_index)
     debug_signal = pick(debug_signals, seed, 20 + day_index)
-    stack_label = normalize_text(tech_stack) or "the target stack"
-    template_name = template_display_name(template_key)
     if day_index == 1:
-        return f"Draft an implementation plan that defines service boundaries, key data flows, API contracts, and risk controls. Include concrete tradeoffs and how you will validate correctness in {stack_label}."
+        return "Draft an implementation plan that defines service boundaries, key data flows, API contracts, and risk controls. Include concrete tradeoffs and how you will validate correctness with tests and reviewable artifacts."
     if day_index == 2:
-        return f"Implement the primary backend slice in code with tests. Prioritize {priority} and keep the solution aligned with the {template_name} project structure."
+        return f"Implement the primary backend slice in code with tests. Prioritize {priority} and keep the solution aligned with the brief."
     if day_index == 3:
         return f"Investigate and fix a failing behavior path. Treat {debug_signal} as the anchor signal, isolate root cause, and add regression coverage."
     if day_index == 4:
@@ -70,4 +156,8 @@ def build_task_description(
     return "Write a markdown reflection essay covering your experience, challenges, decisions, tradeoffs, communication, and what you would do next."
 
 
-__all__ = ["build_storyline_markdown", "build_task_description"]
+__all__ = [
+    "build_project_brief_markdown",
+    "build_storyline_markdown",
+    "build_task_description",
+]
