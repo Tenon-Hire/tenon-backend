@@ -79,6 +79,9 @@ async def create_trial(
         version_index=1,
         status="ready",
         storyline_md=f"# {sim.title}",
+        project_brief_md=(
+            "# Project Brief\n\n## Business Context\n\n" f"{sim.focus or sim.title}\n"
+        ),
         task_prompts_json=[
             {
                 "dayIndex": t.day_index,

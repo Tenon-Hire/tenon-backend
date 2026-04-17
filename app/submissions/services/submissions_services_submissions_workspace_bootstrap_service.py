@@ -9,9 +9,11 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from app.ai import CodespaceSpec
 from app.integrations.github.client import GithubClient, GithubError
 from app.shared.database.shared_database_models_model import CandidateSession, Task
+from app.shared.utils.shared_utils_project_brief_service import (
+    canonical_project_brief_markdown,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -92,56 +94,17 @@ def _project_brief_readme(
     scenario_version,
     task: Task | None,
 ) -> str:
-    raw_spec = getattr(scenario_version, "codespace_spec_json", None) or {}
-    if raw_spec:
-        spec = (
-            raw_spec
-            if isinstance(raw_spec, CodespaceSpec)
-            else CodespaceSpec.model_validate(raw_spec)
-        )
-    else:
-        storyline = (getattr(scenario_version, "storyline_md", "") or "").strip()
-        summary = (
-            storyline.splitlines()[0].strip("# ").strip() or str(trial.title).strip()
-        )
-        candidate_goal = (
-            f"Complete the {getattr(trial, 'role', 'trial')} project baseline in the"
-            " candidate workspace."
-        )
-        spec = CodespaceSpec(
-            summary=summary,
-            candidate_goal=candidate_goal,
-            acceptance_criteria=[
-                "Repository contains the from-scratch project brief and workspace config.",
-                "The repo stays empty apart from the required bootstrap files.",
-            ],
-        )
-    brief_lines = [
-        f"# {trial.title}",
-        "",
-        "## Project Brief",
-        "",
-        (spec.summary or "").strip(),
-        "",
-        "## Candidate Goal",
-        "",
-        (spec.candidate_goal or "").strip(),
-        "",
-        "## Acceptance Criteria",
-        "",
-    ]
-    brief_lines.extend(f"- {criterion}" for criterion in spec.acceptance_criteria)
-    if getattr(spec, "target_files", None):
-        brief_lines.extend(["", "## Target Files", ""])
-        brief_lines.extend(f"- `{path}`" for path in spec.target_files)
-    if getattr(spec, "test_focus", None):
-        brief_lines.extend(["", "## Test Focus", ""])
-        brief_lines.extend(f"- {focus}" for focus in spec.test_focus)
+    project_brief_md = canonical_project_brief_markdown(
+        scenario_version,
+        trial_title=getattr(trial, "title", None),
+        storyline_md=getattr(scenario_version, "storyline_md", None),
+    )
+    brief_lines = [f"# {trial.title}", "", project_brief_md.strip()]
+    if task is not None and getattr(task, "title", None):
+        brief_lines.extend(["", "## Task", "", str(task.title).strip()])
     storyline = (getattr(scenario_version, "storyline_md", "") or "").strip()
     if storyline:
         brief_lines.extend(["", "## Scenario Context", "", storyline])
-    if task is not None and getattr(task, "title", None):
-        brief_lines.extend(["", "## Task", "", str(task.title).strip()])
     return "\n".join(brief_lines).strip() + "\n"
 
 

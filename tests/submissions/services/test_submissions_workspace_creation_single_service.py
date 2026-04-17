@@ -19,13 +19,11 @@ async def test_provision_single_workspace_bootstraps_empty_repo(
     trial = SimpleNamespace(title="Trial title", role="Backend Engineer")
     scenario_version = SimpleNamespace(
         storyline_md="# Build from scratch",
-        codespace_spec_json={
-            "summary": "Build from scratch",
-            "candidate_goal": "Build the workspace baseline.",
-            "acceptance_criteria": ["Repo stays empty except bootstrap files."],
-            "target_files": ["README.md"],
-            "test_focus": ["Bootstrap contract"],
-        },
+        project_brief_md=(
+            "# Project Brief\n\n## Business Context\n\nBuild from scratch.\n"
+            "\n## System Requirements\n\nBuild the workspace baseline.\n"
+            "\n## Deliverables\n\n- Repo stays empty except bootstrap files.\n"
+        ),
     )
 
     async def _bootstrap_empty_candidate_repo(**kwargs):

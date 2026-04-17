@@ -37,6 +37,9 @@ from app.evaluations.services.evaluations_services_evaluations_winoe_report_pipe
     _get_or_start_run,
 )
 from app.integrations.winoe_report_review import WinoeReportReviewProviderError
+from app.shared.utils.shared_utils_project_brief_service import (
+    canonical_project_brief_markdown,
+)
 
 _RETRYABLE_PROVIDER_ERROR_MARKERS = (
     "ratelimiterror",
@@ -214,8 +217,12 @@ async def process_evaluation_run_job_impl(
                 "companyContext": getattr(context.trial, "company_context", None),
                 "storylineMd": getattr(context.scenario_version, "storyline_md", None),
                 "rubricJson": getattr(context.scenario_version, "rubric_json", None),
-                "codespaceSpecJson": getattr(
-                    context.scenario_version, "codespace_spec_json", None
+                "projectBriefMd": canonical_project_brief_markdown(
+                    context.scenario_version,
+                    trial_title=getattr(context.trial, "title", None),
+                    storyline_md=getattr(
+                        context.scenario_version, "storyline_md", None
+                    ),
                 ),
             },
             ai_policy_snapshot_json=ai_policy_snapshot_json,

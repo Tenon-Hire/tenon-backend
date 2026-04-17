@@ -74,7 +74,8 @@ class ScenarioVersion(Base, TimestampMixin):
         nullable=False,
         default=dict,
     )
-    codespace_spec_json: Mapped[dict | list | None] = mapped_column(
+    project_brief_md: Mapped[str | None] = mapped_column(
+        "codespace_spec_json",
         JSON,
         nullable=True,
     )

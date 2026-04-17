@@ -44,6 +44,8 @@ async def test_get_trial_detail_happy_path(
     assert body["scenario"]["status"] in {"ready", "locked"}
     assert body["scenario"]["lockedAt"] is None
     assert body["scenario"]["notes"] == sim.focus
+    assert body["scenario"]["projectBriefMd"]
+    assert "codespaceSpecJson" not in body["scenario"]
     assert body["templateKey"] == sim.template_key
     assert body["techStack"] == sim.tech_stack
     assert isinstance(body["tasks"], list)

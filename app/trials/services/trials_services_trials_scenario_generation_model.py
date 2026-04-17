@@ -24,8 +24,8 @@ class GeneratedScenarioPayload:
 
     storyline_md: str
     task_prompts_json: list[dict[str, Any]]
+    project_brief_md: str
     rubric_json: dict[str, Any]
-    codespace_spec_json: dict[str, Any]
     ai_policy_snapshot_json: dict[str, Any] | None
     metadata: ScenarioGenerationMetadata
 

@@ -95,7 +95,6 @@ async def handle_scenario_generation_impl(
             role=trial.role,
             tech_stack=trial.tech_stack,
             template_key=trial.template_key,
-            scenario_template=trial.scenario_template,
             focus=trial.focus,
             company_context=trial.company_context,
             company_prompt_overrides_json=company_prompt_overrides_json,

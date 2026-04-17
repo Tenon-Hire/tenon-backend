@@ -7,23 +7,6 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class CodespaceSpec(BaseModel):
-    """Structured repository specialization spec emitted by prestart generation."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    task_kind: Literal[
-        "feature", "bugfix", "debug", "migration", "optimization"
-    ] = "feature"
-    summary: str = Field(min_length=1, max_length=2_000)
-    candidate_goal: str = Field(min_length=1, max_length=4_000)
-    acceptance_criteria: list[str] = Field(min_length=1, max_length=12)
-    target_files: list[str] = Field(default_factory=list, max_length=25)
-    repo_adjustments: list[str] = Field(default_factory=list, max_length=20)
-    test_focus: list[str] = Field(default_factory=list, max_length=12)
-    test_command: str | None = Field(default=None, max_length=500)
-
-
 class ScenarioTaskPrompt(BaseModel):
     """Per-day scenario prompt payload that maps onto seeded task rows."""
 
@@ -73,8 +56,8 @@ class ScenarioGenerationOutput(BaseModel):
 
     storyline_md: str = Field(min_length=1, max_length=40_000)
     task_prompts_json: list[ScenarioTaskPrompt] = Field(min_length=5, max_length=5)
+    project_brief_md: str = Field(min_length=1, max_length=40_000)
     rubric_json: ScenarioRubric
-    codespace_spec_json: CodespaceSpec
 
 
 class CodespacePatchProposal(BaseModel):
@@ -143,7 +126,6 @@ __all__ = [
     "AggregatedWinoeReportOutput",
     "AggregatorDayScore",
     "CodespacePatchProposal",
-    "CodespaceSpec",
     "DayReviewerOutput",
     "EvidencePointer",
     "ScenarioGenerationOutput",

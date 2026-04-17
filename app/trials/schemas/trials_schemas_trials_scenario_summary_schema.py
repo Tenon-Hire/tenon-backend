@@ -34,6 +34,7 @@ class TrialDetailScenario(ScenarioStateSummary):
 
     storylineMd: str | None = None
     taskPromptsJson: list[dict[str, Any]] | dict[str, Any] | list[Any] | None = None
+    projectBriefMd: str | None = None
     rubricJson: dict[str, Any] | list[Any] | None = None
     notes: str | None = None
     modelName: str | None = None

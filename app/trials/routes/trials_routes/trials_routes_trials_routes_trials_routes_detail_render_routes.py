@@ -10,6 +10,9 @@ from app.shared.jobs.repositories.shared_jobs_repositories_models_repository imp
     JOB_STATUS_QUEUED,
     JOB_STATUS_RUNNING,
 )
+from app.shared.utils.shared_utils_project_brief_service import (
+    canonical_project_brief_markdown,
+)
 from app.trials import services as sim_service
 from app.trials.schemas.trials_schemas_trials_core_schema import (
     ScenarioVersionSummary,
@@ -278,6 +281,11 @@ def render_trial_detail(
                 lockedAt=review_scenario_version.locked_at,
                 storylineMd=review_scenario_version.storyline_md,
                 taskPromptsJson=review_scenario_version.task_prompts_json,
+                projectBriefMd=canonical_project_brief_markdown(
+                    review_scenario_version,
+                    trial_title=getattr(sim, "title", None),
+                    storyline_md=getattr(review_scenario_version, "storyline_md", None),
+                ),
                 rubricJson=review_scenario_version.rubric_json,
                 notes=review_scenario_version.focus_notes,
                 modelName=review_scenario_version.model_name,

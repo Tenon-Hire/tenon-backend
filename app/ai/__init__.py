@@ -3,7 +3,6 @@
 from .ai_output_models import (
     AggregatedWinoeReportOutput,
     CodespacePatchProposal,
-    CodespaceSpec,
     DayReviewerOutput,
     ScenarioGenerationOutput,
 )
@@ -62,7 +61,6 @@ __all__ = [
     "AggregatedWinoeReportOutput",
     "AgentPromptOverride",
     "CodespacePatchProposal",
-    "CodespaceSpec",
     "DayReviewerOutput",
     "PROMPT_PACK_VERSION",
     "PromptOverrideSet",

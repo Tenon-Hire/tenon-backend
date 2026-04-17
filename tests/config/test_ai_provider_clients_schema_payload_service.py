@@ -49,6 +49,7 @@ def _scenario_generation_payload(
             }
             for day_index in range(1, 6)
         ],
+        "project_brief_md": "# Project Brief\n\n## Business Context\n\nA concise brief.\n",
     }
     if include_required_fields:
         payload["rubric_json"] = {
@@ -66,19 +67,6 @@ def _scenario_generation_payload(
                     "description": "Delivers the work cleanly.",
                 },
             ],
-        }
-        payload["codespace_spec_json"] = {
-            "task_kind": "feature",
-            "summary": "Build the Winoe feature.",
-            "candidate_goal": "Implement the required backend changes.",
-            "acceptance_criteria": [
-                "The endpoint works.",
-                "The data is persisted correctly.",
-            ],
-            "target_files": ["app/example.py"],
-            "repo_adjustments": ["Add route and service logic"],
-            "test_focus": ["happy path", "failure path"],
-            "test_command": "poetry run pytest tests/example",
         }
     return payload
 
@@ -126,6 +114,13 @@ def test_scenario_generation_output_schema_is_strictly_openai_compatible() -> No
     assert rubric_schema["required"] == ["summary", "dayWeights", "dimensions"]
     assert weights_schema["additionalProperties"] is False
     assert weights_schema["required"] == ["1", "2", "3", "4", "5"]
+    assert "codespace_spec_json" not in schema["properties"]
+    assert schema["required"] == [
+        "storyline_md",
+        "task_prompts_json",
+        "project_brief_md",
+        "rubric_json",
+    ]
 
 
 def test_call_openai_json_schema_passes_bounded_reasoning_controls(monkeypatch) -> None:
@@ -277,7 +272,7 @@ def test_call_anthropic_json_validates_complete_tool_payload(monkeypatch) -> Non
     assert result.storyline_md == "A concise but realistic Winoe scenario."
     assert len(result.task_prompts_json) == 5
     assert result.rubric_json.summary == "Concise rubric summary."
-    assert result.codespace_spec_json.summary == "Build the Winoe feature."
+    assert result.project_brief_md.startswith("# Project Brief")
 
 
 def test_call_anthropic_json_rejects_partial_tool_payload(monkeypatch) -> None:

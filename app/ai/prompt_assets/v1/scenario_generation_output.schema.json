@@ -1,88 +1,5 @@
 {
   "$defs": {
-    "CodespaceSpec": {
-      "additionalProperties": false,
-      "description": "Structured repository specialization spec emitted by prestart generation.",
-      "properties": {
-        "acceptance_criteria": {
-          "items": {
-            "type": "string"
-          },
-          "maxItems": 12,
-          "minItems": 1,
-          "title": "Acceptance Criteria",
-          "type": "array"
-        },
-        "candidate_goal": {
-          "maxLength": 4000,
-          "minLength": 1,
-          "title": "Candidate Goal",
-          "type": "string"
-        },
-        "repo_adjustments": {
-          "items": {
-            "type": "string"
-          },
-          "maxItems": 20,
-          "title": "Repo Adjustments",
-          "type": "array"
-        },
-        "summary": {
-          "maxLength": 2000,
-          "minLength": 1,
-          "title": "Summary",
-          "type": "string"
-        },
-        "target_files": {
-          "items": {
-            "type": "string"
-          },
-          "maxItems": 25,
-          "title": "Target Files",
-          "type": "array"
-        },
-        "task_kind": {
-          "default": "feature",
-          "enum": [
-            "feature",
-            "bugfix",
-            "debug",
-            "migration",
-            "optimization"
-          ],
-          "title": "Task Kind",
-          "type": "string"
-        },
-        "test_command": {
-          "anyOf": [
-            {
-              "maxLength": 500,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Test Command"
-        },
-        "test_focus": {
-          "items": {
-            "type": "string"
-          },
-          "maxItems": 12,
-          "title": "Test Focus",
-          "type": "array"
-        }
-      },
-      "required": [
-        "summary",
-        "candidate_goal",
-        "acceptance_criteria"
-      ],
-      "title": "CodespaceSpec",
-      "type": "object"
-    },
     "ScenarioRubric": {
       "additionalProperties": false,
       "description": "Structured rubric contract for scenario generation.",
@@ -225,8 +142,11 @@
   "additionalProperties": false,
   "description": "Strict output contract for the prestart creator agent.",
   "properties": {
-    "codespace_spec_json": {
-      "$ref": "#/$defs/CodespaceSpec"
+    "project_brief_md": {
+      "maxLength": 40000,
+      "minLength": 1,
+      "title": "Project Brief Md",
+      "type": "string"
     },
     "rubric_json": {
       "$ref": "#/$defs/ScenarioRubric"
@@ -250,8 +170,8 @@
   "required": [
     "storyline_md",
     "task_prompts_json",
-    "rubric_json",
-    "codespace_spec_json"
+    "project_brief_md",
+    "rubric_json"
   ],
   "title": "ScenarioGenerationOutput",
   "type": "object"

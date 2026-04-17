@@ -48,6 +48,9 @@ async def attach_active_scenario(async_session, sim: Trial):
         version_index=1,
         status="ready",
         storyline_md=f"# {sim.title}",
+        project_brief_md=(
+            "# Project Brief\n\n## Business Context\n\n" f"{sim.focus or sim.title}\n"
+        ),
         task_prompts_json=[],
         rubric_json={},
         focus_notes="",
