@@ -54,6 +54,8 @@ async def test_handle_submit_task_uses_pinned_cutoff_commit_basis(monkeypatch):
     assert response.commitSha == response.cutoffCommitSha
     assert response.commitSha != submission.commit_sha
     assert response.evalBasisRef == "refs/heads/main@cutoff"
+    assert response.checkpointSha == "checkpoint-sha"
+    assert response.finalSha is None
 
 
 @pytest.mark.asyncio
@@ -96,6 +98,51 @@ async def test_handle_submit_task_normalizes_naive_cutoff_timestamp(monkeypatch)
 
     assert response.cutoffAt is not None
     assert response.cutoffAt.tzinfo is UTC
+
+
+@pytest.mark.asyncio
+async def test_handle_submit_task_uses_final_sha_for_day3(monkeypatch):
+    task = SimpleNamespace(id=23, day_index=3)
+    submission = SimpleNamespace(
+        id=101,
+        submitted_at=datetime(2026, 3, 8, 15, 0, tzinfo=UTC),
+        commit_sha="mutable-head-sha",
+        checkpoint_sha=None,
+        final_sha="final-sha",
+    )
+    day_audit = SimpleNamespace(
+        cutoff_commit_sha="cutoff-day3-sha",
+        cutoff_at=datetime(2026, 3, 8, 18, 0, tzinfo=UTC),
+        eval_basis_ref="refs/heads/main@cutoff",
+    )
+
+    async def _fake_submit_task(*_args, **_kwargs):
+        return task, submission, 3, 5, False
+
+    async def _fake_get_day_audit(*_args, **_kwargs):
+        return day_audit
+
+    monkeypatch.setattr(submit_task_handler, "submit_task", _fake_submit_task)
+    monkeypatch.setattr(
+        submit_task_handler.cs_repo,
+        "get_day_audit",
+        _fake_get_day_audit,
+    )
+
+    response = await submit_task_handler.handle_submit_task(
+        task_id=task.id,
+        payload=SubmissionCreateRequest(contentText=None),
+        candidate_session=SimpleNamespace(id=7),
+        db=object(),
+        github_client=object(),
+        actions_runner=object(),
+    )
+
+    assert response.commitSha == "cutoff-day3-sha"
+    assert response.cutoffCommitSha == "cutoff-day3-sha"
+    assert response.checkpointSha is None
+    assert response.finalSha == "final-sha"
+    assert response.evalBasisRef == "refs/heads/main@cutoff"
 
 
 @pytest.mark.asyncio

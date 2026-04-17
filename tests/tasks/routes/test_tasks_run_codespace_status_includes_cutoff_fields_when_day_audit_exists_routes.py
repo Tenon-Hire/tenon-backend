@@ -6,7 +6,7 @@ from tests.tasks.routes.test_tasks_run_api_utils import *
 
 
 @pytest.mark.asyncio
-async def test_codespace_status_includes_cutoff_fields_when_day_audit_exists(
+async def test_codespace_status_rejects_when_day_audit_exists(
     async_client, async_session, candidate_header_factory
 ):
     talent_partner = await create_talent_partner(
@@ -54,10 +54,8 @@ async def test_codespace_status_includes_cutoff_fields_when_day_audit_exists(
         f"/api/tasks/{day2_task.id}/codespace/status",
         headers=headers,
     )
-    assert resp.status_code == 200, resp.text
+    assert resp.status_code == 409, resp.text
     data = resp.json()
-    assert data["repoFullName"] == "org/status-repo-with-cutoff"
-    assert data["baseTemplateSha"] == "base"
-    assert data["precommitSha"] == "precommit-sha-xyz"
-    assert data["cutoffCommitSha"] == "abc123def456"
-    assert data["cutoffAt"] == "2026-03-08T17:45:00Z"
+    assert data["errorCode"] == "TASK_WINDOW_CLOSED"
+    assert data["details"]["cutoffCommitSha"] == "abc123def456"
+    assert data["details"]["evalBasisRef"] == "refs/heads/main@cutoff"

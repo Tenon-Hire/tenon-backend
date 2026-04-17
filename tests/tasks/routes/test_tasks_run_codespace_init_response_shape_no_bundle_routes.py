@@ -95,8 +95,6 @@ async def test_codespace_init_response_shape_no_bundle(
         "codespaceUrl": "https://codespace-909.github.dev",
         "codespaceState": "available",
         "defaultBranch": "main",
-        "baseTemplateSha": "commit-sha",
-        "precommitSha": None,
         "workspaceId": body["workspaceId"],
     }
     assert isinstance(body["workspaceId"], str)

@@ -125,6 +125,16 @@ async def handle_day_close_enforcement_impl(
             candidate_session_id=candidate_session.id,
             day_index=task.day_index,
         )
+        if revoke_status in {"collaborator_removed", "collaborator_not_found"}:
+            revoked_at = cutoff_at
+            if revoked_at.tzinfo is None:
+                revoked_at = revoked_at.replace(tzinfo=UTC)
+            await workspace_repo.set_access_revocation_state(
+                db,
+                workspace=workspace,
+                access_revoked_at=revoked_at,
+                access_revocation_error=None,
+            )
         default_branch = await resolve_default_branch(
             github_client,
             repo_full_name=repo_full_name,

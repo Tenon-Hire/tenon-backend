@@ -21,6 +21,9 @@ from app.submissions.services.submissions_services_submissions_codespace_urls_se
 from app.submissions.services.submissions_services_submissions_workspace_repo_state_service import (
     refresh_codespace_state,
 )
+from app.submissions.services.use_cases.submissions_services_use_cases_submissions_use_cases_day_flow_gate_service import (
+    ensure_day_flow_open,
+)
 
 
 async def codespace_status(
@@ -40,6 +43,9 @@ async def codespace_status(
     )
     if workspace is None:
         raise WorkspaceMissing(detail="Workspace not initialized", status_code=404)
+    await ensure_day_flow_open(
+        db, candidate_session=candidate_session, task=task, workspace=workspace
+    )
     if github_client is not None:
         workspace = await refresh_codespace_state(
             db,

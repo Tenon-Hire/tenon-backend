@@ -17,6 +17,9 @@ from app.submissions.services.submissions_services_submissions_rate_limits_const
     concurrency_guard,
     throttle_poll,
 )
+from app.submissions.services.use_cases.submissions_services_use_cases_submissions_use_cases_day_flow_gate_service import (
+    ensure_day_flow_open,
+)
 
 
 async def fetch_run_result(
@@ -32,6 +35,7 @@ async def fetch_run_result(
     throttle_poll(candidate_session.id, run_id)
     task = await submission_service.load_task_or_404(db, task_id)
     submission_service.ensure_task_belongs(task, candidate_session)
+    await ensure_day_flow_open(db, candidate_session=candidate_session, task=task)
     submission_service.validate_run_allowed(task)
 
     workspace = await submission_service.workspace_repo.get_by_session_and_task(

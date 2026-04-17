@@ -49,5 +49,5 @@ async def test_codespace_init_works_for_debug_task(
     body = resp.json()
     assert body["repoFullName"]
     assert body["workspaceId"]
-    assert body["baseTemplateSha"] == "base-sha-123"
-    assert body["precommitSha"] is None
+    assert "baseTemplateSha" not in body
+    assert "precommitSha" not in body

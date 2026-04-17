@@ -32,6 +32,9 @@ from app.submissions.services.submissions_services_submissions_workspace_repo_st
 from app.submissions.services.use_cases.submissions_services_use_cases_submissions_use_cases_codespace_validations_service import (
     validate_codespace_request,
 )
+from app.submissions.services.use_cases.submissions_services_use_cases_submissions_use_cases_day_flow_gate_service import (
+    ensure_day_flow_open,
+)
 from app.trials.repositories.scenario_versions import (
     trials_repositories_scenario_versions_trials_scenario_versions_repository as scenario_repo,
 )
@@ -86,6 +89,25 @@ async def init_codespace(
         candidate_session.github_username = normalized_username
     task = await _validate_codespace_request_with_legacy_fallback(
         db, candidate_session, task_id
+    )
+    task_day_index = getattr(task, "day_index", None)
+    task_type = getattr(task, "type", None)
+    existing_workspace = None
+    if task_day_index is not None and task_type is not None:
+        existing_workspace = (
+            await submission_service.workspace_repo.get_by_session_and_task(
+                db,
+                candidate_session_id=candidate_session.id,
+                task_id=task.id,
+                task_day_index=task_day_index,
+                task_type=task_type,
+            )
+        )
+    await ensure_day_flow_open(
+        db,
+        candidate_session=candidate_session,
+        task=task,
+        workspace=existing_workspace,
     )
     trial = None
     if getattr(task, "trial_id", None) is not None:

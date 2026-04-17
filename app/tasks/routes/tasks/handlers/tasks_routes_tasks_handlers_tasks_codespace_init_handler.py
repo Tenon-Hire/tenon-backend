@@ -52,7 +52,5 @@ async def handle_codespace_init(
         codespaceUrl=codespace_url,
         codespaceState=getattr(workspace, "codespace_state", None),
         defaultBranch=workspace.default_branch,
-        baseTemplateSha=getattr(workspace, "base_template_sha", None),
-        precommitSha=getattr(workspace, "precommit_sha", None),
         workspaceId=workspace.id,
     )

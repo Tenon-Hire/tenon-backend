@@ -67,3 +67,12 @@ async def test_handle_day_close_enforcement_persists_cutoff_and_revokes_collabor
         observed_cutoff_at = observed_cutoff_at.replace(tzinfo=UTC)
     assert observed_cutoff_at == cutoff_at
     assert day_audit.eval_basis_ref == "refs/heads/main@cutoff"
+
+    workspace = await workspace_repo.get_by_session_and_task(
+        async_session,
+        candidate_session_id=candidate_session.id,
+        task_id=day2_task.id,
+    )
+    assert workspace is not None
+    assert workspace.access_revoked_at is not None
+    assert workspace.access_revocation_error is None

@@ -27,10 +27,8 @@ from app.submissions.services.use_cases.submissions_services_use_cases_submissio
 async def run_code_submission(
     *,
     db: AsyncSession,
-    candidate_session_id: int,
-    task_id: int,
-    task_day_index: int | None = None,
-    task_type: str | None = None,
+    candidate_session,
+    task,
     payload,
     github_client: GithubClient,
     actions_runner,
@@ -38,11 +36,9 @@ async def run_code_submission(
     """Run code submission."""
     workspace, branch = await fetch_workspace_and_branch(
         db,
-        candidate_session_id,
-        task_id,
-        payload,
-        task_day_index=task_day_index,
-        task_type=task_type,
+        candidate_session=candidate_session,
+        task=task,
+        payload=payload,
     )
     try:
         actions_result = await submission_service.run_actions_tests(

@@ -47,10 +47,8 @@ async def submit_task(
     if submission_service.is_code_task(task):
         actions_result, diff_summary_json, workspace = await run_code_submission(
             db=db,
-            candidate_session_id=candidate_session.id,
-            task_id=task.id,
-            task_day_index=getattr(task, "day_index", None),
-            task_type=getattr(task, "type", None),
+            candidate_session=candidate_session,
+            task=task,
             payload=payload,
             github_client=github_client,
             actions_runner=actions_runner,

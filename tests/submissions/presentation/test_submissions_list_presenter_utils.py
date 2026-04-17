@@ -6,6 +6,9 @@ from types import SimpleNamespace
 from app.submissions.presentation import (
     submissions_presentation_submissions_list_presenter_utils as presenter,
 )
+from app.submissions.presentation.submissions_presentation_submissions_commit_basis_utils import (
+    resolve_commit_basis,
+)
 
 
 def _submission(**overrides):
@@ -105,3 +108,21 @@ def test_present_list_item_does_not_overwrite_existing_result_links(monkeypatch)
 
     assert payload["testResults"]["commitUrl"] == "https://custom/commit"
     assert payload["testResults"]["workflowUrl"] == "https://custom/workflow"
+
+
+def test_resolve_commit_basis_prefers_cutoff_sha_over_mutable_head():
+    submission = SimpleNamespace(commit_sha="mutable-head")
+    day_audit = SimpleNamespace(
+        cutoff_commit_sha="pinned-cutoff",
+        cutoff_at=datetime(2026, 3, 20, 14, 0, tzinfo=UTC),
+        eval_basis_ref="refs/heads/main@cutoff",
+    )
+
+    commit_sha, cutoff_commit_sha, cutoff_at, eval_basis_ref = resolve_commit_basis(
+        submission, day_audit
+    )
+
+    assert commit_sha == "pinned-cutoff"
+    assert cutoff_commit_sha == "pinned-cutoff"
+    assert cutoff_at == day_audit.cutoff_at
+    assert eval_basis_ref == "refs/heads/main@cutoff"

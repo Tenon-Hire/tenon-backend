@@ -17,6 +17,9 @@ from app.submissions.services.submissions_services_submissions_rate_limits_const
     apply_rate_limit,
     concurrency_guard,
 )
+from app.submissions.services.use_cases.submissions_services_use_cases_submissions_use_cases_day_flow_gate_service import (
+    ensure_day_flow_open,
+)
 
 
 async def run_task_tests(
@@ -33,6 +36,7 @@ async def run_task_tests(
     task = await submission_service.load_task_or_404(db, task_id)
     submission_service.ensure_task_belongs(task, candidate_session)
     cs_service.require_active_window(candidate_session, task)
+    await ensure_day_flow_open(db, candidate_session=candidate_session, task=task)
     submission_service.validate_run_allowed(task)
 
     workspace = await submission_service.workspace_repo.get_by_session_and_task(

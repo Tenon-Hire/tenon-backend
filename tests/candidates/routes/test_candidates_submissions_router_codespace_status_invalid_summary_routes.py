@@ -40,5 +40,5 @@ async def test_codespace_status_invalid_summary(monkeypatch, async_session):
     assert resp.lastTestSummary is None
     assert resp.repoFullName == workspace.repo_full_name
     assert resp.codespaceUrl == "https://codespaces.new/org/repo?quickstart=1"
-    assert resp.baseTemplateSha == "base"
-    assert resp.precommitSha == "precommit-sha-2"
+    assert not hasattr(resp, "baseTemplateSha")
+    assert not hasattr(resp, "precommitSha")

@@ -26,14 +26,17 @@ async def test_submit_workspace_uses_grouped_lookup_when_available(monkeypatch):
         "validate_branch",
         lambda branch: branch,
     )
+    monkeypatch.setattr(
+        submit_workspace_use_case,
+        "ensure_day_flow_open",
+        _async_return(None),
+    )
 
     found, branch = await fetch_workspace_and_branch(
         object(),
-        candidate_session_id=1,
-        task_id=2,
+        candidate_session=SimpleNamespace(id=1),
+        task=SimpleNamespace(id=2, day_index=2, type="code"),
         payload=SimpleNamespace(branch=None),
-        task_day_index=2,
-        task_type="code",
     )
     assert found is workspace
     assert branch == "main"
@@ -71,14 +74,17 @@ async def test_submit_workspace_falls_back_to_task_lookup_when_workspace_key_mis
         "validate_branch",
         lambda branch: branch,
     )
+    monkeypatch.setattr(
+        submit_workspace_use_case,
+        "ensure_day_flow_open",
+        _async_return(None),
+    )
 
     found, branch = await fetch_workspace_and_branch(
         object(),
-        candidate_session_id=11,
-        task_id=22,
+        candidate_session=SimpleNamespace(id=11),
+        task=SimpleNamespace(id=22, day_index=2, type="code"),
         payload=SimpleNamespace(branch=None),
-        task_day_index=2,
-        task_type="code",
     )
     assert found is workspace
     assert branch == "main"

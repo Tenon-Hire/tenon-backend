@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.submissions.repositories.github_native.workspaces.submissions_repositories_github_native_workspaces_submissions_github_native_workspaces_core_model import (
@@ -133,9 +135,28 @@ async def set_codespace_state(
     return workspace
 
 
+async def set_access_revocation_state(
+    db: AsyncSession,
+    *,
+    workspace: Workspace,
+    access_revoked_at: datetime | None,
+    access_revocation_error: str | None,
+    commit: bool = True,
+    refresh: bool = True,
+) -> Workspace:
+    """Persist workspace access revocation state."""
+    workspace.access_revoked_at = access_revoked_at
+    workspace.access_revocation_error = access_revocation_error
+    await (db.commit() if commit else db.flush())
+    if refresh:
+        await db.refresh(workspace)
+    return workspace
+
+
 __all__ = [
     "create_workspace",
     "create_workspace_group",
+    "set_access_revocation_state",
     "set_codespace_state",
     "set_precommit_details",
     "set_precommit_sha",

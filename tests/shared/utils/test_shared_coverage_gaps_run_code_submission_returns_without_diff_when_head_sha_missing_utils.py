@@ -48,8 +48,8 @@ async def test_run_code_submission_returns_without_diff_when_head_sha_missing(
         used_workspace,
     ) = await submit_task_runner.run_code_submission(
         db=object(),
-        candidate_session_id=1,
-        task_id=2,
+        candidate_session=SimpleNamespace(id=1),
+        task=SimpleNamespace(id=2),
         payload=SimpleNamespace(workflowInputs=None, branch="main"),
         github_client=object(),
         actions_runner=object(),

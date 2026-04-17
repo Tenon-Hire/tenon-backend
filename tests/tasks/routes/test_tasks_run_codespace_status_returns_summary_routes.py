@@ -48,8 +48,6 @@ async def test_codespace_status_returns_summary(
         "codespaceUrl": "https://codespaces.new/org/status-repo?quickstart=1",
         "codespaceState": None,
         "defaultBranch": "main",
-        "baseTemplateSha": "base",
-        "precommitSha": None,
         "latestCommitSha": None,
         "lastWorkflowRunId": None,
         "lastWorkflowConclusion": None,

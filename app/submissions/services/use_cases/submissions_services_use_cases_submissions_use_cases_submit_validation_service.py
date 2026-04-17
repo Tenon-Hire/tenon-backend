@@ -12,6 +12,9 @@ from app.submissions.constants.submissions_constants_submissions_exceptions_cons
 from app.submissions.services import (
     submissions_services_submissions_candidate_service as submission_service,
 )
+from app.submissions.services.use_cases.submissions_services_use_cases_submissions_use_cases_day_flow_gate_service import (
+    ensure_day_flow_open,
+)
 
 
 async def validate_submission_flow(
@@ -24,6 +27,7 @@ async def validate_submission_flow(
     task = await submission_service.load_task_or_404(db, task_id)
     submission_service.ensure_task_belongs(task, candidate_session)
     cs_service.require_active_window(candidate_session, task)
+    await ensure_day_flow_open(db, candidate_session=candidate_session, task=task)
     task_list, completed_ids, current_task, *_ = await cs_service.progress_snapshot(
         db, candidate_session
     )

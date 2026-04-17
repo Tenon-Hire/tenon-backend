@@ -57,8 +57,6 @@ class CodespaceInitResponse(APIModel):
     codespaceUrl: str
     codespaceState: str | None = None
     defaultBranch: str | None = None
-    baseTemplateSha: str | None = None
-    precommitSha: str | None = None
     workspaceId: str
 
 
@@ -69,8 +67,6 @@ class CodespaceStatusResponse(APIModel):
     codespaceUrl: str | None = None
     codespaceState: str | None = None
     defaultBranch: str | None = None
-    baseTemplateSha: str | None = None
-    precommitSha: str | None = None
     latestCommitSha: str | None = None
     lastWorkflowRunId: str | None = None
     lastWorkflowConclusion: str | None = None

@@ -65,7 +65,7 @@ async def test_init_codespace_success_path(monkeypatch, async_session):
     )
     assert result.repoFullName == workspace.repo_full_name
     assert result.workspaceId == workspace.id
-    assert result.baseTemplateSha == "base"
-    assert result.precommitSha == "precommit-sha-1"
+    assert not hasattr(result, "baseTemplateSha")
+    assert not hasattr(result, "precommitSha")
     assert captured["github_username"] == "octocat"
     assert cs.github_username == "octocat"
