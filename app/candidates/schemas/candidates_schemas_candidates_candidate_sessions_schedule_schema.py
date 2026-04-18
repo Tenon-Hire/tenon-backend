@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import Field
 
@@ -42,7 +42,7 @@ class CandidateSessionResolveResponse(APIModel):
 class CandidateSessionScheduleRequest(APIModel):
     """Request payload for scheduling a candidate session."""
 
-    scheduledStartAt: datetime
+    scheduledStartAt: datetime | date
     candidateTimezone: str = Field(..., min_length=1, max_length=255)
     githubUsername: str
 

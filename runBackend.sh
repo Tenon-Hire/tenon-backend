@@ -34,6 +34,8 @@ apply_local_defaults() {
   if [[ -z "${WINOE_ENV:-}" || "${WINOE_ENV:-}" == "local" ]]; then
     export WINOE_ENV="${WINOE_ENV:-local}"
     export DEV_AUTH_BYPASS="${DEV_AUTH_BYPASS:-1}"
+    # Keep local greenfield provisioning deterministic unless a caller opts out.
+    export WINOE_SCENARIO_GENERATION_RUNTIME_MODE="${WINOE_SCENARIO_GENERATION_RUNTIME_MODE:-demo}"
   fi
 }
 

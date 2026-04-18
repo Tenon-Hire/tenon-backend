@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, date, datetime, time
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 
@@ -21,12 +22,36 @@ from app.shared.utils.shared_utils_errors_utils import (
 )
 
 
+def _normalize_candidate_proposed_start_at(
+    *,
+    scheduled_start_at: datetime | date,
+    normalized_timezone: str,
+    trial,
+) -> datetime:
+    window_start_local = getattr(trial, "day_window_start_local", None) or time(
+        hour=9, minute=0
+    )
+    candidate_zone = ZoneInfo(normalized_timezone)
+    if isinstance(scheduled_start_at, datetime):
+        proposed_date = (
+            coerce_utc_datetime(scheduled_start_at).astimezone(candidate_zone).date()
+            if scheduled_start_at.tzinfo is not None
+            else scheduled_start_at.date()
+        )
+    else:
+        proposed_date = scheduled_start_at
+    normalized_start = datetime.combine(
+        proposed_date, window_start_local, tzinfo=candidate_zone
+    ).astimezone(UTC)
+    return normalized_start.replace(microsecond=0)
+
+
 async def schedule_candidate_session_impl(
     db,
     *,
     token: str,
     principal,
-    scheduled_start_at: datetime,
+    scheduled_start_at: datetime | date,
     candidate_timezone: str,
     github_username: str,
     email_service,
@@ -42,16 +67,6 @@ async def schedule_candidate_session_impl(
 ):
     """Schedule candidate session impl."""
     resolved_now = coerce_utc_datetime(now or shared_utcnow())
-    scheduled_start_at_utc = coerce_utc_datetime(scheduled_start_at).replace(
-        microsecond=0
-    )
-    if scheduled_start_at_utc < resolved_now:
-        raise ApiError(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Scheduled start must be in the future.",
-            error_code=SCHEDULE_START_IN_PAST,
-            retryable=False,
-        )
     try:
         normalized_timezone = validate_timezone((candidate_timezone or "").strip())
     except ValueError as exc:
@@ -72,6 +87,18 @@ async def schedule_candidate_session_impl(
                 retryable=False,
             ) from exc
         raise
+    scheduled_start_at_utc = _normalize_candidate_proposed_start_at(
+        scheduled_start_at=scheduled_start_at,
+        normalized_timezone=normalized_timezone,
+        trial=candidate_session.trial,
+    )
+    if scheduled_start_at_utc < resolved_now:
+        raise ApiError(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Scheduled start must be in the future.",
+            error_code=SCHEDULE_START_IN_PAST,
+            retryable=False,
+        )
     changed = require_claimed_ownership(candidate_session, principal)
     existing_username = (
         getattr(candidate_session, "github_username", None) or ""
