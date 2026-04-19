@@ -90,3 +90,13 @@ async def test_scenario_generation_failure_marks_job_failed_and_keeps_generating
     assert detail["generationFailure"]["canRetry"] is True
     assert detail["canRetryGeneration"] is True
     assert detail["scenario"] is None
+
+    retry_response = await async_client.post(
+        f"/api/trials/{trial_id}/scenario/regenerate",
+        headers=auth_header_factory(talent_partner),
+    )
+    assert retry_response.status_code == 200, retry_response.text
+    retry_body = retry_response.json()
+    assert retry_body["scenarioVersionId"] is not None
+    assert retry_body["jobId"] is not None
+    assert retry_body["status"] == "generating"

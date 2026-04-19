@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import pytest
 
+from app.shared.jobs.repositories.shared_jobs_repositories_models_repository import (
+    JOB_STATUS_QUEUED,
+)
 from tests.trials.services.trials_scenario_versions_service_utils import *
 
 
@@ -28,10 +31,17 @@ async def test_regenerate_active_scenario_version_owner_and_active_guards(
     sim.status = "generating"
     sim.active_scenario_version_id = None
     await async_session.commit()
-    with pytest.raises(ApiError) as missing_exc:
-        await scenario_service.regenerate_active_scenario_version(
-            async_session,
-            trial_id=sim.id,
-            actor_user_id=owner.id,
-        )
-    assert missing_exc.value.error_code == "SCENARIO_ACTIVE_VERSION_MISSING"
+    (
+        updated_sim,
+        regenerated,
+        scenario_job,
+    ) = await scenario_service.request_scenario_regeneration(
+        async_session,
+        trial_id=sim.id,
+        actor_user_id=owner.id,
+    )
+    assert regenerated.id == sim.active_scenario_version_id
+    assert regenerated.status == "generating"
+    assert updated_sim.active_scenario_version_id == regenerated.id
+    assert updated_sim.status == "generating"
+    assert scenario_job.status == JOB_STATUS_QUEUED

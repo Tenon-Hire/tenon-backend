@@ -2,8 +2,36 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from typing import Any
+
+
+def _field_value(value: Any, field_name: str) -> Any:
+    if isinstance(value, Mapping):
+        return value.get(field_name)
+    return getattr(value, field_name, None)
+
+
+def _string_value(value: Any) -> str:
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, Mapping):
+        markdown = value.get("markdown") or value.get("projectBriefMd")
+        if isinstance(markdown, str) and markdown.strip():
+            return markdown.strip()
+        nested = value.get("project_brief_md") or value.get("projectBriefMd")
+        if isinstance(nested, str) and nested.strip():
+            return nested.strip()
+        if isinstance(nested, Mapping):
+            return _string_value(nested)
+        derived = _legacy_brief_lines(value)
+        if derived:
+            return derived
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+    if value is None:
+        return ""
+    return str(value).strip()
 
 
 def _legacy_brief_lines(legacy_brief: Mapping[str, Any]) -> str:
@@ -76,13 +104,11 @@ def canonical_project_brief_markdown(
     storyline_md: str | None = None,
 ) -> str:
     """Return the canonical project brief markdown for a scenario version."""
-    project_brief_md = (
-        getattr(scenario_version, "project_brief_md", None) or ""
-    ).strip()
+    project_brief_md = _string_value(_field_value(scenario_version, "project_brief_md"))
     if project_brief_md:
         return project_brief_md
 
-    legacy_brief = getattr(scenario_version, "codespace_spec_json", None)
+    legacy_brief = _field_value(scenario_version, "codespace_spec_json")
     if isinstance(legacy_brief, str) and legacy_brief.strip():
         return legacy_brief.strip()
     if isinstance(legacy_brief, Mapping):

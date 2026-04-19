@@ -21,6 +21,47 @@ def test_canonical_project_brief_uses_new_string_payload() -> None:
     )
 
 
+def test_canonical_project_brief_normalizes_dict_project_brief_payload() -> None:
+    scenario_version = SimpleNamespace(
+        project_brief_md={
+            "summary": "Build a candidate-facing workflow.",
+            "candidateGoal": "Deliver the core system from scratch.",
+            "acceptance_criteria": [
+                "The repo ships with a working README.",
+                "The implementation stays within the brief.",
+            ],
+        },
+        codespace_spec_json=None,
+    )
+
+    project_brief_md = canonical_project_brief_markdown(scenario_version)
+
+    assert project_brief_md.startswith("# Project Brief")
+    assert "Build a candidate-facing workflow." in project_brief_md
+    assert "Deliver the core system from scratch." in project_brief_md
+    assert "The repo ships with a working README." in project_brief_md
+    assert "The implementation stays within the brief." in project_brief_md
+
+
+def test_canonical_project_brief_accepts_mapping_like_scenario_version() -> None:
+    scenario_version = {
+        "project_brief_md": {
+            "summary": "Build a candidate-facing workflow.",
+            "deliverables": ["Ship the README", "Keep the repo open-ended"],
+        },
+        "codespace_spec_json": {
+            "summary": "Unused fallback",
+        },
+    }
+
+    project_brief_md = canonical_project_brief_markdown(scenario_version)
+
+    assert project_brief_md.startswith("# Project Brief")
+    assert "Build a candidate-facing workflow." in project_brief_md
+    assert "Ship the README" in project_brief_md
+    assert "Keep the repo open-ended" in project_brief_md
+
+
 def test_canonical_project_brief_derives_legacy_dict_payload() -> None:
     scenario_version = SimpleNamespace(
         project_brief_md=None,
