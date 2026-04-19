@@ -40,7 +40,7 @@ async def submit_task_route(
     github_client: Annotated[GithubClient, Depends(get_github_client)],
     actions_runner: Annotated[GithubActionsRunner, Depends(get_actions_runner)],
 ) -> SubmissionCreateResponse:
-    """Submit a task, optionally running GitHub tests for code/debug types."""
+    """Submit a task, optionally running GitHub tests for code tasks."""
     return await handle_submit_task(
         task_id=task_id,
         payload=payload,

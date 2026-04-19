@@ -6,12 +6,12 @@ from tests.tasks.routes.test_tasks_run_api_utils import *
 
 
 @pytest.mark.asyncio
-async def test_codespace_init_works_for_debug_task(
+async def test_codespace_init_works_for_day3_implementation_wrap_up(
     async_client, async_session, candidate_header_factory, actions_stubber
 ):
     actions_stubber()
     talent_partner = await create_talent_partner(
-        async_session, email="debug-task@sim.com"
+        async_session, email="wrap-up-task@sim.com"
     )
     sim, tasks = await create_trial(async_session, created_by=talent_partner)
     cs = await create_candidate_session(

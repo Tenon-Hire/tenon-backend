@@ -61,6 +61,7 @@ Consumer behavior uses pinned cutoff basis:
 - Submission responses and talent_partner submission presenters resolve `commitSha` from cutoff when available, and expose `cutoffCommitSha` and `evalBasisRef`.
 - Winoe Report generation uses day-audit cutoff SHAs first when building `day2_checkpoint_sha`, `day3_final_sha`, and run basis references.
 - Run metadata stores `basisRefs`; `basis_fingerprint` hashes the complete basis payload.
+- Day 3 wrap-up captures the candidate-owned repository head as the final evidence state. There is no baseline artifact or diff-based model for the repository itself.
 
 Conservative interpretation: each run is a traceable snapshot of the evidence basis used at generation time. Re-runs create new `EvaluationRun` records instead of mutating prior run records.
 

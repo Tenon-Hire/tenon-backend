@@ -38,7 +38,7 @@ async def test_codespace_init_day3_reuses_existing_workspace_when_template_missi
         async_session, candidate_session=cs, task=tasks[1], content_text="day2"
     )
 
-    # Day 3 template is unused when reusing unified coding workspace.
+    # Day 3 reuses the unified coding workspace from Day 2.
     tasks[2].template_repo = None
     await async_session.commit()
 

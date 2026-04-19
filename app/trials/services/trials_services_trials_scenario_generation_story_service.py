@@ -143,19 +143,23 @@ def build_task_description(
     tech_stack: str,
     template_key: str,
     code_priorities: tuple[str, ...],
-    debug_signals: tuple[str, ...],
+    implementation_wrap_up_signals: tuple[str, ...],
     pick: PickFn,
 ) -> str:
     """Build task description."""
     seed = seed_from_inputs(role, tech_stack, template_key)
     priority = pick(code_priorities, seed, 10 + day_index)
-    debug_signal = pick(debug_signals, seed, 20 + day_index)
+    wrap_up_signal = pick(implementation_wrap_up_signals, seed, 20 + day_index)
     if day_index == 1:
         return "Draft an implementation plan that defines service boundaries, key data flows, API contracts, and risk controls. Include concrete tradeoffs and how you will validate correctness with tests and reviewable artifacts."
     if day_index == 2:
         return f"Implement the primary backend slice in code with tests. Prioritize {priority} and keep the solution aligned with the brief."
     if day_index == 3:
-        return f"Investigate and fix a failing behavior path. Treat {debug_signal} as the anchor signal, isolate root cause, and add regression coverage."
+        return (
+            "Continue the implementation wrap-up in the same repository used on Day 2. "
+            f"Focus on {wrap_up_signal} while finishing implementation details, "
+            "tightening tests, improving docs, and polishing the codebase for handoff."
+        )
     if day_index == 4:
         return "Prepare a concise demo presentation that walks through the implemented solution, key decisions, tradeoffs, outcomes, and remaining risks for reviewers."
     return "Write a markdown reflection essay covering your experience, challenges, decisions, tradeoffs, communication, and what you would do next."

@@ -88,7 +88,10 @@ async def provision_workspace(
         and existing_group is None
     ):
         raise WorkspaceMissing(
-            detail="Workspace not initialized. Call Day 2 /codespace/init first."
+            detail=(
+                "Workspace not initialized. "
+                "Call Day 2 /codespace/init first on the shared coding workspace."
+            )
         )
     if uses_grouped_workspace:
         return await provision_grouped_workspace(

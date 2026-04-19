@@ -11,9 +11,9 @@ from app.trials.constants.trials_constants_trials_blueprints_constants import (
 )
 from app.trials.services.trials_services_trials_scenario_generation_constants import (
     CODE_PRIORITIES,
-    DEBUG_SIGNALS,
     FALLBACK_MODEL_NAME,
     FALLBACK_MODEL_VERSION,
+    IMPLEMENTATION_WRAP_UP_SIGNALS,
     SCENARIO_PROMPT_VERSION,
     SCENARIO_RUBRIC_VERSION,
     SCENARIO_SOURCE_TEMPLATE_FALLBACK,
@@ -54,7 +54,7 @@ def _task_description_for_day(
         tech_stack=tech_stack,
         template_key=template_key,
         code_priorities=CODE_PRIORITIES,
-        debug_signals=DEBUG_SIGNALS,
+        implementation_wrap_up_signals=IMPLEMENTATION_WRAP_UP_SIGNALS,
         pick=pick,
     )
 

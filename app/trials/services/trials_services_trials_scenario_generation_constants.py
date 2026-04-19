@@ -33,21 +33,21 @@ CODE_PRIORITIES = (
     "defensive validation and error handling",
     "traceable behavior with useful diagnostics",
 )
-DEBUG_SIGNALS = (
-    "a flaky production-like test signal",
-    "an intermittent regression after a recent refactor",
-    "inconsistent behavior across environments",
-    "a correctness bug hidden by shallow happy-path tests",
-    "a state-management bug triggered by retry paths",
+IMPLEMENTATION_WRAP_UP_SIGNALS = (
+    "production-ready handoff readiness",
+    "test coverage and regression hardening",
+    "documentation polish and release notes",
+    "code quality cleanup and consistency",
+    "final validation across the core user flow",
 )
 
 __all__ = [
     "ANTHROPIC_API_ENV_KEYS",
     "CODE_PRIORITIES",
-    "DEBUG_SIGNALS",
     "DEMO_MODE_ENV_KEYS",
     "FALLBACK_MODEL_NAME",
     "FALLBACK_MODEL_VERSION",
+    "IMPLEMENTATION_WRAP_UP_SIGNALS",
     "OPENAI_API_ENV_KEYS",
     "SCENARIO_GENERATION_JOB_TYPE",
     "SCENARIO_PROMPT_VERSION",

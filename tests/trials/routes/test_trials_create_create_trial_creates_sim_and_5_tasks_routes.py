@@ -57,9 +57,16 @@ async def test_create_trial_creates_sim_and_5_tasks(
         assert [t["type"] for t in data["tasks"]] == [
             "design",
             "code",
-            "debug",
+            "code",
             "handoff",
             "documentation",
+        ]
+        assert [t["title"] for t in data["tasks"]] == [
+            "Architecture Plan",
+            "Feature Implementation",
+            "Implementation Wrap-Up",
+            "Demo Presentation",
+            "Reflection Essay",
         ]
         assert data["techStack"] == "Node.js, PostgreSQL"
         assert data["focus"] == ""

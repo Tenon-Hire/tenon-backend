@@ -8,7 +8,7 @@ from tests.submissions.services.test_submissions_workspace_creation_service_util
 @pytest.mark.asyncio
 async def test_provision_workspace_day3_uses_existing_coding_group(monkeypatch):
     candidate_session = SimpleNamespace(id=11)
-    task = SimpleNamespace(id=101, day_index=3, type="debug")
+    task = SimpleNamespace(id=101, day_index=3, type="code")
     grouped_workspace = SimpleNamespace(id="ws-grouped")
     calls = {"grouped": 0}
 

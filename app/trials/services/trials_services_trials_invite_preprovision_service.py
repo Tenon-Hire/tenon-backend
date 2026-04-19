@@ -44,8 +44,7 @@ async def preprovision_workspaces(
         "hydrate_precommit_bundle" in ensure_workspace_params
     )
     for task in tasks:
-        task_type = str(task.type or "").lower()
-        if task.day_index not in {2, 3} or task_type not in {"code", "debug"}:
+        if task.day_index not in {2, 3} or not submission_service.is_code_task(task):
             continue
         workspace_key = resolve_workspace_key_for_task(task)
         if workspace_key and workspace_key in processed_workspace_keys:

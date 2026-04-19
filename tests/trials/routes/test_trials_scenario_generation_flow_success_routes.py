@@ -118,6 +118,10 @@ async def test_scenario_generation_job_creates_v1_and_updates_detail_read(
     assert sorted(prompts_by_day) == [1, 2, 3, 4, 5]
     assert sorted(tasks_by_day) == [1, 2, 3, 4, 5]
     rubric_day_weights = detail["scenario"]["rubricJson"]["dayWeights"]
+    assert prompts_by_day[3]["title"] == "Implementation Wrap-Up"
+    assert "wrap-up" in prompts_by_day[3]["description"].lower()
+    assert "debug" not in prompts_by_day[3]["description"].lower()
+    assert "debug" not in detail["scenario"]["rubricJson"]["summary"].lower()
     for day_index in [1, 2, 3, 4, 5]:
         assert (
             tasks_by_day[day_index]["description"]

@@ -33,7 +33,7 @@ async def test_schedule_candidate_session_validation_errors(async_session):
             async_session,
             token=claimed.token,
             principal=claimed_principal,
-            scheduled_start_at=datetime.now(UTC) - timedelta(minutes=1),
+            scheduled_start_at=datetime.now(UTC) - timedelta(days=1),
             candidate_timezone="America/New_York",
             github_username="octocat",
             email_service=email_service,

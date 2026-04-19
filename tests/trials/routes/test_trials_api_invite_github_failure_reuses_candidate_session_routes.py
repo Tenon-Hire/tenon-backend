@@ -16,7 +16,7 @@ async def test_invite_github_failure_does_not_persist_failed_candidate_session(
     day2_task = next(t for t in tasks if t.day_index == 2)
     day3_task = next(t for t in tasks if t.day_index == 3)
     day2_task.type = "code"
-    day3_task.type = "debug"
+    day3_task.type = "code"
     day2_task_id = day2_task.id
     day3_task_id = day3_task.id
     await async_session.commit()

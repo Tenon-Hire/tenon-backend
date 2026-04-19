@@ -21,7 +21,7 @@ async def test_invite_preprovisions_day2_day3_workspaces(
     day3_tasks = [t for t in tasks if t.day_index == 3]
     assert day2_tasks and day3_tasks
     day2_tasks[0].type = "code"
-    day3_tasks[0].type = "debug"
+    day3_tasks[0].type = "code"
     await async_session.commit()
     monkeypatch.setattr(settings.github, "GITHUB_ORG", "winoe-ai-repos")
 

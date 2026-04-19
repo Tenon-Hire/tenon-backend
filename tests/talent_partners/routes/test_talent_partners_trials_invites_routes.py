@@ -30,7 +30,7 @@ async def test_create_candidate_invite_happy_path(monkeypatch):
         id=10, day_index=2, type="code", template_repo="org/template"
     )
     task_day3 = SimpleNamespace(
-        id=11, day_index=3, type="debug", template_repo="org/template"
+        id=11, day_index=3, type="code", template_repo="org/template"
     )
 
     async def _require_owned_with_tasks(db, trial_id, talent_partner_id):

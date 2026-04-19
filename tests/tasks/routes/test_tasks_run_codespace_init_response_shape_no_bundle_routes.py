@@ -97,6 +97,8 @@ async def test_codespace_init_response_shape_no_bundle(
         "defaultBranch": "main",
         "workspaceId": body["workspaceId"],
     }
+    assert "baseTemplateSha" not in body
+    assert "precommitSha" not in body
     assert isinstance(body["workspaceId"], str)
     assert body["workspaceId"]
 

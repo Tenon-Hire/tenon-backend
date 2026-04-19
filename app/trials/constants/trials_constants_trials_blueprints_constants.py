@@ -19,11 +19,12 @@ DEFAULT_5_DAY_BLUEPRINT = [
     },
     {
         "day_index": 3,
-        "type": "debug",
-        "title": "Debugging Exercise",
+        "type": "code",
+        "title": "Implementation Wrap-Up",
         "description": (
-            "Investigate failing tests or bugs in the codebase and "
-            "apply fixes with regression coverage."
+            "Continue in the same repository used on Day 2. "
+            "Finish implementation details, tighten tests, improve docs, and "
+            "polish the codebase for handoff."
         ),
     },
     {

@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 def is_code_task(task: Task) -> bool:
-    """Return True if the task requires code (code/debug)."""
+    """Return True if the task requires code."""
     return (task.type or "").lower() in CODE_TASK_TYPES
 
 
@@ -159,7 +159,7 @@ def validate_submission_payload(task: Task, payload) -> dict[str, object] | None
 
 
 def validate_run_allowed(task: Task) -> None:
-    """Run tests only applies to code/debug tasks."""
+    """Run tests only applies to code tasks."""
     if not is_code_task(task):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

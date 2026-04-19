@@ -6,7 +6,7 @@ from tests.tasks.routes.test_tasks_submit_api_utils import *
 
 
 @pytest.mark.asyncio
-async def test_submit_day3_debug_returns_and_persists_final_sha(
+async def test_submit_day3_implementation_wrap_up_returns_and_persists_final_sha(
     async_client, async_session: AsyncSession, monkeypatch, actions_stubber
 ):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")

@@ -26,6 +26,7 @@ router = APIRouter()
 @router.post(
     "/{task_id}/codespace/init",
     response_model=CodespaceInitResponse,
+    response_model_exclude_none=True,
     status_code=status.HTTP_200_OK,
 )
 async def init_codespace_route(

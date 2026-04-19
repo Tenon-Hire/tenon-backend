@@ -38,7 +38,7 @@ async def test_submitting_all_tasks_marks_session_complete(
         assert current["currentDayIndex"] == day_index
         task_id = current["currentTask"]["id"]
 
-        if current["currentTask"]["type"] in {"code", "debug"}:
+        if current["currentTask"]["type"] == "code":
             init_resp = await async_client.post(
                 f"/api/tasks/{task_id}/codespace/init",
                 headers=candidate_headers(cs_id, access_token),

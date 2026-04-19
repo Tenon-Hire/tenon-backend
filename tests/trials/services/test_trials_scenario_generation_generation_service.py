@@ -200,11 +200,26 @@ def test_deterministic_template_generation_uses_demo_and_reflection_language() -
         prompt for prompt in payload.task_prompts_json if prompt["dayIndex"] == 5
     )
 
+    day3 = next(
+        prompt for prompt in payload.task_prompts_json if prompt["dayIndex"] == 3
+    )
     assert "demo presentation" in day4["description"].lower()
     assert "reflection essay" in day5["description"].lower()
-    assert "demo presentation" in payload.rubric_json["summary"].lower()
+    assert "implementation wrap-up" in day3["title"].lower()
+    assert "wrap-up" in day3["description"].lower()
+    assert "debug" not in day3["description"].lower()
+    assert "wrap-up" in payload.rubric_json["summary"].lower()
     assert any(
         dimension["name"] == "Communication and presentation"
+        for dimension in payload.rubric_json["dimensions"]
+    )
+    assert any(
+        dimension["name"] == "Implementation completeness and handoff readiness"
+        for dimension in payload.rubric_json["dimensions"]
+    )
+    assert all(
+        "debug" not in dimension["name"].lower()
+        and "debug" not in dimension["description"].lower()
         for dimension in payload.rubric_json["dimensions"]
     )
 
