@@ -31,12 +31,14 @@ async def test_regenerate_active_scenario_version_owner_and_active_guards(
     sim.status = "generating"
     sim.active_scenario_version_id = None
     await async_session.commit()
-    updated_sim, regenerated, scenario_job = (
-        await scenario_service.request_scenario_regeneration(
-            async_session,
-            trial_id=sim.id,
-            actor_user_id=owner.id,
-        )
+    (
+        updated_sim,
+        regenerated,
+        scenario_job,
+    ) = await scenario_service.request_scenario_regeneration(
+        async_session,
+        trial_id=sim.id,
+        actor_user_id=owner.id,
     )
     assert regenerated.id == sim.active_scenario_version_id
     assert regenerated.status == "generating"

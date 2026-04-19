@@ -104,9 +104,7 @@ def canonical_project_brief_markdown(
     storyline_md: str | None = None,
 ) -> str:
     """Return the canonical project brief markdown for a scenario version."""
-    project_brief_md = _string_value(
-        _field_value(scenario_version, "project_brief_md")
-    )
+    project_brief_md = _string_value(_field_value(scenario_version, "project_brief_md"))
     if project_brief_md:
         return project_brief_md
 
