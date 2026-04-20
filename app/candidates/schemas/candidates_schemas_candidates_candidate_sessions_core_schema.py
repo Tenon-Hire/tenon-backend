@@ -19,8 +19,8 @@ from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_pri
 from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_review_schema import (
     CandidateCompletedReviewResponse,
     CandidateReviewDayArtifact,
+    CandidateReviewHandoffArtifact,
     CandidateReviewMarkdownArtifact,
-    CandidateReviewPresentationArtifact,
     CandidateReviewWorkspaceArtifact,
 )
 from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_schedule_schema import (
@@ -46,7 +46,7 @@ __all__ = [
     "CandidatePrivacyConsentResponse",
     "CandidateReviewDayArtifact",
     "CandidateReviewMarkdownArtifact",
-    "CandidateReviewPresentationArtifact",
+    "CandidateReviewHandoffArtifact",
     "CandidateReviewWorkspaceArtifact",
     "CandidateSessionListItem",
     "CandidateSessionResolveResponse",

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from tests.media.repositories.media_repositories_utils import *
@@ -58,3 +60,82 @@ async def test_recordings_repository_get_and_update_status(async_session):
     assert recordings_repo.is_downloadable(recording) is False
     recording.status = RECORDING_ASSET_STATUS_PURGED
     assert recordings_repo.is_downloadable(recording) is False
+
+
+@pytest.mark.asyncio
+async def test_recordings_repository_get_latest_playback_safe_for_task_session(
+    async_session,
+):
+    talent_partner = await create_talent_partner(
+        async_session, email="recordings-playback-safe@test.com"
+    )
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
+    task = _handoff_task(tasks)
+    candidate_session = await create_candidate_session(async_session, trial=sim)
+
+    safe_recording = await recordings_repo.create_recording_asset(
+        async_session,
+        candidate_session_id=candidate_session.id,
+        task_id=task.id,
+        storage_key=(
+            f"candidate-sessions/{candidate_session.id}/tasks/{task.id}/"
+            "recordings/playback-safe.mp4"
+        ),
+        content_type="video/mp4",
+        bytes_count=512,
+        status=RECORDING_ASSET_STATUS_UPLOADED,
+        created_at=datetime.now(UTC).replace(microsecond=0) - timedelta(days=1),
+        commit=True,
+    )
+    await recordings_repo.create_recording_asset(
+        async_session,
+        candidate_session_id=candidate_session.id,
+        task_id=task.id,
+        storage_key=(
+            f"candidate-sessions/{candidate_session.id}/tasks/{task.id}/"
+            "recordings/playback-safe-deleted.mp4"
+        ),
+        content_type="video/mp4",
+        bytes_count=512,
+        status=RECORDING_ASSET_STATUS_DELETED,
+        created_at=datetime.now(UTC).replace(microsecond=0),
+        commit=True,
+    )
+    await recordings_repo.create_recording_asset(
+        async_session,
+        candidate_session_id=candidate_session.id,
+        task_id=task.id,
+        storage_key=(
+            f"candidate-sessions/{candidate_session.id}/tasks/{task.id}/"
+            "supplemental/playback-safe.pdf"
+        ),
+        content_type="application/pdf",
+        bytes_count=512,
+        asset_kind="supplemental",
+        status=RECORDING_ASSET_STATUS_UPLOADED,
+        created_at=datetime.now(UTC).replace(microsecond=0) + timedelta(seconds=1),
+        commit=True,
+    )
+
+    latest_playback_safe = (
+        await recordings_repo.get_latest_playback_safe_for_task_session(
+            async_session,
+            candidate_session_id=candidate_session.id,
+            task_id=task.id,
+        )
+    )
+    assert latest_playback_safe is not None
+    assert latest_playback_safe.id == safe_recording.id
+    assert recordings_repo.is_playback_safe(safe_recording) is True
+    assert recordings_repo.is_playback_safe(None) is False
+    assert (
+        recordings_repo.is_playback_safe(
+            SimpleNamespace(
+                asset_kind="supplemental",
+                status=RECORDING_ASSET_STATUS_UPLOADED,
+                deleted_at=None,
+                purged_at=None,
+            )
+        )
+        is False
+    )

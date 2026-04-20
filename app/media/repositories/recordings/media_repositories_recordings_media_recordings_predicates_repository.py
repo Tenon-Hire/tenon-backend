@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.media.repositories.recordings.media_repositories_recordings_media_recordings_core_model import (
+    RECORDING_ASSET_KIND_RECORDING,
     RECORDING_ASSET_STATUS_DELETED,
     RECORDING_ASSET_STATUS_PROCESSING,
     RECORDING_ASSET_STATUS_PURGED,
@@ -35,3 +36,12 @@ def is_downloadable(recording: RecordingAsset | None) -> bool:
     if recording is None or is_deleted_or_purged(recording):
         return False
     return recording.status in DOWNLOADABLE_RECORDING_STATUSES
+
+
+def is_playback_safe(recording: RecordingAsset | None) -> bool:
+    """Return whether a recording is safe to surface for playback."""
+    if recording is None:
+        return False
+    if getattr(recording, "asset_kind", None) != RECORDING_ASSET_KIND_RECORDING:
+        return False
+    return is_downloadable(recording)

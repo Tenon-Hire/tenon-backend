@@ -5,6 +5,9 @@ from __future__ import annotations
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.media.repositories.recordings import repository as recordings_repo
+from app.media.repositories.recordings.media_repositories_recordings_media_recordings_core_model import (
+    RECORDING_ASSET_KIND_RECORDING,
+)
 from app.media.repositories.transcripts import repository as transcripts_repo
 from app.media.services.media_services_media_handoff_upload_validation_service import (
     ensure_handoff_task,
@@ -33,6 +36,7 @@ async def get_handoff_status(
         db,
         candidate_session_id=candidate_session.id,
         task_id=task.id,
+        asset_kind=RECORDING_ASSET_KIND_RECORDING,
     )
     transcript = (
         await transcripts_repo.get_by_recording_id(db, recording.id)

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from urllib.parse import urlsplit
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import settings
 from app.shared.utils.shared_utils_proxy_headers_utils import (
@@ -20,6 +23,29 @@ from .shared_http_middleware_http_config import (
     _csrf_protected_prefixes,
 )
 from .shared_http_middleware_http_csrf_middleware import CsrfOriginEnforcementMiddleware
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Attach baseline security headers for browser-facing API responses."""
+
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        media_origins = _media_allowed_origins()
+        if media_origins:
+            media_src = " ".join(sorted(media_origins))
+            response.headers.setdefault(
+                "Content-Security-Policy",
+                (
+                    "default-src 'self'; "
+                    "base-uri 'self'; "
+                    "frame-ancestors 'none'; "
+                    f"media-src 'self' {media_src}; "
+                    f"connect-src 'self' {media_src}; "
+                    "img-src 'self' data: blob:; "
+                    "object-src 'none'"
+                ),
+            )
+        return response
 
 
 def configure_proxy_headers(app: FastAPI) -> None:
@@ -56,3 +82,23 @@ def configure_cors(app: FastAPI) -> None:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+
+def _media_allowed_origins() -> set[str]:
+    cfg = settings.storage_media
+    candidates = (
+        getattr(cfg, "MEDIA_FAKE_BASE_URL", None),
+        getattr(cfg, "MEDIA_S3_ENDPOINT", None),
+    )
+    origins: set[str] = set()
+    for candidate in candidates:
+        parsed = urlsplit(str(candidate or "").strip())
+        if not parsed.scheme or not parsed.netloc:
+            continue
+        origins.add(f"{parsed.scheme}://{parsed.netloc}")
+    return origins
+
+
+def configure_security_headers(app: FastAPI) -> None:
+    """Execute configure security headers."""
+    app.add_middleware(SecurityHeadersMiddleware)

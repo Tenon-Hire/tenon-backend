@@ -23,6 +23,8 @@ async def test_init_handoff_upload_route_shapes_response(monkeypatch):
         content_type: str,
         size_bytes: int,
         filename: str | None,
+        asset_kind: str,
+        duration_seconds: int | None,
         storage_provider,
     ):
         del (
@@ -32,6 +34,8 @@ async def test_init_handoff_upload_route_shapes_response(monkeypatch):
             content_type,
             size_bytes,
             filename,
+            asset_kind,
+            duration_seconds,
             storage_provider,
         )
         return SimpleNamespace(id=12), "https://upload.example/signed", 900

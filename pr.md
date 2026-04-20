@@ -1,99 +1,108 @@
-# Replace Day 3 debugging with same-repo implementation wrap-up
+# Day 4 handoff/demo media flow: upload, transcription, duration guard, and playback
 
 ## 1. Summary
-Day 3 now reflects the product truth for Winoe AI v4:
 
-- It seeds as `type: "code"`.
-- Its title is `Implementation Wrap-Up`.
-- It continues in the same repository and workspace used on Day 2.
-- It persists `finalSha` on Day 3 submission.
-- It treats the repository as candidate-owned work, not a debugging exercise.
-- It removes debug-era framing from runtime Trial generation.
-- It omits legacy `baseTemplateSha` and `precommitSha` from `/api/tasks/{task_id}/codespace/init` responses when those values are null.
+This change completes the backend for Day 4 handoff/demo media flow in Winoe AI.
 
-The backend now tells the truth in seeded tasks, scenario payloads, rubric text, and candidate-facing API responses.
+- Enforces a maximum 15-minute recording duration at upload completion.
+- Keeps the handoff upload init/complete flow reliable and idempotent.
+- Allows preview and resubmission until the cutoff, with the latest valid recording becoming active.
+- Hardens the transcription pipeline so valid uploads enqueue and complete transcript processing.
+- Returns correct playback/download URLs and the expected CSP for Talent Partner playback.
+- Supports supplemental materials alongside the main recording.
+- Cleans up the public route contract so the canonical surface is `handoff`, not legacy `presentation`.
 
 ## 2. What Changed
 
-### Day 3 blueprint / seeded task truth
-- Updated the Day 3 seeded blueprint to `Implementation Wrap-Up`.
-- Kept Day 3 as a code task.
-- Kept Day 3 explicitly tied to the same repo/workspace used on Day 2.
+### Media upload validation and completion
 
-### Scenario generation copy for Day 3
-- Updated runtime Day 3 prompt copy to frame the day as continuation work in the same repository.
-- Removed debugging language from the Day 3 prompt path.
-- Kept the copy focused on finishing implementation details, tightening tests, improving docs, and polishing for handoff.
+- Added/kept validation on handoff upload completion for content type, size, and duration.
+- Enforced the 15-minute ceiling during completion so overlong uploads are rejected before they become accepted handoff media.
+- Kept completion idempotent so repeated completion calls do not corrupt the recording state.
 
-### Rubric summary and dimensions
-- Updated the rubric summary to describe planning, implementation, wrap-up, demo presentation, and reflection in a from-scratch build.
-- Renamed the Day 3-facing rubric dimension away from debugging and toward implementation completeness and handoff readiness.
+### Recording selection semantics
 
-### Runtime init response cleanup
-- Cleaned up `/api/tasks/{task_id}/codespace/init` responses so null legacy fields are not emitted.
-- The response now returns the workspace identity and repo identity needed by the candidate without exposing null `baseTemplateSha` / `precommitSha` fields.
+- Updated resubmission behavior so the latest valid recording becomes the active one for the handoff submission.
+- Kept invalid or superseded attempts from replacing the active recording pointer.
+- Preserved preview/resubmit behavior through the Day 4 cutoff window.
 
-### Test updates
-- Updated trial creation and scenario-generation tests to assert Day 3 is `Implementation Wrap-Up`.
-- Updated submission tests to verify Day 3 persists `finalSha` and reuses the Day 2 repository.
-- Updated codespace-init tests to verify the legacy null fields are omitted.
-- Added/kept the missing-workspace path test returning `WORKSPACE_NOT_INITIALIZED`.
+### Transcript and job behavior
 
-### Deterministic precommit stabilization
-- Stabilized `test_schedule_candidate_session_validation_errors` by moving the past timestamp farther into the past so `SCHEDULE_START_IN_PAST` is deterministic in precommit.
+- Ensured a successful completion creates the transcript record and enqueues transcription work.
+- Verified the worker success path writes a ready transcript with text and segments.
+- Preserved readable degraded states when transcription is pending or fails, including retry metadata.
 
-## 3. Why
-Winoe AI v4 is from scratch. There is no precommit baseline to debug against, so Day 3 must be framed as same-repo implementation wrap-up.
+### Candidate handoff status payloads
 
-That means the backend has to be truthful in every place candidates and reviewers see Day 3:
+- Kept `/api/tasks/{task_id}/handoff/status` returning the active recording, transcript status, and supplemental materials.
+- Ensured playback/download URLs are emitted when storage signing succeeds.
+- Ensured storage-signing failures degrade to a null download URL instead of breaking the response.
 
-- seeded tasks
-- runtime Trial generation
-- rubric copy
-- codespace init responses
-- submission persistence
+### Talent Partner submission detail payloads
 
-If those surfaces still talk about debugging or legacy baseline concepts, the product story is wrong.
+- Kept `/api/submissions/{submission_id}` returning the canonical handoff payload for Talent Partner review.
+- Returned the active handoff recording, transcript, and supplemental materials in the submission detail payload.
+- Returned the playback/download URL and the CSP header expected for media playback.
 
-## 4. Acceptance Criteria
+### OpenAPI and route contract cleanup
 
-- [x] Day 3 title is `Implementation Wrap-Up`
-- [x] Day 3 uses the same repo/workspace as Day 2
-- [x] Day 3 captures and persists `finalSha`
-- [x] Runtime scenario/task/rubric payloads use wrap-up framing instead of debugging framing
-- [x] `/codespace/init` omits `baseTemplateSha` and `precommitSha` when null
-- [x] Missing Day 2 workspace returns `WORKSPACE_NOT_INITIALIZED`
+- Exposed the canonical `handoff` routes in OpenAPI.
+- Removed public `presentation` routes from the schema so the external contract matches the canonical route naming.
+- Kept route behavior aligned with the current backend vocabulary used by the handoff/demo flow.
 
-## 5. Testing / QA
+### Tests added and updated
 
-### Live QA evidence
-- Trial create/detail showed Day 3:
-  - `type: "code"`
-  - `title: "Implementation Wrap-Up"`
-  - scenario Day 3 prompt uses wrap-up framing
-  - rubric summary uses wrap-up framing, not debugging framing
-- Day 2 init and Day 3 init used the same repo/workspace:
-  - `repoFullName: winoe-ai-repos/winoe-ws-82`
-  - `workspaceId: 9988df21-aac5-4126-9885-f23efb643b67`
-- Day 2 and Day 3 init payloads omitted:
-  - `baseTemplateSha`
-  - `precommitSha`
-- Day 3 submit returned and persisted:
-  - `finalSha: "abc123"`
-- Missing-workspace path returned:
-  - `errorCode: "WORKSPACE_NOT_INITIALIZED"`
+- Added and updated route-level tests for handoff init, complete, status, playback URL handling, CSP, transcript shapes, and supplemental materials.
+- Added and updated service-level tests for upload completion, transcript job behavior, resubmission selection, and Day 4 completion gating.
+- Added an OpenAPI contract test to verify the public surface exposes canonical handoff routes only.
 
-### DB verification
-- Day 2 submission repo matched Day 3 submission repo.
-- Day 3 submission stored `finalSha`.
-- A single workspace was reused for Day 2 and Day 3.
+## 3. Acceptance Criteria Mapping
 
-### Validation commands
-- `./precommit.sh`
-  - `1735 passed`
-  - coverage `96.05%`
-  - `✅ All pre-commit checks passed!`
+- Max 15-minute duration enforced: overlong uploads are rejected with `422` at completion.
+- Upload init/complete reliable: init succeeds for valid uploads, completion succeeds for valid finalized recordings, and repeated completion is safe.
+- Preview and resubmit until cutoff: the backend keeps the latest valid recording active while the Day 4 window remains open.
+- Transcription succeeds for valid files: valid handoff uploads create transcript work and reach the ready transcript state.
+- Correct playback URLs and CSP: Talent Partner detail returns playback/download URLs, and the response includes the expected CSP for media playback.
+- Supplemental materials upload: supplemental assets can be uploaded and are included in handoff/submission payloads.
+- Routes renamed from `presentation` to `handoff/demo`: the canonical OpenAPI surface exposes `handoff` routes and no public `presentation` routes.
 
-## 6. Risks / Follow-ups
-- Local live QA used demo/stubbed GitHub and Actions setup for deterministic validation.
-- One legacy test filename may still contain `debug`, but shipped runtime behavior and assertions now reflect Implementation Wrap-Up.
+## 4. QA Evidence
+
+- `./precommit.sh` passes on the final current branch.
+- Focused automated Day 4 media/submissions tests passed, covering:
+  - upload init and completion
+  - 15-minute duration rejection
+  - transcript creation and transcript status shaping
+  - resubmission selection
+  - playback/download URL behavior
+  - CSP behavior
+  - supplemental materials visibility
+  - OpenAPI route contract cleanup
+- Manual QA on the local backend/runtime proved the following outcomes:
+  - overlong upload rejected with `422`
+  - valid upload completes successfully
+  - repeated complete is safe
+  - replacement upload becomes active
+  - transcript success path verified
+  - degraded and missing transcript path verified
+  - Talent Partner detail returns playback URL and handoff payload
+  - CSP header is present and aligned to the playback origin
+  - supplemental material is visible in the payload
+  - OpenAPI exposes handoff routes and no public presentation routes
+
+## 5. Local QA Caveats
+
+- Manual QA was performed on the local backend/runtime.
+- Local validation used the dev auth bypass and demo transcription mode to exercise the backend flows end to end.
+- This is sufficient for backend acceptance on #290, but it is not the same as production infra validation.
+
+## 6. Tests
+
+- Final `./precommit.sh`
+- Focused `--no-cov` Day 4 media/submissions test slice
+- Targeted service tests for upload completion, transcript job behavior, and resubmission selection
+- Route tests for status payloads, playback URL handling, CSP, supplemental materials, and OpenAPI route exposure
+
+## 7. Risks / Follow-ups
+
+None.

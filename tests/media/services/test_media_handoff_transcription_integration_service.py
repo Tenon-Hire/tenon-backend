@@ -3,6 +3,9 @@ from __future__ import annotations
 import pytest
 
 from app.media.repositories.recordings import repository as recordings_repo
+from app.media.repositories.recordings.media_repositories_recordings_media_recordings_core_model import (
+    RECORDING_ASSET_KIND_RECORDING,
+)
 from tests.media.services.media_handoff_transcription_integration_utils import (
     assert_transcription_job_and_outputs,
 )
@@ -58,6 +61,7 @@ async def test_handoff_upload_complete_enqueue_and_worker_transcribes(
         async_session,
         candidate_session_id=candidate_session.id,
         task_id=task.id,
+        asset_kind=RECORDING_ASSET_KIND_RECORDING,
     )
     assert recording is not None
 

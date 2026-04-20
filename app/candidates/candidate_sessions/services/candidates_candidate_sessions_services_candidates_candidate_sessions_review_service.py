@@ -17,8 +17,8 @@ from app.candidates.candidate_sessions.services.candidates_candidate_sessions_se
 )
 from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_review_schema import (
     CandidateCompletedReviewResponse,
+    CandidateReviewHandoffArtifact,
     CandidateReviewMarkdownArtifact,
-    CandidateReviewPresentationArtifact,
     CandidateReviewWorkspaceArtifact,
 )
 from app.integrations.storage_media import (
@@ -155,7 +155,7 @@ async def _resolve_candidate_media(
     candidate_session_id: int,
     task_id: int,
 ):
-    recording = await recordings_repo.get_latest_for_task_session(
+    recording = await recordings_repo.get_latest_playback_safe_for_task_session(
         db,
         candidate_session_id=candidate_session_id,
         task_id=task_id,
@@ -204,8 +204,8 @@ def _build_artifact(*, task: Task, payload: dict[str, object]):
             testResults=payload.get("testResults"),
             **common,
         )
-    return CandidateReviewPresentationArtifact(
-        kind="presentation",
+    return CandidateReviewHandoffArtifact(
+        kind="handoff",
         recording=payload.get("recording"),
         transcript=payload.get("transcript"),
         **common,

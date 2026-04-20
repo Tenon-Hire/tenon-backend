@@ -13,6 +13,8 @@ class HandoffUploadInitRequest(BaseModel):
     contentType: str
     sizeBytes: int = Field(gt=0)
     filename: str | None = None
+    assetType: str = "recording"
+    durationSeconds: int | None = Field(default=None, gt=0)
 
 
 class HandoffUploadInitResponse(APIModel):
@@ -40,6 +42,7 @@ class HandoffStatusRecordingOut(APIModel):
     """Represent handoff status recording out data and behavior."""
 
     recordingId: str
+    assetKind: str | None = None
     status: str
     downloadUrl: str | None = None
 
@@ -71,4 +74,5 @@ class HandoffStatusResponse(APIModel):
     """Represent handoff status response data and behavior."""
 
     recording: HandoffStatusRecordingOut | None = None
+    supplementalMaterials: list[HandoffStatusRecordingOut] | None = None
     transcript: HandoffStatusTranscriptOut | None = None

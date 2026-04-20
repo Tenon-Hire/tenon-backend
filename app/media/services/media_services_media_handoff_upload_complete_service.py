@@ -11,6 +11,8 @@ from app.candidates.candidate_sessions import services as cs_service
 from app.integrations.storage_media import StorageMediaProvider
 from app.media.repositories.recordings import repository as recordings_repo
 from app.media.repositories.recordings.media_repositories_recordings_media_recordings_core_model import (
+    RECORDING_ASSET_KIND_RECORDING,
+    RECORDING_ASSET_KIND_SUPPLEMENTAL,
     RECORDING_ASSET_STATUS_FAILED,
     RECORDING_ASSET_STATUS_UPLOADED,
     RECORDING_ASSET_STATUS_UPLOADING,
@@ -24,6 +26,7 @@ from app.media.services.media_services_media_handoff_upload_lookup_service impor
 )
 from app.media.services.media_services_media_handoff_upload_storage_checks_service import (
     assert_uploaded_object_matches_expected,
+    assert_uploaded_recording_duration_within_limit,
     load_uploaded_object_metadata,
 )
 from app.media.services.media_services_media_handoff_upload_submission_pointer_service import (
@@ -76,6 +79,7 @@ async def complete_handoff_upload(
         candidate_session_id=candidate_session.id,
         task_id=task.id,
     )
+    asset_kind = recording.asset_kind or RECORDING_ASSET_KIND_RECORDING
     copy_candidate_consent_if_missing(recording, candidate_session)
     if recording.status in {
         RECORDING_ASSET_STATUS_UPLOADING,
@@ -90,33 +94,50 @@ async def complete_handoff_upload(
             actual_content_type=object_metadata.content_type,
             actual_size_bytes=object_metadata.size_bytes,
         )
+        if asset_kind == RECORDING_ASSET_KIND_RECORDING:
+            assert_uploaded_recording_duration_within_limit(
+                actual_duration_seconds=object_metadata.duration_seconds
+            )
         recording.status = RECORDING_ASSET_STATUS_UPLOADED
-    transcript, transcript_created = await transcripts_repo.get_or_create_transcript(
-        db, recording_id=recording.id, status=TRANSCRIPT_STATUS_PENDING, commit=False
-    )
-    submission_id = await upsert_submission_recording_pointer(
-        db,
-        candidate_session_id=candidate_session.id,
-        task_id=task.id,
-        recording_id=recording.id,
-        submitted_at=datetime.now(UTC),
-    )
-    job = await jobs_repo.create_or_get_idempotent(
-        db,
-        job_type=TRANSCRIBE_RECORDING_JOB_TYPE,
-        idempotency_key=transcribe_recording_idempotency_key(recording.id),
-        payload_json=build_transcribe_recording_payload(
+    transcript = None
+    transcript_created = False
+    job = None
+    submission_id = None
+    if asset_kind == RECORDING_ASSET_KIND_RECORDING:
+        (
+            transcript,
+            transcript_created,
+        ) = await transcripts_repo.get_or_create_transcript(
+            db,
             recording_id=recording.id,
+            status=TRANSCRIPT_STATUS_PENDING,
+            commit=False,
+        )
+        submission_id = await upsert_submission_recording_pointer(
+            db,
             candidate_session_id=candidate_session.id,
             task_id=task.id,
+            recording_id=recording.id,
+            submitted_at=datetime.now(UTC),
+        )
+        job = await jobs_repo.create_or_get_idempotent(
+            db,
+            job_type=TRANSCRIBE_RECORDING_JOB_TYPE,
+            idempotency_key=transcribe_recording_idempotency_key(recording.id),
+            payload_json=build_transcribe_recording_payload(
+                recording_id=recording.id,
+                candidate_session_id=candidate_session.id,
+                task_id=task.id,
+                company_id=company_id,
+            ),
             company_id=company_id,
-        ),
-        company_id=company_id,
-        candidate_session_id=candidate_session.id,
-        max_attempts=TRANSCRIBE_RECORDING_MAX_ATTEMPTS,
-        correlation_id=f"recording:{recording.id}",
-        commit=False,
-    )
+            candidate_session_id=candidate_session.id,
+            max_attempts=TRANSCRIBE_RECORDING_MAX_ATTEMPTS,
+            correlation_id=f"recording:{recording.id}",
+            commit=False,
+        )
+    elif asset_kind != RECORDING_ASSET_KIND_SUPPLEMENTAL:
+        raise AssertionError(f"Unsupported recording asset kind: {asset_kind}")
     await db.commit()
     logger.info(
         "Recording upload completed recordingId=%s candidateSessionId=%s taskId=%s status=%s",
@@ -125,25 +146,27 @@ async def complete_handoff_upload(
         task.id,
         recording.status,
     )
-    if transcript_created:
+    if transcript_created and transcript is not None:
         logger.info(
             "Transcript placeholder created recordingId=%s transcriptId=%s status=%s",
             recording.id,
             transcript.id,
             transcript.status,
         )
-    logger.info(
-        "Handoff submission recording pointer updated submissionId=%s taskId=%s recordingId=%s",
-        submission_id,
-        task.id,
-        recording.id,
-    )
-    logger.info(
-        "Transcription job ensured recordingId=%s jobId=%s jobType=%s",
-        recording.id,
-        job.id,
-        TRANSCRIBE_RECORDING_JOB_TYPE,
-    )
+    if submission_id is not None:
+        logger.info(
+            "Handoff submission recording pointer updated submissionId=%s taskId=%s recordingId=%s",
+            submission_id,
+            task.id,
+            recording.id,
+        )
+    if job is not None:
+        logger.info(
+            "Transcription job ensured recordingId=%s jobId=%s jobType=%s",
+            recording.id,
+            job.id,
+            TRANSCRIBE_RECORDING_JOB_TYPE,
+        )
     return recording
 
 

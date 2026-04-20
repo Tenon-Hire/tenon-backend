@@ -2,7 +2,7 @@
 
 Generated from FastAPI OpenAPI plus dependency-based auth mapping.
 Generated at: deterministic
-Total endpoints: 57
+Total endpoints: 54
 
 ## Endpoint Index
 
@@ -41,9 +41,6 @@ Total endpoints: 57
 - `GET /api/tasks/{task_id}/handoff/status`: Handoff Status Route
 - `POST /api/tasks/{task_id}/handoff/upload/complete`: Complete Handoff Upload Route
 - `POST /api/tasks/{task_id}/handoff/upload/init`: Init Handoff Upload Route
-- `POST /api/tasks/{task_id}/presentation/upload/complete`: Complete Presentation Upload Route
-- `POST /api/tasks/{task_id}/presentation/upload/init`: Init Presentation Upload Route
-- `GET /api/tasks/{task_id}/presentation/upload/status`: Presentation Status Route
 - `POST /api/tasks/{task_id}/run`: Run Task Tests Route
 - `GET /api/tasks/{task_id}/run/{run_id}`: Get Run Result Route
 - `POST /api/tasks/{task_id}/submit`: Submit Task Route
@@ -1138,6 +1135,7 @@ Total endpoints: 57
     "recordingId": "example",
     "status": "example"
   },
+  "supplementalMaterials": [],
   "transcript": {
     "status": "example"
   }
@@ -1202,7 +1200,9 @@ Total endpoints: 57
 ```json
 {
   "contentType": "example",
-  "sizeBytes": 1
+  "sizeBytes": 1,
+  "assetType": "recording",
+  "durationSeconds": 600
 }
 ```
 - Success responses:
@@ -1217,118 +1217,6 @@ Total endpoints: 57
   "recordingId": "example",
   "uploadUrl": "example",
   "expiresInSeconds": 1
-}
-```
-
-### `POST /api/tasks/{task_id}/presentation/upload/complete`
-- Summary: Complete Presentation Upload Route
-- Description: Finalize a previously initialized presentation upload and bind recording metadata to the submission.
-- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-session-id`
-- Operation ID: `complete_handoff_upload_route_api_tasks__task_id__presentation_upload_complete_post`
-- Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_candidate_sessions_utils.candidate_session_from_headers`, `app.shared.http.dependencies.shared_http_dependencies_storage_media_utils.get_media_storage_provider`, `fastapi.security.http.unknown`
-- Path params: 
-  - | Name | Required | Type | Default | Description |
-  - |---|---:|---|---|---|
-  - | `task_id` | yes | `integer` | `-` | - |
-- Query params: 
-  - None
-- Header params: 
-  - | Name | Required | Type | Default | Description |
-  - |---|---:|---|---|---|
-  - | `x-candidate-session-id` | no | `X-Candidate-Session-Id` | `-` | - |
-- Request schema: `HandoffUploadCompleteRequest`
-- Request example:
-```json
-{
-  "recordingId": "example"
-}
-```
-- Success responses:
-  - `200`: Successful Response (schema: `HandoffUploadCompleteResponse`)
-- Error responses:
-  - `403`: Candidate session access denied. (schema: `-`)
-  - `404`: Task or upload record not found. (schema: `-`)
-  - `422`: Validation Error (schema: `HTTPValidationError`)
-- Success example (`200`):
-```json
-{
-  "recordingId": "example",
-  "status": "example"
-}
-```
-
-### `POST /api/tasks/{task_id}/presentation/upload/init`
-- Summary: Init Presentation Upload Route
-- Description: Initialize candidate presentation recording upload and return signed upload instructions.
-- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-session-id`
-- Operation ID: `init_handoff_upload_route_api_tasks__task_id__presentation_upload_init_post`
-- Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_candidate_sessions_utils.candidate_session_from_headers`, `app.shared.http.dependencies.shared_http_dependencies_storage_media_utils.get_media_storage_provider`, `fastapi.security.http.unknown`
-- Path params: 
-  - | Name | Required | Type | Default | Description |
-  - |---|---:|---|---|---|
-  - | `task_id` | yes | `integer` | `-` | - |
-- Query params: 
-  - None
-- Header params: 
-  - | Name | Required | Type | Default | Description |
-  - |---|---:|---|---|---|
-  - | `x-candidate-session-id` | no | `X-Candidate-Session-Id` | `-` | - |
-- Request schema: `HandoffUploadInitRequest`
-- Request example:
-```json
-{
-  "contentType": "example",
-  "sizeBytes": 1
-}
-```
-- Success responses:
-  - `200`: Successful Response (schema: `HandoffUploadInitResponse`)
-- Error responses:
-  - `403`: Candidate session access denied. (schema: `-`)
-  - `404`: Task or candidate session not found. (schema: `-`)
-  - `422`: Validation Error (schema: `HTTPValidationError`)
-- Success example (`200`):
-```json
-{
-  "recordingId": "example",
-  "uploadUrl": "example",
-  "expiresInSeconds": 1
-}
-```
-
-### `GET /api/tasks/{task_id}/presentation/upload/status`
-- Summary: Presentation Status Route
-- Description: Return the current recording and transcript status for presentation tasks in the candidate session.
-- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-session-id`
-- Operation ID: `handoff_status_route_api_tasks__task_id__presentation_upload_status_get`
-- Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_candidate_sessions_utils.candidate_session_from_headers`, `app.shared.http.dependencies.shared_http_dependencies_storage_media_utils.get_media_storage_provider`, `fastapi.security.http.unknown`
-- Path params: 
-  - | Name | Required | Type | Default | Description |
-  - |---|---:|---|---|---|
-  - | `task_id` | yes | `integer` | `-` | - |
-- Query params: 
-  - None
-- Header params: 
-  - | Name | Required | Type | Default | Description |
-  - |---|---:|---|---|---|
-  - | `x-candidate-session-id` | no | `X-Candidate-Session-Id` | `-` | - |
-- Request schema: None
-- Success responses:
-  - `200`: Successful Response (schema: `HandoffStatusResponse`)
-- Error responses:
-  - `403`: Candidate session access denied. (schema: `-`)
-  - `404`: Task or presentation recording not found. (schema: `-`)
-  - `422`: Validation Error (schema: `HTTPValidationError`)
-- Success example (`200`):
-```json
-{
-  "recording": {
-    "recordingId": "example",
-    "status": "example"
-  },
-  "transcript": {
-    "status": "example"
-  }
 }
 ```
 

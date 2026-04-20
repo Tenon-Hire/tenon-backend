@@ -16,6 +16,10 @@ from app.integrations.storage_media.integrations_storage_media_storage_media_bas
     StorageMediaError,
 )
 from app.media.repositories.recordings import repository as recordings_repo
+from app.media.repositories.recordings.media_repositories_recordings_media_recordings_core_model import (
+    RECORDING_ASSET_KIND_RECORDING,
+    RECORDING_ASSET_KIND_SUPPLEMENTAL,
+)
 from app.media.repositories.transcripts import repository as transcripts_repo
 from app.media.services.media_services_media_transcription_jobs_service import (
     load_transcribe_recording_job,
@@ -24,6 +28,9 @@ from app.shared.database.shared_database_models_model import Trial
 from app.shared.utils.shared_utils_errors_utils import (
     MEDIA_STORAGE_UNAVAILABLE,
     ApiError,
+)
+from app.submissions.presentation.submissions_presentation_submissions_detail_media_payloads_utils import (
+    build_supplemental_materials_payloads,
 )
 
 
@@ -61,6 +68,20 @@ async def resolve_media_payload(
         recording=recording,
         cs=cs,
     )
+    supplemental_materials = await _resolve_supplemental_materials(
+        db, sub=sub, task=task, cs=cs
+    )
+    supplemental_materials_payloads = build_supplemental_materials_payloads(
+        supplemental_materials,
+        download_url_resolver=lambda asset: _resolve_download_url(
+            recording=asset,
+            sub=sub,
+            talent_partner_id=talent_partner_id,
+            logger=logger,
+            provider_factory=provider_factory,
+            signed_url_ttl_resolver=signed_url_ttl_resolver,
+        ),
+    )
     recording_download_url = _resolve_download_url(
         recording=recording,
         sub=sub,
@@ -69,7 +90,13 @@ async def resolve_media_payload(
         provider_factory=provider_factory,
         signed_url_ttl_resolver=signed_url_ttl_resolver,
     )
-    return recording, transcript, transcript_job, recording_download_url
+    return (
+        recording,
+        transcript,
+        transcript_job,
+        recording_download_url,
+        supplemental_materials_payloads,
+    )
 
 
 async def _resolve_recording(db: AsyncSession, *, sub, task, cs):
@@ -78,22 +105,29 @@ async def _resolve_recording(db: AsyncSession, *, sub, task, cs):
     )
     resolved_task_id = getattr(task, "id", None) or getattr(sub, "task_id", None)
     recording = None
-    submission_recording_id = getattr(sub, "recording_id", None)
-    if isinstance(submission_recording_id, int):
-        recording = await recordings_repo.get_by_id(db, submission_recording_id)
-    if (
-        recording is None
-        and isinstance(resolved_candidate_session_id, int)
-        and isinstance(resolved_task_id, int)
+    if isinstance(resolved_candidate_session_id, int) and isinstance(
+        resolved_task_id, int
     ):
-        recording = await recordings_repo.get_latest_for_task_session(
-            db,
-            candidate_session_id=resolved_candidate_session_id,
-            task_id=resolved_task_id,
+        latest_recording = (
+            await recordings_repo.get_latest_playback_safe_for_task_session(
+                db,
+                candidate_session_id=resolved_candidate_session_id,
+                task_id=resolved_task_id,
+            )
         )
+        submission_recording_id = getattr(sub, "recording_id", None)
+        if latest_recording is not None:
+            recording = latest_recording
+        if recording is None and isinstance(submission_recording_id, int):
+            recording = await recordings_repo.get_by_id(db, submission_recording_id)
     if recording is not None and (
         recording.candidate_session_id != resolved_candidate_session_id
         or recording.task_id != resolved_task_id
+    ):
+        return None
+    if recording is not None and getattr(recording, "asset_kind", None) not in (
+        None,
+        RECORDING_ASSET_KIND_RECORDING,
     ):
         return None
     return recording
@@ -103,6 +137,24 @@ async def _resolve_transcript(db: AsyncSession, *, recording):
     if recording is None or recordings_repo.is_deleted_or_purged(recording):
         return None
     return await transcripts_repo.get_by_recording_id(db, recording.id)
+
+
+async def _resolve_supplemental_materials(db: AsyncSession, *, sub, task, cs):
+    resolved_candidate_session_id = getattr(cs, "id", None) or getattr(
+        sub, "candidate_session_id", None
+    )
+    resolved_task_id = getattr(task, "id", None) or getattr(sub, "task_id", None)
+    if not isinstance(resolved_candidate_session_id, int) or not isinstance(
+        resolved_task_id, int
+    ):
+        return []
+    supplements = await recordings_repo.list_for_task_session(
+        db,
+        candidate_session_id=resolved_candidate_session_id,
+        task_id=resolved_task_id,
+        asset_kind=RECORDING_ASSET_KIND_SUPPLEMENTAL,
+    )
+    return [r for r in supplements if not recordings_repo.is_deleted_or_purged(r)]
 
 
 async def _resolve_transcript_job(db: AsyncSession, *, recording, cs):

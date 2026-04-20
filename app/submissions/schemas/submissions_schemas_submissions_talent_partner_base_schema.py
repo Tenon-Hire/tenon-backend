@@ -57,6 +57,7 @@ class TalentPartnerRecordingAssetOut(APIModel):
     """Represent Talent Partner recording asset out data and behavior."""
 
     recordingId: str
+    assetKind: str | None = None
     contentType: str
     bytes: int
     status: str

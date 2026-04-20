@@ -58,6 +58,7 @@ async def test_talent_partner_detail_includes_recording_and_transcript(
     assert body["recording"]["status"] == RECORDING_ASSET_STATUS_UPLOADED
     assert body["recording"]["downloadUrl"] is not None
     assert "download?" in body["recording"]["downloadUrl"]
+    assert body["recording"]["downloadUrl"].startswith("http://localhost:8000/")
     assert body["transcript"]["status"] == TRANSCRIPT_STATUS_READY
     assert body["transcript"]["modelName"] == "mock-stt-v1"
     assert body["transcript"]["segments"] == [
@@ -66,3 +67,8 @@ async def test_talent_partner_detail_includes_recording_and_transcript(
     assert body["handoff"]["recordingId"] == f"rec_{recording.id}"
     assert body["handoff"]["downloadUrl"] is not None
     assert body["handoff"]["transcript"]["status"] == TRANSCRIPT_STATUS_READY
+    csp = response.headers.get("content-security-policy")
+    assert csp is not None
+    assert "media-src" in csp
+    assert "connect-src" in csp
+    assert "http://localhost:8000" in csp
