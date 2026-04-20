@@ -14,6 +14,8 @@ from app.integrations.storage_media.integrations_storage_media_storage_media_bas
 )
 from app.media.repositories.recordings import repository as recordings_repo
 from app.media.repositories.recordings.media_repositories_recordings_media_recordings_core_model import (
+    RECORDING_ASSET_KIND_RECORDING,
+    RECORDING_ASSET_KIND_SUPPLEMENTAL,
     RECORDING_ASSET_STATUS_UPLOADING,
 )
 from app.media.services.media_services_media_handoff_upload_validation_service import (
@@ -49,6 +51,8 @@ async def init_handoff_upload(
     content_type: str,
     size_bytes: int,
     filename: str | None,
+    asset_kind: str = RECORDING_ASSET_KIND_RECORDING,
+    duration_seconds: int | None = None,
     storage_provider: StorageMediaProvider,
 ) -> tuple[RecordingAsset, str, int]:
     """Initialize handoff upload."""
@@ -57,8 +61,23 @@ async def init_handoff_upload(
     ensure_handoff_task(task.type)
     cs_service.require_active_window(candidate_session, task)
     validated: UploadInput = validate_upload_input(
-        content_type=content_type, size_bytes=size_bytes, filename=filename
+        content_type=content_type,
+        size_bytes=size_bytes,
+        filename=filename,
+        asset_kind=asset_kind,
+        duration_seconds=duration_seconds,
     )
+    asset_kind_normalized = (asset_kind or "").strip().lower()
+    if asset_kind_normalized not in {
+        RECORDING_ASSET_KIND_RECORDING,
+        RECORDING_ASSET_KIND_SUPPLEMENTAL,
+    }:
+        raise ApiError(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Unsupported assetType",
+            error_code="invalid_asset_type",
+            retryable=False,
+        )
     storage_key = build_recording_storage_key(
         candidate_session_id=candidate_session.id,
         task_id=task.id,
@@ -72,6 +91,8 @@ async def init_handoff_upload(
         storage_key=storage_key,
         content_type=validated.content_type,
         bytes_count=validated.size_bytes,
+        asset_kind=asset_kind_normalized,
+        duration_seconds=validated.duration_seconds,
         status=RECORDING_ASSET_STATUS_UPLOADING,
         commit=False,
     )
@@ -81,6 +102,9 @@ async def init_handoff_upload(
             content_type=validated.content_type,
             size_bytes=validated.size_bytes,
             expires_seconds=expires_seconds,
+            duration_seconds=validated.duration_seconds
+            if asset_kind_normalized == RECORDING_ASSET_KIND_RECORDING
+            else None,
         )
     except StorageMediaError as exc:
         await db.rollback()

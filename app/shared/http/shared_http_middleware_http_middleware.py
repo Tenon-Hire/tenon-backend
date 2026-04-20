@@ -23,6 +23,7 @@ from .shared_http_middleware_http_setup_middleware import (
     configure_csrf_protection,
     configure_proxy_headers,
     configure_request_limits,
+    configure_security_headers,
 )
 
 __all__ = [
@@ -31,6 +32,7 @@ __all__ = [
     "configure_proxy_headers",
     "configure_request_limits",
     "configure_cors",
+    "configure_security_headers",
     "_coerce_string_list",
     "_cors_config",
     "_csrf_allowed_origins",

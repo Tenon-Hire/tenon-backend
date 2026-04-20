@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.media.repositories.recordings.media_repositories_recordings_media_recordings_core_model import (
+    RECORDING_ASSET_KIND_RECORDING,
     RECORDING_ASSET_STATUS_DELETED,
     RECORDING_ASSET_STATUS_PURGED,
     RecordingAsset,
@@ -21,7 +22,9 @@ async def create_recording_asset(
     storage_key: str,
     content_type: str,
     bytes_count: int,
+    asset_kind: str = RECORDING_ASSET_KIND_RECORDING,
     status: str,
+    duration_seconds: int | None = None,
     consent_version: str | None = None,
     consent_timestamp: datetime | None = None,
     ai_notice_version: str | None = None,
@@ -35,6 +38,8 @@ async def create_recording_asset(
         storage_key=storage_key,
         content_type=content_type,
         bytes=bytes_count,
+        asset_kind=asset_kind,
+        duration_seconds=duration_seconds,
         status=status,
         consent_version=consent_version,
         consent_timestamp=consent_timestamp,

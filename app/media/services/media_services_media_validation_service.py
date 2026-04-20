@@ -25,6 +25,7 @@ class UploadInput:
     content_type: str
     size_bytes: int
     extension: str
+    duration_seconds: int | None = None
 
 
 def validate_upload_input(
@@ -32,9 +33,12 @@ def validate_upload_input(
     content_type: str,
     size_bytes: int,
     filename: str | None = None,
+    asset_kind: str = "recording",
+    duration_seconds: int | None = None,
 ) -> UploadInput:
     """Validate upload metadata against media settings."""
     cfg = settings.storage_media
+    normalized_kind = (asset_kind or "").strip().lower() or "recording"
     allowed_types = {
         str(item).strip().lower()
         for item in (cfg.MEDIA_ALLOWED_CONTENT_TYPES or [])
@@ -47,7 +51,9 @@ def validate_upload_input(
     }
 
     normalized_type = (content_type or "").split(";", 1)[0].strip().lower()
-    if not normalized_type or normalized_type not in allowed_types:
+    if not normalized_type:
+        raise _unprocessable("Unsupported contentType")
+    if normalized_kind == "recording" and normalized_type not in allowed_types:
         raise _unprocessable("Unsupported contentType")
 
     max_bytes = int(cfg.MEDIA_MAX_UPLOAD_BYTES)
@@ -70,11 +76,21 @@ def validate_upload_input(
         content_type=normalized_type,
         filename=filename,
         allowed_extensions=allowed_extensions,
+        asset_kind=normalized_kind,
     )
+    if (
+        normalized_kind == "recording"
+        and duration_seconds is not None
+        and int(duration_seconds) <= 0
+    ):
+        raise _unprocessable("durationSeconds must be greater than 0")
     return UploadInput(
         content_type=normalized_type,
         size_bytes=size_bytes,
         extension=extension,
+        duration_seconds=(
+            int(duration_seconds) if duration_seconds is not None else None
+        ),
     )
 
 
@@ -83,18 +99,21 @@ def _resolve_extension(
     content_type: str,
     filename: str | None,
     allowed_extensions: set[str],
+    asset_kind: str,
 ) -> str:
     if filename:
         extension = Path(filename).suffix.lower().lstrip(".")
         if not extension:
             raise _unprocessable("filename must include an extension")
         normalized = normalize_extension(extension)
-        if normalized not in allowed_extensions:
+        if asset_kind == "recording" and normalized not in allowed_extensions:
             raise _unprocessable("Unsupported file extension")
         return normalized
 
     mapped = DEFAULT_EXTENSION_BY_CONTENT_TYPE.get(content_type)
     if not mapped:
+        if asset_kind == "supplemental":
+            raise _unprocessable("filename must include an extension")
         raise _unprocessable("Unable to infer extension from contentType")
     normalized = normalize_extension(mapped)
     if normalized not in allowed_extensions:

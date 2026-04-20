@@ -53,10 +53,10 @@ class CandidateReviewWorkspaceArtifact(APIModel):
     testResults: TalentPartnerTestResultsOut | None = None
 
 
-class CandidateReviewPresentationArtifact(APIModel):
-    """Read-only presentation artifact summary for candidate review."""
+class CandidateReviewHandoffArtifact(APIModel):
+    """Read-only handoff artifact summary for candidate review."""
 
-    kind: Literal["presentation"]
+    kind: Literal["handoff"]
     dayIndex: int
     taskId: int
     taskType: str
@@ -69,7 +69,7 @@ class CandidateReviewPresentationArtifact(APIModel):
 CandidateReviewDayArtifact = Annotated[
     CandidateReviewMarkdownArtifact
     | CandidateReviewWorkspaceArtifact
-    | CandidateReviewPresentationArtifact,
+    | CandidateReviewHandoffArtifact,
     Field(discriminator="kind"),
 ]
 
@@ -90,6 +90,6 @@ __all__ = [
     "CandidateCompletedReviewResponse",
     "CandidateReviewDayArtifact",
     "CandidateReviewMarkdownArtifact",
-    "CandidateReviewPresentationArtifact",
+    "CandidateReviewHandoffArtifact",
     "CandidateReviewWorkspaceArtifact",
 ]

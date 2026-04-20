@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+from app.media.repositories.recordings.media_repositories_recordings_media_recordings_core_model import (
+    RECORDING_ASSET_KIND_RECORDING,
+    RECORDING_ASSET_KIND_SUPPLEMENTAL,
+)
 from app.media.repositories.transcripts.media_repositories_transcripts_media_transcripts_core_model import (
     TRANSCRIPT_STATUS_READY,
 )
+from app.media.services.media_services_media_keys_service import recording_public_id
 
 
 def coerce_optional_int(value: object) -> int | None:
@@ -92,3 +97,38 @@ def build_transcript_status_payload(
         "text": text,
         "segments": segments,
     }
+
+
+def build_recording_status_payload(
+    recording,
+    *,
+    download_url: str | None,
+) -> dict[str, object]:
+    """Build handoff recording payload."""
+    return {
+        "recordingId": recording_public_id(recording.id),
+        "assetKind": getattr(recording, "asset_kind", None)
+        or RECORDING_ASSET_KIND_RECORDING,
+        "status": getattr(recording, "status", None),
+        "downloadUrl": download_url,
+    }
+
+
+def build_supplemental_status_payloads(
+    supplemental_materials,
+    *,
+    download_url_resolver,
+) -> list[dict[str, object]]:
+    """Build supplemental material payloads."""
+    payloads: list[dict[str, object]] = []
+    for asset in supplemental_materials or []:
+        payloads.append(
+            {
+                "recordingId": recording_public_id(asset.id),
+                "assetKind": getattr(asset, "asset_kind", None)
+                or RECORDING_ASSET_KIND_SUPPLEMENTAL,
+                "status": getattr(asset, "status", None),
+                "downloadUrl": download_url_resolver(asset),
+            }
+        )
+    return payloads

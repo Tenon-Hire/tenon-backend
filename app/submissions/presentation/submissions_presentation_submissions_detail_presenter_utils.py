@@ -41,6 +41,7 @@ def present_detail(
     transcript=None,
     transcript_job=None,
     recording_download_url: str | None = None,
+    supplemental_materials=None,
 ):
     """Present detail."""
     parsed_output = talent_partner_sub_service.parse_test_output(
@@ -91,5 +92,6 @@ def present_detail(
             recording,
             download_url=recording_download_url,
             transcript_payload=transcript_payload,
+            supplemental_materials=supplemental_materials,
         ),
     }

@@ -5,6 +5,9 @@ from app.integrations.storage_media import (
     get_storage_media_provider,
 )
 from app.media.repositories.recordings import repository as recordings_repo
+from app.media.repositories.recordings.media_repositories_recordings_media_recordings_core_model import (
+    RECORDING_ASSET_KIND_RECORDING,
+)
 
 
 async def _complete_handoff_upload(
@@ -35,6 +38,7 @@ async def _complete_handoff_upload(
         async_session,
         candidate_session_id=candidate_session.id,
         task_id=task_id,
+        asset_kind=RECORDING_ASSET_KIND_RECORDING,
     )
     assert recording is not None
     storage_provider = get_storage_media_provider()

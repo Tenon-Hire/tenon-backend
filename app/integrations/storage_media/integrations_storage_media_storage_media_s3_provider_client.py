@@ -62,18 +62,26 @@ class S3StorageMediaProvider:
         self._parsed_endpoint = parsed
 
     def create_signed_upload_url(
-        self, key: str, content_type: str, size_bytes: int, expires_seconds: int
+        self,
+        key: str,
+        content_type: str,
+        size_bytes: int,
+        expires_seconds: int,
+        duration_seconds: int | None = None,
     ) -> str:
         """Create signed upload url."""
         del size_bytes
         normalized_type = (content_type or "").strip()
         if not normalized_type:
             raise StorageMediaError("content_type is required")
+        extra_headers = {"content-type": normalized_type}
+        if duration_seconds is not None:
+            extra_headers["x-amz-meta-duration-seconds"] = str(int(duration_seconds))
         return self._presign(
             method="PUT",
             key=key,
             expires_seconds=expires_seconds,
-            extra_headers={"content-type": normalized_type},
+            extra_headers=extra_headers,
         )
 
     def create_signed_download_url(self, key: str, expires_seconds: int) -> str:

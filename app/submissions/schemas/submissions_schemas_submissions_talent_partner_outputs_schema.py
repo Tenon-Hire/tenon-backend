@@ -20,8 +20,10 @@ class TalentPartnerHandoffOut(APIModel):
     """Represent Talent Partner handoff out data and behavior."""
 
     recordingId: str | None = None
+    assetKind: str | None = None
     downloadUrl: str | None = None
     transcript: TalentPartnerTranscriptOut | None = None
+    supplementalMaterials: list[TalentPartnerRecordingAssetOut] | None = None
 
 
 class TalentPartnerSubmissionDetailOut(APIModel):

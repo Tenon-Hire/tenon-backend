@@ -46,6 +46,7 @@ async def get_submission_detail_route(
         transcript,
         transcript_job,
         recording_download_url,
+        supplemental_materials,
     ) = await resolve_media_payload(
         db,
         sub=sub,
@@ -65,5 +66,6 @@ async def get_submission_detail_route(
         transcript=transcript,
         transcript_job=transcript_job,
         recording_download_url=recording_download_url,
+        supplemental_materials=supplemental_materials,
     )
     return TalentPartnerSubmissionDetailOut(**payload)

@@ -10,6 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.storage_media import StorageMediaProvider, resolve_signed_url_ttl
 from app.media.repositories.recordings import repository as recordings_repo
+from app.media.repositories.recordings.media_repositories_recordings_media_recordings_core_model import (
+    RECORDING_ASSET_KIND_SUPPLEMENTAL,
+)
 from app.media.services.media_services_media_handoff_upload_service import (
     complete_handoff_upload,
     get_handoff_status,
@@ -42,7 +45,10 @@ from .tasks_routes_tasks_tasks_handoff_upload_status_handler import (
     handoff_status_route_impl,
 )
 from .tasks_routes_tasks_tasks_handoff_upload_utils import (
+    build_recording_status_payload,
+    build_supplemental_status_payloads,
     build_transcript_status_payload,
+    normalize_handoff_status_result,
 )
 
 router = APIRouter()
@@ -51,19 +57,8 @@ logger = logging.getLogger(__name__)
 
 @router.post(
     "/{task_id}/presentation/upload/init",
-    response_model=HandoffUploadInitResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Init Presentation Upload Route",
-    description=(
-        "Initialize candidate presentation recording upload and return signed"
-        " upload instructions."
-    ),
-    responses={
-        status.HTTP_403_FORBIDDEN: {"description": "Candidate session access denied."},
-        status.HTTP_404_NOT_FOUND: {
-            "description": "Task or candidate session not found."
-        },
-    },
+    include_in_schema=False,
+    deprecated=True,
 )
 @router.post(
     "/{task_id}/handoff/upload/init",
@@ -106,17 +101,8 @@ async def init_handoff_upload_route(
 
 @router.post(
     "/{task_id}/presentation/upload/complete",
-    response_model=HandoffUploadCompleteResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Complete Presentation Upload Route",
-    description=(
-        "Finalize a previously initialized presentation upload and bind"
-        " recording metadata to the submission."
-    ),
-    responses={
-        status.HTTP_403_FORBIDDEN: {"description": "Candidate session access denied."},
-        status.HTTP_404_NOT_FOUND: {"description": "Task or upload record not found."},
-    },
+    include_in_schema=False,
+    deprecated=True,
 )
 @router.post(
     "/{task_id}/handoff/upload/complete",
@@ -157,19 +143,8 @@ async def complete_handoff_upload_route(
 
 @router.get(
     "/{task_id}/presentation/upload/status",
-    response_model=HandoffStatusResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Presentation Status Route",
-    description=(
-        "Return the current recording and transcript status for presentation"
-        " tasks in the candidate session."
-    ),
-    responses={
-        status.HTTP_403_FORBIDDEN: {"description": "Candidate session access denied."},
-        status.HTTP_404_NOT_FOUND: {
-            "description": "Task or presentation recording not found."
-        },
-    },
+    include_in_schema=False,
+    deprecated=True,
 )
 @router.get(
     "/{task_id}/handoff/status",
@@ -198,16 +173,39 @@ async def handoff_status_route(
     ],
 ) -> HandoffStatusResponse:
     """Handle the handoff status API route."""
+    recording, transcript, transcript_job = normalize_handoff_status_result(
+        await get_handoff_status(
+            db,
+            candidate_session=candidate_session,
+            task_id=task_id,
+        )
+    )
+    supplemental_materials = []
+    if db is not None:
+        supplemental_materials = [
+            asset
+            for asset in await recordings_repo.list_for_task_session(
+                db,
+                candidate_session_id=candidate_session.id,
+                task_id=task_id,
+                asset_kind=RECORDING_ASSET_KIND_SUPPLEMENTAL,
+            )
+            if not recordings_repo.is_deleted_or_purged(asset)
+        ]
     return await handoff_status_route_impl(
         task_id=task_id,
         candidate_session=candidate_session,
         db=db,
         storage_provider=storage_provider,
-        get_handoff_status_fn=get_handoff_status,
+        recording=recording,
+        transcript=transcript,
+        transcript_job=transcript_job,
+        supplemental_materials=supplemental_materials,
         is_downloadable_fn=recordings_repo.is_downloadable,
         resolve_signed_url_ttl_fn=resolve_signed_url_ttl,
-        recording_public_id_fn=recording_public_id,
         build_transcript_status_payload_fn=build_transcript_status_payload,
+        build_recording_status_payload_fn=build_recording_status_payload,
+        build_supplemental_status_payloads_fn=build_supplemental_status_payloads,
         logger=logger,
     )
 

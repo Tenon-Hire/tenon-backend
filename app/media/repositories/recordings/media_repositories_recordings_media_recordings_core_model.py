@@ -24,6 +24,8 @@ RECORDING_ASSET_STATUS_READY = "ready"
 RECORDING_ASSET_STATUS_FAILED = "failed"
 RECORDING_ASSET_STATUS_DELETED = "deleted"
 RECORDING_ASSET_STATUS_PURGED = "purged"
+RECORDING_ASSET_KIND_RECORDING = "recording"
+RECORDING_ASSET_KIND_SUPPLEMENTAL = "supplemental"
 
 RECORDING_ASSET_STATUSES = (
     RECORDING_ASSET_STATUS_UPLOADING,
@@ -65,6 +67,12 @@ class RecordingAsset(Base, TimestampMixin):
         ),
         Index("ix_recording_assets_candidate_session_id", "candidate_session_id"),
         Index("ix_recording_assets_task_id", "task_id"),
+        Index(
+            "ix_recording_assets_candidate_session_task_kind",
+            "candidate_session_id",
+            "task_id",
+            "asset_kind",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -76,6 +84,13 @@ class RecordingAsset(Base, TimestampMixin):
     storage_key: Mapped[str] = mapped_column(String(1024), nullable=False)
     content_type: Mapped[str] = mapped_column(String(255), nullable=False)
     bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    asset_kind: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default=RECORDING_ASSET_KIND_RECORDING,
+        server_default=RECORDING_ASSET_KIND_RECORDING,
+    )
+    duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
@@ -108,6 +123,8 @@ __all__ = [
     "RECORDING_ASSET_STATUS_FAILED",
     "RECORDING_ASSET_STATUS_DELETED",
     "RECORDING_ASSET_STATUS_PURGED",
+    "RECORDING_ASSET_KIND_RECORDING",
+    "RECORDING_ASSET_KIND_SUPPLEMENTAL",
     "RECORDING_ASSET_STATUSES",
     "RECORDING_ASSET_STATUS_CHECK_CONSTRAINT_NAME",
     "RECORDING_ASSET_STORAGE_KEY_UNIQUE_CONSTRAINT_NAME",

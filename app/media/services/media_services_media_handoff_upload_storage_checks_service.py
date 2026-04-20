@@ -15,6 +15,8 @@ from app.shared.utils.shared_utils_errors_utils import (
     ApiError,
 )
 
+MAX_HANDOFF_RECORDING_DURATION_SECONDS = 15 * 60
+
 
 def load_uploaded_object_metadata(
     *, storage_provider: StorageMediaProvider, storage_key: str
@@ -74,6 +76,29 @@ def assert_uploaded_object_matches_expected(
         )
 
 
+def assert_uploaded_recording_duration_within_limit(
+    *,
+    actual_duration_seconds: int | None,
+) -> None:
+    """Ensure a recording does not exceed the Day 4 maximum length."""
+    if actual_duration_seconds is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Uploaded recording is missing duration metadata",
+        )
+    duration_seconds = int(actual_duration_seconds)
+    if duration_seconds <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Uploaded recording duration metadata is invalid",
+        )
+    if duration_seconds > MAX_HANDOFF_RECORDING_DURATION_SECONDS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Uploaded recording exceeds the 15 minute limit",
+        )
+
+
 def normalize_content_type(value: str) -> str:
     """Normalize content type."""
     return (value or "").split(";", 1)[0].strip().lower()
@@ -81,6 +106,8 @@ def normalize_content_type(value: str) -> str:
 
 __all__ = [
     "assert_uploaded_object_matches_expected",
+    "assert_uploaded_recording_duration_within_limit",
     "load_uploaded_object_metadata",
     "normalize_content_type",
+    "MAX_HANDOFF_RECORDING_DURATION_SECONDS",
 ]

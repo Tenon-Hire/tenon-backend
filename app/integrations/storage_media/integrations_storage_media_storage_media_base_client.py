@@ -19,6 +19,7 @@ class StorageObjectMetadata:
 
     content_type: str
     size_bytes: int
+    duration_seconds: int | None = None
 
 
 def clamp_expires_seconds(
@@ -61,6 +62,7 @@ class StorageMediaProvider(Protocol):
         content_type: str,
         size_bytes: int,
         expires_seconds: int,
+        duration_seconds: int | None = None,
     ) -> str:
         """Create signed upload url."""
         ...

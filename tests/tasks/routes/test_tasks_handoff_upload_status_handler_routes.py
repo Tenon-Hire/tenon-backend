@@ -17,24 +17,29 @@ class _Logger:
         self.warning_calls += 1
 
 
+def _build_supplemental_status_payloads(*_args, **_kwargs):
+    return []
+
+
 @pytest.mark.asyncio
 async def test_handoff_status_route_impl_returns_transcript_without_recording():
-    async def _get_handoff_status(*_args, **_kwargs):
-        return None, SimpleNamespace(status="ready")
-
     response = await status_handler.handoff_status_route_impl(
         task_id=22,
         candidate_session=SimpleNamespace(id=4),
         db=object(),
         storage_provider=object(),
-        get_handoff_status_fn=_get_handoff_status,
+        recording=None,
+        transcript=SimpleNamespace(status="ready"),
+        transcript_job=None,
+        supplemental_materials=[],
         is_downloadable_fn=lambda _recording: True,
         resolve_signed_url_ttl_fn=lambda: 900,
-        recording_public_id_fn=lambda recording_id: f"rec_{recording_id}",
         build_transcript_status_payload_fn=lambda transcript, transcript_job=None: {
             "status": transcript.status,
             "text": "done",
         },
+        build_recording_status_payload_fn=lambda recording, download_url=None: None,
+        build_supplemental_status_payloads_fn=_build_supplemental_status_payloads,
         logger=_Logger(),
     )
 
@@ -54,24 +59,28 @@ async def test_handoff_status_route_impl_skips_signing_when_recording_not_downlo
                 "should not sign download URL for non-downloadable media"
             )
 
-    async def _get_handoff_status(*_args, **_kwargs):
-        return (
-            SimpleNamespace(id=8, status="processing", storage_key="recordings/key"),
-            None,
-        )
-
     response = await status_handler.handoff_status_route_impl(
         task_id=23,
         candidate_session=SimpleNamespace(id=5),
         db=object(),
         storage_provider=_StorageProvider(),
-        get_handoff_status_fn=_get_handoff_status,
+        recording=SimpleNamespace(
+            id=8, status="processing", storage_key="recordings/key"
+        ),
+        transcript=None,
+        transcript_job=None,
+        supplemental_materials=[],
         is_downloadable_fn=lambda _recording: False,
         resolve_signed_url_ttl_fn=lambda: 900,
-        recording_public_id_fn=lambda recording_id: f"rec_{recording_id}",
         build_transcript_status_payload_fn=lambda transcript, transcript_job=None: {
             "status": transcript.status
         },
+        build_recording_status_payload_fn=lambda recording, download_url=None: {
+            "recordingId": f"rec_{recording.id}",
+            "status": recording.status,
+            "downloadUrl": download_url,
+        },
+        build_supplemental_status_payloads_fn=_build_supplemental_status_payloads,
         logger=logger,
     )
 

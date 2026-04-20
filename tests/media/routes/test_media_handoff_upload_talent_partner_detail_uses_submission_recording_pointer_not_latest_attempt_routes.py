@@ -46,8 +46,8 @@ async def test_talent_partner_detail_uses_submission_recording_pointer_not_lates
         commit=True,
     )
 
-    # Later recording exists but is not linked by submission.recording_id.
-    latest_recording = await recordings_repo.create_recording_asset(
+    # Later recording exists but is not playback-safe.
+    _latest_recording = await recordings_repo.create_recording_asset(
         async_session,
         candidate_session_id=candidate_session.id,
         task_id=task.id,
@@ -57,16 +57,7 @@ async def test_talent_partner_detail_uses_submission_recording_pointer_not_lates
         ),
         content_type="video/mp4",
         bytes_count=8_192,
-        status=RECORDING_ASSET_STATUS_UPLOADED,
-        commit=True,
-    )
-    await transcripts_repo.create_transcript(
-        async_session,
-        recording_id=latest_recording.id,
-        status=TRANSCRIPT_STATUS_READY,
-        text="latest transcript",
-        segments_json=[{"startMs": 0, "endMs": 1000, "text": "latest"}],
-        model_name="mock-stt-v1",
+        status="failed",
         commit=True,
     )
 

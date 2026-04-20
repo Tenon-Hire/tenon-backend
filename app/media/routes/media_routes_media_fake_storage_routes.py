@@ -59,6 +59,7 @@ async def fake_storage_upload_route(
     storage_provider: Annotated[
         StorageMediaProvider, Depends(get_media_storage_provider)
     ],
+    durationSeconds: Annotated[int | None, Query(gt=0)] = None,
 ) -> Response:
     """Accept a signed fake-storage upload for local live validation."""
     provider = _require_fake_provider(storage_provider)
@@ -69,6 +70,7 @@ async def fake_storage_upload_route(
             size_bytes=sizeBytes,
             expires_at=expiresAt,
             signature=sig,
+            duration_seconds=durationSeconds,
         )
     except StorageMediaError as exc:
         detail = str(exc)
@@ -82,7 +84,12 @@ async def fake_storage_upload_route(
     if len(body) != int(sizeBytes):
         _unprocessable("Uploaded object size does not match expected size")
     try:
-        provider.write_object_bytes(safe_key, content_type=contentType, data=body)
+        provider.write_object_bytes(
+            safe_key,
+            content_type=contentType,
+            data=body,
+            duration_seconds=durationSeconds,
+        )
     except StorageMediaError as exc:
         _unprocessable(str(exc), exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

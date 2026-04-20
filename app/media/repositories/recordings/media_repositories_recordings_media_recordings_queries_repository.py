@@ -8,7 +8,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.media.repositories.recordings.media_repositories_recordings_media_recordings_core_model import (
+    RECORDING_ASSET_KIND_RECORDING,
     RecordingAsset,
+)
+from app.media.repositories.recordings.media_repositories_recordings_media_recordings_predicates_repository import (
+    DOWNLOADABLE_RECORDING_STATUSES,
 )
 
 
@@ -35,18 +39,60 @@ async def get_latest_for_task_session(
     *,
     candidate_session_id: int,
     task_id: int,
+    asset_kind: str | None = None,
 ) -> RecordingAsset | None:
     """Return latest for task session."""
+    stmt = select(RecordingAsset).where(
+        RecordingAsset.candidate_session_id == candidate_session_id,
+        RecordingAsset.task_id == task_id,
+    )
+    if asset_kind is not None:
+        stmt = stmt.where(RecordingAsset.asset_kind == asset_kind)
+    stmt = stmt.order_by(
+        RecordingAsset.created_at.desc(), RecordingAsset.id.desc()
+    ).limit(1)
+    return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def get_latest_playback_safe_for_task_session(
+    db: AsyncSession,
+    *,
+    candidate_session_id: int,
+    task_id: int,
+) -> RecordingAsset | None:
+    """Return the latest recording that is safe to surface for playback."""
     stmt = (
         select(RecordingAsset)
         .where(
             RecordingAsset.candidate_session_id == candidate_session_id,
             RecordingAsset.task_id == task_id,
+            RecordingAsset.asset_kind == RECORDING_ASSET_KIND_RECORDING,
+            RecordingAsset.status.in_(DOWNLOADABLE_RECORDING_STATUSES),
+            RecordingAsset.deleted_at.is_(None),
+            RecordingAsset.purged_at.is_(None),
         )
         .order_by(RecordingAsset.created_at.desc(), RecordingAsset.id.desc())
         .limit(1)
     )
     return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def list_for_task_session(
+    db: AsyncSession,
+    *,
+    candidate_session_id: int,
+    task_id: int,
+    asset_kind: str | None = None,
+) -> list[RecordingAsset]:
+    """Return all assets for a task session."""
+    stmt = select(RecordingAsset).where(
+        RecordingAsset.candidate_session_id == candidate_session_id,
+        RecordingAsset.task_id == task_id,
+    )
+    if asset_kind is not None:
+        stmt = stmt.where(RecordingAsset.asset_kind == asset_kind)
+    stmt = stmt.order_by(RecordingAsset.created_at.asc(), RecordingAsset.id.asc())
+    return list((await db.execute(stmt)).scalars().all())
 
 
 async def get_expired_for_retention(

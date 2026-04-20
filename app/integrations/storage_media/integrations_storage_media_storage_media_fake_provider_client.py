@@ -37,6 +37,7 @@ class FakeStorageMediaProvider:
         content_type: str,
         size_bytes: int,
         expires_seconds: int,
+        duration_seconds: int | None = None,
     ) -> str:
         """Create signed upload url."""
         started = time.perf_counter()
@@ -48,6 +49,7 @@ class FakeStorageMediaProvider:
             str(content_type),
             str(size_bytes),
             str(expires_at),
+            str(int(duration_seconds)) if duration_seconds is not None else "",
         )
         query = urlencode(
             {
@@ -57,6 +59,11 @@ class FakeStorageMediaProvider:
                 "expiresIn": expires_seconds,
                 "expiresAt": expires_at,
                 "sig": token,
+                **(
+                    {"durationSeconds": int(duration_seconds)}
+                    if duration_seconds is not None
+                    else {}
+                ),
             }
         )
         try:
@@ -107,6 +114,7 @@ class FakeStorageMediaProvider:
         *,
         content_type: str,
         size_bytes: int,
+        duration_seconds: int | None = None,
     ) -> None:
         """Set object metadata."""
         safe_key = ensure_safe_storage_key(key)
@@ -114,6 +122,9 @@ class FakeStorageMediaProvider:
         metadata = StorageObjectMetadata(
             content_type=normalized_content_type,
             size_bytes=int(size_bytes),
+            duration_seconds=(
+                int(duration_seconds) if duration_seconds is not None else 600
+            ),
         )
         self._objects[safe_key] = metadata
         self._write_disk_metadata(safe_key, metadata)
@@ -138,6 +149,7 @@ class FakeStorageMediaProvider:
         size_bytes: int,
         expires_at: int,
         signature: str,
+        duration_seconds: int | None = None,
     ) -> str:
         """Validate signed upload request and return safe key."""
         safe_key = ensure_safe_storage_key(key)
@@ -148,6 +160,7 @@ class FakeStorageMediaProvider:
             str(content_type),
             str(int(size_bytes)),
             str(int(expires_at)),
+            str(int(duration_seconds)) if duration_seconds is not None else "",
         )
         if signature != expected:
             raise StorageMediaError("Invalid upload signature")
@@ -174,12 +187,16 @@ class FakeStorageMediaProvider:
         *,
         content_type: str,
         data: bytes,
+        duration_seconds: int | None = None,
     ) -> StorageObjectMetadata:
         """Persist fake-storage object bytes and metadata."""
         safe_key = ensure_safe_storage_key(key)
         metadata = StorageObjectMetadata(
             content_type=(content_type or "").split(";", 1)[0].strip().lower(),
             size_bytes=len(data),
+            duration_seconds=(
+                int(duration_seconds) if duration_seconds is not None else 600
+            ),
         )
         if self._root_dir is None:
             self._objects[safe_key] = metadata
@@ -215,6 +232,7 @@ class FakeStorageMediaProvider:
                 {
                     "content_type": metadata.content_type,
                     "size_bytes": int(metadata.size_bytes),
+                    "duration_seconds": metadata.duration_seconds,
                 }
             ),
             encoding="utf-8",
@@ -236,6 +254,11 @@ class FakeStorageMediaProvider:
         return StorageObjectMetadata(
             content_type=str(payload.get("content_type") or "application/octet-stream"),
             size_bytes=int(payload.get("size_bytes") or 0),
+            duration_seconds=(
+                int(payload["duration_seconds"])
+                if payload.get("duration_seconds") is not None
+                else None
+            ),
         )
 
     def _delete_disk_object(self, safe_key: str) -> None:

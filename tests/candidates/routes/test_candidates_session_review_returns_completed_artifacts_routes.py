@@ -154,7 +154,7 @@ async def test_candidate_session_review_returns_completed_artifacts(
     assert artifacts[2]["repoFullName"] == "octocat/demo-sim"
     assert artifacts[2]["cutoffCommitSha"] == "abc123"
     assert artifacts[2]["testResults"]["passed"] == 12
-    assert artifacts[4]["kind"] == "presentation"
+    assert artifacts[4]["kind"] == "handoff"
     assert artifacts[4]["recording"]["status"] == RECORDING_ASSET_STATUS_UPLOADED
     assert artifacts[4]["recording"]["downloadUrl"] is not None
     assert artifacts[4]["transcript"]["status"] == TRANSCRIPT_STATUS_READY

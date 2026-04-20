@@ -15,20 +15,23 @@ async def test_resolve_recording_returns_none_for_mismatched_session_or_task(
         candidate_session_id=999,
         task_id=888,
     )
+    latest_recording = SimpleNamespace(
+        candidate_session_id=1,
+        task_id=2,
+        asset_kind="recording",
+    )
 
     async def _get_by_id(_db, _recording_id):
         return mismatched_recording
 
-    async def _get_latest_for_task_session(*_args, **_kwargs):
-        raise AssertionError(
-            "latest lookup should not run when submission recording id is present"
-        )
+    async def _get_latest_playback_safe_for_task_session(*_args, **_kwargs):
+        return latest_recording
 
     monkeypatch.setattr(detail_route.recordings_repo, "get_by_id", _get_by_id)
     monkeypatch.setattr(
         detail_route.recordings_repo,
-        "get_latest_for_task_session",
-        _get_latest_for_task_session,
+        "get_latest_playback_safe_for_task_session",
+        _get_latest_playback_safe_for_task_session,
     )
 
     resolved = await detail_route._resolve_recording(
@@ -38,4 +41,4 @@ async def test_resolve_recording_returns_none_for_mismatched_session_or_task(
         cs=SimpleNamespace(id=1),
     )
 
-    assert resolved is None
+    assert resolved is latest_recording

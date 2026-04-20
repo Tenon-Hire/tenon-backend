@@ -14,9 +14,14 @@ async def test_init_handoff_upload_surfaces_storage_unavailable(async_session):
 
     class _BrokenProvider(FakeStorageMediaProvider):
         def create_signed_upload_url(
-            self, key: str, content_type: str, size_bytes: int, expires_seconds: int
+            self,
+            key: str,
+            content_type: str,
+            size_bytes: int,
+            expires_seconds: int,
+            duration_seconds: int | None = None,
         ) -> str:
-            del key, content_type, size_bytes, expires_seconds
+            del key, content_type, size_bytes, expires_seconds, duration_seconds
             raise StorageMediaError("storage down")
 
     with pytest.raises(HTTPException) as exc_info:

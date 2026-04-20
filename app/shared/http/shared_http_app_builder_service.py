@@ -17,6 +17,7 @@ from app.shared.http.shared_http_middleware import (
     configure_perf_logging,
     configure_proxy_headers,
     configure_request_limits,
+    configure_security_headers,
 )
 from app.shared.http.shared_http_router_registry_service import register_routers
 from app.shared.utils.shared_utils_brand_utils import APP_NAME
@@ -37,6 +38,7 @@ def create_app() -> FastAPI:
     configure_request_limits(app)
     configure_csrf_protection(app)
     configure_cors(app)
+    configure_security_headers(app)
     register_routers(app)
     register_error_handlers(app)
     return app

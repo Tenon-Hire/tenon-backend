@@ -13,10 +13,6 @@ from app.submissions.schemas.submissions_schemas_submissions_core_schema import 
     HandoffStatusResponse,
 )
 
-from .tasks_routes_tasks_tasks_handoff_upload_utils import (
-    normalize_handoff_status_result,
-)
-
 
 async def handoff_status_route_impl(
     *,
@@ -24,21 +20,18 @@ async def handoff_status_route_impl(
     candidate_session,
     db,
     storage_provider,
-    get_handoff_status_fn,
+    recording,
+    transcript,
+    transcript_job,
+    supplemental_materials,
     is_downloadable_fn,
     resolve_signed_url_ttl_fn,
-    recording_public_id_fn,
     build_transcript_status_payload_fn,
+    build_recording_status_payload_fn,
+    build_supplemental_status_payloads_fn,
     logger,
 ) -> HandoffStatusResponse:
     """Execute handoff status route impl."""
-    recording, transcript, transcript_job = normalize_handoff_status_result(
-        await get_handoff_status_fn(
-            db,
-            candidate_session=candidate_session,
-            task_id=task_id,
-        )
-    )
     if transcript_job is None and recording is not None:
         company_id = getattr(
             getattr(candidate_session, "trial", None), "company_id", None
@@ -69,16 +62,36 @@ async def handoff_status_route_impl(
                     candidate_session.id,
                     exc_info=exc,
                 )
-        recording_payload = {
-            "recordingId": recording_public_id_fn(recording.id),
-            "status": recording.status,
-            "downloadUrl": download_url,
-        }
+        recording_payload = build_recording_status_payload_fn(
+            recording, download_url=download_url
+        )
     transcript_payload = None
     if transcript is not None:
         transcript_payload = build_transcript_status_payload_fn(
             transcript, transcript_job=transcript_job
         )
-    return HandoffStatusResponse(
-        recording=recording_payload, transcript=transcript_payload
+    supplemental_payloads = build_supplemental_status_payloads_fn(
+        supplemental_materials,
+        download_url_resolver=lambda asset: (
+            None
+            if not is_downloadable_fn(asset)
+            else _resolve_download_url(
+                storage_provider, asset, resolve_signed_url_ttl_fn
+            )
+        ),
     )
+    return HandoffStatusResponse(
+        recording=recording_payload,
+        supplementalMaterials=supplemental_payloads,
+        transcript=transcript_payload,
+    )
+
+
+def _resolve_download_url(storage_provider, recording, resolve_signed_url_ttl_fn):
+    try:
+        return storage_provider.create_signed_download_url(
+            recording.storage_key,
+            expires_seconds=resolve_signed_url_ttl_fn(),
+        )
+    except (StorageMediaError, ValueError):
+        return None

@@ -25,6 +25,8 @@ async def init_handoff_upload_route_impl(
         content_type=payload.contentType,
         size_bytes=payload.sizeBytes,
         filename=payload.filename,
+        asset_kind=payload.assetType,
+        duration_seconds=payload.durationSeconds,
         storage_provider=storage_provider,
     )
     return HandoffUploadInitResponse(
