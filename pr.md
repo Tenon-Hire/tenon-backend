@@ -1,74 +1,68 @@
-# Day 5 reflection essay with 9 AM to 9 PM local extended window (#291)
+# Add auth isolation regressions for Talent Partner, candidate session, and invite-token routes
 
 ## 1. Summary
 
-This PR makes Day 5 canonical as `reflection`, keeps the Day 5 local window at 09:00-21:00, and aligns the backend create, detail, autosave, submission, and day-close flows with that contract.
+This PR adds auth isolation regressions for Talent Partner, Candidate, and invite-token resources. No production auth logic changes were needed; the existing ownership and auth guards already enforced the required boundaries. Existing CSRF posture and production dev-bypass guards were validated.
 
 ## 2. Problem
 
-Day 5 still needed the extended local window and the correct task type. Before this change, the backend could surface Day 5 as `documentation` in some paths, and the day-close flow did not consistently propagate candidate session completion when the final Day 5 text submission was finalized from draft.
+Login worked, but cross-tenant and cross-session isolation needed explicit regression coverage. Issue #292 required proof that:
+
+- Talent Partner A cannot read Talent Partner B's candidates
+- Candidate A cannot read Candidate B's session
+- Invite-token resources are properly scoped
+- CSRF posture is verified
+- Dev bypasses are disabled in production
 
 ## 3. What Changed
 
-### Day 5 contract
+### Talent Partner isolation
 
-- Canonicalized Day 5 to `reflection` in the trial blueprint and shared task type model.
-- Added a Day 5 contract helper that normalizes the trial schedule to the canonical 09:00-21:00 local override.
-- Kept Days 1-4 on the existing 09:00-17:00 local window.
+- Added regression coverage for the Talent Partner candidate-list route to confirm a Talent Partner cannot read another Talent Partner's candidates.
 
-### Trial creation and validation
+### Candidate session isolation
 
-- Trial creation now enforces the Day 5 window override during build and persistence.
-- The live create-path contract rejects a noncanonical Day 5 override and keeps the persisted trial row aligned with the canonical window.
-- Trial detail responses now surface Day 5 as `reflection` consistently.
+- Added regression coverage for candidate session read and current-task routes to confirm Candidate A cannot access Candidate B's session data.
 
-### Submission and day-close behavior
+### Invite-token isolation
 
-- Day 5 reflection payload validation now accepts `reflection` as a text task type.
-- The explicit Day 5 submit path completes the candidate session when that submission is the final outstanding task.
-- The day-close finalize-from-draft handler now propagates completion through the shared submission progress path for both new and existing submissions.
-- Day-close finalization remains idempotent and respects the extended Day 5 cutoff.
+- Added regression coverage for invite-token read and claim surfaces to confirm mismatched-email requests are rejected.
 
-### Backend surfaces touched
+### Security posture coverage
 
-- `app/trials/constants/trials_constants_trials_blueprints_constants.py`
-- `app/trials/services/trials_services_trials_creation_builder_service.py`
-- `app/trials/services/trials_services_trials_creation_service.py`
-- `app/trials/services/trials_services_trials_day_five_contract_service.py`
-- `app/shared/types/shared_types_types_model.py`
-- `app/submissions/services/submissions_services_submissions_payload_validation_service.py`
-- `app/shared/jobs/handlers/shared_jobs_handlers_day_close_finalize_text_submission_handler.py`
-- `app/candidates/candidate_sessions/services/candidates_candidate_sessions_services_candidates_candidate_sessions_progress_service.py`
+- Added/updated regressions that verify CSRF origin enforcement on logout.
+- Added/updated regressions that confirm production dev-bypass behavior remains disabled.
 
 ## 4. QA
 
-### Live create-path verification
+### Live verification
 
-- `POST /api/trials` returns Day 5 as `reflection`.
-- The persisted trial row shows Day 5 override enabled with `09:00`-`21:00`.
-- The trial detail response also shows Day 5 as `reflection`.
+- `GET /api/trials/19/candidates` as Talent Partner A against Talent Partner B's Trial -> `404 {"detail":"Trial not found"}`
+- `POST /api/auth/logout` with hostile origin + cookie -> `403 {"error":"CSRF_ORIGIN_MISMATCH","message":"Request origin not allowed."}`
+- `GET /api/candidate/session/20/current_task` as candidate A against candidate B session -> `403 CANDIDATE_INVITE_EMAIL_MISMATCH`
+- `GET /api/candidate/session/2lBOgydRX_1WeKPNvFqb9w` as candidate A -> `403 CANDIDATE_INVITE_EMAIL_MISMATCH`
+- `POST /api/candidate/session/2lBOgydRX_1WeKPNvFqb9w/claim` as candidate A -> `403 CANDIDATE_INVITE_EMAIL_MISMATCH`
 
-### End-to-end Day 5 verification
+### Database evidence
 
-- Draft save and fetch work in the open Day 5 window.
-- Closed-window draft and submit attempts are rejected.
-- Explicit submit persists Day 5 reflection content and marks the candidate session complete.
-- Day-close finalize-from-draft creates the submission, is idempotent, and marks the candidate session complete.
+- Target session row remained unchanged across denied candidate requests:
+  - `candidate_auth0_sub`
+  - `candidate_auth0_email`
+  - `candidate_email`
+  - `claimed_at`
+  - `status`
+- Unrelated session row remained unchanged as well.
 
-### Test coverage
+### Focused tests
 
-- Focused regression coverage passed with `--no-cov`.
-- The repository-wide coverage gate blocks narrow targeted pytest runs under the default addopts, so the focused slice was run with `--no-cov` to complete the backend verification.
+- `8 passed, 16 deselected in 0.61s`
 
-### Operational note
+### QA notes
 
-- One QA run hit `GITHUB_UNAVAILABLE`.
-- Backend verification was completed using the repo-supported claimed-session fallback.
+- Manual QA was completed on a repo-owned local server with local/dev-bypass posture enabled for localhost shorthand auth testing.
+- The issue acceptance criteria were verified live and by focused tests.
 
-## 5. Risks / Follow-ups
+## 5. Risk / notes
 
-- The main remaining risk is the known GitHub invite/preprovision instability. The backend path is verified, but the claimed-session fallback should stay available until that operational issue is removed.
-
-## 6. Ready for PR
-
-This issue is ready for PR.
+- The local QA database had duplicate candidate-email rows from earlier attempts, so the final evidence pinned specific scenario row IDs.
+- No blocker remains for this issue.
