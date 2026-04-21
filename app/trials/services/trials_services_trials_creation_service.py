@@ -22,6 +22,9 @@ from .trials_services_trials_creation_extractors_service import (
     extract_company_context,
     extract_day_window_config,
 )
+from .trials_services_trials_day_five_contract_service import (
+    enforce_day_five_trial_contract,
+)
 from .trials_services_trials_scenario_generation_service import (
     SCENARIO_GENERATION_JOB_MAX_ATTEMPTS,
     SCENARIO_GENERATION_JOB_TYPE,
@@ -100,6 +103,7 @@ async def create_trial_with_tasks(
     _log_ai_config_changes(sim.id, user.id, notice_version, eval_by_day)
 
     created_tasks = await seed_default_tasks(db, sim.id, sim.template_key)
+    enforce_day_five_trial_contract(sim, tasks=created_tasks)
     payload_json = build_scenario_generation_payload(sim)
     scenario_job = await jobs_repo.create_or_get_idempotent(
         db,

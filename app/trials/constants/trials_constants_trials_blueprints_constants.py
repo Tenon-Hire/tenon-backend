@@ -38,7 +38,7 @@ DEFAULT_5_DAY_BLUEPRINT = [
     },
     {
         "day_index": 5,
-        "type": "documentation",
+        "type": "reflection",
         "title": "Reflection Essay",
         "description": (
             "Write a markdown reflection essay covering your experience, "
@@ -46,3 +46,5 @@ DEFAULT_5_DAY_BLUEPRINT = [
         ),
     },
 ]
+
+DEFAULT_5_DAY_DAY5_WINDOW_OVERRIDE = {"5": {"startLocal": "09:00", "endLocal": "21:00"}}

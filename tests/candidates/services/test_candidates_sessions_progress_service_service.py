@@ -18,7 +18,7 @@ def test_handoff_revisit_task_returns_prior_handoff_when_next_window_start_missi
     monkeypatch,
 ):
     handoff_task = _TaskStub(id=4, day_index=4, type="handoff")
-    day5_task = _TaskStub(id=5, day_index=5, type="documentation")
+    day5_task = _TaskStub(id=5, day_index=5, type="reflection")
 
     monkeypatch.setattr(
         progress_service,

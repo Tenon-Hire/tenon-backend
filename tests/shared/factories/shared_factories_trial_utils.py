@@ -22,6 +22,9 @@ from app.trials.constants.trials_constants_trials_blueprints_constants import (
 from app.trials.constants.trials_constants_trials_defaults_constants import (
     DEFAULT_TEMPLATE_KEY,
 )
+from app.trials.services.trials_services_trials_day_five_contract_service import (
+    canonical_day_five_window_override,
+)
 
 
 async def create_trial(
@@ -58,6 +61,8 @@ async def create_trial(
         ai_notice_version=ai_notice_version,
         ai_notice_text=ai_notice_text,
         ai_eval_enabled_by_day=ai_eval_enabled_by_day,
+        day_window_overrides_enabled=True,
+        day_window_overrides_json=canonical_day_five_window_override(),
     )
     session.add(sim)
     await session.flush()

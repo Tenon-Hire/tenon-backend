@@ -33,3 +33,4 @@ async def test_create_trial_seeds_default_tasks(
     assert len(body["tasks"]) == 5
     assert [t["day_index"] for t in body["tasks"]] == [1, 2, 3, 4, 5]
     assert body["tasks"][0]["type"] == "design"
+    assert body["tasks"][4]["type"] == "reflection"

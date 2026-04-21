@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import select
 
 from tests.trials.routes.trials_create_api_utils import *
 
@@ -59,7 +60,7 @@ async def test_create_trial_creates_sim_and_5_tasks(
             "code",
             "code",
             "handoff",
-            "documentation",
+            "reflection",
         ]
         assert [t["title"] for t in data["tasks"]] == [
             "Architecture Plan",
@@ -88,3 +89,27 @@ async def test_create_trial_creates_sim_and_5_tasks(
                 "5": True,
             },
         }
+
+        persisted_trial = (
+            await async_session.execute(select(Trial).where(Trial.id == data["id"]))
+        ).scalar_one()
+        assert persisted_trial.day_window_overrides_enabled is True
+        assert persisted_trial.day_window_overrides_json == {
+            "5": {"startLocal": "09:00", "endLocal": "21:00"}
+        }
+        assert persisted_trial.day_window_start_local.strftime("%H:%M") == "09:00"
+        assert persisted_trial.day_window_end_local.strftime("%H:%M") == "17:00"
+
+        detail = await async_client.get(
+            f"/api/trials/{data['id']}",
+            headers={"Authorization": f"Bearer talent_partner:{user.email}"},
+        )
+        assert detail.status_code == 200, detail.text
+        detail_body = detail.json()
+        assert [task["type"] for task in detail_body["tasks"]] == [
+            "design",
+            "code",
+            "code",
+            "handoff",
+            "reflection",
+        ]

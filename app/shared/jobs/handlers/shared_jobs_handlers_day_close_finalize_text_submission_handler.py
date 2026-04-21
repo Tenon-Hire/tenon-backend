@@ -6,6 +6,9 @@ from copy import deepcopy
 from types import SimpleNamespace
 
 from app.submissions.repositories.task_drafts import repository as task_drafts_repo
+from app.submissions.services import (
+    submissions_services_submissions_candidate_service as submission_service,
+)
 from app.submissions.services.task_drafts import NO_DRAFT_AT_CUTOFF_MARKER
 
 
@@ -62,6 +65,9 @@ async def _finalize_submission_from_cutoff(
         await _mark_draft_finalized_if_pending(
             db, draft=draft, submission_id=existing_submission.id, finalized_at=now
         )
+        await submission_service.progress_after_submission(
+            db, candidate_session, now=now
+        )
         logger.info(
             "Day-close finalize no-op existing submission candidateSessionId=%s taskId=%s dayIndex=%s",
             candidate_session_id,
@@ -94,6 +100,9 @@ async def _finalize_submission_from_cutoff(
         await _mark_draft_finalized_if_pending(
             db, draft=draft, submission_id=existing_submission.id, finalized_at=now
         )
+        await submission_service.progress_after_submission(
+            db, candidate_session, now=now
+        )
         logger.info(
             "Day-close finalize no-op conflict candidateSessionId=%s taskId=%s dayIndex=%s",
             candidate_session_id,
@@ -111,6 +120,7 @@ async def _finalize_submission_from_cutoff(
     await _mark_draft_finalized_if_pending(
         db, draft=draft, submission_id=submission.id, finalized_at=now
     )
+    await submission_service.progress_after_submission(db, candidate_session, now=now)
     logger.info(
         "Day-close finalize created submission candidateSessionId=%s taskId=%s dayIndex=%s source=%s",
         candidate_session_id,

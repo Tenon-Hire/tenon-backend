@@ -4,7 +4,7 @@ from tests.submissions.services.test_submissions_candidate_service_utils import 
 
 
 def test_validate_day5_reflection_payload_returns_structured_content_json():
-    day5_task = SimpleNamespace(type="documentation", day_index=5)
+    day5_task = SimpleNamespace(type="reflection", day_index=5)
     payload = SimpleNamespace(
         contentText="## Challenges\n...\n## Decisions\n...",
         reflection={

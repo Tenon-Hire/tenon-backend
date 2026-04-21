@@ -12,9 +12,9 @@ from app.submissions.constants.submissions_constants_submissions_exceptions_cons
     SubmissionValidationError,
 )
 
-TEXT_TASK_TYPES = {"design", "documentation", "handoff"}
+TEXT_TASK_TYPES = {"design", "documentation", "handoff", "reflection"}
 CODE_TASK_TYPES = {"code", "debug"}
-DAY5_REFLECTION_TASK_TYPE = "documentation"
+DAY5_REFLECTION_TASK_TYPE = "reflection"
 DAY5_REFLECTION_DAY_INDEX = 5
 DAY5_REFLECTION_KIND = "day5_reflection"
 DAY5_REFLECTION_MIN_SECTION_CHARS = 20

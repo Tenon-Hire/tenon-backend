@@ -3,7 +3,7 @@
 from typing import Literal
 
 CandidateSessionStatus = Literal["not_started", "in_progress", "completed", "expired"]
-TaskType = Literal["design", "code", "debug", "handoff", "documentation"]
+TaskType = Literal["design", "code", "debug", "handoff", "documentation", "reflection"]
 TrialStatus = Literal[
     "draft",
     "generating",
