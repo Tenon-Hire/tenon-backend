@@ -1,80 +1,79 @@
-## 1. Title
+# Phase 3 backend ship set
 
-Harden Day 4 media upload, playback, transcription, and retention
+## Summary
 
-## 2. Summary
+This backend PR supports the Phase 3 Talent Partner golden path and the local verification bootstrap path.
 
-This PR closes the backend slice of #294 for the Day 4 handoff/demo media path:
+It does four things:
 
-- signed Day 4 upload initiation is reliable for valid media
-- playback and download URLs are built from the configured backend media base URL
-- transcription now recovers when the provider top-level `text` is blank but segment text exists
-- candidate and Talent Partner backend payloads expose visible transcript and job state
-- CSP/media-origin coverage is driven from storage-media config for local and production bases
-- retention and purge flows degrade safely instead of surfacing broken media state
-- the Day 4 upload contract is tightened to `video/mp4` / `.mp4` only so the backend does not accept formats it cannot reliably transcribe end-to-end
+- Makes the GitHub workflow default point to `evidence-capture.yml`.
+- Makes GitHub Actions dispatch handling treat a queued run as `running` instead of a hard failure.
+- Plumbs `jobId` through worker payloads so scenario-generation logs and handler context are traceable.
+- Hardens candidate workspace bootstrap and local seeding so the live stack is deterministic enough to verify end to end.
 
-## 3. Files Changed
+## Why
 
-Actual tracked files changed in this branch:
+Phase 3 depends on a real local stack that can bootstrap a Trial, create an empty candidate repo, provision or degrade Codespace setup safely, and survive queued GitHub Actions behavior without false failures.
 
-- `app/config/config_storage_media_config.py` - storage-media defaults and validation, including the mp4-only default contract.
-- `app/media/services/media_services_media_validation_service.py` - upload validation now rejects unsupported Day 4 media at init.
-- `app/shared/jobs/handlers/shared_jobs_handlers_transcribe_recording_runtime_handler.py` - transcription runtime fallback and retry handling.
-- `tests/config/test_config_storage_media_settings_utils.py` - config validation coverage for retention, signed URL bounds, and mp4-only defaults.
-- `tests/integrations/storage_media/test_integrations_storage_media_provider_service.py` - fake provider and signed URL base-path coverage.
-- `tests/media/routes/test_media_handoff_upload_handoff_upload_end_to_end_routes.py` - end-to-end signed upload, playback URL, and transcript/job state coverage.
-- `tests/media/routes/test_media_handoff_upload_handoff_upload_init_rejects_invalid_content_type_and_size_routes.py` - invalid content type and oversize rejection coverage.
-- `tests/media/routes/test_media_handoff_upload_handoff_upload_init_success_routes.py` - signed upload init success coverage for valid `.mp4`.
-- `tests/media/services/test_media_storage_media_service.py` - upload contract validation and storage key behavior.
-- `tests/shared/http/test_shared_http_security_headers_utils.py` - media-origin CSP regression coverage.
-- `tests/shared/jobs/handlers/test_shared_jobs_handlers_transcribe_recording_runtime_handler.py` - transcript reconstruction and retry-path coverage.
+The previous state was not reliable enough for founder-grade verification:
 
-## 4. Key Implementation Details
+- the workflow default was not aligned with the evidence-capture path,
+- queued GitHub Actions runs were treated as errors,
+- worker handlers did not consistently receive the originating job id,
+- candidate workspace bootstrap lacked enough actor-access and timing resilience,
+- local demo seeding was not deterministic enough for repeated verification.
 
-- The transcription runtime now reconstructs transcript text from normalized segment text when the provider top-level `text` is blank, but it still fails terminally on truly empty transcripts.
-- Fake/local storage playback URLs are config-driven, so signed download links resolve from the configured backend media base URL rather than a hard-coded path.
-- Backend-owned CSP/media origins are derived from storage-media config, which keeps local and production media bases aligned with the security header policy.
-- Candidate handoff status and Talent Partner submission detail now surface transcript/job status fields so failed, retrying, pending, and ready states are visible.
-- The default valid Day 4 upload contract is now `video/mp4` and `.mp4` only.
-- `.mov` / `video/quicktime` is rejected at upload init with `422 Unsupported contentType`, and no recording, transcript, or job rows are created for that invalid request.
-- Retention and purge behavior degrades safely: purged media is hidden from playback, transcript access is removed, and the payload falls back cleanly instead of exposing broken links.
+## Implementation Notes
 
-## 5. Acceptance Criteria Mapping
+### GitHub workflow and dispatch behavior
 
-- Signed URL upload works: `POST /api/tasks/{task_id}/handoff/upload/init` returns a signed upload URL for valid `.mp4` input, and the upload completes through the signed PUT path.
-- Correct backend base URL for playback: playback/download URLs are generated from the configured media base URL and appear in both candidate handoff status and Talent Partner submission detail payloads.
-- Transcription succeeds for valid files: the transcription worker accepts valid uploaded media, reconstructs text from segments when necessary, and moves the transcript to ready when the provider returns usable transcript content.
-- CSP allows local and production media: media-origin CSP coverage is derived from config and includes the local fake storage base and the configured production media endpoint.
-- Retention/purge policies: retention and purge flows remove underlying media and transcript data safely, and the visible payload degrades to a purged state with no download URL.
-- Failed states visible and retryable: candidate and Talent Partner payloads expose transcript/job state, including pending, failed, retryable, and ready states, so failures remain visible and can be retried.
+- Changed the default workflow file to `evidence-capture.yml`.
+- Updated dispatch/poll handling so a queued run now returns `running` and caches that state instead of being treated as a failure.
+- Added logging around observed runs and terminal-state outcomes so dispatch behavior is auditable.
 
-## 6. QA
+### Worker and scenario-generation plumbing
 
-### Automated
+- Worker runtime now injects `jobId` into handler payloads.
+- Scenario-generation handler now logs start, failure, and completion with runtime/provider/model context.
+- Failures are logged with sanitized error details rather than raw exception text.
 
-- `poetry run pytest --no-cov tests/shared/jobs/handlers/test_shared_jobs_handlers_transcribe_recording_runtime_handler.py tests/config/test_config_storage_media_settings_utils.py tests/integrations/storage_media/test_integrations_storage_media_provider_service.py tests/shared/http/test_shared_http_security_headers_utils.py tests/media/services/test_media_storage_media_service.py` - passed.
-- `poetry run pytest --no-cov tests/media/routes/test_media_handoff_upload_handoff_upload_init_success_routes.py tests/media/routes/test_media_handoff_upload_handoff_upload_init_rejects_invalid_content_type_and_size_routes.py tests/media/routes/test_media_handoff_upload_handoff_upload_end_to_end_routes.py` - passed.
-- `bash precommit.sh` - passed, including repo-wide pytest and coverage gate at 96.14%.
+### Candidate workspace bootstrap
 
-### Manual
+- Workspace bootstrap now looks up the authenticated GitHub user before provisioning.
+- When a username is available, the bootstrap flow adds collaborator access if needed before Codespace creation.
+- Codespace provisioning now has a short retry window to absorb brief repo-readiness lag.
+- If direct Codespace provisioning is not ready, the flow degrades to a `codespaces.new` URL instead of pretending bootstrap is blocked.
+- Bootstrap timings are logged per phase so repo creation, collaborator access, and Codespace attempts can be traced independently.
+- The seeded candidate repo remains intentionally minimal: `.devcontainer/devcontainer.json`, `.gitignore`, `.github/workflows/evidence-capture.yml`, and `README.md` with the Project Brief.
 
-- Local backend started successfully.
-- `POST /api/tasks/{task_id}/handoff/upload/init` returned `200` for `.mp4`.
-- Signed PUT upload returned `204`.
-- `POST /api/tasks/{task_id}/handoff/upload/complete` returned `200`.
-- Candidate handoff status showed `pending` -> `ready` transcript progression.
-- Talent Partner submission detail showed the playback URL and ready transcript.
-- Purge flow resulted in a `purged` recording with `downloadUrl: null` and the transcript removed.
-- Failed transcription state remained visible and retryable.
-- Final contract check: `.mov` was rejected at init with `422`, and no recording, transcript, or job rows were created.
+### Local bootstrap and verification support
 
-## 7. Risks / Notes
+- Added a migration bridge revision to restore the missing Alembic chain.
+- `runBackend.sh` local bootstrap now:
+  - sets `PYTHONPATH`,
+  - runs `alembic upgrade head`,
+  - runs `scripts/seed_local_talent_partners.py --reset`.
+- The seed script now supports `--reset` for deterministic local reseeding.
+- The seed data includes the exact verification Talent Partner account used by Phase 3.
 
-- Live invite flow hit GitHub availability issues in the local environment, so Day 4 QA setup used seeded trial/candidate data to isolate the media path.
-- Ignored local `.env` / `.env.prod` overrides were used during debugging, but the shipped fix is the tracked code and test changes in this branch, not those ignored files.
-- If operators explicitly override media allowlist env vars, they can widen the contract intentionally and should do so with care.
+## Test / Verification
 
-## 8. Final Outcome
+- Backend-focused tests were added and updated for:
+  - GitHub config merging and validation,
+  - canonical workflow dispatch behavior,
+  - queued-run `running` return behavior,
+  - GitHub client helper methods,
+  - worker payload handling,
+  - scenario-generation failure preservation,
+  - workspace bootstrap behavior,
+  - local bootstrap shell behavior,
+  - local trial bootstrap and seed routes.
+- Local verification was performed against the real local backend stack as part of the Phase 3 workflow.
 
-This PR closes the backend slice of #294 and is ready for review.
+## Risks / Limitations
+
+- Archive-style cleanup behavior is still what exists.
+- The cleanup payload anomaly is documented, not hidden.
+- Candidate auth-policy changes were intentionally kept out of this backend scope.
+- Global scenario-generation default changes were intentionally kept out of this backend scope.
+- This PR improves local bootstrap determinism, but it does not claim production parity for GitHub or Codespaces timing.

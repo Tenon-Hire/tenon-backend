@@ -20,13 +20,10 @@ log_error() {
 load_environment() {
   if [[ -f ./setEnvVar.sh ]]; then
     source ./setEnvVar.sh
-  fi
-  if [[ -n "${ENV_FILE:-}" && -f "${ENV_FILE}" ]]; then
-    # Keep CI/local runtime env overrides available to every child process.
-    set -a
+  elif [[ -n "${ENV_FILE:-}" && -f "${ENV_FILE}" ]]; then
+    # Keep local overrides working even if the shell helper is unavailable.
     # shellcheck disable=SC1090
     source "${ENV_FILE}"
-    set +a
   fi
 }
 
@@ -34,8 +31,11 @@ apply_local_defaults() {
   if [[ -z "${WINOE_ENV:-}" || "${WINOE_ENV:-}" == "local" ]]; then
     export WINOE_ENV="${WINOE_ENV:-local}"
     export DEV_AUTH_BYPASS="${DEV_AUTH_BYPASS:-1}"
-    # Keep local greenfield provisioning deterministic unless a caller opts out.
-    export WINOE_SCENARIO_GENERATION_RUNTIME_MODE="${WINOE_SCENARIO_GENERATION_RUNTIME_MODE:-demo}"
+    # Local runs should exercise the real provider path by default, but only
+    # when the caller did not already choose the runtime/provider explicitly.
+    export WINOE_SCENARIO_GENERATION_RUNTIME_MODE="${WINOE_SCENARIO_GENERATION_RUNTIME_MODE:-real}"
+    export WINOE_SCENARIO_GENERATION_PROVIDER="${WINOE_SCENARIO_GENERATION_PROVIDER:-anthropic}"
+    export WINOE_SCENARIO_GENERATION_MODEL="${WINOE_SCENARIO_GENERATION_MODEL:-claude-opus-4-6}"
   fi
 }
 
@@ -150,7 +150,9 @@ run_local_bootstrap() {
   require_database_config
 
   log_info "Bootstrapping Winoe local demo seed data."
-  exec "${RUN_PREFIX[@]}" python scripts/seed_local_talent_partners.py
+  export PYTHONPATH="${PROJECT_ROOT}${PYTHONPATH:+:$PYTHONPATH}"
+  "${RUN_PREFIX[@]}" alembic upgrade head
+  exec "${RUN_PREFIX[@]}" python scripts/seed_local_talent_partners.py --reset
 }
 
 run_dead_letter_retry() {

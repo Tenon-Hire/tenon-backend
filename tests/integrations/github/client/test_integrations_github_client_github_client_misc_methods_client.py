@@ -16,6 +16,8 @@ async def test_github_client_misc_methods(monkeypatch):
             if "sha" in params:
                 return [{"sha": "abc", "commit": {"message": "m"}}]
             return {"not": "a-list"}
+        if path == "/user":
+            return {"login": "RobelKDev"}
         if path.endswith("/user/codespaces/codespace-123"):
             return {"repository": {"full_name": "owner/name"}, "state": "Available"}
         return {}
@@ -57,6 +59,7 @@ async def test_github_client_misc_methods(monkeypatch):
         message="init",
         branch="main",
     )
+    assert await client.get_authenticated_user_login() == "RobelKDev"
     await client.create_codespace("owner/name", ref="main")
     await client.get_codespace("owner/name", "codespace-123")
     await client.create_tree(
@@ -98,6 +101,7 @@ async def test_github_client_misc_methods(monkeypatch):
     assert any(
         path == "/user/codespaces/codespace-123" for path, _ in calls["get_json"]
     )
+    assert any(path == "/user" for path, _ in calls["get_json"])
     assert any(path.endswith("/git/blobs") for path, _, _ in calls["post_json"])
     assert any(path.endswith("/git/trees") for path, _, _ in calls["post_json"])
     assert any(path.endswith("/git/commits") for path, _, _ in calls["post_json"])

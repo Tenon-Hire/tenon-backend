@@ -74,7 +74,9 @@ async def run_once(
         return True
 
     try:
-        result = await invoke_handler(handler, job.payload_json or {})
+        handler_payload = dict(job.payload_json or {})
+        handler_payload.setdefault("jobId", job.id)
+        result = await invoke_handler(handler, handler_payload)
     except Exception as exc:  # pragma: no cover
         await handle_handler_exception(
             session_maker,

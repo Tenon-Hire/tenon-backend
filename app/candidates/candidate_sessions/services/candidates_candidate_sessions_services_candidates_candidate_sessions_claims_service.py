@@ -30,7 +30,6 @@ async def claim_invite_with_principal(
             cs,
             principal,
             now=now,
-            require_verified_claim_present=True,
         )
         previous_status = cs.status
         previous_started_at = cs.started_at

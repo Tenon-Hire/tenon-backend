@@ -6,7 +6,7 @@ from tests.candidates.services.candidates_session_service_utils import *
 
 
 @pytest.mark.asyncio
-async def test_claim_invite_requires_email_verified_claim_present(async_session):
+async def test_claim_invite_allows_missing_email_verified_claim(async_session):
     talent_partner = await create_talent_partner(
         async_session, email="verify-missing@sim.com"
     )
@@ -14,7 +14,8 @@ async def test_claim_invite_requires_email_verified_claim_present(async_session)
     cs = await create_candidate_session(async_session, trial=sim)
     principal = _principal(cs.invite_email, email_verified=None)
 
-    with pytest.raises(HTTPException) as excinfo:
-        await cs_service.claim_invite_with_principal(async_session, cs.token, principal)
-    assert excinfo.value.status_code == 403
-    assert getattr(excinfo.value, "error_code", None) == "CANDIDATE_EMAIL_NOT_VERIFIED"
+    verified = await cs_service.claim_invite_with_principal(
+        async_session, cs.token, principal
+    )
+    assert verified.status == "in_progress"
+    assert verified.candidate_auth0_sub == principal.sub

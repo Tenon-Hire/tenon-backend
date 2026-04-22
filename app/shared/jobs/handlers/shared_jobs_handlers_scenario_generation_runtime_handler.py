@@ -7,8 +7,11 @@ from time import perf_counter
 
 from sqlalchemy import select
 
-from app.ai import build_ai_policy_snapshot
+from app.ai import build_ai_policy_snapshot, resolve_scenario_generation_config
 from app.shared.database.shared_database_models_model import Company, Task, Trial
+from app.shared.jobs.repositories.shared_jobs_repositories_repository_shared_repository import (
+    sanitize_error,
+)
 from app.trials.repositories.trials_repositories_trials_trial_model import (
     TRIAL_STATUS_ACTIVE_INVITING,
     TRIAL_STATUS_GENERATING,
@@ -37,6 +40,18 @@ async def handle_scenario_generation_impl(
         return {"status": "skipped_invalid_payload", "trialId": None}
     requested_scenario_version_id = parse_positive_int(
         payload_json.get("scenarioVersionId")
+    )
+    generation_job_id = str(payload_json.get("jobId") or "")
+    generation_config = resolve_scenario_generation_config()
+    logger.info(
+        "scenario_generation_job_started",
+        extra={
+            "trialId": trial_id,
+            "jobId": generation_job_id,
+            "runtimeMode": generation_config.runtime_mode,
+            "provider": generation_config.provider,
+            "model": generation_config.model,
+        },
     )
     source = model_name = model_version = prompt_version = rubric_version = None
     scenario_version_id = None
@@ -91,18 +106,33 @@ async def handle_scenario_generation_impl(
                 trial, "ai_prompt_overrides_json", None
             ),
         )
-        generated = generate_scenario_payload(
-            role=trial.role,
-            tech_stack=trial.tech_stack,
-            template_key=trial.template_key,
-            focus=trial.focus,
-            company_context=trial.company_context,
-            company_prompt_overrides_json=company_prompt_overrides_json,
-            trial_prompt_overrides_json=getattr(
-                trial, "ai_prompt_overrides_json", None
-            ),
-            ai_policy_snapshot_json=ai_policy_snapshot_json,
-        )
+        try:
+            generated = generate_scenario_payload(
+                role=trial.role,
+                tech_stack=trial.tech_stack,
+                template_key=trial.template_key,
+                focus=trial.focus,
+                company_context=trial.company_context,
+                company_prompt_overrides_json=company_prompt_overrides_json,
+                trial_prompt_overrides_json=getattr(
+                    trial, "ai_prompt_overrides_json", None
+                ),
+                ai_policy_snapshot_json=ai_policy_snapshot_json,
+            )
+        except Exception as exc:
+            logger.warning(
+                "scenario_generation_job_failed",
+                extra={
+                    "trialId": trial_id,
+                    "jobId": generation_job_id,
+                    "runtimeMode": generation_config.runtime_mode,
+                    "provider": generation_config.provider,
+                    "model": generation_config.model,
+                    "errorType": type(exc).__name__,
+                    "errorMessage": sanitize_error(str(exc)),
+                },
+            )
+            raise
         if requested_scenario_version_id is not None:
             early, scenario_version_id = await apply_requested_scenario_version(
                 db,
@@ -146,6 +176,10 @@ async def handle_scenario_generation_impl(
         "scenario_generation_job_completed",
         extra={
             "trialId": trial_id,
+            "jobId": generation_job_id,
+            "runtimeMode": generation_config.runtime_mode,
+            "provider": generation_config.provider,
+            "model": generation_config.model,
             "scenarioVersionId": scenario_version_id,
             "createdScenarioVersion": created_new,
             "source": source,

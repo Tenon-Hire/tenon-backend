@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from types import SimpleNamespace
 
 import pytest
@@ -33,6 +34,7 @@ async def test_bootstrap_empty_candidate_repo_writes_only_allowed_files():
             self.tree_entries = None
             self.ref = None
             self.codespace_request = None
+            self.events: list[str] = []
 
         async def generate_repo_from_template(self, **_kwargs):
             raise AssertionError("generate_repo_from_template should not be called")
@@ -40,6 +42,7 @@ async def test_bootstrap_empty_candidate_repo_writes_only_allowed_files():
         async def create_empty_repo(
             self, *, owner, repo_name, private=True, default_branch="main"
         ):
+            self.events.append("create_empty_repo")
             self.created_repo = (owner, repo_name, private, default_branch)
             return {
                 "owner": {"login": owner},
@@ -82,11 +85,22 @@ async def test_bootstrap_empty_candidate_repo_writes_only_allowed_files():
                 "machine": machine,
                 "location": location,
             }
+            self.events.append("create_codespace")
             return {
                 "name": "codespace-77",
                 "state": "available",
                 "web_url": "https://codespace-77.github.dev",
             }
+
+        async def get_authenticated_user_login(self):
+            self.events.append("get_authenticated_user_login")
+            return "RobelKDev"
+
+        async def add_collaborator(
+            self, repo_full_name, username, *, permission="push"
+        ):
+            self.events.append(f"add_collaborator:{username}:{permission}")
+            return {"ok": True}
 
     client = StubGithubClient()
     result = await bootstrap_service.bootstrap_empty_candidate_repo(
@@ -125,6 +139,12 @@ async def test_bootstrap_empty_candidate_repo_writes_only_allowed_files():
         "machine": None,
         "location": None,
     }
+    assert client.events == [
+        "create_empty_repo",
+        "get_authenticated_user_login",
+        "add_collaborator:RobelKDev:push",
+        "create_codespace",
+    ]
 
 
 @pytest.mark.asyncio
@@ -207,6 +227,175 @@ async def test_bootstrap_empty_candidate_repo_uses_canonical_project_brief_helpe
     assert captured["args"][0] is scenario_version
     assert captured["kwargs"]["trial_title"] == trial.title
     assert captured["kwargs"]["storyline_md"] == scenario_version.storyline_md
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_empty_candidate_repo_degrades_when_codespace_not_found():
+    candidate_session = SimpleNamespace(id=79)
+    trial = SimpleNamespace(title="Codespace fallback trial", role="Backend Engineer")
+    scenario_version = SimpleNamespace(
+        storyline_md="# Codespace fallback",
+        project_brief_md=(
+            "# Project Brief\n\n## Business Context\n\nFallback candidate repo.\n"
+        ),
+    )
+
+    class StubGithubClient:
+        def __init__(self):
+            self.codespace_attempts = 0
+
+        async def create_empty_repo(
+            self, *, owner, repo_name, private=True, default_branch="main"
+        ):
+            return {
+                "owner": {"login": owner},
+                "name": repo_name,
+                "full_name": f"{owner}/{repo_name}",
+                "id": 444,
+                "default_branch": default_branch,
+            }
+
+        async def get_file_contents(self, *_args, **_kwargs):
+            raise GithubError("missing", status_code=404)
+
+        async def get_branch(self, *_args, **_kwargs):
+            raise GithubError("missing", status_code=404)
+
+        async def create_or_update_file(self, *_args, **_kwargs):
+            return {"content": {"sha": "readme-sha"}}
+
+        async def create_tree(self, _repo_full_name, *, tree, base_tree=None):
+            return {"sha": "tree-sha"}
+
+        async def create_commit(self, _repo_full_name, *, message, tree, parents):
+            return {"sha": "commit-sha"}
+
+        async def update_ref(self, _repo_full_name, *, ref, sha, force=False):
+            return {"ref": ref, "sha": sha, "force": force}
+
+        async def create_ref(self, _repo_full_name, *, ref, sha):
+            return {"ref": ref, "sha": sha}
+
+        async def create_codespace(
+            self,
+            repo_full_name,
+            *,
+            ref=None,
+            devcontainer_path=None,
+            machine=None,
+            location=None,
+        ):
+            self.codespace_attempts += 1
+            raise GithubError("missing", status_code=404)
+
+    result = await bootstrap_service.bootstrap_empty_candidate_repo(
+        github_client=StubGithubClient(),
+        candidate_session=candidate_session,
+        trial=trial,
+        scenario_version=scenario_version,
+        task=None,
+        repo_prefix="winoe-ws-",
+        destination_owner="winoe-ai-repos",
+    )
+
+    assert result.repo_full_name == "winoe-ai-repos/winoe-ws-79"
+    assert result.codespace_name is None
+    assert result.codespace_state is None
+    assert (
+        result.codespace_url
+        == "https://codespaces.new/winoe-ai-repos/winoe-ws-79?quickstart=1"
+    )
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_empty_candidate_repo_retries_codespace_creation_with_short_delay(
+    monkeypatch,
+):
+    candidate_session = SimpleNamespace(id=80)
+    trial = SimpleNamespace(title="Retry trial", role="Backend Engineer")
+    scenario_version = SimpleNamespace(
+        storyline_md="# Retry",
+        project_brief_md=(
+            "# Project Brief\n\n## Business Context\n\nRetry candidate repo.\n"
+        ),
+    )
+    sleep_calls: list[int] = []
+
+    class StubGithubClient:
+        def __init__(self):
+            self.codespace_attempts = 0
+
+        async def create_empty_repo(
+            self, *, owner, repo_name, private=True, default_branch="main"
+        ):
+            return {
+                "owner": {"login": owner},
+                "name": repo_name,
+                "full_name": f"{owner}/{repo_name}",
+                "id": 445,
+                "default_branch": default_branch,
+            }
+
+        async def get_file_contents(self, *_args, **_kwargs):
+            raise GithubError("missing", status_code=404)
+
+        async def get_branch(self, *_args, **_kwargs):
+            raise GithubError("missing", status_code=404)
+
+        async def create_tree(self, _repo_full_name, *, tree, base_tree=None):
+            return {"sha": "tree-sha"}
+
+        async def create_commit(self, _repo_full_name, *, message, tree, parents):
+            return {"sha": "commit-sha"}
+
+        async def create_ref(self, _repo_full_name, *, ref, sha):
+            return {"ref": ref, "sha": sha}
+
+        async def get_authenticated_user_login(self):
+            return "octocat"
+
+        async def add_collaborator(
+            self, repo_full_name, username, *, permission="push"
+        ):
+            return {"ok": True}
+
+        async def create_codespace(
+            self,
+            repo_full_name,
+            *,
+            ref=None,
+            devcontainer_path=None,
+            machine=None,
+            location=None,
+        ):
+            self.codespace_attempts += 1
+            if self.codespace_attempts < 3:
+                raise GithubError("not ready", status_code=404)
+            return {
+                "name": "codespace-80",
+                "state": "available",
+                "web_url": "https://codespace-80.github.dev",
+            }
+
+    async def _sleep(seconds):
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr(bootstrap_service.asyncio, "sleep", _sleep)
+
+    result = await bootstrap_service.bootstrap_empty_candidate_repo(
+        github_client=StubGithubClient(),
+        candidate_session=candidate_session,
+        trial=trial,
+        scenario_version=scenario_version,
+        task=None,
+        repo_prefix="winoe-ws-",
+        destination_owner="winoe-ai-repos",
+    )
+
+    assert result.codespace_name == "codespace-80"
+    assert result.codespace_state == "available"
+    assert result.codespace_url == "https://codespace-80.github.dev"
+    assert sleep_calls == [bootstrap_service._CODESPACE_RETRY_DELAY_SECONDS] * 2
 
 
 @pytest.mark.asyncio
@@ -413,6 +602,92 @@ async def test_bootstrap_empty_candidate_repo_cleans_up_on_late_failure():
         )
 
     assert client.deleted_repos == ["winoe-ai-repos/winoe-ws-89"]
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_empty_candidate_repo_logs_phase_timings(caplog):
+    candidate_session = SimpleNamespace(id=91)
+    trial = SimpleNamespace(id=11, title="Timing trial", role="Backend Engineer")
+    scenario_version = SimpleNamespace(
+        storyline_md="# Timing",
+        project_brief_md="# Project Brief\n\n## Business Context\n\nTiming.\n",
+    )
+
+    class StubGithubClient:
+        async def create_empty_repo(
+            self, *, owner, repo_name, private=True, default_branch="main"
+        ):
+            return {
+                "owner": {"login": owner},
+                "name": repo_name,
+                "full_name": f"{owner}/{repo_name}",
+                "id": 901,
+                "default_branch": default_branch,
+            }
+
+        async def get_file_contents(self, *_args, **_kwargs):
+            raise GithubError("missing", status_code=404)
+
+        async def get_branch(self, *_args, **_kwargs):
+            raise GithubError("missing", status_code=404)
+
+        async def create_tree(self, _repo_full_name, *, tree, base_tree=None):
+            return {"sha": "tree-sha"}
+
+        async def create_commit(self, _repo_full_name, *, message, tree, parents):
+            return {"sha": "commit-sha"}
+
+        async def create_ref(self, _repo_full_name, *, ref, sha):
+            return {"ref": ref, "sha": sha}
+
+        async def create_codespace(
+            self,
+            repo_full_name,
+            *,
+            ref=None,
+            devcontainer_path=None,
+            machine=None,
+            location=None,
+        ):
+            return {
+                "name": "codespace-91",
+                "state": "available",
+                "web_url": "https://codespace-91.github.dev",
+            }
+
+    with caplog.at_level(logging.INFO):
+        result = await bootstrap_service.bootstrap_empty_candidate_repo(
+            github_client=StubGithubClient(),
+            candidate_session=candidate_session,
+            trial=trial,
+            scenario_version=scenario_version,
+            task=None,
+            repo_prefix="winoe-ws-",
+            destination_owner="winoe-ai-repos",
+        )
+
+    assert result.codespace_name == "codespace-91"
+    assert any(
+        record.message == "github_workspace_bootstrap_started"
+        and record.__dict__.get("trial_id") == 11
+        and record.__dict__.get("candidate_session_id") == 91
+        and record.__dict__.get("repo_full_name") == "winoe-ai-repos/winoe-ws-91"
+        for record in caplog.records
+    )
+    assert any(
+        record.message == "github_codespace_provisioned"
+        and record.__dict__.get("codespace_name") == "codespace-91"
+        and record.__dict__.get("codespace_state") == "available"
+        and record.__dict__.get("codespace_url") == "https://codespace-91.github.dev"
+        and record.__dict__.get("attempt") == 1
+        for record in caplog.records
+    )
+    assert any(
+        record.message == "github_workspace_bootstrap_completed"
+        and record.__dict__.get("elapsed_ms") is not None
+        and record.__dict__.get("bootstrap_commit_sha") == "commit-sha"
+        for record in caplog.records
+    )
 
 
 @pytest.mark.asyncio

@@ -43,7 +43,7 @@ def test_ensure_candidate_ownership_variants():
     )
 
 
-def test_ensure_candidate_ownership_allows_local_env_without_verification_check(
+def test_ensure_candidate_ownership_rejects_unverified_email_even_in_local_env(
     monkeypatch,
 ):
     monkeypatch.setattr(settings, "ENV", "local")
@@ -59,7 +59,6 @@ def test_ensure_candidate_ownership_allows_local_env_without_verification_check(
             "status": "in_progress",
         },
     )()
-    changed = cs_service._ensure_candidate_ownership(
-        cs, principal, now=datetime.now(UTC)
-    )
-    assert changed is True
+    with pytest.raises(HTTPException) as excinfo:
+        cs_service._ensure_candidate_ownership(cs, principal, now=datetime.now(UTC))
+    assert getattr(excinfo.value, "error_code", None) == "CANDIDATE_EMAIL_NOT_VERIFIED"

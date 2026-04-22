@@ -32,7 +32,7 @@ Talent Partner endpoints include repo/commit/workflow/diff URLs for detail and l
 - `WINOE_GITHUB_API_BASE` (default `https://api.github.com`)
 - `WINOE_GITHUB_ORG`
 - `WINOE_GITHUB_TOKEN` (bot/app token with repo + actions)
-- `WINOE_GITHUB_ACTIONS_WORKFLOW_FILE`
+- `WINOE_GITHUB_ACTIONS_WORKFLOW_FILE` (defaults to `evidence-capture.yml`)
 - `WINOE_GITHUB_REPO_PREFIX`
 
 ## YC demo checklist

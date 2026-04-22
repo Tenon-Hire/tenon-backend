@@ -6,7 +6,7 @@ from tests.candidates.services.candidates_session_service_utils import *
 
 
 @pytest.mark.asyncio
-async def test_claim_invite_allows_local_dev_email_verification_bypass(
+async def test_claim_invite_rejects_unverified_email_even_in_local_env(
     async_session, monkeypatch
 ):
     monkeypatch.setattr(settings, "ENV", "local")
@@ -17,10 +17,8 @@ async def test_claim_invite_allows_local_dev_email_verification_bypass(
     cs = await create_candidate_session(async_session, trial=sim)
     principal = _principal(cs.invite_email, email_verified=False)
 
-    verified = await cs_service.claim_invite_with_principal(
-        async_session, cs.token, principal
-    )
+    with pytest.raises(HTTPException) as excinfo:
+        await cs_service.claim_invite_with_principal(async_session, cs.token, principal)
 
-    assert verified.status == "in_progress"
-    assert verified.candidate_email == cs.invite_email
-    assert verified.candidate_auth0_sub == principal.sub
+    assert excinfo.value.status_code == 403
+    assert getattr(excinfo.value, "error_code", None) == "CANDIDATE_EMAIL_NOT_VERIFIED"

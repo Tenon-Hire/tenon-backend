@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import status
 
 from app.candidates.candidate_sessions.services.candidates_candidate_sessions_services_candidates_candidate_sessions_email_service import (
@@ -18,13 +20,18 @@ from app.shared.utils.shared_utils_errors_utils import (
     ApiError,
 )
 
+logger = logging.getLogger(__name__)
 
-def _forbidden(detail: str, error_code: str) -> None:
+
+def _forbidden(
+    detail: str, error_code: str, *, details: dict[str, object] | None = None
+) -> None:
     raise ApiError(
         status_code=status.HTTP_403_FORBIDDEN,
         detail=detail,
         error_code=error_code,
         retryable=False,
+        details=details,
     )
 
 
@@ -33,14 +40,27 @@ def ensure_email_verified(
 ) -> None:
     """Ensure email verified."""
     email_verified = principal.claims.get("email_verified")
-    if settings.ENV == "local":
-        return
+    logger.info(
+        "candidate_email_verification_check env=%s email=%s sub=%s email_verified=%r require_verified_claim_present=%s",
+        settings.ENV,
+        principal.email,
+        principal.sub,
+        email_verified,
+        require_verified_claim_present,
+    )
     if email_verified is False or (
         require_verified_claim_present and email_verified is not True
     ):
         _forbidden(
             "Authenticated email is not verified.",
             CANDIDATE_EMAIL_NOT_VERIFIED,
+            details={
+                "candidateEmail": principal.email,
+                "candidateSub": principal.sub,
+                "emailVerified": email_verified,
+                "requireVerifiedClaimPresent": require_verified_claim_present,
+                "claimKeys": sorted([str(key) for key in principal.claims][:50]),
+            },
         )
 
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 import pytest
 
 from tests.trials.services.trials_scenario_generation_handler_utils import *
@@ -9,6 +11,7 @@ from tests.trials.services.trials_scenario_generation_handler_utils import *
 async def test_scenario_generation_worker_failure_preserves_generating_state(
     async_session,
     monkeypatch,
+    caplog,
 ):
     talent_partner = await create_talent_partner(
         async_session, email="fail-scenario@test.com"
@@ -22,17 +25,39 @@ async def test_scenario_generation_worker_failure_preserves_generating_state(
     await async_session.commit()
 
     def _explode(**_kwargs):
-        raise RuntimeError("forced scenario generation failure")
+        raise RuntimeError("forced\nscenario   generation failure")
 
     monkeypatch.setattr(scenario_handler, "generate_scenario_payload", _explode)
 
     worker.register_builtin_handlers()
+    caplog.set_level(logging.INFO)
     handled = await worker.run_once(
         session_maker=_session_maker(async_session),
         worker_id="scenario-failure-worker",
         now=datetime.now(UTC),
     )
     assert handled is True
+
+    start_records = [
+        record
+        for record in caplog.records
+        if record.message == "scenario_generation_job_started"
+    ]
+    failure_records = [
+        record
+        for record in caplog.records
+        if record.message == "scenario_generation_job_failed"
+    ]
+    assert start_records, "expected scenario generation start log"
+    assert failure_records, "expected scenario generation failure log"
+    failure_record = failure_records[-1]
+    assert failure_record.trialId == sim.id
+    assert failure_record.jobId == job.id
+    assert failure_record.runtimeMode in {"demo", "real", "test"}
+    assert failure_record.provider in {"anthropic", "openai"}
+    assert isinstance(failure_record.model, str)
+    assert failure_record.errorType == "RuntimeError"
+    assert failure_record.errorMessage == "forced scenario generation failure"
 
     session_maker = _session_maker(async_session)
     async with session_maker() as check_session:

@@ -39,6 +39,20 @@ exec "$@"
     )
     poetry_script.chmod(0o755)
 
+    alembic_script = bin_dir / "alembic"
+    alembic_script.write_text(
+        """#!/usr/bin/env bash
+set -euo pipefail
+{
+  echo "alembic:$*"
+  echo "marker:${WINOE_CUSTOM_MARKER:-missing}"
+  echo "bypass:${DEV_AUTH_BYPASS:-missing}"
+} >> "$TEST_COMMAND_LOG"
+""",
+        encoding="utf-8",
+    )
+    alembic_script.chmod(0o755)
+
     python_script = bin_dir / "python"
     python_script.write_text(
         """#!/usr/bin/env bash
@@ -69,7 +83,12 @@ set -euo pipefail
 
     assert result.returncode == 0, result.stderr
     log_output = log_file.read_text(encoding="utf-8")
-    assert "poetry:run python scripts/seed_local_talent_partners.py" in log_output
-    assert "python:scripts/seed_local_talent_partners.py" in log_output
+    assert "poetry:run alembic upgrade head" in log_output
+    assert "alembic:upgrade head" in log_output
+    assert (
+        "poetry:run python scripts/seed_local_talent_partners.py --reset"
+        in log_output
+    )
+    assert "python:scripts/seed_local_talent_partners.py --reset" in log_output
     assert "marker:loaded" in log_output
     assert "bypass:0" in log_output

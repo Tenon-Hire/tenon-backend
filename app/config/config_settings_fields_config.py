@@ -60,8 +60,8 @@ class SettingsFields(BaseSettings):
     )
 
     SCENARIO_GENERATION_RUNTIME_MODE: str | None = None
-    SCENARIO_GENERATION_PROVIDER: str = "openai"
-    SCENARIO_GENERATION_MODEL: str = "gpt-5.4-mini"
+    SCENARIO_GENERATION_PROVIDER: str = "anthropic"
+    SCENARIO_GENERATION_MODEL: str = "claude-opus-4-6"
     SCENARIO_GENERATION_TIMEOUT_SECONDS: int = 120
     SCENARIO_GENERATION_MAX_RETRIES: int = 2
 

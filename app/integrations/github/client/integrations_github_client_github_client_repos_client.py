@@ -150,6 +150,14 @@ class RepoOperations:
             json=payload,
         )
 
+    async def get_authenticated_user_login(self) -> str | None:
+        """Return the login for the token's authenticated GitHub user."""
+        payload = await self._get_json("/user")
+        if not isinstance(payload, dict):
+            return None
+        login = str(payload.get("login") or payload.get("username") or "").strip()
+        return login or None
+
     async def get_codespace(self, repo_full_name: str, codespace_name: str) -> dict:
         """Return a GitHub Codespace by name."""
         expected_owner, expected_repo = split_full_name(repo_full_name)

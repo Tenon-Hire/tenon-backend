@@ -20,7 +20,7 @@ This document describes implemented GitHub integration behavior in the backend.
 
 ## Workflow and Artifact Contract
 
-- Workflow file configured by `WINOE_GITHUB_ACTIONS_WORKFLOW_FILE`.
+- Workflow file is canonically `evidence-capture.yml` and can still be overridden via `WINOE_GITHUB_ACTIONS_WORKFLOW_FILE` for explicit compatibility cases.
 - Artifact parser prefers `winoe-test-results` style artifacts and extracts normalized test summary payloads.
 - Submission/workspace models persist:
   - workflow run IDs/status/conclusion/timestamps

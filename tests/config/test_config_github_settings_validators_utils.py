@@ -11,6 +11,7 @@ def test_github_settings_defaults_canonical_destination_org():
 
     assert settings.GITHUB_ORG == "winoe-ai-repos"
     assert settings.GITHUB_TEMPLATE_OWNER == "winoe-ai-repos"
+    assert settings.GITHUB_ACTIONS_WORKFLOW_FILE == "evidence-capture.yml"
 
 
 def test_github_settings_reject_negative_workspace_retention_days():
