@@ -1,96 +1,80 @@
 ## 1. Title
 
-Verify invite, scheduling, and Winoe Report notifications
+Harden Day 4 media upload, playback, transcription, and retention
 
 ## 2. Summary
 
-This change completes the notification delivery path for the candidate Golden Path in Winoe:
+This PR closes the backend slice of #294 for the Day 4 handoff/demo media path:
 
-- candidate invite delivery is durably audited
-- invite resend is audited and rate-limited
-- schedule confirmation is audited for both the candidate and the Talent Partner
-- Winoe Report-ready notification delivery is audited and skip-safe after success
-- existing candidate-session invite summary fields remain intact
-- schedule idempotency is preserved for repeated identical requests
+- signed Day 4 upload initiation is reliable for valid media
+- playback and download URLs are built from the configured backend media base URL
+- transcription now recovers when the provider top-level `text` is blank but segment text exists
+- candidate and Talent Partner backend payloads expose visible transcript and job state
+- CSP/media-origin coverage is driven from storage-media config for local and production bases
+- retention and purge flows degrade safely instead of surfacing broken media state
+- the Day 4 upload contract is tightened to `video/mp4` / `.mp4` only so the backend does not accept formats it cannot reliably transcribe end-to-end
 
-The implementation is centered on a new durable `notification_delivery_audits` table plus service-layer checks that avoid duplicate sends when a successful delivery already exists.
+## 3. Files Changed
 
-## 3. What changed
+Actual tracked files changed in this branch:
 
-- Added durable `notification_delivery_audits` persistence with indexed rows for candidate-session, notification-type, and status lookups.
-- Recorded invite send and resend outcomes as immutable audit rows, while preserving existing `candidate_sessions` invite status fields such as `inviteEmailStatus`, `inviteEmailSentAt`, and `inviteEmailError`.
-- Added schedule confirmation audit persistence for both recipients:
-  - candidate
-  - Talent Partner
-- Added a success-detection guard so schedule confirmations and Winoe Report-ready notifications skip re-sending after a successful prior delivery.
-- Restored the schedule idempotency contract so repeated identical schedule requests do not create new notifications or new audit rows.
-- Kept Winoe Report terminology in the report-ready notification subject and body, and persisted the corresponding delivery audit row.
-- Kept the invite preprovision flow exercised through the repo-supported `StubGithubClient` path during local FastAPI QA.
+- `app/config/config_storage_media_config.py` - storage-media defaults and validation, including the mp4-only default contract.
+- `app/media/services/media_services_media_validation_service.py` - upload validation now rejects unsupported Day 4 media at init.
+- `app/shared/jobs/handlers/shared_jobs_handlers_transcribe_recording_runtime_handler.py` - transcription runtime fallback and retry handling.
+- `tests/config/test_config_storage_media_settings_utils.py` - config validation coverage for retention, signed URL bounds, and mp4-only defaults.
+- `tests/integrations/storage_media/test_integrations_storage_media_provider_service.py` - fake provider and signed URL base-path coverage.
+- `tests/media/routes/test_media_handoff_upload_handoff_upload_end_to_end_routes.py` - end-to-end signed upload, playback URL, and transcript/job state coverage.
+- `tests/media/routes/test_media_handoff_upload_handoff_upload_init_rejects_invalid_content_type_and_size_routes.py` - invalid content type and oversize rejection coverage.
+- `tests/media/routes/test_media_handoff_upload_handoff_upload_init_success_routes.py` - signed upload init success coverage for valid `.mp4`.
+- `tests/media/services/test_media_storage_media_service.py` - upload contract validation and storage key behavior.
+- `tests/shared/http/test_shared_http_security_headers_utils.py` - media-origin CSP regression coverage.
+- `tests/shared/jobs/handlers/test_shared_jobs_handlers_transcribe_recording_runtime_handler.py` - transcript reconstruction and retry-path coverage.
 
-## 4. Why
+## 4. Key Implementation Details
 
-The issue acceptance criteria required proof that the candidate Golden Path notifications are not just surfaced in response payloads, but actually delivered, retried, audited, and replay-safe.
+- The transcription runtime now reconstructs transcript text from normalized segment text when the provider top-level `text` is blank, but it still fails terminally on truly empty transcripts.
+- Fake/local storage playback URLs are config-driven, so signed download links resolve from the configured backend media base URL rather than a hard-coded path.
+- Backend-owned CSP/media origins are derived from storage-media config, which keeps local and production media bases aligned with the security header policy.
+- Candidate handoff status and Talent Partner submission detail now surface transcript/job status fields so failed, retrying, pending, and ready states are visible.
+- The default valid Day 4 upload contract is now `video/mp4` and `.mp4` only.
+- `.mov` / `video/quicktime` is rejected at upload init with `422 Unsupported contentType`, and no recording, transcript, or job rows are created for that invalid request.
+- Retention and purge behavior degrades safely: purged media is hidden from playback, transcript access is removed, and the payload falls back cleanly instead of exposing broken links.
 
-The audit table provides durable evidence across the full lifecycle:
+## 5. Acceptance Criteria Mapping
 
-- invite send
-- invite resend
-- schedule confirmation
-- Winoe Report-ready notification
+- Signed URL upload works: `POST /api/tasks/{task_id}/handoff/upload/init` returns a signed upload URL for valid `.mp4` input, and the upload completes through the signed PUT path.
+- Correct backend base URL for playback: playback/download URLs are generated from the configured media base URL and appear in both candidate handoff status and Talent Partner submission detail payloads.
+- Transcription succeeds for valid files: the transcription worker accepts valid uploaded media, reconstructs text from segments when necessary, and moves the transcript to ready when the provider returns usable transcript content.
+- CSP allows local and production media: media-origin CSP coverage is derived from config and includes the local fake storage base and the configured production media endpoint.
+- Retention/purge policies: retention and purge flows remove underlying media and transcript data safely, and the visible payload degrades to a purged state with no download URL.
+- Failed states visible and retryable: candidate and Talent Partner payloads expose transcript/job state, including pending, failed, retryable, and ready states, so failures remain visible and can be retried.
 
-The skip-safe guards prevent duplicate notification sends after a successful delivery has already been recorded, which keeps the notification history consistent with the user-visible state.
+## 6. QA
 
-## 5. QA performed
+### Automated
 
-### Iteration 3 evidence
+- `poetry run pytest --no-cov tests/shared/jobs/handlers/test_shared_jobs_handlers_transcribe_recording_runtime_handler.py tests/config/test_config_storage_media_settings_utils.py tests/integrations/storage_media/test_integrations_storage_media_provider_service.py tests/shared/http/test_shared_http_security_headers_utils.py tests/media/services/test_media_storage_media_service.py` - passed.
+- `poetry run pytest --no-cov tests/media/routes/test_media_handoff_upload_handoff_upload_init_success_routes.py tests/media/routes/test_media_handoff_upload_handoff_upload_init_rejects_invalid_content_type_and_size_routes.py tests/media/routes/test_media_handoff_upload_handoff_upload_end_to_end_routes.py` - passed.
+- `bash precommit.sh` - passed, including repo-wide pytest and coverage gate at 96.14%.
 
-- `./runBackend.sh migrate`
-- local backend startup
-- live FastAPI route exercise for:
-  - invite
-  - resend
-  - claim
-  - schedule
-  - repeated identical schedule
-  - report generation
-  - report-ready notification processing
-- psql evidence for:
-  - `candidate_sessions`
-  - `notification_delivery_audits`
-  - `winoe_reports`
+### Manual
 
-### Observed behavior
+- Local backend started successfully.
+- `POST /api/tasks/{task_id}/handoff/upload/init` returned `200` for `.mp4`.
+- Signed PUT upload returned `204`.
+- `POST /api/tasks/{task_id}/handoff/upload/complete` returned `200`.
+- Candidate handoff status showed `pending` -> `ready` transcript progression.
+- Talent Partner submission detail showed the playback URL and ready transcript.
+- Purge flow resulted in a `purged` recording with `downloadUrl: null` and the transcript removed.
+- Failed transcription state remained visible and retryable.
+- Final contract check: `.mov` was rejected at init with `422`, and no recording, transcript, or job rows were created.
 
-- Invite resend is rate-limited immediately by design and succeeded after cooldown.
-- Repeated identical schedule requests did not resend notifications or create new audit rows.
-- Repeated Winoe Report-ready processing was skip-safe after a successful send.
-- Real GitHub org provisioning was not validated live because the PAT only had `metadata:read`.
-- The invite/preprovision route was verified through the repo’s supported `StubGithubClient` via the real FastAPI flow.
+## 7. Risks / Notes
 
-### QA report references
+- Live invite flow hit GitHub availability issues in the local environment, so Day 4 QA setup used seeded trial/candidate data to isolate the media path.
+- Ignored local `.env` / `.env.prod` overrides were used during debugging, but the shipped fix is the tracked code and test changes in this branch, not those ignored files.
+- If operators explicitly override media allowlist env vars, they can widen the contract intentionally and should do so with care.
 
-- API verification: [api_endpoints_qa_report.md](qa_verifications/API-Endpoints-QA/api_qa_latest/api_endpoints_qa_report.md)
-- Database verification: [db_protocol_qa_report.md](qa_verifications/Database-Protocol-QA/db_protocol_qa_latest/db_protocol_qa_report.md)
-- Service logic verification: [service_logic_qa_report.md](qa_verifications/Service-Logic-QA/service_logic_qa_latest/service_logic_qa_report.md)
+## 8. Final Outcome
 
-### Supporting evidence from the repo
-
-- `candidate_sessions` still carries the invite summary fields used by the invite response and candidate list response.
-- `notification_delivery_audits` exists as an immutable audit table with `attempted_at`, `sent_at`, `status`, `recipient_role`, and idempotency metadata.
-- `winoe_reports` remains the marker table for report readiness; the ready notification logic checks prior successful delivery before sending again.
-
-## 6. Known limitations / follow-ups
-
-- Live GitHub org provisioning was not validated against the real provider in QA because the available PAT did not include write permissions.
-- The local FastAPI invite/preprovision path was validated with the repository’s `StubGithubClient`, which covers the supported local flow but not external GitHub side effects.
-
-## 7. Checklist
-
-- [x] Invite email sends and is durably audited
-- [x] Invite resend is rate-limited, resendable after cooldown, and audited
-- [x] Schedule confirmation is audited for both the candidate and the Talent Partner
-- [x] Winoe Report-ready notification uses Winoe terminology and is audited
-- [x] Winoe Report-ready processing skips repeat sends after success
-- [x] Existing candidate-session invite summary fields are preserved
-- [x] Repeated identical schedule requests remain idempotent
-- [x] Audit trail is persisted in `notification_delivery_audits`
+This PR closes the backend slice of #294 and is ready for review.

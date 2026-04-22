@@ -7,8 +7,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.config.config_parsers_config import parse_env_list
 
-DEFAULT_MEDIA_ALLOWED_CONTENT_TYPES = ["video/mp4", "video/webm", "video/quicktime"]
-DEFAULT_MEDIA_ALLOWED_EXTENSIONS = ["mp4", "webm", "mov"]
+DEFAULT_MEDIA_ALLOWED_CONTENT_TYPES = ["video/mp4"]
+DEFAULT_MEDIA_ALLOWED_EXTENSIONS = ["mp4"]
 
 
 class StorageMediaSettings(BaseSettings):

@@ -33,6 +33,19 @@ async def test_handoff_upload_init_rejects_invalid_content_type_and_size(
         },
     )
     assert bad_type.status_code == 422
+    assert bad_type.json()["detail"] == "Unsupported contentType"
+
+    bad_mov = await async_client.post(
+        f"/api/tasks/{task.id}/handoff/upload/init",
+        headers=headers,
+        json={
+            "contentType": "video/quicktime",
+            "sizeBytes": 1_024,
+            "filename": "demo.mov",
+        },
+    )
+    assert bad_mov.status_code == 422
+    assert bad_mov.json()["detail"] == "Unsupported contentType"
 
     too_big = await async_client.post(
         f"/api/tasks/{task.id}/handoff/upload/init",

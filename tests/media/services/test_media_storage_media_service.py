@@ -43,12 +43,12 @@ def test_validate_upload_input_success(monkeypatch):
     monkeypatch.setattr(
         settings.storage_media,
         "MEDIA_ALLOWED_CONTENT_TYPES",
-        ["video/mp4", "video/webm"],
+        ["video/mp4"],
     )
     monkeypatch.setattr(
         settings.storage_media,
         "MEDIA_ALLOWED_EXTENSIONS",
-        ["mp4", "webm"],
+        ["mp4"],
     )
     monkeypatch.setattr(settings.storage_media, "MEDIA_MAX_UPLOAD_BYTES", 10_000)
 
@@ -60,6 +60,30 @@ def test_validate_upload_input_success(monkeypatch):
     assert payload.content_type == "video/mp4"
     assert payload.size_bytes == 1_024
     assert payload.extension == "mp4"
+
+
+def test_validate_upload_input_rejects_mov_uploads(monkeypatch):
+    monkeypatch.setattr(
+        settings.storage_media,
+        "MEDIA_ALLOWED_CONTENT_TYPES",
+        ["video/mp4"],
+    )
+    monkeypatch.setattr(settings.storage_media, "MEDIA_ALLOWED_EXTENSIONS", ["mp4"])
+    monkeypatch.setattr(settings.storage_media, "MEDIA_MAX_UPLOAD_BYTES", 10_000)
+
+    with_exception = None
+    try:
+        validate_upload_input(
+            content_type="video/quicktime",
+            size_bytes=1_024,
+            filename="demo.mov",
+        )
+    except HTTPException as exc:
+        with_exception = exc
+
+    assert with_exception is not None
+    assert with_exception.status_code == 422
+    assert with_exception.detail == "Unsupported contentType"
 
 
 def test_validate_upload_input_rejects_invalid_values(monkeypatch):
