@@ -18,12 +18,17 @@ log_error() {
 }
 
 load_environment() {
+  if [[ -n "${ENV_FILE:-}" && -f "${ENV_FILE}" ]]; then
+    # Load the explicitly provided env file first so test harnesses and local
+    # callers can override shell defaults deterministically.
+    # shellcheck disable=SC1090
+    set -a
+    source "${ENV_FILE}"
+    set +a
+  fi
+
   if [[ -f ./setEnvVar.sh ]]; then
     source ./setEnvVar.sh
-  elif [[ -n "${ENV_FILE:-}" && -f "${ENV_FILE}" ]]; then
-    # Keep local overrides working even if the shell helper is unavailable.
-    # shellcheck disable=SC1090
-    source "${ENV_FILE}"
   fi
 }
 
