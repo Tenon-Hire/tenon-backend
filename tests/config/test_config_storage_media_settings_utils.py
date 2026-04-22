@@ -47,3 +47,9 @@ def test_storage_media_settings_validates_signed_url_min_not_above_max():
 def test_storage_media_settings_rejects_non_string_or_list_extensions():
     with pytest.raises(ValidationError):
         StorageMediaSettings(MEDIA_ALLOWED_EXTENSIONS=123)
+
+
+def test_storage_media_settings_defaults_only_allow_mp4():
+    settings = StorageMediaSettings()
+    assert ["video/mp4"] == settings.MEDIA_ALLOWED_CONTENT_TYPES
+    assert ["mp4"] == settings.MEDIA_ALLOWED_EXTENSIONS

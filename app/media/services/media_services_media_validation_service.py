@@ -13,8 +13,6 @@ from app.shared.utils.shared_utils_errors_utils import REQUEST_TOO_LARGE, ApiErr
 
 DEFAULT_EXTENSION_BY_CONTENT_TYPE = {
     "video/mp4": "mp4",
-    "video/webm": "webm",
-    "video/quicktime": "mov",
 }
 
 

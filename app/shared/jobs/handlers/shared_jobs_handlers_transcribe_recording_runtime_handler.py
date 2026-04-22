@@ -27,6 +27,23 @@ _RETRYABLE_TRANSCRIPTION_ERROR_MARKERS = (
 )
 
 
+def _resolve_transcript_text(result) -> str:
+    text = (getattr(result, "text", None) or "").strip()
+    if text:
+        return text
+    segments = getattr(result, "segments", None)
+    if not isinstance(segments, list):
+        return ""
+    parts: list[str] = []
+    for segment in segments:
+        if not isinstance(segment, dict):
+            continue
+        segment_text = segment.get("text")
+        if isinstance(segment_text, str) and segment_text.strip():
+            parts.append(segment_text.strip())
+    return " ".join(parts).strip()
+
+
 def is_retryable_transcription_error(exc: Exception) -> bool:
     """Return whether a transcription error should remain non-terminal."""
     normalized = str(exc).strip().lower()
@@ -107,7 +124,7 @@ async def handle_transcribe_recording_impl(
         result = transcription_provider.transcribe_recording(
             source_url=download_url, content_type=content_type
         )
-        transcript_text = (result.text or "").strip()
+        transcript_text = _resolve_transcript_text(result)
         if not transcript_text:
             raise transcription_provider_error(
                 "provider returned empty transcript text"
@@ -161,4 +178,7 @@ async def handle_transcribe_recording_impl(
     return {"status": "ready", "recordingId": recording_id, "durationMs": duration_ms}
 
 
-__all__ = ["handle_transcribe_recording_impl", "is_retryable_transcription_error"]
+__all__ = [
+    "handle_transcribe_recording_impl",
+    "is_retryable_transcription_error",
+]

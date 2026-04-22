@@ -38,7 +38,16 @@ def test_fake_provider_generates_signed_urls():
 
 def test_storage_provider_factory_resolves_fake(monkeypatch):
     monkeypatch.setattr(settings.storage_media, "MEDIA_STORAGE_PROVIDER", "fake")
+    monkeypatch.setattr(
+        settings.storage_media,
+        "MEDIA_FAKE_BASE_URL",
+        "https://media.example.test/api/recordings/storage/fake",
+    )
     get_storage_media_provider.cache_clear()
     provider = get_storage_media_provider()
     assert isinstance(provider, FakeStorageMediaProvider)
+    assert provider.create_signed_download_url(
+        "candidate-sessions/1/tasks/4/recordings/abc.mp4",
+        900,
+    ).startswith("https://media.example.test/api/recordings/storage/fake/download?")
     get_storage_media_provider.cache_clear()
