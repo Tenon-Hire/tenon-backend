@@ -114,7 +114,12 @@ class AggregatedWinoeReportOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     overallWinoeScore: float = Field(ge=0.0, le=1.0)
-    recommendation: Literal["strong_hire", "hire", "lean_hire", "no_hire"]
+    recommendation: Literal[
+        "strong_signal",
+        "positive_signal",
+        "mixed_signal",
+        "limited_signal",
+    ]
     confidence: float = Field(ge=0.0, le=1.0)
     dayScores: list[AggregatorDayScore] = Field(min_length=1, max_length=5)
     strengths: list[str] = Field(default_factory=list, max_length=10)

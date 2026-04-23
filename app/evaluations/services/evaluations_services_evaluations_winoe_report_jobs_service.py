@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +18,7 @@ def build_evaluation_job_payload(
     candidate_session_id: int,
     company_id: int,
     requested_by_user_id: int,
+    basis_fingerprint: str,
 ) -> dict[str, object]:
     """Build evaluation job payload."""
     requested_at = datetime.now(UTC).replace(microsecond=0)
@@ -26,14 +26,17 @@ def build_evaluation_job_payload(
         "candidateSessionId": int(candidate_session_id),
         "companyId": int(company_id),
         "requestedByUserId": int(requested_by_user_id),
+        "basisFingerprint": str(basis_fingerprint),
         "requestedAt": requested_at.isoformat().replace("+00:00", "Z"),
     }
 
 
-def build_evaluation_job_idempotency_key(candidate_session_id: int) -> str:
-    # Each generation request should produce a distinct immutable run.
+def build_evaluation_job_idempotency_key(*, basis_fingerprint: str) -> str:
     """Build evaluation job idempotency key."""
-    return f"evaluation_run:{candidate_session_id}:{uuid4().hex}"
+    normalized = basis_fingerprint.strip()
+    if not normalized:
+        raise ValueError("basis_fingerprint is required")
+    return f"evaluation_run:{normalized}"
 
 
 async def enqueue_evaluation_run(
@@ -42,6 +45,7 @@ async def enqueue_evaluation_run(
     candidate_session_id: int,
     company_id: int,
     requested_by_user_id: int,
+    basis_fingerprint: str,
     commit: bool = True,
 ) -> Job:
     """Enqueue evaluation run."""
@@ -49,11 +53,14 @@ async def enqueue_evaluation_run(
         candidate_session_id=candidate_session_id,
         company_id=company_id,
         requested_by_user_id=requested_by_user_id,
+        basis_fingerprint=basis_fingerprint,
     )
     job = await jobs_repo.create_or_get_idempotent(
         db,
         job_type=EVALUATION_RUN_JOB_TYPE,
-        idempotency_key=build_evaluation_job_idempotency_key(candidate_session_id),
+        idempotency_key=build_evaluation_job_idempotency_key(
+            basis_fingerprint=basis_fingerprint
+        ),
         payload_json=payload_json,
         company_id=company_id,
         candidate_session_id=candidate_session_id,

@@ -36,7 +36,12 @@ async def test_winoe_report_worker_completion_returns_ready_and_evidence(
     assert payload["generatedAt"] is not None
     report = payload["report"]
     assert isinstance(report["overallWinoeScore"], float)
-    assert report["recommendation"] in {"hire", "strong_hire", "no_hire", "lean_hire"}
+    assert report["recommendation"] in {
+        "strong_signal",
+        "positive_signal",
+        "mixed_signal",
+        "limited_signal",
+    }
     assert isinstance(report["confidence"], float)
     assert isinstance(report["dayScores"], list)
     assert isinstance(report["version"], dict)

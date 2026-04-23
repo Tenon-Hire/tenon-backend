@@ -31,10 +31,18 @@ async def test_generate_winoe_report_returns_queued_and_get_running(
     assert body["status"] == "queued"
     assert isinstance(body["jobId"], str)
 
+    duplicate_generate = await async_client.post(
+        f"/api/candidate_sessions/{candidate_session.id}/winoe_report/generate",
+        headers=auth_header_factory(talent_partner),
+    )
+    assert duplicate_generate.status_code == 202, duplicate_generate.text
+    assert duplicate_generate.json()["jobId"] == body["jobId"]
+
     job = await async_session.get(Job, body["jobId"])
     assert job is not None
     assert job.job_type == EVALUATION_RUN_JOB_TYPE
     assert job.candidate_session_id == candidate_session.id
+    assert job.payload_json["basisFingerprint"]
 
     fetch = await async_client.get(
         f"/api/candidate_sessions/{candidate_session.id}/winoe_report",

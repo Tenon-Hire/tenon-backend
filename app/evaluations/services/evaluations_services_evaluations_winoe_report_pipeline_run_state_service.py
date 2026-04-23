@@ -43,6 +43,18 @@ def _failed_response(
     }
 
 
+def _running_response(
+    *, run, candidate_session_id: int, duration_ms: int
+) -> dict[str, Any]:
+    return {
+        "status": "running",
+        "candidateSessionId": candidate_session_id,
+        "evaluationRunId": run.id,
+        "basisFingerprint": run.basis_fingerprint,
+        "durationMs": duration_ms,
+    }
+
+
 async def _get_or_start_run(
     *,
     db,
@@ -60,6 +72,7 @@ async def _get_or_start_run(
     transcript_reference: str,
 ) -> tuple[Any, dict[str, Any] | None]:
     existing_run = None
+    existing_run_source = None
     if job_id is not None:
         existing_run = await evaluation_repo.get_run_by_job_id(
             db,
@@ -67,6 +80,16 @@ async def _get_or_start_run(
             candidate_session_id=context.candidate_session.id,
             for_update=True,
         )
+        if existing_run is not None:
+            existing_run_source = "job"
+    if existing_run is None and job_id is None and basis_fingerprint is not None:
+        existing_run = await evaluation_repo.get_latest_run_for_candidate_session(
+            db,
+            candidate_session_id=context.candidate_session.id,
+            basis_fingerprint=basis_fingerprint,
+        )
+        if existing_run is not None:
+            existing_run_source = "basis"
     if existing_run is None:
         run = await evaluation_runs.start_run(
             db,
@@ -101,7 +124,18 @@ async def _get_or_start_run(
             candidate_session_id=context.candidate_session.id,
             duration_ms=duration_ms,
         )
+    if existing_run_source == "basis":
+        return run, _running_response(
+            run=run,
+            candidate_session_id=context.candidate_session.id,
+            duration_ms=duration_ms,
+        )
     return run, None
 
 
-__all__ = ["_completed_response", "_failed_response", "_get_or_start_run"]
+__all__ = [
+    "_completed_response",
+    "_failed_response",
+    "_get_or_start_run",
+    "_running_response",
+]

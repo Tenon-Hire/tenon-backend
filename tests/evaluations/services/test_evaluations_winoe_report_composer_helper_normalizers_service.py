@@ -20,10 +20,13 @@ def test_winoe_report_composer_helper_normalizers():
 
     assert (
         winoe_report_composer._normalize_recommendation(None)
-        == EVALUATION_RECOMMENDATION_LEAN_HIRE
+        == WINOE_REPORT_RECOMMENDATION_MIXED_SIGNAL
     )
-    assert winoe_report_composer._normalize_recommendation(" no_hire ") == "no_hire"
+    assert (
+        winoe_report_composer._normalize_recommendation(" no_hire ")
+        == WINOE_REPORT_RECOMMENDATION_LIMITED_SIGNAL
+    )
     assert (
         winoe_report_composer._normalize_recommendation("not-valid")
-        == EVALUATION_RECOMMENDATION_LEAN_HIRE
+        == WINOE_REPORT_RECOMMENDATION_MIXED_SIGNAL
     )

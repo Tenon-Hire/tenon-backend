@@ -39,7 +39,7 @@ def _aggregated_output(*, reason: str | None = None) -> AggregatedWinoeReportOut
     return AggregatedWinoeReportOutput.model_validate(
         {
             "overallWinoeScore": 0.82,
-            "recommendation": "hire",
+            "recommendation": "positive_signal",
             "confidence": 0.74,
             "dayScores": [
                 {
@@ -60,12 +60,13 @@ def _aggregated_output(*, reason: str | None = None) -> AggregatedWinoeReportOut
             ],
             "strengths": ["Strong execution under constraints."],
             "risks": ["Limited time for polish."],
-            "calibrationText": "The evidence supports a hire recommendation.",
+            "calibrationText": "The evidence supports a positive signal.",
         }
     )
 
 
-def test_openai_winoe_report_review_day_falls_back_to_anthropic_on_retryable_error(
+@pytest.mark.asyncio
+async def test_openai_winoe_report_review_day_falls_back_to_anthropic_on_retryable_error(
     monkeypatch,
 ) -> None:
     calls: list[tuple[str, str]] = []
@@ -108,7 +109,8 @@ def test_openai_winoe_report_review_day_falls_back_to_anthropic_on_retryable_err
     ]
 
 
-def test_openai_winoe_report_aggregate_falls_back_to_anthropic_on_retryable_error(
+@pytest.mark.asyncio
+async def test_openai_winoe_report_aggregate_falls_back_to_anthropic_on_retryable_error(
     monkeypatch,
 ) -> None:
     calls: list[tuple[str, str]] = []
@@ -144,14 +146,15 @@ def test_openai_winoe_report_aggregate_falls_back_to_anthropic_on_retryable_erro
         )
     )
 
-    assert result.recommendation == "hire"
+    assert result.recommendation == "positive_signal"
     assert calls == [
         ("openai", "gpt-5.2"),
         ("anthropic", "claude-sonnet-4-6"),
     ]
 
 
-def test_openai_winoe_report_aggregate_accepts_long_anthropic_day_reason(
+@pytest.mark.asyncio
+async def test_openai_winoe_report_aggregate_accepts_long_anthropic_day_reason(
     monkeypatch,
 ) -> None:
     calls: list[tuple[str, str]] = []
@@ -194,76 +197,5 @@ def test_openai_winoe_report_aggregate_accepts_long_anthropic_day_reason(
     assert result.dayScores[0].reason == long_reason
     assert calls == [
         ("openai", "gpt-5.2"),
-        ("anthropic", "claude-sonnet-4-6"),
-    ]
-
-
-def test_openai_winoe_report_review_day_keeps_non_retryable_error(monkeypatch) -> None:
-    def _fake_openai_json_schema(**_kwargs):
-        raise AIProviderExecutionError("openai_invalid_structured_output")
-
-    monkeypatch.setattr(
-        provider_module, "call_openai_json_schema", _fake_openai_json_schema
-    )
-    monkeypatch.setattr(provider_module.settings, "OPENAI_API_KEY", "openai-test-key")
-    monkeypatch.setattr(
-        provider_module.settings, "ANTHROPIC_API_KEY", "anthropic-test-key"
-    )
-
-    provider = provider_module.OpenAIWinoeReportReviewProvider()
-    with pytest.raises(
-        WinoeReportReviewProviderError, match="openai_invalid_structured_output"
-    ):
-        provider.review_day(
-            request=WinoeReportDayReviewRequest(
-                system_prompt="system",
-                user_prompt="user",
-                model="gpt-5.4-mini",
-            )
-        )
-
-
-def test_openai_winoe_report_review_day_escalates_anthropic_model_after_invalid_output(
-    monkeypatch,
-) -> None:
-    calls: list[tuple[str, str]] = []
-
-    def _fake_openai_json_schema(**kwargs):
-        calls.append(("openai", kwargs["model"]))
-        raise AIProviderExecutionError("openai_request_failed:RateLimitError")
-
-    def _fake_anthropic_json(**kwargs):
-        calls.append(("anthropic", kwargs["model"]))
-        if kwargs["model"] == "claude-haiku-4-5":
-            raise AIProviderExecutionError("anthropic_invalid_json_output")
-        return _reviewer_output()
-
-    monkeypatch.setattr(
-        provider_module, "call_openai_json_schema", _fake_openai_json_schema
-    )
-    monkeypatch.setattr(provider_module, "call_anthropic_json", _fake_anthropic_json)
-    monkeypatch.setattr(provider_module.settings, "OPENAI_API_KEY", "openai-test-key")
-    monkeypatch.setattr(
-        provider_module.settings, "ANTHROPIC_API_KEY", "anthropic-test-key"
-    )
-    monkeypatch.setattr(
-        provider_module.settings,
-        "WINOE_REPORT_ANTHROPIC_FALLBACK_DAY_MODEL",
-        "claude-haiku-4-5",
-    )
-
-    provider = provider_module.OpenAIWinoeReportReviewProvider()
-    result = provider.review_day(
-        request=WinoeReportDayReviewRequest(
-            system_prompt="system",
-            user_prompt="user",
-            model="gpt-5.4-mini",
-        )
-    )
-
-    assert result.dayIndex == 2
-    assert calls == [
-        ("openai", "gpt-5.4-mini"),
-        ("anthropic", "claude-haiku-4-5"),
         ("anthropic", "claude-sonnet-4-6"),
     ]

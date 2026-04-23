@@ -86,6 +86,7 @@ def _setup_pipeline_process_job_happy_path(monkeypatch):
         )
     )
     get_run_by_job_id = AsyncMock(return_value=None)
+    get_latest_run_for_candidate_session = AsyncMock(return_value=None)
     start_run = AsyncMock(return_value=SimpleNamespace(id=123, status="running"))
     complete_run = AsyncMock(
         return_value=SimpleNamespace(
@@ -125,6 +126,11 @@ def _setup_pipeline_process_job_happy_path(monkeypatch):
     monkeypatch.setattr(
         winoe_report_pipeline.evaluation_repo, "get_run_by_job_id", get_run_by_job_id
     )
+    monkeypatch.setattr(
+        winoe_report_pipeline.evaluation_repo,
+        "get_latest_run_for_candidate_session",
+        get_latest_run_for_candidate_session,
+    )
     monkeypatch.setattr(winoe_report_pipeline.evaluation_runs, "start_run", start_run)
     monkeypatch.setattr(
         winoe_report_pipeline.evaluation_runs, "complete_run", complete_run
@@ -142,7 +148,7 @@ def _setup_pipeline_process_job_happy_path(monkeypatch):
         "get_winoe_report_evaluator",
         lambda: evaluator,
     )
-    return get_run_by_job_id, start_run
+    return get_run_by_job_id, get_latest_run_for_candidate_session, start_run
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]

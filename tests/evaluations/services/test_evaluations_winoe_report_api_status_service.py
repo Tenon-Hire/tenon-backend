@@ -57,3 +57,65 @@ async def test_fetch_winoe_report_latest_run_status_mapping(
         object(), candidate_session_id=42, user=SimpleNamespace(id=1)
     )
     assert response == expected
+
+
+@pytest.mark.asyncio
+async def test_fetch_winoe_report_returns_running_when_no_runs_but_active_job(
+    monkeypatch,
+):
+    context = build_context(candidate_session_id=99, company_id=88)
+    monkeypatch.setattr(
+        winoe_report_api,
+        "require_talent_partner_candidate_session_context",
+        AsyncMock(return_value=context),
+    )
+    monkeypatch.setattr(
+        winoe_report_api.evaluation_repo,
+        "get_latest_successful_run_for_candidate_session",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        winoe_report_api.evaluation_repo,
+        "get_latest_run_for_candidate_session",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        winoe_report_api, "_has_active_evaluation_job", AsyncMock(return_value=True)
+    )
+
+    response = await winoe_report_api.fetch_winoe_report(
+        object(), candidate_session_id=99, user=SimpleNamespace(id=1)
+    )
+
+    assert response == {"status": "running"}
+
+
+@pytest.mark.asyncio
+async def test_fetch_winoe_report_returns_not_started_when_no_runs_and_no_job(
+    monkeypatch,
+):
+    context = build_context(candidate_session_id=100, company_id=88)
+    monkeypatch.setattr(
+        winoe_report_api,
+        "require_talent_partner_candidate_session_context",
+        AsyncMock(return_value=context),
+    )
+    monkeypatch.setattr(
+        winoe_report_api.evaluation_repo,
+        "get_latest_successful_run_for_candidate_session",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        winoe_report_api.evaluation_repo,
+        "get_latest_run_for_candidate_session",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        winoe_report_api, "_has_active_evaluation_job", AsyncMock(return_value=False)
+    )
+
+    response = await winoe_report_api.fetch_winoe_report(
+        object(), candidate_session_id=100, user=SimpleNamespace(id=1)
+    )
+
+    assert response == {"status": "not_started"}

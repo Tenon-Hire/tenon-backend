@@ -398,7 +398,7 @@ def _merge_day_scores(
             merged[day_index] = dict(item)
     for item in aggregator_day_scores:
         day_index = item.get("dayIndex")
-        if isinstance(day_index, int):
+        if isinstance(day_index, int) and day_index not in merged:
             merged[day_index] = dict(item)
     return [merged[day] for day in sorted(merged)]
 

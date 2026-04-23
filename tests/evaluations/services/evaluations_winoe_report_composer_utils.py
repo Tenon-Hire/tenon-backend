@@ -4,9 +4,12 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta, timezone
 from types import SimpleNamespace
 
-from app.evaluations.repositories import EVALUATION_RECOMMENDATION_LEAN_HIRE
 from app.evaluations.services import (
     evaluations_services_evaluations_winoe_report_composer_service as winoe_report_composer,
+)
+from app.evaluations.services.evaluations_services_evaluations_winoe_report_composer_normalize_service import (
+    WINOE_REPORT_RECOMMENDATION_LIMITED_SIGNAL,
+    WINOE_REPORT_RECOMMENDATION_MIXED_SIGNAL,
 )
 
 

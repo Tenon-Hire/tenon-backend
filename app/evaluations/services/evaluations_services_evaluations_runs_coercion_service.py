@@ -13,6 +13,13 @@ from app.evaluations.services.evaluations_services_evaluations_runs_validation_s
     EvaluationRunStateError,
 )
 
+WINOE_REPORT_RECOMMENDATION_TO_STORAGE = {
+    "strong_signal": "strong_hire",
+    "positive_signal": "hire",
+    "mixed_signal": "lean_hire",
+    "limited_signal": "no_hire",
+}
+
 
 def coerce_unit_interval_score(
     value: Any, *, field_name: str, required: bool
@@ -41,6 +48,7 @@ def coerce_recommendation(value: Any, *, required: bool) -> str | None:
     if not isinstance(value, str) or not value.strip():
         raise EvaluationRunStateError("recommendation must be a non-empty string.")
     normalized = value.strip().lower()
+    normalized = WINOE_REPORT_RECOMMENDATION_TO_STORAGE.get(normalized, normalized)
     if normalized not in EVALUATION_RECOMMENDATIONS:
         raise EvaluationRunStateError(f"invalid recommendation: {value}")
     return normalized

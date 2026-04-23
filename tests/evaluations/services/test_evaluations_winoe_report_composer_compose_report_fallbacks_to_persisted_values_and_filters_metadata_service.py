@@ -30,6 +30,6 @@ def test_compose_report_fallbacks_to_persisted_values_and_filters_metadata():
     report = winoe_report_composer.compose_report(run)
     assert report["overallWinoeScore"] == 0.66
     assert report["confidence"] == 0.72
-    assert report["recommendation"] == EVALUATION_RECOMMENDATION_LEAN_HIRE
+    assert report["recommendation"] == WINOE_REPORT_RECOMMENDATION_MIXED_SIGNAL
     assert report["disabledDayIndexes"] == [1, 2]
     assert report["dayScores"][0]["evidence"] == [{"kind": "commit", "ref": "abc"}]

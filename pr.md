@@ -1,100 +1,89 @@
 ## 1. Title
 
-Seed evidence-capture GitHub Actions in empty candidate repos and persist live evidence artifacts
+Stabilize Winoe Report generation, Evidence Trail integrity, and duplicate job prevention for #295
 
-## 2. Summary
+## 2. Problem
 
-This change closes the backend slice for #319. Candidate repos are provisioned empty and from-scratch, with no starter app code and no preexisting baseline to compare against. The invite-time bootstrap now seeds the minimum workspace files plus the evidence-capture GitHub Actions workflow, and the backend now parses the live artifacts from that workflow and persists the resulting evidence into the workspace and submission records used downstream.
+Winoe Report had three reliability issues on the active Winoe-facing path:
 
-## 3. What Changed
+- duplicate jobs and duplicate active work
+- hollow scored output, including empty rubric breakdowns and Evidence Trail loss risk
+- Day 4 being scored from failed transcript state
 
-- Invite-time provisioning now seeds:
-  - `.devcontainer/devcontainer.json`
-  - `.gitignore`
-  - `.github/workflows/evidence-capture.yml`
-  - `README.md`
-- The evidence-capture workflow now:
-  - runs on push to `main`
-  - supports `workflow_dispatch`
-  - uses `actions/checkout@v4` with `fetch-depth: 0`
-  - is non-blocking via `continue-on-error: true`
-  - captures commit metadata
-  - captures file creation timeline
-  - captures repository structure snapshot
-  - performs best-effort test detection for npm, pytest, go, and Maven
-  - uploads test results, coverage, and lint evidence
-  - retains artifacts for 90 days
-- The backend retrieval and persistence path now:
-  - parses live GitHub artifacts
-  - enriches the run summary with evidence artifact data
-  - persists workflow metadata and parsed evidence into the submission and workspace fields used by later evaluation steps
+The read path also needed tightening:
 
-## 4. Files / Areas Changed
+- the active report contract still exposed determinative recommendation language
+- the ready report needed to remain visible while a newer rerun was running or had failed
 
-- `app/submissions/services/submissions_services_submissions_workspace_bootstrap_service.py` - seeds the empty candidate repo and writes the evidence-capture workflow plus the required bootstrap files.
-- `app/shared/jobs/handlers/shared_jobs_handlers_github_workflow_artifact_parse_handler.py` - entrypoint for handling live workflow-run artifact parsing and persistence.
-- `app/integrations/github/artifacts/integrations_github_artifacts_evidence_parser_utils.py` - parses the evidence artifact ZIPs and normalizes commit, timeline, repo snapshot, lint, and coverage payloads.
-- `app/integrations/github/actions_runner/*` - fetches run state and artifact content from GitHub Actions and builds the run result used by persistence.
-- `app/submissions/services/submissions_services_submissions_submission_actions_service.py` - records workflow metadata on submission records.
-- `app/submissions/services/submissions_services_submissions_submission_builder_service.py` - threads workflow metadata into submission build/update flows.
-- `app/submissions/services/service_talent_partner/*` - surfaces the persisted workflow state in talent partner views.
-- `tests/submissions/services/test_submissions_workspace_bootstrap_service.py` - verifies the bootstrap file set and the generated workflow contents.
-- `tests/shared/jobs/handlers/test_shared_jobs_handlers_github_workflow_artifact_parse_handle_github_workflow_artifact_parse_persists_results_handler.py` - verifies live artifact parsing data is persisted into submission and workspace records.
-- `tests/trials/routes/test_trials_api_invite_preprovisions_day2_day3_workspaces_routes.py` - covers invite-time provisioning for empty candidate repos.
+## 3. Root Causes Fixed
 
-## 5. QA
+- evaluation job idempotency was keyed off per-request uniqueness instead of a stable evaluation basis
+- run reuse and status handling did not fully prevent duplicate active work
+- aggregation and composition could lose reviewer day truth during report assembly
+- finalization tolerated hollow scored-day persistence
+- the active report contract still surfaced deterministic hire/no_hire-style labels
+- Day 4 needed strict non-scoring behavior whenever transcript state was not ready
 
-### Live Verification
+## 4. What Changed
 
-- Live candidate session id: `12`
-- Live repo: `winoe-ai-repos/winoe-ws-12`
-- Live repo id: `1218452486`
-- Live codespace name: `vigilant-system-697vv46vrj67h4946`
-- Final live push-triggered run id: `24806259617`
-- Final live commit SHA: `81a61273b72f387e6d817c959325ecb25205ada0`
+### API / orchestration
 
-Observed live artifacts:
+- the generate path now computes a basis fingerprint and reuses the same durable job for unchanged basis
+- the fetch path keeps the latest successful ready Winoe Report visible even if a newer rerun is running or failed
 
-- `winoe-commit-metadata` - artifact id `6590224940`
-- `winoe-file-creation-timeline` - artifact id `6590225169`
-- `winoe-repo-structure-snapshot` - artifact id `6590225418`
-- `winoe-test-results` - artifact id `6590225646`
-- `winoe-coverage` - artifact id `6590225881`
-- `winoe-lint-results` - artifact id `6590226130`
+### Evaluation pipeline
 
-All live artifacts showed 90-day retention with:
+- run state logic now reuses existing terminal and same-basis runs correctly
+- changed-basis reruns create a new durable job/run
+- failed transcript state does not produce a Day 4 score
 
-- `expires_at=2026-07-21T22:36:53Z`
+### Report integrity
 
-Backend persistence evidence:
+- scored days now persist non-empty rubric breakdowns and evidence
+- reviewer day evidence remains authoritative and is not clobbered by aggregation
+- the final report preserves Evidence Trail payloads for scored days
 
-- `workflow_run_id=24806259617`
-- `workflow_run_attempt=1`
-- `workflow_run_status=completed`
-- `workflow_run_conclusion=success`
-- `tests_passed=1`
-- `tests_failed=0`
-- `commit_sha=81a61273b72f387e6d817c959325ecb25205ada0`
-- `test_output.summary.detectedTool=npm`
-- `test_output.summary.command=npm test -- --coverage`
-- workspace persisted:
-  - `last_workflow_run_id=24806259617`
-  - `last_workflow_conclusion=success`
-  - `latest_commit_sha=81a61273b72f387e6d817c959325ecb25205ada0`
+### Recommendation / output contract
 
-### Automated Tests
+- the Winoe-facing report output now uses non-determinative signal labels:
+  - `strong_signal`
+  - `positive_signal`
+  - `mixed_signal`
+  - `limited_signal`
+- legacy storage compatibility remains tolerated internally where needed, while the active API/report surface stays signal-based
 
-- Targeted implementation slice passed functionally.
-- The same narrow slice hit the repository-wide coverage gate when run without coverage suppression.
-- The targeted slice passed with `--no-cov`.
-- Full repository validation is green.
+### Tests
 
-## 6. Risks / Limitations
+- restored and added coverage for:
+  - same-basis idempotency
+  - changed-basis reruns
+  - worker re-execution and run reuse behavior
+  - read-path stability
+  - Day 4 failed-transcript gating
+  - provider and recommendation contract updates
 
-- Backend persistence during live QA was verified by direct handler invocation against the live GitHub run because the local backend cannot receive public GitHub webhooks in this setup.
-- A GitHub Codespaces quota issue was encountered during QA and resolved operationally, not by code change.
-- A stale `WINOE_GITHUB_ACTIONS_WORKFLOW_FILE=winoe-ci.yml` config value may still exist as config debt, but it did not block invite-time provisioning or the final live evidence-capture run.
+## 5. Scope Note About Persona Governance
 
-## 7. Final Result
+- #295 now satisfies the non-determinative recommendation/output requirement and evidence-first report behavior on the active Winoe-facing path.
+- Full `SOUL.md`-based persona governance is not claimed in this PR and remains tracked separately in #298.
 
-Fixes #319
+## 6. QA Evidence
+
+- local runtime was started with the worker
+- duplicate generate on unchanged basis returned the same `jobId`
+- unchanged-basis path produced one active job/run
+- the ready payload contained `overallWinoeScore`, populated day scores, rubric breakdowns, and evidence pointers
+- the failed transcript case returned Day 4 as non-scored / `human_review_required`
+- a valid changed-basis rerun created a different `jobId` and completed successfully
+- the ready payload remained visible even when a newer rerun was running or failed
+- focused tests passed
+- pre-commit checks and the full suite passed
+
+## 7. Risks / Follow-ups
+
+- #298 for direct `SOUL.md` persona governance and prompt wiring
+- separate repo/setup follow-up for `bootstrap-local` and Alembic multi-head hygiene if needed
+
+## 8. Final Result
+
+Fixes #295

@@ -14,7 +14,7 @@ This document describes how winoe-report generation uses durable jobs and evalua
 
 - Job type constant: `evaluation_run` (`EVALUATION_RUN_JOB_TYPE`).
 - Payload builder: `build_evaluation_job_payload(...)`.
-- Idempotency key: `evaluation_run:{candidate_session_id}:{uuid4}` (new immutable run per request).
+- Idempotency key: `evaluation_run:{basis_fingerprint}` so repeated generates on the same basis reuse the same durable job.
 - Enqueue function: `enqueue_evaluation_run(...)` persists a durable `jobs` row and stores `jobId` in payload.
 
 ## Worker Processing Path
@@ -34,7 +34,7 @@ This document describes how winoe-report generation uses durable jobs and evalua
 
 `fetch_winoe_report(...)` resolves talent_partner/company access and returns:
 
-- `ready`: latest successful run composed into response payload.
+- `ready`: latest successful run composed into response payload; this remains visible even if a newer rerun is pending, running, or failed.
 - `running`: no successful run yet but active job exists.
 - `not_started`: neither run data nor active job exists.
 - latest run status mapping for other terminal/non-terminal states.

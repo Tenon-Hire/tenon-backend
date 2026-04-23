@@ -122,3 +122,5 @@ async def test_process_evaluation_run_job_continues_when_existing_run_not_termin
     assert response["status"] == "completed"
     assert response["evaluationRunId"] == 99
     start_run.assert_not_awaited()
+    complete_run.assert_awaited_once()
+    assert complete_run.await_args.kwargs["run_id"] == 99

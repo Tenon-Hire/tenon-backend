@@ -155,10 +155,10 @@
     },
     "recommendation": {
       "enum": [
-        "strong_hire",
-        "hire",
-        "lean_hire",
-        "no_hire"
+        "strong_signal",
+        "positive_signal",
+        "mixed_signal",
+        "limited_signal"
       ],
       "title": "Recommendation",
       "type": "string"

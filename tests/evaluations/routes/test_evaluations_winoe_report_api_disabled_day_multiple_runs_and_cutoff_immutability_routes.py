@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import pytest
 
+from app.shared.jobs.repositories.shared_jobs_repositories_models_repository import (
+    JOB_STATUS_SUCCEEDED,
+)
 from tests.evaluations.routes.evaluations_winoe_report_api_utils import *
 
 
@@ -21,6 +24,7 @@ async def test_winoe_report_disabled_day_multiple_runs_and_cutoff_immutability(
         headers=auth_header_factory(talent_partner),
     )
     assert first_generate.status_code == 202, first_generate.text
+    first_job_id = first_generate.json()["jobId"]
     assert (
         await _run_worker_once(async_session, worker_id="winoe-report-worker-first")
         is True
@@ -45,6 +49,8 @@ async def test_winoe_report_disabled_day_multiple_runs_and_cutoff_immutability(
         headers=auth_header_factory(talent_partner),
     )
     assert second_generate.status_code == 202, second_generate.text
+    second_job_id = second_generate.json()["jobId"]
+    assert second_job_id != first_job_id
     assert (
         await _run_worker_once(async_session, worker_id="winoe-report-worker-second")
         is True
@@ -61,9 +67,24 @@ async def test_winoe_report_disabled_day_multiple_runs_and_cutoff_immutability(
         assert run.day2_checkpoint_sha == "cutoff-day2-fixed"
         assert run.day3_final_sha == "cutoff-day3-fixed"
         assert run.status == EVALUATION_RUN_STATUS_COMPLETED
+        assert run.job_id in {first_job_id, second_job_id}
+        assert run.error_code is None
         assert run.metadata_json is not None
         assert run.metadata_json.get("disabledDayIndexes") == [4]
         assert 4 not in [row.day_index for row in run.day_scores]
+
+    first_job = await async_session.get(Job, first_job_id)
+    second_job = await async_session.get(Job, second_job_id)
+    assert first_job is not None
+    assert second_job is not None
+    assert first_job.status == JOB_STATUS_SUCCEEDED
+    assert second_job.status == JOB_STATUS_SUCCEEDED
+    assert first_job.last_error is None
+    assert second_job.last_error is None
+    assert (
+        first_job.payload_json["basisFingerprint"]
+        != second_job.payload_json["basisFingerprint"]
+    )
 
     fetch = await async_client.get(
         f"/api/candidate_sessions/{candidate_session.id}/winoe_report",

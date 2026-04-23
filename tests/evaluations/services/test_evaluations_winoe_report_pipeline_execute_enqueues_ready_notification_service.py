@@ -29,7 +29,7 @@ async def test_evaluate_and_finalize_run_enqueues_winoe_report_ready_notificatio
                         day_index=1,
                         score=0.8,
                         rubric_breakdown={"communication": 0.8},
-                        evidence={"day": 1},
+                        evidence=[{"kind": "submission", "ref": "day-1"}],
                     )
                 ],
                 overall_winoe_score=0.82,
@@ -59,6 +59,15 @@ async def test_evaluate_and_finalize_run_enqueues_winoe_report_ready_notificatio
     )
 
     assert result is completed_run
+    complete_run.assert_awaited_once()
+    assert complete_run.await_args.kwargs["day_scores"] == [
+        {
+            "day_index": 1,
+            "score": 0.8,
+            "rubric_results_json": {"communication": 0.8},
+            "evidence_pointers_json": [{"kind": "submission", "ref": "day-1"}],
+        }
+    ]
     enqueue_notification.assert_awaited_once_with(
         db,
         candidate_session_id=123,
@@ -67,3 +76,40 @@ async def test_evaluate_and_finalize_run_enqueues_winoe_report_ready_notificatio
     )
     upsert_marker.assert_awaited_once()
     db.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_evaluate_and_finalize_run_rejects_hollow_day_scores():
+    db = SimpleNamespace(commit=AsyncMock())
+    evaluator = SimpleNamespace(
+        evaluate=AsyncMock(
+            return_value=SimpleNamespace(
+                day_results=[
+                    SimpleNamespace(
+                        day_index=1,
+                        score=0.8,
+                        rubric_breakdown={},
+                        evidence=[{"kind": "submission", "ref": "day-1"}],
+                    )
+                ],
+                overall_winoe_score=0.82,
+                recommendation="hire",
+                confidence=0.91,
+                report_json={"summary": "ready"},
+            )
+        )
+    )
+
+    with pytest.raises(ValueError, match="rubric_breakdown must be a non-empty object"):
+        await execute_service._evaluate_and_finalize_run(
+            db=db,
+            run=SimpleNamespace(id=7),
+            evaluator=evaluator,
+            bundle=SimpleNamespace(),
+            evaluation_runs=SimpleNamespace(complete_run=AsyncMock()),
+            winoe_report_repository=SimpleNamespace(upsert_marker=AsyncMock()),
+            context=SimpleNamespace(
+                candidate_session=SimpleNamespace(id=123, trial_id=456)
+            ),
+            run_metadata={"source": "test"},
+        )

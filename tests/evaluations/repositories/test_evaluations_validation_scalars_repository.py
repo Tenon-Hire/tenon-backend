@@ -87,6 +87,8 @@ def test_unit_interval_score_and_recommendation_validation():
         scalars.coerce_unit_interval_score(1.1, field_name="score")
 
     assert scalars.coerce_recommendation(" No_Hire ", required=True) == "no_hire"
+    assert scalars.coerce_recommendation(" mixed_signal ", required=True) == "lean_hire"
+    assert scalars.coerce_recommendation("positive_signal", required=True) == "hire"
     assert scalars.coerce_recommendation(None, required=False) is None
     with pytest.raises(ValueError):
         scalars.coerce_recommendation("   ", required=False)

@@ -62,6 +62,7 @@ async def get_latest_run_for_candidate_session(
     *,
     candidate_session_id: int,
     statuses: Sequence[str] | None = None,
+    basis_fingerprint: str | None = None,
 ) -> EvaluationRun | None:
     """Return latest run for candidate session."""
     stmt = (
@@ -71,6 +72,8 @@ async def get_latest_run_for_candidate_session(
         .order_by(EvaluationRun.started_at.desc(), EvaluationRun.id.desc())
         .limit(1)
     )
+    if basis_fingerprint is not None:
+        stmt = stmt.where(EvaluationRun.basis_fingerprint == basis_fingerprint)
     if statuses is not None:
         normalized_statuses = {normalize_status(value) for value in statuses}
         if not normalized_statuses:

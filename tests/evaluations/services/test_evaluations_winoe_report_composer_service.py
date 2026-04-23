@@ -87,7 +87,7 @@ async def test_build_ready_payload_uses_persisted_run_shape(async_session):
 
     report = payload["report"]
     assert report["overallWinoeScore"] == 0.78
-    assert report["recommendation"] == "hire"
+    assert report["recommendation"] == "positive_signal"
     assert report["confidence"] == 0.82
     assert report["version"]["model"] == "fit-evaluator"
     assert report["version"]["promptVersion"] == "winoe-report-v1"

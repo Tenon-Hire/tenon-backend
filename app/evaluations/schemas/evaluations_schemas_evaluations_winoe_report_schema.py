@@ -52,7 +52,12 @@ class WinoeReportReportOut(APIModel):
     """Represent winoe report report out data and behavior."""
 
     overallWinoeScore: float
-    recommendation: str
+    recommendation: Literal[
+        "strong_signal",
+        "positive_signal",
+        "mixed_signal",
+        "limited_signal",
+    ]
     confidence: float
     dayScores: list[WinoeReportDayScoreOut] = Field(default_factory=list)
     version: WinoeReportVersionOut

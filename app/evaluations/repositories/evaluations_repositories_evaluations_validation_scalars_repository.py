@@ -12,6 +12,13 @@ from app.evaluations.repositories.evaluations_repositories_evaluations_core_mode
     EVALUATION_RUN_STATUSES,
 )
 
+WINOE_REPORT_RECOMMENDATION_TO_STORAGE = {
+    "strong_signal": "strong_hire",
+    "positive_signal": "hire",
+    "mixed_signal": "lean_hire",
+    "limited_signal": "no_hire",
+}
+
 
 def normalize_non_empty_str(value: Any, *, field_name: str) -> str:
     """Normalize non empty str."""
@@ -80,6 +87,7 @@ def coerce_recommendation(value: Any, *, required: bool = False) -> str | None:
     if not isinstance(value, str) or not value.strip():
         raise ValueError("recommendation must be a non-empty string when provided.")
     normalized = value.strip().lower()
+    normalized = WINOE_REPORT_RECOMMENDATION_TO_STORAGE.get(normalized, normalized)
     if normalized not in EVALUATION_RECOMMENDATIONS:
         raise ValueError(f"invalid recommendation: {value}")
     return normalized
