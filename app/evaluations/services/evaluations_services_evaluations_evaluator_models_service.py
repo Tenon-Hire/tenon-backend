@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 
@@ -58,6 +58,22 @@ class DayEvaluationResult:
 
 
 @dataclass(slots=True)
+class ReviewerReportResult:
+    """Represent persisted reviewer report data and behavior."""
+
+    reviewer_agent_key: str
+    day_index: int
+    submission_kind: str
+    score: float
+    dimensional_scores_json: dict[str, Any]
+    evidence_citations_json: list[dict[str, Any]]
+    assessment_text: str
+    strengths_json: list[str]
+    risks_json: list[str]
+    raw_output_json: dict[str, Any] | None = None
+
+
+@dataclass(slots=True)
 class EvaluationResult:
     """Represent evaluation result data and behavior."""
 
@@ -66,6 +82,7 @@ class EvaluationResult:
     confidence: float
     day_results: list[DayEvaluationResult]
     report_json: dict[str, Any]
+    reviewer_reports: list[ReviewerReportResult] = field(default_factory=list)
 
 
 class WinoeReportEvaluator(Protocol):
@@ -81,5 +98,6 @@ __all__ = [
     "DayEvaluationResult",
     "EvaluationInputBundle",
     "EvaluationResult",
+    "ReviewerReportResult",
     "WinoeReportEvaluator",
 ]

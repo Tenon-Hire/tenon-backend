@@ -4,19 +4,28 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, model_serializer
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_serializer
 
 AI_PROMPT_OVERRIDE_KEYS = (
     "prestart",
     "codespace",
-    "day1",
-    "day23",
-    "day4",
-    "day5",
+    "designDocReviewer",
+    "codeImplementationReviewer",
+    "demoPresentationReviewer",
+    "reflectionEssayReviewer",
     "winoeReport",
 )
 AI_AGENT_KEYS = AI_PROMPT_OVERRIDE_KEYS
 _MAX_OVERRIDE_MARKDOWN_CHARS = 40_000
+_PROMPT_OVERRIDE_FIELD_TO_KEY = {
+    "prestart": "prestart",
+    "codespace": "codespace",
+    "design_doc_reviewer": "designDocReviewer",
+    "code_implementation_reviewer": "codeImplementationReviewer",
+    "demo_presentation_reviewer": "demoPresentationReviewer",
+    "reflection_essay_reviewer": "reflectionEssayReviewer",
+    "winoe_report": "winoeReport",
+}
 
 
 class AgentPromptOverride(BaseModel):
@@ -54,17 +63,34 @@ class PromptOverrideSet(BaseModel):
 
     prestart: AgentPromptOverride | None = None
     codespace: AgentPromptOverride | None = None
-    day1: AgentPromptOverride | None = None
-    day23: AgentPromptOverride | None = None
-    day4: AgentPromptOverride | None = None
-    day5: AgentPromptOverride | None = None
+    design_doc_reviewer: AgentPromptOverride | None = Field(
+        default=None, alias="designDocReviewer"
+    )
+    code_implementation_reviewer: AgentPromptOverride | None = Field(
+        default=None,
+        alias="codeImplementationReviewer",
+        validation_alias=AliasChoices("codeImplementationReviewer", "day23"),
+    )
+    demo_presentation_reviewer: AgentPromptOverride | None = Field(
+        default=None, alias="demoPresentationReviewer"
+    )
+    reflection_essay_reviewer: AgentPromptOverride | None = Field(
+        default=None, alias="reflectionEssayReviewer"
+    )
     winoe_report: AgentPromptOverride | None = Field(default=None, alias="winoeReport")
 
     @model_serializer(mode="plain")
     def _serialize(self) -> dict[str, dict[str, str]]:
         data: dict[str, dict[str, str]] = {}
         for key in AI_PROMPT_OVERRIDE_KEYS:
-            field_name = "winoe_report" if key == "winoeReport" else key
+            field_name = next(
+                (
+                    field_name
+                    for field_name, alias in _PROMPT_OVERRIDE_FIELD_TO_KEY.items()
+                    if alias == key
+                ),
+                key,
+            )
             value = getattr(self, field_name, None)
             if value is not None:
                 data[key] = value.model_dump(by_alias=True, exclude_none=True)
@@ -105,7 +131,7 @@ def merge_prompt_override_payloads(
     merged = normalize_prompt_override_payload(fallback) or {}
     fields_set = getattr(incoming_model, "model_fields_set", set()) or set()
     for field_name in fields_set:
-        key = "winoeReport" if field_name == "winoe_report" else field_name
+        key = _PROMPT_OVERRIDE_FIELD_TO_KEY.get(field_name, field_name)
         value = getattr(incoming_model, field_name)
         if value is None:
             merged.pop(key, None)

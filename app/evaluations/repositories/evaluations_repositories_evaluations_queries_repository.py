@@ -24,7 +24,10 @@ async def get_run_by_id(
     """Return run by id."""
     stmt = (
         select(EvaluationRun)
-        .options(selectinload(EvaluationRun.day_scores))
+        .options(
+            selectinload(EvaluationRun.day_scores),
+            selectinload(EvaluationRun.reviewer_reports),
+        )
         .where(EvaluationRun.id == run_id)
     )
     if for_update:
@@ -43,7 +46,10 @@ async def get_run_by_job_id(
     normalized_job_id = normalize_non_empty_str(job_id, field_name="job_id")
     stmt = (
         select(EvaluationRun)
-        .options(selectinload(EvaluationRun.day_scores))
+        .options(
+            selectinload(EvaluationRun.day_scores),
+            selectinload(EvaluationRun.reviewer_reports),
+        )
         .where(EvaluationRun.job_id == normalized_job_id)
         .order_by(EvaluationRun.started_at.desc(), EvaluationRun.id.desc())
         .limit(1)
@@ -67,7 +73,10 @@ async def get_latest_run_for_candidate_session(
     """Return latest run for candidate session."""
     stmt = (
         select(EvaluationRun)
-        .options(selectinload(EvaluationRun.day_scores))
+        .options(
+            selectinload(EvaluationRun.day_scores),
+            selectinload(EvaluationRun.reviewer_reports),
+        )
         .where(EvaluationRun.candidate_session_id == candidate_session_id)
         .order_by(EvaluationRun.started_at.desc(), EvaluationRun.id.desc())
         .limit(1)
@@ -104,7 +113,10 @@ async def list_runs_for_candidate_session(
     """Return runs for candidate session."""
     stmt = (
         select(EvaluationRun)
-        .options(selectinload(EvaluationRun.day_scores))
+        .options(
+            selectinload(EvaluationRun.day_scores),
+            selectinload(EvaluationRun.reviewer_reports),
+        )
         .where(EvaluationRun.candidate_session_id == candidate_session_id)
         .order_by(EvaluationRun.started_at.desc(), EvaluationRun.id.desc())
     )

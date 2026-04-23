@@ -114,3 +114,9 @@ class EvaluationRun(Base):
         cascade="all, delete-orphan",
         order_by="EvaluationDayScore.day_index",
     )
+    reviewer_reports = relationship(
+        "EvaluationReviewerReport",
+        back_populates="run",
+        cascade="all, delete-orphan",
+        order_by="EvaluationReviewerReport.day_index, EvaluationReviewerReport.reviewer_agent_key",
+    )

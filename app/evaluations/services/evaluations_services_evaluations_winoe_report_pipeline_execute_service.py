@@ -40,6 +40,26 @@ def _build_day_scores(result) -> list[dict[str, Any]]:
     return day_scores
 
 
+def _build_reviewer_reports(result) -> list[dict[str, Any]]:
+    reviewer_reports: list[dict[str, Any]] = []
+    for reviewer_report in getattr(result, "reviewer_reports", []) or []:
+        reviewer_reports.append(
+            {
+                "day_index": reviewer_report.day_index,
+                "reviewer_agent_key": reviewer_report.reviewer_agent_key,
+                "submission_kind": reviewer_report.submission_kind,
+                "score": reviewer_report.score,
+                "dimensional_scores_json": reviewer_report.dimensional_scores_json,
+                "evidence_citations_json": reviewer_report.evidence_citations_json,
+                "assessment_text": reviewer_report.assessment_text,
+                "strengths_json": reviewer_report.strengths_json,
+                "risks_json": reviewer_report.risks_json,
+                "raw_output_json": reviewer_report.raw_output_json,
+            }
+        )
+    return reviewer_reports
+
+
 async def _evaluate_and_finalize_run(
     *,
     db,
@@ -53,10 +73,12 @@ async def _evaluate_and_finalize_run(
 ):
     result = await evaluator.evaluate(bundle)
     day_scores = _build_day_scores(result)
+    reviewer_reports = _build_reviewer_reports(result)
     completed_run = await evaluation_runs.complete_run(
         db,
         run_id=run.id,
         day_scores=day_scores,
+        reviewer_reports=reviewer_reports,
         overall_winoe_score=result.overall_winoe_score,
         recommendation=result.recommendation,
         confidence=result.confidence,
@@ -94,4 +116,9 @@ async def _mark_failed_run(*, db, run, evaluation_runs, run_metadata: dict[str, 
     await db.commit()
 
 
-__all__ = ["_evaluate_and_finalize_run", "_mark_failed_run"]
+__all__ = [
+    "_build_day_scores",
+    "_build_reviewer_reports",
+    "_evaluate_and_finalize_run",
+    "_mark_failed_run",
+]

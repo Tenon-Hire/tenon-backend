@@ -27,6 +27,10 @@ def test_winoe_report_composer_helper_normalizers():
         == WINOE_REPORT_RECOMMENDATION_LIMITED_SIGNAL
     )
     assert (
+        winoe_report_composer._normalize_recommendation("lean_hire")
+        == WINOE_REPORT_RECOMMENDATION_MIXED_SIGNAL
+    )
+    assert (
         winoe_report_composer._normalize_recommendation("not-valid")
         == WINOE_REPORT_RECOMMENDATION_MIXED_SIGNAL
     )

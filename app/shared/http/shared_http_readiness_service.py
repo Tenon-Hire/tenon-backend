@@ -14,10 +14,10 @@ from app.ai import (
     resolve_scenario_generation_config,
     resolve_transcription_config,
     resolve_winoe_report_aggregator_config,
+    resolve_winoe_report_code_implementation_config,
     resolve_winoe_report_day1_config,
     resolve_winoe_report_day4_config,
     resolve_winoe_report_day5_config,
-    resolve_winoe_report_day23_config,
 )
 from app.ai.ai_provider_clients_service import api_key_configured
 from app.config import settings
@@ -31,7 +31,7 @@ _AI_FEATURE_RESOLVERS = {
     "scenarioGeneration": resolve_scenario_generation_config,
     "transcription": resolve_transcription_config,
     "winoeReportDay1": resolve_winoe_report_day1_config,
-    "winoeReportDay23": resolve_winoe_report_day23_config,
+    "winoeReportCodeImplementationReviewer": resolve_winoe_report_code_implementation_config,
     "winoeReportDay4": resolve_winoe_report_day4_config,
     "winoeReportDay5": resolve_winoe_report_day5_config,
     "winoeReportAggregator": resolve_winoe_report_aggregator_config,

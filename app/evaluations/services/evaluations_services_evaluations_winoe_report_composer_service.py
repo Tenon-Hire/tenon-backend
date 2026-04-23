@@ -22,6 +22,9 @@ from .evaluations_services_evaluations_winoe_report_composer_normalize_service i
     _normalize_recommendation,
     _normalize_unit_interval,
 )
+from .evaluations_services_evaluations_winoe_report_composer_reviewer_reports_service import (
+    _compose_reviewer_reports,
+)
 
 
 def compose_report(run: EvaluationRun) -> dict[str, Any]:
@@ -30,6 +33,7 @@ def compose_report(run: EvaluationRun) -> dict[str, Any]:
         dict(run.raw_report_json) if isinstance(run.raw_report_json, Mapping) else {}
     )
     day_scores = _compose_day_scores(run, persisted_report)
+    reviewer_reports = _compose_reviewer_reports(run)
     scored_days = [
         day for day in day_scores if day.get("status") != "human_review_required"
     ]
@@ -64,6 +68,7 @@ def compose_report(run: EvaluationRun) -> dict[str, Any]:
         ),
         "confidence": confidence,
         "dayScores": day_scores,
+        "reviewerReports": reviewer_reports,
         "version": {
             "model": run.model_name,
             "modelVersion": run.model_version,

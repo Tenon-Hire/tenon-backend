@@ -26,6 +26,21 @@ class WinoeReportEvidenceOut(APIModel):
     excerpt: str | None = None
     startMs: int | None = None
     endMs: int | None = None
+    dayIndex: int | None = None
+
+
+class WinoeReportReviewerReportOut(APIModel):
+    """Represent persisted reviewer sub-report data and behavior."""
+
+    reviewerAgentKey: str
+    dayIndex: int
+    submissionKind: str
+    score: float
+    dimensionalScores: dict[str, Any] = Field(default_factory=dict)
+    evidenceCitations: list[WinoeReportEvidenceOut] = Field(default_factory=list)
+    assessment: str
+    strengths: list[str] = Field(default_factory=list)
+    concerns: list[str] = Field(default_factory=list)
 
 
 class WinoeReportDayScoreOut(APIModel):
@@ -60,6 +75,7 @@ class WinoeReportReportOut(APIModel):
     ]
     confidence: float
     dayScores: list[WinoeReportDayScoreOut] = Field(default_factory=list)
+    reviewerReports: list[WinoeReportReviewerReportOut] = Field(default_factory=list)
     version: WinoeReportVersionOut
     disabledDayIndexes: list[int] | None = None
 
@@ -78,6 +94,7 @@ __all__ = [
     "WinoeReportEvidenceOut",
     "WinoeReportGenerateResponse",
     "WinoeReportReportOut",
+    "WinoeReportReviewerReportOut",
     "WinoeReportStatusResponse",
     "WinoeReportVersionOut",
 ]

@@ -17,7 +17,9 @@ WINOE_REPORT_RECOMMENDATION_POSITIVE_SIGNAL = "positive_signal"
 WINOE_REPORT_RECOMMENDATION_MIXED_SIGNAL = "mixed_signal"
 WINOE_REPORT_RECOMMENDATION_LIMITED_SIGNAL = "limited_signal"
 
-_LEGACY_TO_WINOE_RECOMMENDATION = {
+# Evaluation runs persist the internal storage enum, while the Winoe Report API
+# surface uses the signal-oriented public vocabulary.
+_STORED_TO_WINOE_RECOMMENDATION = {
     EVALUATION_RECOMMENDATION_STRONG_HIRE: WINOE_REPORT_RECOMMENDATION_STRONG_SIGNAL,
     EVALUATION_RECOMMENDATION_HIRE: WINOE_REPORT_RECOMMENDATION_POSITIVE_SIGNAL,
     EVALUATION_RECOMMENDATION_LEAN_HIRE: WINOE_REPORT_RECOMMENDATION_MIXED_SIGNAL,
@@ -50,13 +52,14 @@ def _normalize_unit_interval(value: Any) -> float | None:
 
 
 def _normalize_recommendation(value: Any) -> str:
+    """Translate stored evaluation recommendations into Winoe Report values."""
     if not isinstance(value, str):
         return WINOE_REPORT_RECOMMENDATION_MIXED_SIGNAL
     normalized = value.strip().lower()
     if normalized in _WINOE_RECOMMENDATIONS:
         return normalized
-    if normalized in _LEGACY_TO_WINOE_RECOMMENDATION:
-        return _LEGACY_TO_WINOE_RECOMMENDATION[normalized]
+    if normalized in _STORED_TO_WINOE_RECOMMENDATION:
+        return _STORED_TO_WINOE_RECOMMENDATION[normalized]
     return WINOE_REPORT_RECOMMENDATION_MIXED_SIGNAL
 
 

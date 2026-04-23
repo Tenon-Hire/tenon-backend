@@ -11,22 +11,22 @@
       "schemaFile": "codespace_patch_proposal.schema.json",
       "outputModel": "CodespacePatchProposal"
     },
-    "day1": {
+    "designDocReviewer": {
       "policyFile": "winoe-day-1-rubric.md",
       "schemaFile": "day_reviewer_output.schema.json",
       "outputModel": "DayReviewerOutput"
     },
-    "day23": {
+    "codeImplementationReviewer": {
       "policyFile": "winoe-day-2&3-rubric.md",
       "schemaFile": "day_reviewer_output.schema.json",
       "outputModel": "DayReviewerOutput"
     },
-    "day4": {
+    "demoPresentationReviewer": {
       "policyFile": "winoe-day-4-rubric.md",
       "schemaFile": "day_reviewer_output.schema.json",
       "outputModel": "DayReviewerOutput"
     },
-    "day5": {
+    "reflectionEssayReviewer": {
       "policyFile": "winoe-day-5-rubric.md",
       "schemaFile": "day_reviewer_output.schema.json",
       "outputModel": "DayReviewerOutput"

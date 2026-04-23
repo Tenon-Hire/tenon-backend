@@ -38,6 +38,7 @@ async def test_deterministic_evaluator_handles_empty_enabled_days():
     assert result.confidence == 0.0
     assert result.recommendation == EVALUATION_RECOMMENDATION_NO_HIRE
     assert result.day_results == []
+    assert result.reviewer_reports == []
     assert result.report_json["dayScores"] == [
         {
             "dayIndex": 1,
@@ -72,6 +73,11 @@ async def test_deterministic_evaluator_sorts_days_and_builds_report():
     )
     result = await evaluator.get_winoe_report_evaluator().evaluate(bundle)
     assert [day.day_index for day in result.day_results] == [2, 5]
+    assert [report.day_index for report in result.reviewer_reports] == [2, 5]
+    assert [report.reviewer_agent_key for report in result.reviewer_reports] == [
+        "codeImplementationReviewer",
+        "reflectionEssayReviewer",
+    ]
     assert 0 <= result.overall_winoe_score <= 1
     assert 0 <= result.confidence <= 1
     assert result.report_json["version"]["modelVersion"] == "v2"

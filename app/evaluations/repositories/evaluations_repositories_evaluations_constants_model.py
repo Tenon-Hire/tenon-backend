@@ -35,6 +35,12 @@ EVALUATION_DAY_SCORE_DAY_INDEX_CHECK_CONSTRAINT_NAME = (
     "ck_evaluation_day_scores_day_index"
 )
 EVALUATION_DAY_SCORE_RUN_DAY_UNIQUE_CONSTRAINT_NAME = "uq_evaluation_day_scores_run_day"
+EVALUATION_REVIEWER_REPORT_DAY_INDEX_CHECK_CONSTRAINT_NAME = (
+    "ck_evaluation_reviewer_reports_day_index"
+)
+EVALUATION_REVIEWER_REPORT_RUN_AGENT_DAY_UNIQUE_CONSTRAINT_NAME = (
+    "uq_evaluation_reviewer_reports_run_agent_day"
+)
 
 
 def status_check_expr() -> str:

@@ -26,19 +26,19 @@ from .ai_runtime_config_service import (
     resolve_codespace_specializer_config,
     resolve_scenario_generation_config,
     resolve_winoe_report_aggregator_config,
+    resolve_winoe_report_code_implementation_config,
     resolve_winoe_report_day1_config,
     resolve_winoe_report_day4_config,
     resolve_winoe_report_day5_config,
-    resolve_winoe_report_day23_config,
 )
 
 _AGENT_CONFIG_RESOLVERS = {
     "prestart": resolve_scenario_generation_config,
     "codespace": resolve_codespace_specializer_config,
-    "day1": resolve_winoe_report_day1_config,
-    "day23": resolve_winoe_report_day23_config,
-    "day4": resolve_winoe_report_day4_config,
-    "day5": resolve_winoe_report_day5_config,
+    "designDocReviewer": resolve_winoe_report_day1_config,
+    "codeImplementationReviewer": resolve_winoe_report_code_implementation_config,
+    "demoPresentationReviewer": resolve_winoe_report_day4_config,
+    "reflectionEssayReviewer": resolve_winoe_report_day5_config,
     "winoeReport": resolve_winoe_report_aggregator_config,
 }
 
@@ -181,6 +181,8 @@ def get_agent_policy_snapshot(
     if not isinstance(agents, Mapping):
         return None
     value = agents.get(agent_key)
+    if value is None and agent_key == "codeImplementationReviewer":
+        value = agents.get("day23")
     return dict(value) if isinstance(value, Mapping) else None
 
 
@@ -203,6 +205,8 @@ def require_agent_policy_snapshot(
             agent_key=agent_key,
         )
     agent_snapshot = agents.get(agent_key)
+    if agent_snapshot is None and agent_key == "codeImplementationReviewer":
+        agent_snapshot = agents.get("day23")
     if not isinstance(agent_snapshot, Mapping):
         raise _snapshot_error(
             code="scenario_version_ai_policy_snapshot_agent_missing",

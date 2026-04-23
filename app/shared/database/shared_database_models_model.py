@@ -4,6 +4,7 @@ from app.candidates.candidate_sessions.repositories.candidates_candidate_session
 )
 from app.evaluations.repositories.evaluations_repositories_evaluations_core_model import (
     EvaluationDayScore,
+    EvaluationReviewerReport,
     EvaluationRun,
 )
 from app.media.repositories.recordings.media_repositories_recordings_media_recordings_core_model import (
@@ -65,6 +66,7 @@ __all__ = [
     "Company",
     "EvaluationDayScore",
     "EvaluationRun",
+    "EvaluationReviewerReport",
     "Job",
     "NotificationDeliveryAudit",
     "WorkerHeartbeat",

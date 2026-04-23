@@ -34,6 +34,9 @@ def _sanitize_evidence(pointer: Any) -> dict[str, Any] | None:
             sanitized["startMs"] = sanitized["endMs"]
         if "endMs" not in sanitized and "startMs" in sanitized:
             sanitized["endMs"] = sanitized["startMs"]
+    day_index = pointer.get("dayIndex")
+    if isinstance(day_index, int) and 1 <= day_index <= 5:
+        sanitized["dayIndex"] = day_index
     return sanitized
 
 

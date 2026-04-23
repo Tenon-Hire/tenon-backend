@@ -41,6 +41,7 @@ async def complete_run(
     *,
     run_id: int,
     day_scores: Sequence[Mapping[str, Any]],
+    reviewer_reports: Sequence[Mapping[str, Any]] | None = None,
     overall_winoe_score: float | None = None,
     recommendation: str | None = None,
     confidence: float | None = None,
@@ -58,6 +59,13 @@ async def complete_run(
         raise EvaluationRunStateError(f"evaluation run not found: {run_id}")
     ensure_transition(
         current_status=run.status, target_status=EVALUATION_RUN_STATUS_COMPLETED
+    )
+    await evaluation_repo.add_reviewer_reports(
+        db,
+        run=run,
+        reviewer_reports=reviewer_reports or [],
+        allow_empty=True,
+        commit=False,
     )
     await evaluation_repo.add_day_scores(
         db,

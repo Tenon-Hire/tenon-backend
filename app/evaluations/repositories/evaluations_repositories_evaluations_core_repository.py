@@ -17,6 +17,12 @@ from app.evaluations.repositories.evaluations_repositories_evaluations_queries_r
     has_runs_for_candidate_session,
     list_runs_for_candidate_session,
 )
+from app.evaluations.repositories.evaluations_repositories_evaluations_reviewer_reports_repository import (
+    add_reviewer_reports,
+    list_reviewer_reports,
+    list_reviewer_reports_for_run,
+    normalize_reviewer_report_payload,
+)
 from app.evaluations.repositories.evaluations_repositories_evaluations_validation_evidence_repository import (
     EvidencePointerValidationError,
     validate_evidence_pointers,
@@ -25,6 +31,7 @@ from app.evaluations.repositories.evaluations_repositories_evaluations_validatio
 __all__ = [
     "EvidencePointerValidationError",
     "add_day_scores",
+    "add_reviewer_reports",
     "create_run",
     "create_run_with_day_scores",
     "get_latest_run_for_candidate_session",
@@ -33,5 +40,8 @@ __all__ = [
     "get_run_by_job_id",
     "has_runs_for_candidate_session",
     "list_runs_for_candidate_session",
+    "list_reviewer_reports",
+    "list_reviewer_reports_for_run",
+    "normalize_reviewer_report_payload",
     "validate_evidence_pointers",
 ]

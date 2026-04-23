@@ -18,6 +18,7 @@ from app.evaluations.services.evaluations_services_evaluations_evaluator_models_
     DayEvaluationResult,
     EvaluationInputBundle,
     EvaluationResult,
+    ReviewerReportResult,
     WinoeReportEvaluator,
 )
 from app.evaluations.services.evaluations_services_evaluations_evaluator_scoring_service import (
@@ -42,8 +43,8 @@ class DeterministicWinoeReportEvaluator:
         )
         disabled = set(bundle.disabled_day_indexes)
         day_results: list[DayEvaluationResult] = []
+        reviewer_reports: list[ReviewerReportResult] = []
         report_day_scores: list[dict[str, object]] = []
-        reviewer_reports: list[dict[str, object]] = []
         for day_input in sorted(bundle.day_inputs, key=lambda value: value.day_index):
             if day_input.day_index in disabled:
                 report_day_scores.append(
@@ -79,6 +80,7 @@ class DeterministicWinoeReportEvaluator:
             confidence=float(report_json["confidence"]),
             day_results=day_results,
             report_json=report_json,
+            reviewer_reports=reviewer_reports,
         )
 
 
@@ -93,8 +95,8 @@ class LiveWinoeReportEvaluator:
         )
         disabled = set(bundle.disabled_day_indexes)
         day_results: list[DayEvaluationResult] = []
+        reviewer_reports: list[ReviewerReportResult] = []
         report_day_scores: list[dict[str, object]] = []
-        reviewer_reports: list[dict[str, object]] = []
 
         for day_input in sorted(bundle.day_inputs, key=lambda value: value.day_index):
             if day_input.day_index in disabled:
@@ -141,7 +143,11 @@ class LiveWinoeReportEvaluator:
                 )
                 provider = get_winoe_report_review_provider(reviewer_provider)
                 reviewer_output = provider.review_day(request=request)
-                reviewer_report = reviewer_output.model_dump()
+                reviewer_report = _reviewer_report_from_output(
+                    reviewer_key=reviewer_key,
+                    day_input=day_input,
+                    reviewer_output=reviewer_output,
+                )
                 day_result = DayEvaluationResult(
                     day_index=reviewer_output.dayIndex,
                     score=reviewer_output.score,
@@ -198,7 +204,10 @@ class LiveWinoeReportEvaluator:
                     user_prompt=json.dumps(
                         {
                             "trialContext": bundle.trial_context_json or {},
-                            "reviewerReports": reviewer_reports,
+                            "reviewerReports": [
+                                _reviewer_report_payload(report)
+                                for report in reviewer_reports
+                            ],
                             "disabledDayIndexes": sorted(bundle.disabled_day_indexes),
                             "rubricGuidance": rubric_prompt,
                         },
@@ -223,7 +232,9 @@ class LiveWinoeReportEvaluator:
                 "risks": list(aggregate_output.risks),
                 "calibrationText": aggregate_output.calibrationText,
                 "disabledDayIndexes": sorted(bundle.disabled_day_indexes),
-                "reviewerReports": reviewer_reports,
+                "reviewerReports": [
+                    _reviewer_report_payload(report) for report in reviewer_reports
+                ],
                 "version": {
                     "model": bundle.model_name,
                     "modelVersion": bundle.model_version,
@@ -239,17 +250,65 @@ class LiveWinoeReportEvaluator:
             confidence=float(report_json["confidence"]),
             day_results=day_results,
             report_json=report_json,
+            reviewer_reports=reviewer_reports,
         )
 
 
 def _reviewer_key_for_day(day_index: int) -> str:
     if day_index == 1:
-        return "day1"
+        return "designDocReviewer"
     if day_index in {2, 3}:
-        return "day23"
+        return "codeImplementationReviewer"
     if day_index == 4:
-        return "day4"
-    return "day5"
+        return "demoPresentationReviewer"
+    return "reflectionEssayReviewer"
+
+
+def _submission_kind_for_day(day_input) -> str:
+    task_type = getattr(day_input, "task_type", None)
+    if isinstance(task_type, str) and task_type.strip():
+        return task_type.strip().lower()
+    if day_input.day_index in {2, 3}:
+        return "code"
+    if day_input.day_index == 4:
+        return "transcript"
+    return "text"
+
+
+def _reviewer_report_from_output(
+    *,
+    reviewer_key: str,
+    day_input,
+    reviewer_output,
+) -> ReviewerReportResult:
+    return ReviewerReportResult(
+        reviewer_agent_key=reviewer_key,
+        day_index=reviewer_output.dayIndex,
+        submission_kind=_submission_kind_for_day(day_input),
+        score=float(reviewer_output.score),
+        dimensional_scores_json=dict(reviewer_output.rubricBreakdown),
+        evidence_citations_json=[
+            evidence.model_dump() for evidence in reviewer_output.evidence
+        ],
+        assessment_text=str(reviewer_output.summary),
+        strengths_json=[str(item) for item in reviewer_output.strengths],
+        risks_json=[str(item) for item in reviewer_output.risks],
+        raw_output_json=reviewer_output.model_dump(),
+    )
+
+
+def _reviewer_report_payload(report: ReviewerReportResult) -> dict[str, object]:
+    return {
+        "reviewerAgentKey": report.reviewer_agent_key,
+        "dayIndex": report.day_index,
+        "submissionKind": report.submission_kind,
+        "score": report.score,
+        "dimensionalScores": dict(report.dimensional_scores_json),
+        "evidenceCitations": list(report.evidence_citations_json),
+        "assessment": report.assessment_text,
+        "strengths": list(report.strengths_json),
+        "concerns": list(report.risks_json),
+    }
 
 
 def _build_day_run_context(
@@ -310,7 +369,7 @@ def _build_day_review_prompt(
 
 def _deterministic_day_review(
     day_input,
-) -> tuple[DayEvaluationResult, dict[str, object]]:
+) -> tuple[DayEvaluationResult, ReviewerReportResult]:
     evidence = _build_day_evidence(day_input)
     score = _score_for_day(day_input, evidence)
     rubric_breakdown = {
@@ -332,15 +391,26 @@ def _deterministic_day_review(
         rubric_breakdown=rubric_breakdown,
         evidence=evidence,
     )
-    reviewer_report = {
-        "dayIndex": day_input.day_index,
-        "score": score,
-        "summary": "Deterministic demo/test reviewer output.",
-        "rubricBreakdown": dict(rubric_breakdown),
-        "evidence": list(evidence),
-        "strengths": strengths,
-        "risks": risks,
-    }
+    reviewer_report = ReviewerReportResult(
+        reviewer_agent_key=_reviewer_key_for_day(day_input.day_index),
+        day_index=day_input.day_index,
+        submission_kind=_submission_kind_for_day(day_input),
+        score=score,
+        dimensional_scores_json=dict(rubric_breakdown),
+        evidence_citations_json=list(evidence),
+        assessment_text="Deterministic demo/test reviewer output.",
+        strengths_json=strengths,
+        risks_json=risks,
+        raw_output_json={
+            "dayIndex": day_input.day_index,
+            "score": score,
+            "summary": "Deterministic demo/test reviewer output.",
+            "rubricBreakdown": dict(rubric_breakdown),
+            "evidence": list(evidence),
+            "strengths": strengths,
+            "risks": risks,
+        },
+    )
     return day_result, reviewer_report
 
 
@@ -349,20 +419,20 @@ def _deterministic_aggregate_report(
     bundle: EvaluationInputBundle,
     snapshot_json: dict[str, object],
     day_results: list[DayEvaluationResult],
-    reviewer_reports: list[dict[str, object]],
+    reviewer_reports: list[ReviewerReportResult],
     report_day_scores: list[dict[str, object]],
 ) -> dict[str, object]:
     overall, confidence = _aggregate_scores(day_results)
     strengths = _unique_strings(
         item
         for report in reviewer_reports
-        for item in report.get("strengths", [])
+        for item in report.strengths_json
         if isinstance(item, str)
     )[:6]
     risks = _unique_strings(
         item
         for report in reviewer_reports
-        for item in report.get("risks", [])
+        for item in report.risks_json
         if isinstance(item, str)
     )[:6]
     return {
@@ -374,7 +444,9 @@ def _deterministic_aggregate_report(
         "strengths": strengths,
         "risks": risks,
         "calibrationText": "Deterministic demo/test aggregation.",
-        "reviewerReports": reviewer_reports,
+        "reviewerReports": [
+            _reviewer_report_payload(report) for report in reviewer_reports
+        ],
         "version": {
             "model": bundle.model_name,
             "modelVersion": bundle.model_version,

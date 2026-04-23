@@ -44,7 +44,17 @@ async def test_winoe_report_worker_completion_returns_ready_and_evidence(
     }
     assert isinstance(report["confidence"], float)
     assert isinstance(report["dayScores"], list)
+    assert isinstance(report["reviewerReports"], list)
     assert isinstance(report["version"], dict)
+    assert len(report["reviewerReports"]) >= 4
+    first_reviewer_report = report["reviewerReports"][0]
+    assert first_reviewer_report["reviewerAgentKey"] in {
+        "designDocReviewer",
+        "codeImplementationReviewer",
+        "demoPresentationReviewer",
+        "reflectionEssayReviewer",
+    }
+    assert isinstance(first_reviewer_report["evidenceCitations"], list)
 
     evidence_items = [
         evidence for day in report["dayScores"] for evidence in day.get("evidence", [])
@@ -64,6 +74,17 @@ async def test_winoe_report_worker_completion_returns_ready_and_evidence(
         if item.get("kind") == "commit":
             assert isinstance(item.get("ref"), str)
             assert item.get("url", "").startswith("https://")
+
+    reviewer_day_indexes = {item["dayIndex"] for item in report["reviewerReports"]}
+    assert reviewer_day_indexes.issuperset(
+        {1, 2, 3, 4, 5}
+    ) or reviewer_day_indexes.issuperset({1, 2, 3, 5})
+    reviewer_keys = {
+        (item["dayIndex"], item["reviewerAgentKey"])
+        for item in report["reviewerReports"]
+    }
+    assert (2, "codeImplementationReviewer") in reviewer_keys
+    assert (3, "codeImplementationReviewer") in reviewer_keys
 
     runs = await evaluation_repo.list_runs_for_candidate_session(
         async_session,

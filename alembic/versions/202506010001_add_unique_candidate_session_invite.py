@@ -103,12 +103,24 @@ def _dedupe_candidate_sessions(conn) -> None:
 def upgrade() -> None:
     conn = op.get_bind()
     _dedupe_candidate_sessions(conn)
-    op.create_unique_constraint(
-        _UNIQUE_NAME,
-        "candidate_sessions",
-        ["simulation_id", "invite_email"],
-    )
+    if conn.dialect.name == "sqlite":
+        with op.batch_alter_table("candidate_sessions") as batch_op:
+            batch_op.create_unique_constraint(
+                _UNIQUE_NAME,
+                ["simulation_id", "invite_email"],
+            )
+    else:
+        op.create_unique_constraint(
+            _UNIQUE_NAME,
+            "candidate_sessions",
+            ["simulation_id", "invite_email"],
+        )
 
 
 def downgrade() -> None:
-    op.drop_constraint(_UNIQUE_NAME, "candidate_sessions", type_="unique")
+    conn = op.get_bind()
+    if conn.dialect.name == "sqlite":
+        with op.batch_alter_table("candidate_sessions") as batch_op:
+            batch_op.drop_constraint(_UNIQUE_NAME, type_="unique")
+    else:
+        op.drop_constraint(_UNIQUE_NAME, "candidate_sessions", type_="unique")

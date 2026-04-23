@@ -8,6 +8,8 @@ from .evaluations_repositories_evaluations_constants_model import (
     EVALUATION_RECOMMENDATION_NO_HIRE,
     EVALUATION_RECOMMENDATION_STRONG_HIRE,
     EVALUATION_RECOMMENDATIONS,
+    EVALUATION_REVIEWER_REPORT_DAY_INDEX_CHECK_CONSTRAINT_NAME,
+    EVALUATION_REVIEWER_REPORT_RUN_AGENT_DAY_UNIQUE_CONSTRAINT_NAME,
     EVALUATION_RUN_COMPLETED_AT_CHECK_CONSTRAINT_NAME,
     EVALUATION_RUN_RECOMMENDATION_CHECK_CONSTRAINT_NAME,
     EVALUATION_RUN_STATUS_CHECK_CONSTRAINT_NAME,
@@ -18,11 +20,15 @@ from .evaluations_repositories_evaluations_constants_model import (
     EVALUATION_RUN_STATUSES,
 )
 from .evaluations_repositories_evaluations_day_score_model import EvaluationDayScore
+from .evaluations_repositories_evaluations_reviewer_report_model import (
+    EvaluationReviewerReport,
+)
 from .evaluations_repositories_evaluations_run_model import EvaluationRun
 
 __all__ = [
     "EvaluationRun",
     "EvaluationDayScore",
+    "EvaluationReviewerReport",
     "EVALUATION_RUN_STATUS_PENDING",
     "EVALUATION_RUN_STATUS_RUNNING",
     "EVALUATION_RUN_STATUS_COMPLETED",
@@ -38,4 +44,6 @@ __all__ = [
     "EVALUATION_RUN_RECOMMENDATION_CHECK_CONSTRAINT_NAME",
     "EVALUATION_DAY_SCORE_DAY_INDEX_CHECK_CONSTRAINT_NAME",
     "EVALUATION_DAY_SCORE_RUN_DAY_UNIQUE_CONSTRAINT_NAME",
+    "EVALUATION_REVIEWER_REPORT_DAY_INDEX_CHECK_CONSTRAINT_NAME",
+    "EVALUATION_REVIEWER_REPORT_RUN_AGENT_DAY_UNIQUE_CONSTRAINT_NAME",
 ]

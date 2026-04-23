@@ -101,7 +101,7 @@ def resolve_winoe_report_day1_config() -> AIFeatureConfig:
     )
 
 
-def resolve_winoe_report_day23_config() -> AIFeatureConfig:
+def resolve_winoe_report_code_implementation_config() -> AIFeatureConfig:
     return _build_feature_config(
         runtime_mode=getattr(settings, "WINOE_REPORT_DAY23_RUNTIME_MODE", None),
         provider=settings.WINOE_REPORT_DAY23_PROVIDER,
@@ -109,6 +109,10 @@ def resolve_winoe_report_day23_config() -> AIFeatureConfig:
         timeout_seconds=settings.WINOE_REPORT_DAY23_TIMEOUT_SECONDS,
         max_retries=settings.WINOE_REPORT_DAY23_MAX_RETRIES,
     )
+
+
+def resolve_winoe_report_day23_config() -> AIFeatureConfig:
+    return resolve_winoe_report_code_implementation_config()
 
 
 def resolve_winoe_report_day4_config() -> AIFeatureConfig:
@@ -161,6 +165,7 @@ __all__ = [
     "resolve_codespace_specializer_config",
     "resolve_winoe_report_aggregator_config",
     "resolve_winoe_report_day1_config",
+    "resolve_winoe_report_code_implementation_config",
     "resolve_winoe_report_day23_config",
     "resolve_winoe_report_day4_config",
     "resolve_winoe_report_day5_config",

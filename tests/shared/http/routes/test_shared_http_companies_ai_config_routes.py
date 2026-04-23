@@ -26,7 +26,9 @@ async def test_company_ai_config_round_trips_prompt_overrides(
         json={
             "promptOverrides": {
                 "prestart": {"instructionsMd": "Use Acme platform language."},
-                "day23": {"rubricMd": "Prefer test-first and debugging depth."},
+                "codeImplementationReviewer": {
+                    "rubricMd": "Prefer test-first and debugging depth."
+                },
             }
         },
     )
@@ -36,7 +38,7 @@ async def test_company_ai_config_round_trips_prompt_overrides(
     assert body["promptOverrides"]["prestart"]["instructionsMd"] == (
         "Use Acme platform language."
     )
-    assert body["promptOverrides"]["day23"]["rubricMd"] == (
+    assert body["promptOverrides"]["codeImplementationReviewer"]["rubricMd"] == (
         "Prefer test-first and debugging depth."
     )
 
