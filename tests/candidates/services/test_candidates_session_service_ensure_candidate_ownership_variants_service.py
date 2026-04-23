@@ -6,7 +6,7 @@ from tests.candidates.services.candidates_session_service_utils import *
 
 
 def test_ensure_candidate_ownership_variants():
-    principal = _principal("owner@example.com")
+    principal = _principal("owner@example.com", email_verified=False)
     cs = type(
         "CS",
         (),
@@ -43,7 +43,7 @@ def test_ensure_candidate_ownership_variants():
     )
 
 
-def test_ensure_candidate_ownership_rejects_unverified_email_even_in_local_env(
+def test_ensure_candidate_ownership_allows_unverified_email_claims_in_local_env(
     monkeypatch,
 ):
     monkeypatch.setattr(settings, "ENV", "local")
@@ -59,6 +59,10 @@ def test_ensure_candidate_ownership_rejects_unverified_email_even_in_local_env(
             "status": "in_progress",
         },
     )()
-    with pytest.raises(HTTPException) as excinfo:
-        cs_service._ensure_candidate_ownership(cs, principal, now=datetime.now(UTC))
-    assert getattr(excinfo.value, "error_code", None) == "CANDIDATE_EMAIL_NOT_VERIFIED"
+    changed = cs_service._ensure_candidate_ownership(
+        cs, principal, now=datetime.now(UTC)
+    )
+    assert changed is True
+    assert cs.candidate_auth0_sub == principal.sub
+    assert cs.candidate_auth0_email == "owner@example.com"
+    assert cs.candidate_email == "owner@example.com"

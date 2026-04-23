@@ -5,7 +5,6 @@ Stabilize Winoe Report generation, Evidence Trail integrity, and duplicate job p
 ## 2. Problem
 
 Winoe Report had three reliability issues on the active Winoe-facing path:
-
 - duplicate jobs and duplicate active work
 - hollow scored output, including empty rubric breakdowns and Evidence Trail loss risk
 - Day 4 being scored from failed transcript state
@@ -63,7 +62,6 @@ The read path also needed tightening:
   - provider and recommendation contract updates
 
 ## 5. Scope Note About Persona Governance
-
 - #295 now satisfies the non-determinative recommendation/output requirement and evidence-first report behavior on the active Winoe-facing path.
 - Full `SOUL.md`-based persona governance is not claimed in this PR and remains tracked separately in #298.
 

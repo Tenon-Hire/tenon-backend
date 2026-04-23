@@ -6,7 +6,7 @@ from tests.shared.jobs.repositories.shared_jobs_repository_utils import *
 
 
 @pytest.mark.asyncio
-async def test_get_by_id_for_principal_denies_unverified_candidate(async_session):
+async def test_get_by_id_for_principal_allows_unverified_candidate(async_session):
     talent_partner = await create_talent_partner(
         async_session, email="jobs-owner-unverified@test.com"
     )
@@ -34,4 +34,5 @@ async def test_get_by_id_for_principal_denies_unverified_candidate(async_session
     denied = await jobs_repo.get_by_id_for_principal(
         async_session, job.id, unverified_principal
     )
-    assert denied is None
+    assert denied is not None
+    assert denied.id == job.id

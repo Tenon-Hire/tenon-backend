@@ -6,7 +6,7 @@ from tests.candidates.routes.candidates_session_api_utils import *
 
 
 @pytest.mark.asyncio
-async def test_claim_endpoint_rejects_unverified_email(
+async def test_claim_endpoint_allows_unverified_email_claims(
     async_client, async_session, override_dependencies
 ):
     talent_partner = await create_talent_partner(
@@ -23,5 +23,5 @@ async def test_claim_endpoint_rejects_unverified_email(
             f"/api/candidate/session/{cs.token}/claim",
             headers={"Authorization": "Bearer ignored"},
         )
-    assert res.status_code == 403
-    assert res.json()["errorCode"] == "CANDIDATE_EMAIL_NOT_VERIFIED"
+    assert res.status_code == 200, res.text
+    assert res.json()["status"] == "in_progress"

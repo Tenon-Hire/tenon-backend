@@ -10,9 +10,6 @@ from fastapi import status
 from app.candidates.candidate_sessions.services.candidates_candidate_sessions_services_candidates_candidate_sessions_email_service import (
     normalize_email,
 )
-from app.candidates.candidate_sessions.services.candidates_candidate_sessions_services_candidates_candidate_sessions_ownership_service import (
-    ensure_email_verified,
-)
 from app.candidates.candidate_sessions.services.scheduling.candidates_candidate_sessions_services_scheduling_candidates_candidate_sessions_scheduling_day_windows_service import (
     coerce_utc_datetime,
 )
@@ -47,7 +44,6 @@ def _forbidden(detail: str, error_code: str) -> None:
 
 
 def _require_claimed_ownership(candidate_session, principal: Principal) -> bool:
-    ensure_email_verified(principal)
     email = normalize_email(principal.email)
     if not email:
         _forbidden(

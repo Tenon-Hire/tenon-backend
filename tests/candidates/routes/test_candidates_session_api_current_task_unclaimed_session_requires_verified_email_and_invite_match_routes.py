@@ -6,7 +6,7 @@ from tests.candidates.routes.candidates_session_api_utils import *
 
 
 @pytest.mark.asyncio
-async def test_current_task_unclaimed_session_requires_verified_email_and_invite_match(
+async def test_current_task_unclaimed_session_requires_invite_match_and_claims_session_without_email_verification_gate(
     async_client, async_session, override_dependencies
 ):
     talent_partner = await create_talent_partner(
@@ -43,8 +43,7 @@ async def test_current_task_unclaimed_session_requires_verified_email_and_invite
 
     with override_dependencies({get_principal: _principal_unverified}):
         unverified = await async_client.get(route, headers=headers)
-    assert unverified.status_code == 403
-    assert unverified.json()["errorCode"] == "CANDIDATE_EMAIL_NOT_VERIFIED"
+    assert unverified.status_code == 200, unverified.text
 
     async def _principal_missing_verified():
         return _principal(

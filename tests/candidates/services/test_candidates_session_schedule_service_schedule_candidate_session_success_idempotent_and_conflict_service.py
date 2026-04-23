@@ -73,3 +73,38 @@ async def test_schedule_candidate_session_success_persists_windows_and_jobs(
         assert job.next_run_at is not None
         assert job.idempotency_key.startswith("day_close_enforcement:")
         assert isinstance(job.payload_json["windowEndAt"], str)
+
+
+@pytest.mark.asyncio
+async def test_schedule_candidate_session_allows_unverified_email_on_claimed_session(
+    async_session,
+):
+    (
+        _tasks,
+        candidate_session,
+        _seeded_principal,
+        email_service,
+    ) = await _seed_claimed_schedule_context(async_session)
+    unverified_principal = _principal(
+        candidate_session.invite_email,
+        sub=candidate_session.candidate_auth0_sub,
+        email_verified=False,
+    )
+    now = datetime.now(UTC)
+
+    result = await schedule_service.schedule_candidate_session(
+        async_session,
+        token=candidate_session.token,
+        principal=unverified_principal,
+        scheduled_start_at=now + timedelta(days=1),
+        candidate_timezone="America/New_York",
+        github_username="octocat",
+        email_service=email_service,
+        now=now,
+    )
+    assert result.created is True
+    assert result.candidate_session.schedule_locked_at is not None
+    assert (
+        result.candidate_session.candidate_auth0_sub
+        == candidate_session.candidate_auth0_sub
+    )

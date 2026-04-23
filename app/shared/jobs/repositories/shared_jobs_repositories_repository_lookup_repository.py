@@ -5,7 +5,6 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.shared.auth.principal import Principal
 from app.shared.database.shared_database_models_model import CandidateSession, User
 from app.shared.jobs.repositories.shared_jobs_repositories_models_repository import Job
@@ -57,8 +56,6 @@ async def _candidate_job(
     db: AsyncSession, job_id: str, principal: Principal
 ) -> Job | None:
     if "candidate:access" not in principal.permissions:
-        return None
-    if settings.ENV != "local" and principal.claims.get("email_verified") is False:
         return None
     email = normalize_email(principal.email)
     if not email:
