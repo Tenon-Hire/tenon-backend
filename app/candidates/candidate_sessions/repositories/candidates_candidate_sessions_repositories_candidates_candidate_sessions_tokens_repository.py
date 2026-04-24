@@ -64,7 +64,10 @@ async def list_for_email(
         select(CandidateSession)
         .join(Trial, Trial.id == CandidateSession.trial_id)
         .where(func.lower(CandidateSession.invite_email) == func.lower(email))
-        .options(selectinload(CandidateSession.trial).selectinload(Trial.company))
+        .options(
+            selectinload(CandidateSession.trial).selectinload(Trial.company),
+            selectinload(CandidateSession.winoe_report),
+        )
     )
     if not include_terminated:
         stmt = stmt.where(_not_terminated_trial_clause())

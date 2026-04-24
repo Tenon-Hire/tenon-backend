@@ -47,7 +47,12 @@ class CandidateInviteErrorResponse(APIModel):
 
 
 class CandidateInviteListItem(APIModel):
-    """Dashboard-friendly invite summary for candidates."""
+    """Dashboard-friendly invite summary for candidates.
+
+    `status` remains the canonical candidate-session lifecycle state.
+    Invite-facing review and termination states are exposed explicitly via
+    `reportReady`, `hasReport`, `terminatedAt`, and `isTerminated`.
+    """
 
     candidateSessionId: int
     trialId: int
@@ -63,6 +68,10 @@ class CandidateInviteListItem(APIModel):
     expiresAt: datetime | None
     inviteToken: str | None = None
     isExpired: bool
+    hasReport: bool = False
+    reportReady: bool | None = None
+    terminatedAt: datetime | None = None
+    isTerminated: bool = False
     scheduledStartAt: datetime | None = None
     candidateTimezone: str | None = None
     githubUsername: str | None = None

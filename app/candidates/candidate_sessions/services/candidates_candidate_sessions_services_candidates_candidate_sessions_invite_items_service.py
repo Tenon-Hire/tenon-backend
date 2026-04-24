@@ -21,6 +21,9 @@ from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_cor
     ProgressSummary,
 )
 from app.shared.database.shared_database_models_model import Task, User
+from app.trials.repositories.trials_repositories_trials_trial_model import (
+    TRIAL_STATUS_TERMINATED,
+)
 
 
 async def build_invite_item(
@@ -58,6 +61,15 @@ async def build_invite_item(
     )
     sim = candidate_session.trial
     company_name = getattr(sim.company, "name", None) if sim else None
+    terminated_at = getattr(sim, "terminated_at", None) if sim else None
+    is_terminated = bool(
+        sim
+        and (
+            getattr(sim, "status", None) == TRIAL_STATUS_TERMINATED
+            or terminated_at is not None
+        )
+    )
+    report_ready = bool(getattr(candidate_session, "winoe_report", None))
     talent_partner_name = None
     talent_partner_email = None
     talent_partner_id = getattr(sim, "created_by", None) if sim else None
@@ -83,6 +95,10 @@ async def build_invite_item(
         expiresAt=candidate_session.expires_at,
         inviteToken=candidate_session.token,
         isExpired=is_expired,
+        hasReport=report_ready,
+        reportReady=report_ready,
+        terminatedAt=terminated_at,
+        isTerminated=is_terminated,
         scheduledStartAt=schedule_payload["scheduledStartAt"],
         candidateTimezone=schedule_payload["candidateTimezone"],
         githubUsername=getattr(candidate_session, "github_username", None),
