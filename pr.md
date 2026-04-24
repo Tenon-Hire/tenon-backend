@@ -1,213 +1,122 @@
+## Title
+
+Materialize per-Trial Winoe and company rubric snapshots for all five days
+
 ## Summary
 
-- Added `app/ai/prompt_assets/v1/SOUL.md` as the source of truth for Winoe persona governance.
-- Wired `SOUL.md` into the `winoeReport` prompt-pack entry so Winoe Report generation receives persona governance through the existing snapshot/runtime prompt flow.
-- Added focused tests proving `SOUL.md` exists, includes required governance sections, and is included in the Winoe Report prompt path.
+This PR materializes immutable rubric snapshots per `ScenarioVersion` so every candidate in the same Trial is evaluated against the same Winoe baseline and any optional company-specific rubric content.
 
-## Why
+Once snapshots exist, the pipeline consumes persisted snapshot content instead of mutable static rubric files. That freezes the evaluation inputs used by the Winoe Report and keeps Trial-level evaluation consistent over time.
 
-Winoe’s persona rules were not codified in the backend. Report generation needed explicit governance for Winoe’s identity, voice, evaluation philosophy, boundaries, discovery language, and retired terminology bans.
+## What changed
 
-This change makes Winoe Report generation more consistent, evidence-first, and aligned with Winoe AI’s product language.
+- Added the `winoe_rubric_snapshots` persistence model and migration.
+- Added the `ScenarioVersion` relationship to rubric snapshots.
+- Added Trial-level `company_rubric_json` attachment support.
+- Added a Winoe rubric registry with explicit versions.
+- Added a snapshot materialization service with idempotency.
+- Materialized snapshots at the successful `ScenarioVersion` lifecycle boundary.
+- Added a lock-time deterministic backstop for legacy or incomplete rows.
+- Updated pipeline loading to use persisted rubric snapshot content.
+- Updated Winoe Report metadata to include rubric snapshot IDs, versions, hashes, and source paths.
+- Added tests covering persistence, idempotency, company rubric immutability, pipeline loading, report metadata, same-Trial reuse, fingerprint stability, and the scenario-generation failure regression.
 
-## Implementation Details
+## Acceptance Criteria Coverage
 
-### SOUL.md
+1. **Winoe rubrics versioned and referenced by `ScenarioVersion`**
 
-Added `app/ai/prompt_assets/v1/SOUL.md` with these sections:
+   The new `winoe_rubric_snapshots` table stores versioned baseline rubric material and is linked to `ScenarioVersion`. The registry carries explicit rubric versions, and snapshot materialization occurs at the successful `ScenarioVersion` lifecycle boundary so the frozen snapshot set is tied to that version, not to mutable source files.
 
-- Identity
-- Archetype
-- Voice
-- Evaluation Philosophy
-- Boundaries
-- Required Language
-- Retired Terminology Ban
-- Winoe Report Rules
+2. **Company-specific rubrics attachable per Trial**
 
-The file codifies that:
+   `Trial.company_rubric_json` now carries optional company-specific rubric content. Company snapshots are materialized in the Trial scope, validated, and treated as immutable after materialization so the same Trial cannot drift between candidates.
 
-- Winoe is the Talent Intelligence Agent.
-- Winoe is AI and never claims to be human.
-- Winoe uses Caregiver + Sage voice: warm, careful, honest, evidence-driven.
-- Winoe evaluates work, not a person’s worth.
-- Winoe never makes hiring decisions.
-- The Talent Partner decides.
-- Every material claim should connect to Evidence Trail artifacts.
-- Winoe uses discovery/revelation language, not elimination language.
-- Retired terminology must not appear in generated Winoe Report output.
+3. **Version IDs in Winoe Report metadata**
 
-### Prompt-pack wiring
+   `report.version.rubricSnapshots` now includes the full snapshot metadata needed for auditability:
 
-Updated `app/ai/ai_prompt_pack_service.py` to:
+   - `snapshotId`
+   - `scenarioVersionId`
+   - `rubricScope`
+   - `rubricKind`
+   - `rubricKey`
+   - `rubricVersion`
+   - `contentHash`
+   - `sourcePath`
 
-- Load text prompt assets deterministically.
-- Fail loudly if `SOUL.md` is missing.
-- Inject `SOUL.md` only into the `winoeReport` prompt-pack entry.
-- Preserve scope by not injecting Winoe persona governance into reviewer sub-agent prompts.
+4. **Pipeline loads correct versions**
 
-Runtime path verified:
-
-- `build_prompt_pack_entry("winoeReport")` prepends `## Persona Governance` and `SOUL.md` content.
-- `build_ai_policy_snapshot(...)` stores the resolved Winoe Report instructions in the frozen snapshot.
-- `build_required_snapshot_prompt(...)` retrieves the resolved prompt.
-- The evaluator runtime calls `build_required_snapshot_prompt(...)` with `agent_key="winoeReport"` during Winoe Report generation.
-
-### Tests
-
-Added `tests/ai/test_ai_prompt_pack_soul_service.py` to verify:
-
-- `SOUL.md` exists.
-- `SOUL.md` includes required sections.
-- `build_prompt_pack_entry("winoeReport")` includes persona governance.
-- The frozen snapshot/runtime prompt builder includes `SOUL.md` content.
-- The Winoe Report prompt includes discovery language, non-decision boundaries, and retired terminology restrictions.
-- `SOUL.md` injection remains scoped to `winoeReport`.
+   The effective AI policy snapshot now persists `resolvedRubricMd`, and the evaluator bundle consumes that persisted snapshot content. This ensures the pipeline uses the exact rubric versions that were materialized for the Trial instead of rereading static files.
 
 ## QA Evidence
 
-### Commit / repo state
+Manual QA from Iteration 6:
 
-- Commit SHA: `5691b74bb40a0c633d20166a5dc707fd706160f8`
-- Working tree was clean after QA.
-- Expected files were tracked:
-  - `app/ai/ai_prompt_pack_service.py`
-  - `app/ai/prompt_assets/v1/SOUL.md`
-  - `tests/ai/test_ai_prompt_pack_soul_service.py`
+- `./runBackend.sh migrate` passed.
+- Schema verified:
+  - `winoe_rubric_snapshots`
+  - FK to `scenario_versions`
+  - uniqueness constraint on `(scenario_version_id, scope, rubric_kind, rubric_key, rubric_version)`
+  - `trials.company_rubric_json`
+- ScenarioVersion snapshot evidence:
+  - live `scenario_version_id = 7`
+  - 5 baseline snapshots
+  - snapshot IDs `[1, 2, 3, 4, 5]`
+- Idempotency:
+  - before first materialization: `0`
+  - after first: `5`
+  - after second: `5`
+  - IDs stable: `[1, 2, 3, 4, 5]`
+- Company rubric immutability:
+  - company `scenario_version_id = 8`
+  - company snapshot `id = 7`
+  - original hash: `a9fe9259f952749e8bf470065aa56e6174eb6ec3673f7bc276b798554f5bf80b`
+  - edited hash: `e0684b38150aca57fa0a46e1cf47d19234b05d3e9777171c116f49febf2885c8`
+  - persisted snapshot hash stayed unchanged: `a9fe9259f952749e8bf470065aa56e6174eb6ec3673f7bc276b798554f5bf80b`
+- Pipeline loading:
+  - `_read_text_file` patched to raise if static rubrics were reread
+  - report pipeline still completed for candidate sessions `7` and `8`
+  - effective bundle contained persisted `resolvedRubricMd`
+  - bundle snapshot IDs `[1, 2, 3, 4, 5]`
+- Winoe Report metadata:
+  - `fetch_winoe_report` returned `status: ready`
+  - metadata included `scenarioVersionId: 7`
+  - `rubricSnapshots` had 5 entries with required snapshot/version/hash/source fields
+- Same-Trial reuse:
+  - candidate sessions `7` and `8`
+  - shared `scenario_version_id = 7`
+  - both used snapshot IDs `[1, 2, 3, 4, 5]`
+- Scenario generation failure regression:
+  - focused tests passed functionally
+  - job failure/dead-letter behavior intact
+  - Trial remains `generating`
+  - retry still works
 
-### Automated tests
+## Automated Checks
 
-```bash
-poetry run pytest -o addopts='' tests/ai/test_ai_prompt_pack_soul_service.py -q
-```
+- `./precommit.sh` passed
+- `1843 passed`
+- coverage: `96.04%`
+- `./runBackend.sh migrate` passed
+- forbidden terminology scan:
+  - newly introduced forbidden terms: `0`
+  - existing unrelated legacy matches remain outside the scope
 
-Result:
+## Risks / Notes
 
-```text
-3 passed
-```
+- Local QA rows for Trial and candidate test data remained in the local database because cleanup hit FK/check-constraint edges. This is local-only residue, not a code or migration issue.
+- Pipeline QA used a fake evaluator at the final scoring step to avoid external AI/provider dependence, while still exercising persisted snapshot loading and report metadata paths.
+- Existing unrelated legacy terminology remains in older repo areas and was not broadened by this PR.
 
-```bash
-poetry run pytest -o addopts='' tests/ai/test_ai_prompt_pack_soul_service.py tests/trials/services/test_trials_ai_policy_snapshot_contract_service.py tests/evaluations/services/test_evaluations_winoe_report_composer_service.py -q
-```
+## Final Checklist
 
-Result:
+- [x] Winoe baseline rubrics snapshotted per `ScenarioVersion`
+- [x] Company rubric attachment supported
+- [x] Snapshot materialization is idempotent
+- [x] Same Trial candidates reuse same rubric snapshots
+- [x] Evaluation pipeline consumes persisted snapshot content
+- [x] Winoe Report metadata includes snapshot/version/hash identifiers
+- [x] Scenario generation failure behavior preserved
+- [x] `./precommit.sh` passes
 
-```text
-16 passed
-```
-
-```bash
-./precommit.sh
-```
-
-Result:
-
-```text
-1836 passed
-Required test coverage of 96% reached. Total coverage: 96.10%
-All pre-commit checks passed
-```
-
-### Runtime prompt-path verification
-
-Direct runtime prompt proof confirmed:
-
-```text
-PROMPT_PACK_HAS_PERSONA_GOVERNANCE=True
-PROMPT_PACK_HAS_I_AM_WINOE=True
-PROMPT_PACK_HAS_TALENT_INTELLIGENCE_AGENT=True
-PROMPT_PACK_HAS_TALENT_PARTNER_DECIDES=True
-PROMPT_PACK_HAS_RETIRED_TERMINOLOGY_BAN=True
-PROMPT_PACK_HAS_DISCOVERY_LANGUAGE=True
-PROMPT_PACK_HAS_NON_DECISION_BOUNDARY=True
-SNAPSHOT_HAS_PERSONA_GOVERNANCE=True
-SNAPSHOT_HAS_I_AM_WINOE=True
-SNAPSHOT_HAS_TALENT_INTELLIGENCE_AGENT=True
-SNAPSHOT_HAS_TALENT_PARTNER_DECIDES=True
-SNAPSHOT_HAS_RETIRED_TERMINOLOGY_BAN=True
-SNAPSHOT_HAS_DISCOVERY_LANGUAGE=True
-SNAPSHOT_HAS_NON_DECISION_BOUNDARY=True
-SNAPSHOT_RUNTIME_CONTEXT_PRESENT=True
-AGENT_KEY=winoeReport
-```
-
-### Local backend / worker QA
-
-Commands succeeded:
-
-```bash
-./runBackend.sh migrate
-./runBackend.sh bootstrap-local
-nohup ./runBackend.sh > /tmp/winoe-backend-qa-298.log 2>&1 &
-```
-
-Runtime verified:
-
-- API process was running:
-  - `uvicorn app.main:app --host 127.0.0.1 --port 8000`
-- Worker process was running:
-  - `python -m app.shared.jobs.shared_jobs_worker_service`
-- API was listening on:
-  - `127.0.0.1:8000`
-
-Cleanup completed successfully:
-
-- No backend/worker processes remained.
-- No listener remained on port `8000`.
-
-### Static scans
-
-Retired terminology scan:
-
-```bash
-rg -n -i "Tenon|Tenon AI|SimuHire|recruiter|simulation|Fit Profile|Fit Score|template catalog|precommit|Specializor" app/ai app/evaluations tests/ai tests/evaluations
-```
-
-Result:
-
-- Matches only in `SOUL.md` explicit retired-terminology ban list.
-- Classification: acceptable guardrail text, not active output language.
-
-Elimination-language scan:
-
-```bash
-rg -n -i "reject|rejected|eliminate|eliminated|screen out|pass/fail|not a fit|recommend proceeding|recommend not proceeding" app/ai app/evaluations tests/ai tests/evaluations
-```
-
-Result:
-
-- Matches only in `SOUL.md` guardrail/avoid sections and unrelated internal test names.
-- Classification: acceptable.
-- No unacceptable active report prompt/output language found.
-
-## Scope Control
-
-This PR does not implement unrelated Phase 5 work:
-
-- Does not change #318 rubric dimensions.
-- Does not change #301 GitHub provisioning.
-- Does not change #297 snapshot agent lists.
-- Does not change public API contracts.
-- Does not alter Trial/candidate workflows.
-
-## Risk / Notes
-
-- `SOUL.md` is injected only for `winoeReport`, not reviewer sub-agents. This matches issue scope: report-generation persona governance.
-- Retired terminology appears in `SOUL.md` only as explicit banned-term guardrail text.
-- Backend runtime QA verified API and worker startup, but no paid/external LLM invocation was required for this issue.
-
-## Checklist
-
-- [x] `SOUL.md` added under `app/ai/prompt_assets/v1/`
-- [x] `SOUL.md` defines identity, archetype, voice, philosophy, and boundaries
-- [x] Winoe Report prompts load `SOUL.md`
-- [x] Discovery language enforced
-- [x] Elimination language banned
-- [x] Retired terminology banned in generated output
-- [x] Focused tests pass
-- [x] Nearby contract/report tests pass
-- [x] Full precommit passes
-- [x] Local backend/worker startup verified
-
-Fixes #298
+Fixes #299

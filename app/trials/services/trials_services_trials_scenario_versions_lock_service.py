@@ -58,6 +58,15 @@ async def lock_active_scenario_for_invites(
             retryable=False,
             details={"status": active.status},
         )
+    from app.evaluations.services.evaluations_services_evaluations_winoe_rubric_snapshots_service import (
+        materialize_scenario_version_rubric_snapshots,
+    )
+
+    await materialize_scenario_version_rubric_snapshots(
+        db,
+        scenario_version=active,
+        trial=locked_trial,
+    )
     active.status = SCENARIO_VERSION_STATUS_LOCKED
     active.locked_at = lock_at
     logger.info(

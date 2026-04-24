@@ -99,6 +99,11 @@ class ScenarioVersion(Base, TimestampMixin):
     candidate_sessions = relationship(
         "CandidateSession", back_populates="scenario_version"
     )
+    rubric_snapshots = relationship(
+        "WinoeRubricSnapshot",
+        back_populates="scenario_version",
+        cascade="all, delete-orphan",
+    )
     edit_audits = relationship(
         "ScenarioEditAudit",
         back_populates="scenario_version",

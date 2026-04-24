@@ -73,6 +73,7 @@ class Trial(Base, TimestampMixin):
         Text, nullable=False, server_default="", default=""
     )
     company_context: Mapped[dict[str, str] | None] = mapped_column(JSON, nullable=True)
+    company_rubric_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     ai_prompt_overrides_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     ai_notice_version: Mapped[str] = mapped_column(
         String(100),

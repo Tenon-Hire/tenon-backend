@@ -7,6 +7,9 @@ from app.evaluations.repositories.evaluations_repositories_evaluations_core_mode
     EvaluationReviewerReport,
     EvaluationRun,
 )
+from app.evaluations.repositories.evaluations_repositories_evaluations_rubric_snapshot_model import (
+    WinoeRubricSnapshot,
+)
 from app.media.repositories.recordings.media_repositories_recordings_media_recordings_core_model import (
     RecordingAsset,
 )
@@ -67,6 +70,7 @@ __all__ = [
     "EvaluationDayScore",
     "EvaluationRun",
     "EvaluationReviewerReport",
+    "WinoeRubricSnapshot",
     "Job",
     "NotificationDeliveryAudit",
     "WorkerHeartbeat",

@@ -11,6 +11,9 @@ from app.ai import (
     build_ai_policy_snapshot,
     validate_current_ai_policy_snapshot_contract,
 )
+from app.evaluations.services.evaluations_services_evaluations_winoe_rubric_snapshots_service import (
+    materialize_scenario_version_rubric_snapshots,
+)
 from app.shared.database.shared_database_models_model import (
     Company,
     ScenarioVersion,
@@ -73,6 +76,11 @@ async def create_initial_scenario_version(
     )
     db.add(scenario_version)
     await db.flush()
+    await materialize_scenario_version_rubric_snapshots(
+        db,
+        scenario_version=scenario_version,
+        trial=trial,
+    )
     trial.active_scenario_version_id = scenario_version.id
     await db.flush()
     logger.info(

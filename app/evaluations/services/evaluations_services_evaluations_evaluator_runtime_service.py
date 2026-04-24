@@ -245,6 +245,7 @@ class LiveWinoeReportEvaluator:
                     _reviewer_report_payload(report) for report in reviewer_reports
                 ],
                 "version": {
+                    "scenarioVersionId": bundle.scenario_version_id,
                     "model": bundle.model_name,
                     "modelVersion": bundle.model_version,
                     "provider": aggregator_provider,
@@ -255,6 +256,7 @@ class LiveWinoeReportEvaluator:
                         or snapshot.get("snapshotDigest")
                     ),
                     "promptPackVersion": snapshot.get("promptPackVersion"),
+                    "rubricSnapshots": snapshot.get("rubricSnapshots") or [],
                 },
             }
         return EvaluationResult(
@@ -461,6 +463,7 @@ def _deterministic_aggregate_report(
             _reviewer_report_payload(report) for report in reviewer_reports
         ],
         "version": {
+            "scenarioVersionId": bundle.scenario_version_id,
             "model": bundle.model_name,
             "modelVersion": bundle.model_version,
             "provider": str(
@@ -472,6 +475,7 @@ def _deterministic_aggregate_report(
                 bundle.ai_policy_snapshot_digest or snapshot_json.get("snapshotDigest")
             ),
             "promptPackVersion": snapshot_json.get("promptPackVersion"),
+            "rubricSnapshots": snapshot_json.get("rubricSnapshots") or [],
         },
     }
 

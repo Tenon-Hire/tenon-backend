@@ -18,6 +18,9 @@ from . import (
 from . import (
     evaluations_services_evaluations_winoe_report_pipeline_transcript_service as winoe_report_pipeline_transcript,
 )
+from . import (
+    evaluations_services_evaluations_winoe_rubric_snapshots_service as winoe_rubric_snapshots,
+)
 
 fetch_winoe_report = winoe_report_api.fetch_winoe_report
 generate_winoe_report = winoe_report_api.generate_winoe_report
@@ -33,6 +36,7 @@ __all__ = [
     "evaluator",
     "fail_run",
     "fetch_winoe_report",
+    "winoe_rubric_snapshots",
     "winoe_report_access",
     "winoe_report_api",
     "winoe_report_composer",

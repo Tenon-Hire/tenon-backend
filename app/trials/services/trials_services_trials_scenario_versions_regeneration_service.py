@@ -8,6 +8,9 @@ from datetime import UTC, datetime
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.evaluations.services.evaluations_services_evaluations_winoe_rubric_snapshots_service import (
+    materialize_scenario_version_rubric_snapshots,
+)
 from app.shared.database.shared_database_models_model import (
     Job,
     ScenarioVersion,
@@ -194,6 +197,11 @@ async def request_scenario_regeneration(
     regenerated = clone_pending_scenario(trial, active, new_index)
     db.add(regenerated)
     await db.flush()
+    await materialize_scenario_version_rubric_snapshots(
+        db,
+        scenario_version=regenerated,
+        trial=trial,
+    )
     trial.pending_scenario_version_id = regenerated.id
     apply_status_transition(
         trial,

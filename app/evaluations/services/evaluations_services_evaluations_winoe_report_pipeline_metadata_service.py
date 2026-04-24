@@ -41,6 +41,23 @@ def _resolve_cutoff_commit_shas(
     return day2_checkpoint_sha, day3_final_sha, cutoff_commit_sha
 
 
+def _normalize_rubric_snapshot_metadata(
+    rubric_snapshots: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    if not rubric_snapshots:
+        return []
+    return sorted(
+        [dict(snapshot) for snapshot in rubric_snapshots],
+        key=lambda item: (
+            str(item.get("rubricScope")),
+            str(item.get("rubricKind")),
+            str(item.get("rubricKey")),
+            str(item.get("rubricVersion")),
+            str(item.get("snapshotId")),
+        ),
+    )
+
+
 def _build_run_metadata(
     *,
     context,
@@ -54,6 +71,8 @@ def _build_run_metadata(
     requested_by_user_id: int | None,
     job_id: str | None,
     ai_policy_snapshot_digest: str | None = None,
+    basis_ai_policy_snapshot_digest: str | None = None,
+    rubric_snapshots: list[dict[str, Any]] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], str, str, str]:
     basis_refs = _build_basis_references(
         scenario_version_id=context.candidate_session.scenario_version_id,
@@ -64,13 +83,16 @@ def _build_run_metadata(
         transcript_hash=_transcript_basis_hash(transcript),
         disabled_day_indexes=disabled_days,
     )
+    normalized_rubric_snapshots = _normalize_rubric_snapshot_metadata(rubric_snapshots)
     basis_fingerprint = _stable_hash(
         {
             "candidateSessionId": context.candidate_session.id,
             "trialId": context.trial.id,
             "scenarioVersionId": context.candidate_session.scenario_version_id,
             "basis": basis_refs,
-            "aiPolicySnapshotDigest": ai_policy_snapshot_digest,
+            "aiPolicySnapshotDigest": (
+                basis_ai_policy_snapshot_digest or ai_policy_snapshot_digest
+            ),
         }
     )
     (
@@ -89,6 +111,7 @@ def _build_run_metadata(
         "basisRefs": basis_refs,
         "requestedByUserId": requested_by_user_id,
         "aiPolicySnapshotDigest": ai_policy_snapshot_digest,
+        "rubricSnapshots": normalized_rubric_snapshots,
     }
     return (
         run_metadata,

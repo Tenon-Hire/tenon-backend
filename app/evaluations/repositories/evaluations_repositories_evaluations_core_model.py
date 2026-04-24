@@ -23,12 +23,16 @@ from .evaluations_repositories_evaluations_day_score_model import EvaluationDayS
 from .evaluations_repositories_evaluations_reviewer_report_model import (
     EvaluationReviewerReport,
 )
+from .evaluations_repositories_evaluations_rubric_snapshot_model import (
+    WinoeRubricSnapshot,
+)
 from .evaluations_repositories_evaluations_run_model import EvaluationRun
 
 __all__ = [
     "EvaluationRun",
     "EvaluationDayScore",
     "EvaluationReviewerReport",
+    "WinoeRubricSnapshot",
     "EVALUATION_RUN_STATUS_PENDING",
     "EVALUATION_RUN_STATUS_RUNNING",
     "EVALUATION_RUN_STATUS_COMPLETED",

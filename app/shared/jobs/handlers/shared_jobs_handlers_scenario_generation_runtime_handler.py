@@ -8,7 +8,15 @@ from time import perf_counter
 from sqlalchemy import select
 
 from app.ai import build_ai_policy_snapshot, resolve_scenario_generation_config
-from app.shared.database.shared_database_models_model import Company, Task, Trial
+from app.evaluations.services.evaluations_services_evaluations_winoe_rubric_snapshots_service import (
+    materialize_scenario_version_rubric_snapshots,
+)
+from app.shared.database.shared_database_models_model import (
+    Company,
+    ScenarioVersion,
+    Task,
+    Trial,
+)
 from app.shared.jobs.repositories.shared_jobs_repositories_repository_shared_repository import (
     sanitize_error,
 )
@@ -160,6 +168,17 @@ async def handle_scenario_generation_impl(
             task_prompts_json=generated.task_prompts_json,
             rubric_json=generated.rubric_json,
         )
+        scenario_version = (
+            await db.get(ScenarioVersion, scenario_version_id)
+            if scenario_version_id is not None
+            else None
+        )
+        if scenario_version is not None:
+            await materialize_scenario_version_rubric_snapshots(
+                db,
+                scenario_version=scenario_version,
+                trial=trial,
+            )
         apply_status_transition(
             trial,
             target_status=TRIAL_STATUS_READY_FOR_REVIEW,

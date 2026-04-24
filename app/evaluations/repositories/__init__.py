@@ -17,6 +17,7 @@ from app.evaluations.repositories.evaluations_repositories_evaluations_core_mode
     EvaluationDayScore,
     EvaluationReviewerReport,
     EvaluationRun,
+    WinoeRubricSnapshot,
 )
 from app.evaluations.repositories.evaluations_repositories_evaluations_core_repository import (
     EvidencePointerValidationError,
@@ -34,6 +35,16 @@ from app.evaluations.repositories.evaluations_repositories_evaluations_core_repo
     list_runs_for_candidate_session,
     normalize_reviewer_report_payload,
     validate_evidence_pointers,
+)
+from app.evaluations.repositories.evaluations_repositories_evaluations_rubric_snapshot_model import (
+    RUBRIC_SNAPSHOT_SCOPE_COMPANY,
+    RUBRIC_SNAPSHOT_SCOPE_WINOE,
+    RUBRIC_SNAPSHOT_SCOPES,
+)
+from app.evaluations.repositories.evaluations_repositories_evaluations_rubric_snapshot_repository import (
+    create_rubric_snapshot,
+    get_rubric_snapshot_by_identity,
+    list_rubric_snapshots_for_scenario_version,
 )
 
 from . import evaluations_repositories_evaluations_core_model as models
@@ -58,17 +69,24 @@ __all__ = [
     "EvaluationDayScore",
     "EvaluationRun",
     "EvaluationReviewerReport",
+    "WinoeRubricSnapshot",
+    "RUBRIC_SNAPSHOT_SCOPE_COMPANY",
+    "RUBRIC_SNAPSHOT_SCOPE_WINOE",
+    "RUBRIC_SNAPSHOT_SCOPES",
     "EvidencePointerValidationError",
     "add_day_scores",
     "add_reviewer_reports",
+    "create_rubric_snapshot",
     "create_run",
     "create_run_with_day_scores",
+    "get_rubric_snapshot_by_identity",
     "get_latest_run_for_candidate_session",
     "get_latest_successful_run_for_candidate_session",
     "get_run_by_id",
     "get_run_by_job_id",
     "has_runs_for_candidate_session",
     "list_runs_for_candidate_session",
+    "list_rubric_snapshots_for_scenario_version",
     "list_reviewer_reports",
     "list_reviewer_reports_for_run",
     "normalize_reviewer_report_payload",

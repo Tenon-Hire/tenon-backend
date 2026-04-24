@@ -4,11 +4,23 @@ import os
 import subprocess
 import sys
 import uuid
+from importlib.util import find_spec
 from pathlib import Path
 
+import pytest
 from dotenv import dotenv_values
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine.url import make_url
+
+HAS_POSTGRES_DBAPI = (
+    find_spec("psycopg2") is not None or find_spec("psycopg") is not None
+)
+
+if not HAS_POSTGRES_DBAPI:
+    pytest.skip(
+        "PostgreSQL DBAPI driver not installed in this environment.",
+        allow_module_level=True,
+    )
 
 
 def _columns_for(sqlite_url: str, table_name: str) -> set[str]:
@@ -114,12 +126,15 @@ def test_evaluation_migration_upgrade_head_smoke():
         tables_after_upgrade = _table_names(temp_sync_url)
         assert "notification_delivery_audits" in tables_after_upgrade
         assert "evaluation_reviewer_reports" in tables_after_upgrade
+        assert "winoe_rubric_snapshots" in tables_after_upgrade
 
         run_columns = _columns_for(temp_sync_url, "evaluation_runs")
         day_score_columns = _columns_for(temp_sync_url, "evaluation_day_scores")
         reviewer_report_columns = _columns_for(
             temp_sync_url, "evaluation_reviewer_reports"
         )
+        rubric_snapshot_columns = _columns_for(temp_sync_url, "winoe_rubric_snapshots")
+        trial_columns = _columns_for(temp_sync_url, "trials")
 
         assert "id" in run_columns
         assert "candidate_session_id" in run_columns
@@ -142,6 +157,17 @@ def test_evaluation_migration_upgrade_head_smoke():
         assert "strengths_json" in reviewer_report_columns
         assert "risks_json" in reviewer_report_columns
         assert "raw_output_json" in reviewer_report_columns
+
+        assert "scenario_version_id" in rubric_snapshot_columns
+        assert "scope" in rubric_snapshot_columns
+        assert "rubric_kind" in rubric_snapshot_columns
+        assert "rubric_key" in rubric_snapshot_columns
+        assert "rubric_version" in rubric_snapshot_columns
+        assert "content_hash" in rubric_snapshot_columns
+        assert "content_md" in rubric_snapshot_columns
+        assert "source_path" in rubric_snapshot_columns
+        assert "metadata_json" in rubric_snapshot_columns
+        assert "company_rubric_json" in trial_columns
     finally:
         try:
             temp_db_name = make_url(temp_sync_url).database

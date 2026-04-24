@@ -41,6 +41,9 @@ from app.evaluations.services.evaluations_services_evaluations_winoe_report_pipe
     _completed_response,
     _get_or_start_run,
 )
+from app.evaluations.services.evaluations_services_evaluations_winoe_rubric_snapshots_service import (
+    get_rubric_snapshots_for_scenario_version,
+)
 from app.integrations.winoe_report_review import WinoeReportReviewProviderError
 from app.media.repositories.transcripts import repository as transcripts_repo
 from app.shared.utils.shared_utils_project_brief_service import (
@@ -231,6 +234,10 @@ async def process_evaluation_run_job_impl(
         )
         enabled_days: list[int] = []
         disabled_days: list[int] = []
+        effective_ai_policy_snapshot_json: dict[str, Any] = (
+            ai_policy_snapshot_json if isinstance(ai_policy_snapshot_json, dict) else {}
+        )
+        rubric_snapshots: list[dict[str, Any]] = []
         try:
             validate_ai_policy_snapshot_contract(
                 ai_policy_snapshot_json,
@@ -244,6 +251,15 @@ async def process_evaluation_run_job_impl(
                 ai_policy_snapshot_json,
                 scenario_version_id=context.candidate_session.scenario_version_id,
             )
+            rubric_snapshot_context = await get_rubric_snapshots_for_scenario_version(
+                db,
+                scenario_version=context.scenario_version,
+                trial=context.trial,
+            )
+            effective_ai_policy_snapshot_json = rubric_snapshot_context[
+                "effectiveAiPolicySnapshotJson"
+            ]
+            rubric_snapshots = list(rubric_snapshot_context["rubricSnapshots"])
         except AIPolicySnapshotError as exc:
             failed_run = await _record_invalid_snapshot_run(
                 db=db,
@@ -303,8 +319,12 @@ async def process_evaluation_run_job_impl(
             requested_by_user_id=user_id,
             job_id=job_id,
             ai_policy_snapshot_digest=compute_ai_policy_snapshot_digest(
-                ai_policy_snapshot_json
+                effective_ai_policy_snapshot_json
             ),
+            basis_ai_policy_snapshot_digest=compute_ai_policy_snapshot_digest(
+                rubric_snapshot_context["aiPolicySnapshotJson"]
+            ),
+            rubric_snapshots=rubric_snapshots,
         )
         run, terminal_response = await _get_or_start_run(
             db=db,
@@ -325,12 +345,12 @@ async def process_evaluation_run_job_impl(
             return terminal_response
 
         aggregator_snapshot = require_agent_policy_snapshot(
-            ai_policy_snapshot_json,
+            effective_ai_policy_snapshot_json,
             "winoeReport",
             scenario_version_id=context.candidate_session.scenario_version_id,
         )
         aggregator_runtime = require_agent_runtime(
-            ai_policy_snapshot_json,
+            effective_ai_policy_snapshot_json,
             "winoeReport",
             scenario_version_id=context.candidate_session.scenario_version_id,
         )
@@ -341,6 +361,7 @@ async def process_evaluation_run_job_impl(
                 "aiPolicyModelVersion": str(aggregator_runtime["model"]),
                 "aiPolicyPromptVersion": str(aggregator_snapshot["promptVersion"]),
                 "aiPolicyRubricVersion": rubric_version,
+                "rubricSnapshots": rubric_snapshots,
             }
         )
         bundle = deps["evaluator_service"].EvaluationInputBundle(
@@ -376,9 +397,9 @@ async def process_evaluation_run_job_impl(
                     ),
                 ),
             },
-            ai_policy_snapshot_json=ai_policy_snapshot_json,
+            ai_policy_snapshot_json=effective_ai_policy_snapshot_json,
             ai_policy_snapshot_digest=compute_ai_policy_snapshot_digest(
-                ai_policy_snapshot_json
+                effective_ai_policy_snapshot_json
             ),
         )
         try:

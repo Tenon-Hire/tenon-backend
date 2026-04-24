@@ -57,11 +57,13 @@ class WinoeReportDayScoreOut(APIModel):
 class WinoeReportVersionOut(APIModel):
     """Represent winoe report version out data and behavior."""
 
+    scenarioVersionId: int | None = None
     model: str
     provider: str | None = None
     promptVersion: str
     rubricVersion: str
     modelVersion: str | None = None
+    rubricSnapshots: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class WinoeReportReportOut(APIModel):

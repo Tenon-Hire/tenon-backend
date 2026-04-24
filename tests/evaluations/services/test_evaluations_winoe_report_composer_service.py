@@ -113,6 +113,7 @@ def test_build_ready_payload_translates_persisted_lean_hire_recommendation():
         recommendation="lean_hire",
         confidence=0.61,
         raw_report_json={"overallWinoeScore": 0.58},
+        scenario_version_id=1,
         day_scores=[
             SimpleNamespace(
                 day_index=2,

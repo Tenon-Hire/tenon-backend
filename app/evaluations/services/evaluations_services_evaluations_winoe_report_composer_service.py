@@ -32,6 +32,7 @@ def compose_report(run: EvaluationRun) -> dict[str, Any]:
     persisted_report = (
         dict(run.raw_report_json) if isinstance(run.raw_report_json, Mapping) else {}
     )
+    scenario_version_id = getattr(run, "scenario_version_id", None)
     day_scores = _compose_day_scores(run, persisted_report)
     reviewer_reports = _compose_reviewer_reports(run)
     scored_days = [
@@ -72,6 +73,7 @@ def compose_report(run: EvaluationRun) -> dict[str, Any]:
         "dayScores": day_scores,
         "reviewerReports": reviewer_reports,
         "version": {
+            "scenarioVersionId": scenario_version_id,
             "model": run.model_name,
             "modelVersion": run.model_version,
             "provider": (
@@ -87,6 +89,12 @@ def compose_report(run: EvaluationRun) -> dict[str, Any]:
                 if isinstance(metadata_json, Mapping)
                 and isinstance(metadata_json.get("aiPolicySnapshotDigest"), str)
                 else None
+            ),
+            "rubricSnapshots": (
+                list(metadata_json.get("rubricSnapshots"))
+                if isinstance(metadata_json, Mapping)
+                and isinstance(metadata_json.get("rubricSnapshots"), list)
+                else []
             ),
         },
     }

@@ -49,6 +49,9 @@ from app.evaluations.services.evaluations_services_evaluations_winoe_report_pipe
 from app.evaluations.services.evaluations_services_evaluations_winoe_report_pipeline_transcript_service import (
     _resolve_day4_transcript,
 )
+from app.evaluations.services.evaluations_services_evaluations_winoe_rubric_snapshots_service import (
+    get_rubric_snapshots_for_scenario_version,
+)
 from app.shared.database.shared_database_models_model import User
 
 
@@ -108,6 +111,14 @@ async def _build_generation_basis_fingerprint(
         ai_policy_snapshot_json,
         scenario_version_id=context.candidate_session.scenario_version_id,
     )
+    rubric_snapshot_context = await get_rubric_snapshots_for_scenario_version(
+        db,
+        scenario_version=context.scenario_version,
+        trial=context.trial,
+    )
+    effective_ai_policy_snapshot_json = rubric_snapshot_context[
+        "effectiveAiPolicySnapshotJson"
+    ]
     enabled_days, disabled_days = _normalize_day_toggles(snapshot_eval_enabled_by_day)
     tasks = await _tasks_by_day(db, trial_id=context.trial.id)
     submissions = await _submissions_by_day(
@@ -151,8 +162,12 @@ async def _build_generation_basis_fingerprint(
         requested_by_user_id=None,
         job_id=None,
         ai_policy_snapshot_digest=compute_ai_policy_snapshot_digest(
-            ai_policy_snapshot_json
+            effective_ai_policy_snapshot_json
         ),
+        basis_ai_policy_snapshot_digest=compute_ai_policy_snapshot_digest(
+            rubric_snapshot_context["aiPolicySnapshotJson"]
+        ),
+        rubric_snapshots=rubric_snapshot_context["rubricSnapshots"],
     )
     return str(run_metadata["basisFingerprint"])
 
