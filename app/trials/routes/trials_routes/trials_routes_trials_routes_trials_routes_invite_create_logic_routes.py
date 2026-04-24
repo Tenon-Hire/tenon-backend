@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai import AIPolicySnapshotError
 from app.integrations.github import GithubClient, GithubError
 from app.notifications.services.notifications_services_notifications_email_sender_service import (
     EmailService,
 )
 from app.shared.http.shared_http_error_utils import map_github_error
+from app.shared.utils.shared_utils_errors_utils import ApiError
 from app.trials import services as sim_service
 from app.trials.routes.trials_routes.trials_routes_trials_routes_trials_routes_invite_render_routes import (
     render_invite_error,
@@ -48,6 +50,16 @@ async def create_invite_response(
             email_service=email_service,
             github_client=github_client,
         )
+    except AIPolicySnapshotError as exc:
+        raise ApiError(
+            status_code=409,
+            detail="Frozen AI policy snapshot is invalid.",
+            error_code=getattr(
+                exc, "error_code", "scenario_version_ai_policy_snapshot_invalid"
+            ),
+            retryable=False,
+            details=getattr(exc, "details", {}),
+        ) from exc
     except sim_service.InviteRejectedError as exc:
         return render_invite_error(exc)
     except GithubError as exc:

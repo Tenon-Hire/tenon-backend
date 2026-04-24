@@ -7,7 +7,10 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai import build_ai_policy_snapshot
+from app.ai import (
+    build_ai_policy_snapshot,
+    validate_current_ai_policy_snapshot_contract,
+)
 from app.shared.database.shared_database_models_model import (
     Company,
     ScenarioVersion,
@@ -58,12 +61,14 @@ async def create_initial_scenario_version(
         template_key=trial.template_key,
         tech_stack=trial.tech_stack,
         seniority=trial.seniority,
-        ai_policy_snapshot_json=build_ai_policy_snapshot(
-            trial=trial,
-            company_prompt_overrides_json=company_prompt_overrides_json,
-            trial_prompt_overrides_json=getattr(
-                trial, "ai_prompt_overrides_json", None
-            ),
+        ai_policy_snapshot_json=validate_current_ai_policy_snapshot_contract(
+            build_ai_policy_snapshot(
+                trial=trial,
+                company_prompt_overrides_json=company_prompt_overrides_json,
+                trial_prompt_overrides_json=getattr(
+                    trial, "ai_prompt_overrides_json", None
+                ),
+            )
         ),
     )
     db.add(scenario_version)

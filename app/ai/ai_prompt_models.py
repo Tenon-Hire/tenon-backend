@@ -8,7 +8,6 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_serialize
 
 AI_PROMPT_OVERRIDE_KEYS = (
     "prestart",
-    "codespace",
     "designDocReviewer",
     "codeImplementationReviewer",
     "demoPresentationReviewer",
@@ -19,7 +18,6 @@ AI_AGENT_KEYS = AI_PROMPT_OVERRIDE_KEYS
 _MAX_OVERRIDE_MARKDOWN_CHARS = 40_000
 _PROMPT_OVERRIDE_FIELD_TO_KEY = {
     "prestart": "prestart",
-    "codespace": "codespace",
     "design_doc_reviewer": "designDocReviewer",
     "code_implementation_reviewer": "codeImplementationReviewer",
     "demo_presentation_reviewer": "demoPresentationReviewer",
@@ -132,6 +130,8 @@ def merge_prompt_override_payloads(
     fields_set = getattr(incoming_model, "model_fields_set", set()) or set()
     for field_name in fields_set:
         key = _PROMPT_OVERRIDE_FIELD_TO_KEY.get(field_name, field_name)
+        if key not in AI_PROMPT_OVERRIDE_KEYS:
+            continue
         value = getattr(incoming_model, field_name)
         if value is None:
             merged.pop(key, None)

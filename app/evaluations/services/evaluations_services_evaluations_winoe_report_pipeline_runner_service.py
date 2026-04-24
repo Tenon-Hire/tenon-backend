@@ -6,10 +6,14 @@ from time import perf_counter
 from typing import Any
 
 from app.ai import (
+    AIPolicySnapshotError,
+    compute_ai_policy_snapshot_basis_fingerprint,
     compute_ai_policy_snapshot_digest,
+    get_agent_policy_snapshot,
     require_agent_policy_snapshot,
     require_agent_runtime,
     require_candidate_settings_from_snapshot,
+    validate_ai_policy_snapshot_contract,
 )
 from app.evaluations.services.evaluations_services_evaluations_winoe_report_pipeline_constants_service import (
     DEFAULT_EVALUATION_MODEL_NAME,
@@ -26,6 +30,7 @@ from app.evaluations.services.evaluations_services_evaluations_winoe_report_pipe
 )
 from app.evaluations.services.evaluations_services_evaluations_winoe_report_pipeline_metadata_service import (
     _build_run_metadata,
+    _resolve_cutoff_commit_shas,
 )
 from app.evaluations.services.evaluations_services_evaluations_winoe_report_pipeline_parse_service import (
     _normalize_day_toggles,
@@ -62,6 +67,89 @@ def _is_retryable_winoe_report_provider_error(error: Exception) -> bool:
     if not normalized:
         return False
     return any(marker in normalized for marker in _RETRYABLE_PROVIDER_ERROR_MARKERS)
+
+
+async def _record_invalid_snapshot_run(
+    *,
+    db,
+    context,
+    evaluation_runs,
+    ai_policy_snapshot_json: dict[str, Any] | None,
+    job_id: str | None,
+    rubric_version: str,
+    day2_checkpoint_sha: str,
+    day3_final_sha: str,
+    cutoff_commit_sha: str,
+    transcript_reference: str,
+    error: AIPolicySnapshotError,
+) -> Any:
+    snapshot_fingerprint = compute_ai_policy_snapshot_basis_fingerprint(
+        ai_policy_snapshot_json
+    )
+    snapshot_digest = compute_ai_policy_snapshot_digest(ai_policy_snapshot_json)
+    snapshot_metadata: dict[str, Any] = {
+        "candidateSessionId": context.candidate_session.id,
+        "scenarioVersionId": context.candidate_session.scenario_version_id,
+        "jobId": job_id,
+        "aiPolicySnapshotDigest": snapshot_digest,
+        "aiPolicySnapshotBasisFingerprint": snapshot_fingerprint,
+        "snapshotValidationErrorCode": getattr(
+            error, "error_code", "scenario_version_ai_policy_snapshot_invalid"
+        ),
+        "snapshotValidationMessage": str(error),
+        "evaluationModelName": DEFAULT_EVALUATION_MODEL_NAME,
+        "evaluationModelVersion": DEFAULT_EVALUATION_MODEL_VERSION,
+        "evaluationPromptVersion": DEFAULT_EVALUATION_PROMPT_VERSION,
+        "evaluationRubricVersion": rubric_version,
+        "aiPolicyProvider": None,
+        "aiPolicyModel": None,
+        "aiPolicyPromptVersion": None,
+        "aiPolicyRubricVersion": None,
+    }
+    details = getattr(error, "details", None)
+    if isinstance(details, dict) and details:
+        snapshot_metadata["snapshotValidationDetails"] = details
+    winoe_report_snapshot = get_agent_policy_snapshot(
+        ai_policy_snapshot_json, "winoeReport"
+    )
+    if isinstance(winoe_report_snapshot, dict):
+        snapshot_metadata["aiPolicyProvider"] = winoe_report_snapshot.get("provider")
+        snapshot_metadata["aiPolicyModel"] = winoe_report_snapshot.get("model")
+        snapshot_metadata["aiPolicyPromptVersion"] = winoe_report_snapshot.get(
+            "promptVersion"
+        )
+        snapshot_metadata["aiPolicyRubricVersion"] = winoe_report_snapshot.get(
+            "rubricVersion"
+        )
+    run = await evaluation_runs.start_run(
+        db,
+        candidate_session_id=context.candidate_session.id,
+        scenario_version_id=context.candidate_session.scenario_version_id,
+        model_name=DEFAULT_EVALUATION_MODEL_NAME,
+        model_version=DEFAULT_EVALUATION_MODEL_VERSION,
+        prompt_version=DEFAULT_EVALUATION_PROMPT_VERSION,
+        rubric_version=rubric_version,
+        day2_checkpoint_sha=day2_checkpoint_sha,
+        day3_final_sha=day3_final_sha,
+        cutoff_commit_sha=cutoff_commit_sha,
+        transcript_reference=transcript_reference,
+        job_id=job_id,
+        basis_fingerprint=snapshot_fingerprint,
+        metadata_json=snapshot_metadata,
+        commit=False,
+    )
+    failed_run = await evaluation_runs.fail_run(
+        db,
+        run_id=run.id,
+        error_code=getattr(
+            error, "error_code", "scenario_version_ai_policy_snapshot_invalid"
+        ),
+        metadata_json=snapshot_metadata,
+        error_message=str(error),
+        commit=False,
+    )
+    await db.commit()
+    return failed_run
 
 
 async def process_evaluation_run_job_impl(
@@ -111,17 +199,6 @@ async def process_evaluation_run_job_impl(
         ai_policy_snapshot_json = getattr(
             context.scenario_version, "ai_policy_snapshot_json", None
         )
-        (
-            _snapshot_notice_version,
-            _snapshot_notice_text,
-            snapshot_eval_enabled_by_day,
-        ) = require_candidate_settings_from_snapshot(
-            ai_policy_snapshot_json,
-            scenario_version_id=context.candidate_session.scenario_version_id,
-        )
-        enabled_days, disabled_days = _normalize_day_toggles(
-            snapshot_eval_enabled_by_day
-        )
         tasks = await deps["_tasks_by_day"](db, trial_id=context.trial.id)
         submissions = await deps["_submissions_by_day"](
             db,
@@ -147,6 +224,52 @@ async def process_evaluation_run_job_impl(
         except ValueError:
             transcript, transcript_ref = transcript_resolution
         day4_disabled = transcript_state != "ready"
+        rubric_version = _resolve_rubric_version(context)
+        day2_checkpoint_sha, day3_sha, cutoff_sha = _resolve_cutoff_commit_shas(
+            day_audits=audits,
+            submissions_by_day=submissions,
+        )
+        enabled_days: list[int] = []
+        disabled_days: list[int] = []
+        try:
+            validate_ai_policy_snapshot_contract(
+                ai_policy_snapshot_json,
+                scenario_version_id=context.candidate_session.scenario_version_id,
+            )
+            (
+                _snapshot_notice_version,
+                _snapshot_notice_text,
+                snapshot_eval_enabled_by_day,
+            ) = require_candidate_settings_from_snapshot(
+                ai_policy_snapshot_json,
+                scenario_version_id=context.candidate_session.scenario_version_id,
+            )
+        except AIPolicySnapshotError as exc:
+            failed_run = await _record_invalid_snapshot_run(
+                db=db,
+                context=context,
+                evaluation_runs=deps["evaluation_runs"],
+                ai_policy_snapshot_json=ai_policy_snapshot_json,
+                job_id=job_id,
+                rubric_version=rubric_version,
+                day2_checkpoint_sha=day2_checkpoint_sha,
+                day3_final_sha=day3_sha,
+                cutoff_commit_sha=cutoff_sha,
+                transcript_reference=transcript_ref,
+                error=exc,
+            )
+            return {
+                "status": "failed",
+                "candidateSessionId": context.candidate_session.id,
+                "evaluationRunId": failed_run.id,
+                "errorCode": getattr(
+                    exc, "error_code", "scenario_version_ai_policy_snapshot_invalid"
+                ),
+                "durationMs": int((perf_counter() - started) * 1000),
+            }
+        enabled_days, disabled_days = _normalize_day_toggles(
+            snapshot_eval_enabled_by_day
+        )
         effective_disabled_days = list(disabled_days)
         if day4_disabled:
             effective_disabled_days.append(4)
@@ -168,7 +291,6 @@ async def process_evaluation_run_job_impl(
             ),
         )
 
-        rubric_version = _resolve_rubric_version(context)
         run_metadata, _basis_refs, day2_sha, day3_sha, cutoff_sha = _build_run_metadata(
             context=context,
             scenario_rubric_version=rubric_version,
@@ -211,6 +333,15 @@ async def process_evaluation_run_job_impl(
             ai_policy_snapshot_json,
             "winoeReport",
             scenario_version_id=context.candidate_session.scenario_version_id,
+        )
+        run_metadata.update(
+            {
+                "aiPolicyProvider": str(aggregator_runtime["provider"]),
+                "aiPolicyModel": str(aggregator_runtime["model"]),
+                "aiPolicyModelVersion": str(aggregator_runtime["model"]),
+                "aiPolicyPromptVersion": str(aggregator_snapshot["promptVersion"]),
+                "aiPolicyRubricVersion": rubric_version,
+            }
         )
         bundle = deps["evaluator_service"].EvaluationInputBundle(
             candidate_session_id=context.candidate_session.id,
@@ -276,6 +407,7 @@ async def process_evaluation_run_job_impl(
                 run=run,
                 evaluation_runs=deps["evaluation_runs"],
                 run_metadata=run_metadata,
+                error_code=getattr(exc, "error_code", "evaluation_failed"),
             )
             deps["logger"].warning(
                 "evaluation_generation_failed candidateSessionId=%s runId=%s jobId=%s durationMs=%s reason=%s",
@@ -289,7 +421,7 @@ async def process_evaluation_run_job_impl(
                 "status": "failed",
                 "candidateSessionId": context.candidate_session.id,
                 "evaluationRunId": run.id,
-                "errorCode": "evaluation_failed",
+                "errorCode": getattr(exc, "error_code", "evaluation_failed"),
                 "durationMs": int((perf_counter() - started) * 1000),
             }
 

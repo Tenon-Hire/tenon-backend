@@ -104,11 +104,18 @@ async def _evaluate_and_finalize_run(
     return completed_run
 
 
-async def _mark_failed_run(*, db, run, evaluation_runs, run_metadata: dict[str, Any]):
+async def _mark_failed_run(
+    *,
+    db,
+    run,
+    evaluation_runs,
+    run_metadata: dict[str, Any],
+    error_code: str = "evaluation_failed",
+):
     await evaluation_runs.fail_run(
         db,
         run_id=run.id,
-        error_code="evaluation_failed",
+        error_code=error_code,
         error_message="evaluation_run_failed",
         metadata_json=run_metadata,
         commit=False,

@@ -2,10 +2,12 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.ai import AIPolicySnapshotError
 from app.integrations.github.client import GithubError
 from app.shared.auth import rate_limit
 from app.shared.http import shared_http_error_utils as error_utils
 from app.shared.http.routes import trials
+from app.shared.utils.shared_utils_errors_utils import ApiError
 from app.trials import services as sim_service
 from app.trials.services import (
     trials_services_trials_invite_workflow_service as invite_workflow,
@@ -92,3 +94,39 @@ async def test_create_candidate_invite_github_error(monkeypatch):
             github_client=None,
         )
     assert excinfo.value.error_code == "GITHUB_PERMISSION_DENIED"
+
+
+@pytest.mark.asyncio
+async def test_create_candidate_invite_maps_snapshot_validation_error(monkeypatch):
+    monkeypatch.setattr(rate_limit, "rate_limit_enabled", lambda: False)
+
+    async def fake_require(db, trial_id, user_id):
+        return (
+            SimpleNamespace(id=1, title="t", role="r", status="active_inviting"),
+            [],
+        )
+
+    async def fake_lock(db, trial_id, now):
+        return SimpleNamespace(id=99)
+
+    async def fake_create(*_args, **_kwargs):
+        raise AIPolicySnapshotError("boom")
+
+    monkeypatch.setattr(sim_service, "require_owned_trial_with_tasks", fake_require)
+    monkeypatch.setattr(sim_service, "lock_active_scenario_for_invites", fake_lock)
+    monkeypatch.setattr(
+        invite_workflow, "create_candidate_invite_workflow", fake_create
+    )
+
+    with pytest.raises(ApiError) as excinfo:
+        await trials.create_candidate_invite(
+            trial_id=1,
+            payload=SimpleNamespace(inviteEmail="a@b.com", candidateName="C"),
+            request=_fake_request(),
+            db=FakeDB(),
+            user=SimpleNamespace(id=1, role="talent_partner"),
+            email_service=None,
+            github_client=None,
+        )
+    assert excinfo.value.status_code == 409
+    assert excinfo.value.error_code == "scenario_version_ai_policy_snapshot_invalid"

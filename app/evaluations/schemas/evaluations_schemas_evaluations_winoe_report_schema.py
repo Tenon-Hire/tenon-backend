@@ -58,6 +58,7 @@ class WinoeReportVersionOut(APIModel):
     """Represent winoe report version out data and behavior."""
 
     model: str
+    provider: str | None = None
     promptVersion: str
     rubricVersion: str
     modelVersion: str | None = None

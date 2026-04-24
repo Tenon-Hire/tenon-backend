@@ -88,8 +88,88 @@ set -euo pipefail
     assert "uvicorn:app.api.main:app --reload --host 0.0.0.0 --port 8000" in log_output
     assert "scenario_generation_runtime_mode:real" in log_output
     assert "scenario_generation_provider:anthropic" in log_output
-    assert "scenario_generation_model:claude-opus-4-6" in log_output
+    assert "scenario_generation_model:claude-opus-4-7" in log_output
     assert "winoe_env:local" in log_output
+
+
+def test_run_backend_api_preserves_explicit_day1_runtime_values(
+    tmp_path,
+):
+    repo_root = Path(__file__).resolve().parents[2]
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+
+    log_file = tmp_path / "command.log"
+    env_file = tmp_path / "runtime.env"
+    env_file.write_text(
+        "\n".join(
+            [
+                "WINOE_DATABASE_URL=sqlite:///tmp/winoe.db",
+                "WINOE_DATABASE_URL_SYNC=sqlite:///tmp/winoe.db",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    poetry_script = bin_dir / "poetry"
+    poetry_script.write_text(
+        """#!/bin/bash
+set -euo pipefail
+{
+  echo "poetry:$*"
+  echo "day1_provider:${WINOE_WINOE_REPORT_DAY1_PROVIDER:-missing}"
+  echo "day1_model:${WINOE_WINOE_REPORT_DAY1_MODEL:-missing}"
+  echo "day1_runtime_mode:${WINOE_WINOE_REPORT_DAY1_RUNTIME_MODE:-missing}"
+} >> "$TEST_COMMAND_LOG"
+shift
+if [[ "${1:-}" == "run" ]]; then
+  shift
+fi
+exec "$@"
+""",
+        encoding="utf-8",
+    )
+    poetry_script.chmod(0o755)
+
+    uvicorn_script = bin_dir / "uvicorn"
+    uvicorn_script.write_text(
+        """#!/bin/bash
+set -euo pipefail
+{
+  echo "uvicorn:$*"
+  echo "day1_provider:${WINOE_WINOE_REPORT_DAY1_PROVIDER:-missing}"
+  echo "day1_model:${WINOE_WINOE_REPORT_DAY1_MODEL:-missing}"
+  echo "day1_runtime_mode:${WINOE_WINOE_REPORT_DAY1_RUNTIME_MODE:-missing}"
+} >> "$TEST_COMMAND_LOG"
+""",
+        encoding="utf-8",
+    )
+    uvicorn_script.chmod(0o755)
+
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
+    env["ENV_FILE"] = str(env_file)
+    env["TEST_COMMAND_LOG"] = str(log_file)
+    env["WINOE_ENV"] = "local"
+    env["WINOE_WINOE_REPORT_DAY1_PROVIDER"] = "anthropic"
+    env["WINOE_WINOE_REPORT_DAY1_MODEL"] = "claude-opus-4-7"
+    env["WINOE_WINOE_REPORT_DAY1_RUNTIME_MODE"] = "real"
+
+    result = subprocess.run(
+        ["bash", "runBackend.sh", "api"],
+        cwd=repo_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    log_output = log_file.read_text(encoding="utf-8")
+    assert "day1_provider:anthropic" in log_output
+    assert "day1_model:claude-opus-4-7" in log_output
+    assert "day1_runtime_mode:real" in log_output
 
 
 def test_run_backend_api_preserves_explicit_scenario_generation_env_values(
@@ -158,7 +238,7 @@ set -euo pipefail
     env["WINOE_ENV"] = "local"
     env["WINOE_SCENARIO_GENERATION_RUNTIME_MODE"] = "demo"
     env["WINOE_SCENARIO_GENERATION_PROVIDER"] = "anthropic"
-    env["WINOE_SCENARIO_GENERATION_MODEL"] = "claude-opus-4-6"
+    env["WINOE_SCENARIO_GENERATION_MODEL"] = "claude-opus-4-7"
 
     result = subprocess.run(
         ["bash", "runBackend.sh", "api"],
@@ -173,5 +253,5 @@ set -euo pipefail
     log_output = log_file.read_text(encoding="utf-8")
     assert "scenario_generation_runtime_mode:demo" in log_output
     assert "scenario_generation_provider:anthropic" in log_output
-    assert "scenario_generation_model:claude-opus-4-6" in log_output
+    assert "scenario_generation_model:claude-opus-4-7" in log_output
     assert "winoe_env:local" in log_output

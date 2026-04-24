@@ -1,11 +1,17 @@
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy import select
 
+from app.ai import AIPolicySnapshotError, build_ai_policy_snapshot
+from app.shared.database.shared_database_models_model import Task, Trial
 from app.shared.jobs.repositories.shared_jobs_repositories_models_repository import (
     JOB_STATUS_QUEUED,
     JOB_STATUS_RUNNING,
 )
+from app.shared.utils.shared_utils_errors_utils import ApiError
+from app.trials import services as sim_service
+from app.trials.routes.trials_routes import detail as detail_route
 from app.trials.routes.trials_routes.trials_routes_trials_routes_trials_routes_detail_render_routes import (
     _generation_failure_summary,
     _generation_status,
@@ -106,6 +112,27 @@ async def test_trial_context_round_trips_on_create_and_detail(
     assert created["companyContext"] == payload["companyContext"]
     assert created["ai"] == payload["ai"]
 
+    trial = await async_session.get(Trial, created["id"])
+    assert trial is not None
+    tasks = (
+        await async_session.scalars(
+            select(Task).where(Task.trial_id == trial.id).order_by(Task.day_index)
+        )
+    ).all()
+    assert len(tasks) == 5
+    scenario_version = await sim_service.create_initial_scenario_version(
+        async_session,
+        trial=trial,
+        tasks=list(tasks),
+    )
+    assert scenario_version.ai_policy_snapshot_json == build_ai_policy_snapshot(
+        trial=SimpleNamespace(
+            ai_notice_version=payload["ai"]["noticeVersion"],
+            ai_notice_text=payload["ai"]["noticeText"],
+            ai_eval_enabled_by_day=payload["ai"]["evalEnabledByDay"],
+        )
+    )
+
     detail_res = await async_client.get(
         f"/api/trials/{created['id']}",
         headers=auth_header_factory(talent_partner),
@@ -120,6 +147,48 @@ async def test_trial_context_round_trips_on_create_and_detail(
     assert detail["ai"]["evalEnabledByDay"] == payload["ai"]["evalEnabledByDay"]
     assert detail["ai"]["promptPackVersion"] == "winoe-ai-pack-v1"
     assert detail["ai"]["changesPendingRegeneration"] is False
+
+
+@pytest.mark.asyncio
+async def test_get_trial_detail_maps_snapshot_validation_error(monkeypatch):
+    monkeypatch.setattr(detail_route, "ensure_talent_partner_or_none", lambda _u: None)
+
+    sim = SimpleNamespace(id=1, company_id=7)
+    task = SimpleNamespace(id=9, day_index=1, type="code", title="Task")
+
+    async def _require_owned(*_a, **_k):
+        return sim, [task]
+
+    async def _get_active_scenario(*_a, **_k):
+        return SimpleNamespace(id=10, status="ready", locked_at=None)
+
+    async def _load_pending(*_a, **_k):
+        return None
+
+    async def _load_job(*_a, **_k):
+        return None
+
+    def _render_trial_detail(*_a, **_k):
+        raise AIPolicySnapshotError("boom")
+
+    monkeypatch.setattr(
+        detail_route.sim_service,
+        "require_owned_trial_with_tasks",
+        _require_owned,
+    )
+    monkeypatch.setattr(
+        detail_route.sim_service,
+        "get_active_scenario_version",
+        _get_active_scenario,
+    )
+    monkeypatch.setattr(detail_route, "_load_scenario_version", _load_pending)
+    monkeypatch.setattr(detail_route, "_load_latest_scenario_generation_job", _load_job)
+    monkeypatch.setattr(detail_route, "render_trial_detail", _render_trial_detail)
+
+    with pytest.raises(ApiError) as excinfo:
+        await detail_route.get_trial_detail(trial_id=sim.id, db=object(), user=sim)
+    assert excinfo.value.status_code == 409
+    assert excinfo.value.error_code == "scenario_version_ai_policy_snapshot_invalid"
 
 
 def test_latest_relevant_scenario_version_prefers_reviewable_pending_only():
@@ -168,39 +237,54 @@ def test_generation_failure_summary_returns_none_for_missing_or_non_terminal_job
 
 def test_detail_helpers_handle_non_reviewable_and_non_mapping_state():
     assert _scenario_agent_runtime_summary(None) is None
-    assert _scenario_agent_runtime_summary({"agents": ["bad"]}) is None
-
-    snapshot = {
-        "promptPackVersion": "pack-v2",
-        "agents": {
-            "prestart": {
-                "runtime": {
-                    "runtimeMode": "primary",
-                    "provider": "anthropic",
-                    "model": "claude-opus-4.6",
-                },
-                "promptVersion": "v9",
-                "rubricVersion": "r9",
+    snapshot = build_ai_policy_snapshot(
+        trial=SimpleNamespace(
+            ai_notice_version="mvp1",
+            ai_notice_text="AI assistance may be used for evaluation support.",
+            ai_eval_enabled_by_day={
+                "1": True,
+                "2": True,
+                "3": True,
+                "4": True,
+                "5": True,
             },
-            "ignore-me": "not-a-mapping",
-        },
-    }
+        )
+    )
+    snapshot["agents"] = ["bad"]
+    with pytest.raises(AIPolicySnapshotError, match="agents_missing"):
+        _scenario_agent_runtime_summary(snapshot)
+
+    snapshot = build_ai_policy_snapshot(
+        trial=SimpleNamespace(
+            ai_notice_version="mvp1",
+            ai_notice_text="AI assistance may be used for evaluation support.",
+            ai_eval_enabled_by_day={
+                "1": True,
+                "2": True,
+                "3": True,
+                "4": True,
+                "5": True,
+            },
+        )
+    )
     version = SimpleNamespace(id="sv-1", ai_policy_snapshot_json=snapshot)
     summary = _scenario_snapshot_summary(version, bundle_status="ready")
     assert summary is not None
     assert summary["scenarioVersionId"] == "sv-1"
-    assert summary["promptPackVersion"] == "pack-v2"
+    assert summary["promptPackVersion"] == "winoe-ai-pack-v1"
     assert summary["bundleStatus"] == "ready"
-    assert summary["agents"] == [
-        {
-            "key": "prestart",
-            "provider": "anthropic",
-            "model": "claude-opus-4.6",
-            "runtimeMode": "primary",
-            "promptVersion": "v9",
-            "rubricVersion": "r9",
-        }
+    assert [agent["key"] for agent in summary["agents"]] == [
+        "codeImplementationReviewer",
+        "demoPresentationReviewer",
+        "designDocReviewer",
+        "prestart",
+        "reflectionEssayReviewer",
+        "winoeReport",
     ]
+    assert summary["agents"][0]["provider"] is not None
+    assert summary["agents"][0]["model"] is not None
+    assert summary["agents"][-1]["promptVersion"] is not None
+    assert summary["agents"][-1]["rubricVersion"] is not None
 
     assert _scenario_snapshot_summary(None, bundle_status=None) is None
     assert (

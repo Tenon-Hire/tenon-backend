@@ -98,13 +98,13 @@ async def test_openai_winoe_report_review_day_falls_back_to_anthropic_on_retryab
         request=WinoeReportDayReviewRequest(
             system_prompt="system",
             user_prompt="user",
-            model="gpt-5.4-mini",
+            model="gpt-5.2-codex",
         )
     )
 
     assert result.dayIndex == 2
     assert calls == [
-        ("openai", "gpt-5.4-mini"),
+        ("openai", "gpt-5.2-codex"),
         ("anthropic", "claude-haiku-4-5"),
     ]
 

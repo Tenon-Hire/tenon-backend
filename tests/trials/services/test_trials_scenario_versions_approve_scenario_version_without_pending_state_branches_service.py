@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.ai import build_ai_policy_snapshot
 from tests.trials.services.trials_scenario_versions_service_utils import *
 
 
@@ -38,6 +39,7 @@ async def test_approve_scenario_version_without_pending_state_branches(async_ses
         template_key=sim.template_key,
         tech_stack=sim.tech_stack,
         seniority=sim.seniority,
+        ai_policy_snapshot_json=build_ai_policy_snapshot(trial=sim),
     )
     async_session.add(non_active)
     await async_session.commit()

@@ -49,6 +49,7 @@ async def test_deterministic_evaluator_handles_empty_enabled_days():
 
 
 async def test_deterministic_evaluator_sorts_days_and_builds_report():
+    snapshot = _snapshot()
     bundle = evaluator.EvaluationInputBundle(
         candidate_session_id=10,
         scenario_version_id=20,
@@ -69,7 +70,8 @@ async def test_deterministic_evaluator_sorts_days_and_builds_report():
                 workflow_run_id="555",
             ),
         ],
-        ai_policy_snapshot_json=_snapshot(),
+        ai_policy_snapshot_json=snapshot,
+        ai_policy_snapshot_digest=snapshot["snapshotDigest"],
     )
     result = await evaluator.get_winoe_report_evaluator().evaluate(bundle)
     assert [day.day_index for day in result.day_results] == [2, 5]
@@ -81,6 +83,8 @@ async def test_deterministic_evaluator_sorts_days_and_builds_report():
     assert 0 <= result.overall_winoe_score <= 1
     assert 0 <= result.confidence <= 1
     assert result.report_json["version"]["modelVersion"] == "v2"
+    assert result.report_json["version"]["provider"] is not None
+    assert result.report_json["version"]["aiPolicySnapshotDigest"] is not None
     assert result.report_json["dayScores"][0]["dayIndex"] == 2
 
 
@@ -118,3 +122,33 @@ async def test_deterministic_evaluator_requires_snapshot():
         match="scenario_version_ai_policy_snapshot_missing",
     ):
         await evaluator.DeterministicWinoeReportEvaluator().evaluate(bundle)
+
+
+async def test_live_evaluator_rejects_snapshot_contract_mismatch():
+    snapshot = _snapshot()
+    snapshot["agents"]["codespace"] = {
+        "key": "codespace",
+        "promptVersion": "legacy",
+        "rubricVersion": "legacy",
+        "runtime": {
+            "runtimeMode": "test",
+            "provider": "openai",
+            "model": "gpt-4.1",
+        },
+    }
+    bundle = evaluator.EvaluationInputBundle(
+        candidate_session_id=10,
+        scenario_version_id=20,
+        model_name="model-y",
+        model_version="v2",
+        prompt_version="p2",
+        rubric_version="r2",
+        disabled_day_indexes=[],
+        day_inputs=[day_input(day_index=1, content_text="text")],
+        ai_policy_snapshot_json=snapshot,
+    )
+    with pytest.raises(
+        AIPolicySnapshotError,
+        match="scenario_version_ai_policy_snapshot_agent_contract_mismatch",
+    ):
+        await evaluator.get_winoe_report_evaluator().evaluate(bundle)

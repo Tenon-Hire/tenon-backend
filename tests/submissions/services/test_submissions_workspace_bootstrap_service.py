@@ -207,6 +207,126 @@ async def test_bootstrap_empty_candidate_repo_writes_only_allowed_files():
 
 
 @pytest.mark.asyncio
+async def test_bootstrap_empty_candidate_repo_degrades_only_when_codespace_service_is_unavailable(
+    caplog,
+):
+    candidate_session = SimpleNamespace(id=79)
+    trial = SimpleNamespace(
+        title="Codespace outage trial",
+        role="Backend Engineer",
+    )
+    scenario_version = SimpleNamespace(
+        storyline_md="# Codespace outage scenario",
+        project_brief_md="# Project Brief\n\n## Business Context\n\nOutage probe.\n",
+    )
+
+    class StubGithubClient:
+        def __init__(self):
+            self.events: list[str] = []
+
+        async def create_empty_repo(
+            self, *, owner, repo_name, private=True, default_branch="main"
+        ):
+            self.events.append("create_empty_repo")
+            return {
+                "owner": {"login": owner},
+                "name": repo_name,
+                "full_name": f"{owner}/{repo_name}",
+                "id": 456,
+                "default_branch": default_branch,
+            }
+
+        async def get_file_contents(self, *_args, **_kwargs):
+            raise GithubError("missing", status_code=404)
+
+        async def get_branch(self, *_args, **_kwargs):
+            raise GithubError("missing", status_code=404)
+
+        async def create_blob(self, *_args, **_kwargs):
+            self.events.append("create_blob")
+            return {"sha": "blob-sha"}
+
+        async def create_tree(self, _repo_full_name, *, tree, base_tree=None):
+            self.events.append("create_tree")
+            return {"sha": "tree-sha"}
+
+        async def create_commit(self, _repo_full_name, *, message, tree, parents):
+            self.events.append("create_commit")
+            return {"sha": "commit-sha"}
+
+        async def create_ref(self, _repo_full_name, *, ref, sha):
+            self.events.append("create_ref")
+            return {"ref": ref, "sha": sha}
+
+        async def get_authenticated_user_login(self):
+            self.events.append("get_authenticated_user_login")
+            return "RobelKDev"
+
+        async def add_collaborator(
+            self, repo_full_name, username, *, permission="push"
+        ):
+            self.events.append(f"add_collaborator:{username}:{permission}")
+            return {"ok": True}
+
+        async def create_codespace(
+            self,
+            repo_full_name,
+            *,
+            ref=None,
+            devcontainer_path=None,
+            machine=None,
+            location=None,
+        ):
+            self.events.append("create_codespace")
+            raise GithubError(
+                "GitHub Codespaces service unavailable",
+                status_code=503,
+            )
+
+    client = StubGithubClient()
+    with caplog.at_level(logging.WARNING):
+        result = await bootstrap_service.bootstrap_empty_candidate_repo(
+            github_client=client,
+            candidate_session=candidate_session,
+            trial=trial,
+            scenario_version=scenario_version,
+            task=SimpleNamespace(title="Day 2 coding"),
+            repo_prefix="winoe-ws-",
+            destination_owner="winoe-ai-repos",
+        )
+
+    assert result.repo_full_name == "winoe-ai-repos/winoe-ws-79"
+    assert result.codespace_name is None
+    assert result.codespace_state is None
+    assert (
+        result.codespace_url
+        == "https://codespaces.new/winoe-ai-repos/winoe-ws-79?quickstart=1"
+    )
+    assert any(
+        record.message == "github_codespace_provision_degraded"
+        and record.__dict__.get("fallback_reason")
+        == "github_codespace_service_unavailable"
+        and record.__dict__.get("status_code") == 503
+        and record.__dict__.get("fallback_mode") == "repo_only"
+        and record.__dict__.get("safe_fallback") is True
+        for record in caplog.records
+    )
+    assert client.events == [
+        "create_empty_repo",
+        "create_blob",
+        "create_blob",
+        "create_blob",
+        "create_blob",
+        "create_tree",
+        "create_commit",
+        "create_ref",
+        "get_authenticated_user_login",
+        "add_collaborator:RobelKDev:push",
+        "create_codespace",
+    ]
+
+
+@pytest.mark.asyncio
 async def test_bootstrap_empty_candidate_repo_uses_canonical_project_brief_helper(
     monkeypatch,
 ):
@@ -289,7 +409,9 @@ async def test_bootstrap_empty_candidate_repo_uses_canonical_project_brief_helpe
 
 
 @pytest.mark.asyncio
-async def test_bootstrap_empty_candidate_repo_degrades_when_codespace_not_found():
+async def test_bootstrap_empty_candidate_repo_retries_codespace_not_found_then_raises(
+    caplog, monkeypatch
+):
     candidate_session = SimpleNamespace(id=79)
     trial = SimpleNamespace(title="Codespace fallback trial", role="Backend Engineer")
     scenario_version = SimpleNamespace(
@@ -347,28 +469,42 @@ async def test_bootstrap_empty_candidate_repo_degrades_when_codespace_not_found(
             self.codespace_attempts += 1
             raise GithubError("missing", status_code=404)
 
-    result = await bootstrap_service.bootstrap_empty_candidate_repo(
-        github_client=StubGithubClient(),
-        candidate_session=candidate_session,
-        trial=trial,
-        scenario_version=scenario_version,
-        task=None,
-        repo_prefix="winoe-ws-",
-        destination_owner="winoe-ai-repos",
-    )
+    sleep_calls: list[int] = []
 
-    assert result.repo_full_name == "winoe-ai-repos/winoe-ws-79"
-    assert result.codespace_name is None
-    assert result.codespace_state is None
-    assert (
-        result.codespace_url
-        == "https://codespaces.new/winoe-ai-repos/winoe-ws-79?quickstart=1"
+    async def _sleep(seconds):
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr(bootstrap_service.asyncio, "sleep", _sleep)
+
+    with caplog.at_level(logging.WARNING), pytest.raises(GithubError, match="missing"):
+        await bootstrap_service.bootstrap_empty_candidate_repo(
+            github_client=StubGithubClient(),
+            candidate_session=candidate_session,
+            trial=trial,
+            scenario_version=scenario_version,
+            task=None,
+            repo_prefix="winoe-ws-",
+            destination_owner="winoe-ai-repos",
+        )
+    assert sleep_calls == [bootstrap_service._CODESPACE_RETRY_DELAY_SECONDS] * 6
+    assert any(
+        record.message == "github_codespace_provision_retrying"
+        and record.__dict__.get("status_code") == 404
+        and record.__dict__.get("retry_reason") == "repo_not_ready_yet"
+        and record.__dict__.get("retryable") is True
+        for record in caplog.records
+    )
+    assert any(
+        record.message == "github_codespace_provision_failed"
+        and record.__dict__.get("status_code") == 404
+        for record in caplog.records
     )
 
 
 @pytest.mark.asyncio
 async def test_bootstrap_empty_candidate_repo_retries_codespace_creation_with_short_delay(
     monkeypatch,
+    caplog,
 ):
     candidate_session = SimpleNamespace(id=80)
     trial = SimpleNamespace(title="Retry trial", role="Backend Engineer")
@@ -441,20 +577,173 @@ async def test_bootstrap_empty_candidate_repo_retries_codespace_creation_with_sh
 
     monkeypatch.setattr(bootstrap_service.asyncio, "sleep", _sleep)
 
-    result = await bootstrap_service.bootstrap_empty_candidate_repo(
-        github_client=StubGithubClient(),
-        candidate_session=candidate_session,
-        trial=trial,
-        scenario_version=scenario_version,
-        task=None,
-        repo_prefix="winoe-ws-",
-        destination_owner="winoe-ai-repos",
-    )
+    with caplog.at_level(logging.WARNING):
+        result = await bootstrap_service.bootstrap_empty_candidate_repo(
+            github_client=StubGithubClient(),
+            candidate_session=candidate_session,
+            trial=trial,
+            scenario_version=scenario_version,
+            task=None,
+            repo_prefix="winoe-ws-",
+            destination_owner="winoe-ai-repos",
+        )
 
     assert result.codespace_name == "codespace-80"
     assert result.codespace_state == "available"
     assert result.codespace_url == "https://codespace-80.github.dev"
     assert sleep_calls == [bootstrap_service._CODESPACE_RETRY_DELAY_SECONDS] * 2
+    assert any(
+        record.message == "github_codespace_provision_retrying"
+        and record.__dict__.get("status_code") == 404
+        and record.__dict__.get("retry_reason") == "repo_not_ready_yet"
+        and record.__dict__.get("retryable") is True
+        for record in caplog.records
+    )
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_empty_candidate_repo_does_not_degrade_on_generic_400(
+    caplog,
+):
+    candidate_session = SimpleNamespace(id=92)
+    trial = SimpleNamespace(title="Hard fail trial", role="Backend Engineer")
+    scenario_version = SimpleNamespace(
+        storyline_md="# Hard fail",
+        project_brief_md="# Project Brief\n\n## Business Context\n\nHard fail.\n",
+    )
+
+    class StubGithubClient:
+        async def create_empty_repo(
+            self, *, owner, repo_name, private=True, default_branch="main"
+        ):
+            return {
+                "owner": {"login": owner},
+                "name": repo_name,
+                "full_name": f"{owner}/{repo_name}",
+                "id": 446,
+                "default_branch": default_branch,
+            }
+
+        async def get_file_contents(self, *_args, **_kwargs):
+            raise GithubError("missing", status_code=404)
+
+        async def get_branch(self, *_args, **_kwargs):
+            raise GithubError("missing", status_code=404)
+
+        async def create_tree(self, _repo_full_name, *, tree, base_tree=None):
+            return {"sha": "tree-sha"}
+
+        async def create_commit(self, _repo_full_name, *, message, tree, parents):
+            return {"sha": "commit-sha"}
+
+        async def create_ref(self, _repo_full_name, *, ref, sha):
+            return {"ref": ref, "sha": sha}
+
+        async def create_codespace(
+            self,
+            repo_full_name,
+            *,
+            ref=None,
+            devcontainer_path=None,
+            machine=None,
+            location=None,
+        ):
+            raise GithubError(
+                "GitHub API error (400) (https://api.github.com/repos/winoe-ai-repos/winoe-ws-92/codespaces)",
+                status_code=400,
+            )
+
+    with caplog.at_level(logging.ERROR), pytest.raises(
+        GithubError, match="GitHub API error"
+    ):
+        await bootstrap_service.bootstrap_empty_candidate_repo(
+            github_client=StubGithubClient(),
+            candidate_session=candidate_session,
+            trial=trial,
+            scenario_version=scenario_version,
+            task=None,
+            repo_prefix="winoe-ws-",
+            destination_owner="winoe-ai-repos",
+        )
+    assert any(
+        record.message == "github_codespace_provision_failed"
+        and record.__dict__.get("status_code") == 400
+        and record.__dict__.get("failure_class") == "hard_failure"
+        and record.__dict__.get("retryable") is False
+        for record in caplog.records
+    )
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_empty_candidate_repo_does_not_degrade_on_generic_500(
+    caplog,
+):
+    candidate_session = SimpleNamespace(id=93)
+    trial = SimpleNamespace(title="Unexpected error trial", role="Backend Engineer")
+    scenario_version = SimpleNamespace(
+        storyline_md="# Unexpected error",
+        project_brief_md=(
+            "# Project Brief\n\n## Business Context\n\nUnexpected failure.\n"
+        ),
+    )
+
+    class StubGithubClient:
+        async def create_empty_repo(
+            self, *, owner, repo_name, private=True, default_branch="main"
+        ):
+            return {
+                "owner": {"login": owner},
+                "name": repo_name,
+                "full_name": f"{owner}/{repo_name}",
+                "id": 447,
+                "default_branch": default_branch,
+            }
+
+        async def get_file_contents(self, *_args, **_kwargs):
+            raise GithubError("missing", status_code=404)
+
+        async def get_branch(self, *_args, **_kwargs):
+            raise GithubError("missing", status_code=404)
+
+        async def create_tree(self, _repo_full_name, *, tree, base_tree=None):
+            return {"sha": "tree-sha"}
+
+        async def create_commit(self, _repo_full_name, *, message, tree, parents):
+            return {"sha": "commit-sha"}
+
+        async def create_ref(self, _repo_full_name, *, ref, sha):
+            return {"ref": ref, "sha": sha}
+
+        async def create_codespace(
+            self,
+            repo_full_name,
+            *,
+            ref=None,
+            devcontainer_path=None,
+            machine=None,
+            location=None,
+        ):
+            raise GithubError("server exploded", status_code=500)
+
+    with caplog.at_level(logging.ERROR), pytest.raises(
+        GithubError, match="server exploded"
+    ):
+        await bootstrap_service.bootstrap_empty_candidate_repo(
+            github_client=StubGithubClient(),
+            candidate_session=candidate_session,
+            trial=trial,
+            scenario_version=scenario_version,
+            task=None,
+            repo_prefix="winoe-ws-",
+            destination_owner="winoe-ai-repos",
+        )
+    assert any(
+        record.message == "github_codespace_provision_failed"
+        and record.__dict__.get("status_code") == 500
+        and record.__dict__.get("failure_class") == "hard_failure"
+        and record.__dict__.get("retryable") is False
+        for record in caplog.records
+    )
 
 
 @pytest.mark.asyncio

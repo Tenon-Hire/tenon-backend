@@ -5,7 +5,11 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from app.ai import require_agent_policy_snapshot, require_ai_policy_snapshot
+from app.ai import (
+    require_agent_policy_snapshot,
+    require_ai_policy_snapshot,
+    validate_ai_policy_snapshot_contract,
+)
 from app.trials.constants.trials_constants_trials_blueprints_constants import (
     DEFAULT_5_DAY_BLUEPRINT,
 )
@@ -92,6 +96,7 @@ def build_deterministic_template_scenario(
 ) -> GeneratedScenarioPayload:
     """Build deterministic scenario."""
     require_ai_policy_snapshot(ai_policy_snapshot_json)
+    validate_ai_policy_snapshot_contract(ai_policy_snapshot_json)
     storyline_md = build_storyline_markdown(
         role=role,
         tech_stack=tech_stack,
@@ -156,6 +161,7 @@ def generate_scenario_payload(
 ) -> GeneratedScenarioPayload:
     """Generate scenario payload."""
     require_ai_policy_snapshot(ai_policy_snapshot_json)
+    validate_ai_policy_snapshot_contract(ai_policy_snapshot_json)
     source = choose_source()
     if source == SCENARIO_SOURCE_TEMPLATE_FALLBACK:
         return build_fallback(

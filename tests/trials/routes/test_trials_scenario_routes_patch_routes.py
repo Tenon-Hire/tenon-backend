@@ -4,6 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.ai import AIPolicySnapshotError
+from app.shared.utils.shared_utils_errors_utils import ApiError
 from app.trials.routes.trials_routes import scenario
 from app.trials.schemas.trials_schemas_trials_core_schema import (
     ScenarioVersionPatchRequest,
@@ -40,6 +42,26 @@ async def test_approve_scenario_route_promotes_pending(monkeypatch):
     assert response.activeScenarioVersionId == 22
     assert response.pendingScenarioVersionId is None
     assert response.scenario.id == 22
+
+
+@pytest.mark.asyncio
+async def test_approve_scenario_route_maps_snapshot_validation_error(monkeypatch):
+    monkeypatch.setattr(scenario, "ensure_talent_partner_or_none", lambda _u: None)
+
+    async def fake_approve(*_args, **_kwargs):
+        raise AIPolicySnapshotError("boom")
+
+    monkeypatch.setattr(scenario.sim_service, "approve_scenario_version", fake_approve)
+
+    with pytest.raises(ApiError) as excinfo:
+        await scenario.approve_scenario_version(
+            trial_id=8,
+            scenario_version_id=22,
+            db=object(),
+            user=SimpleNamespace(id=9, role="talent_partner"),
+        )
+    assert excinfo.value.status_code == 409
+    assert excinfo.value.error_code == "scenario_version_ai_policy_snapshot_invalid"
 
 
 @pytest.mark.asyncio

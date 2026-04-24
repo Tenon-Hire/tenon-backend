@@ -6,11 +6,6 @@
       "schemaFile": "scenario_generation_output.schema.json",
       "outputModel": "ScenarioGenerationOutput"
     },
-    "codespace": {
-      "policyFile": "winoe-codespace-specializer-brain.md",
-      "schemaFile": "codespace_patch_proposal.schema.json",
-      "outputModel": "CodespacePatchProposal"
-    },
     "designDocReviewer": {
       "policyFile": "winoe-day-1-rubric.md",
       "schemaFile": "day_reviewer_output.schema.json",

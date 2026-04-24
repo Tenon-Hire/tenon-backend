@@ -61,6 +61,8 @@ def compose_report(run: EvaluationRun) -> dict[str, Any]:
     if confidence is None:
         confidence = _normalize_unit_interval(persisted_report.get("confidence")) or 0.0
 
+    metadata_json = run.metadata_json if isinstance(run.metadata_json, Mapping) else {}
+
     report: dict[str, Any] = {
         "overallWinoeScore": overall_winoe_score,
         "recommendation": _normalize_recommendation(
@@ -72,12 +74,23 @@ def compose_report(run: EvaluationRun) -> dict[str, Any]:
         "version": {
             "model": run.model_name,
             "modelVersion": run.model_version,
+            "provider": (
+                str(metadata_json.get("aiPolicyProvider"))
+                if isinstance(metadata_json, Mapping)
+                and isinstance(metadata_json.get("aiPolicyProvider"), str)
+                else None
+            ),
             "promptVersion": run.prompt_version,
             "rubricVersion": run.rubric_version,
+            "aiPolicySnapshotDigest": (
+                str(metadata_json.get("aiPolicySnapshotDigest"))
+                if isinstance(metadata_json, Mapping)
+                and isinstance(metadata_json.get("aiPolicySnapshotDigest"), str)
+                else None
+            ),
         },
     }
 
-    metadata_json = run.metadata_json if isinstance(run.metadata_json, Mapping) else {}
     disabled_indexes = {
         int(value)
         for value in (metadata_json.get("disabledDayIndexes") or [])

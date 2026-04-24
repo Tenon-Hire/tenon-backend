@@ -40,7 +40,7 @@ apply_local_defaults() {
     # when the caller did not already choose the runtime/provider explicitly.
     export WINOE_SCENARIO_GENERATION_RUNTIME_MODE="${WINOE_SCENARIO_GENERATION_RUNTIME_MODE:-real}"
     export WINOE_SCENARIO_GENERATION_PROVIDER="${WINOE_SCENARIO_GENERATION_PROVIDER:-anthropic}"
-    export WINOE_SCENARIO_GENERATION_MODEL="${WINOE_SCENARIO_GENERATION_MODEL:-claude-opus-4-6}"
+    export WINOE_SCENARIO_GENERATION_MODEL="${WINOE_SCENARIO_GENERATION_MODEL:-claude-opus-4-7}"
   fi
 }
 

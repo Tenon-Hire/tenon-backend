@@ -11,6 +11,7 @@ from .ai_policy_snapshot_service import (
     build_ai_policy_snapshot,
     build_required_snapshot_prompt,
     build_snapshot_prompt,
+    compute_ai_policy_snapshot_basis_fingerprint,
     compute_ai_policy_snapshot_digest,
     get_agent_policy_snapshot,
     get_candidate_settings_from_snapshot,
@@ -18,6 +19,8 @@ from .ai_policy_snapshot_service import (
     require_agent_runtime,
     require_ai_policy_snapshot,
     require_candidate_settings_from_snapshot,
+    validate_ai_policy_snapshot_contract,
+    validate_current_ai_policy_snapshot_contract,
 )
 from .ai_prompt_models import (
     AI_AGENT_KEYS,
@@ -71,6 +74,7 @@ __all__ = [
     "build_prompt_pack_entry",
     "build_required_snapshot_prompt",
     "build_snapshot_prompt",
+    "compute_ai_policy_snapshot_basis_fingerprint",
     "compute_ai_policy_snapshot_digest",
     "get_agent_policy_snapshot",
     "get_candidate_settings_from_snapshot",
@@ -80,6 +84,8 @@ __all__ = [
     "require_agent_runtime",
     "require_ai_policy_snapshot",
     "require_candidate_settings_from_snapshot",
+    "validate_ai_policy_snapshot_contract",
+    "validate_current_ai_policy_snapshot_contract",
     "require_real_mode",
     "resolve_codespace_specializer_config",
     "resolve_winoe_report_aggregator_config",

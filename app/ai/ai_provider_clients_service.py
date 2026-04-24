@@ -259,7 +259,6 @@ def call_anthropic_json(
         response = client.messages.create(
             model=model,
             max_tokens=max_tokens,
-            temperature=0,
             system=system_prompt.strip(),
             tools=[
                 {
@@ -276,7 +275,6 @@ def call_anthropic_json(
             response = client.messages.create(
                 model=model,
                 max_tokens=max_tokens,
-                temperature=0,
                 system=system_text,
                 messages=[{"role": "user", "content": user_prompt}],
             )

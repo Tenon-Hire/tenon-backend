@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai import validate_ai_policy_snapshot_contract
 from app.shared.database.shared_database_models_model import (
     ScenarioVersion,
     Task,
@@ -63,6 +64,10 @@ async def _prepare_active_scenario_bundle_on_activation(
     active_scenario_version = await get_active_scenario_version(db, trial.id)
     if active_scenario_version is None:
         return None
+    validate_ai_policy_snapshot_contract(
+        getattr(active_scenario_version, "ai_policy_snapshot_json", None),
+        scenario_version_id=active_scenario_version.id,
+    )
     await db.commit()
     return active_scenario_version
 
@@ -92,6 +97,10 @@ async def _require_locked_active_scenario(
                 "status": active_scenario_version.status,
             },
         )
+    validate_ai_policy_snapshot_contract(
+        getattr(active_scenario_version, "ai_policy_snapshot_json", None),
+        scenario_version_id=active_scenario_version.id,
+    )
     return active_scenario_version
 
 

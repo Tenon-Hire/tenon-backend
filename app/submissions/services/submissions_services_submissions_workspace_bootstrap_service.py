@@ -536,6 +536,23 @@ async def _delete_repo_safely(github_client: GithubClient, repo_full_name: str) 
             )
 
 
+def _codespace_degradation_reason(exc: GithubError) -> str | None:
+    """Return the explicit repo-only fallback reason for codespace creation.
+
+    Only a GitHub service-unavailable response is allowed to degrade to a
+    repo-only invite flow. Anything else remains a hard failure so auth,
+    request-shape, and repository-state bugs stay visible.
+    """
+    if exc.status_code == 503:
+        return "github_codespace_service_unavailable"
+    return None
+
+
+def _should_retry_codespace_error(exc: GithubError) -> bool:
+    """Return whether a codespace error is transient enough to retry."""
+    return exc.status_code == 404
+
+
 async def _create_candidate_repo(
     *, github_client: GithubClient, owner: str, repo_name: str, default_branch: str
 ) -> dict[str, Any]:
@@ -793,6 +810,7 @@ async def bootstrap_empty_candidate_repo(
 
         codespace = None
         last_codespace_error: GithubError | None = None
+        fallback_reason: str | None = None
         for attempt in range(7):
             codespace_attempt_started_at = time.perf_counter()
             try:
@@ -815,6 +833,7 @@ async def bootstrap_empty_candidate_repo(
                 break
             except GithubError as exc:
                 last_codespace_error = exc
+                fallback_reason = _codespace_degradation_reason(exc)
                 _log_bootstrap_event(
                     "github_codespace_provision_attempt",
                     trial_id=trial_id,
@@ -826,26 +845,58 @@ async def bootstrap_empty_candidate_repo(
                     succeeded=False,
                     error_message=str(exc),
                 )
-                if exc.status_code not in {404, 422}:
-                    raise
-                if attempt < 6:
-                    # GitHub codespace creation can lag briefly after the repo
-                    # commit lands. Keep the retry window short so the invite
-                    # request stays under the upstream timeout budget.
+                if fallback_reason is not None:
+                    logger.warning(
+                        "github_codespace_provision_degraded",
+                        extra={
+                            "trial_id": trial_id,
+                            "candidate_session_id": candidate_session_id,
+                            "repo_full_name": repo_full_name,
+                            "status_code": exc.status_code,
+                            "fallback_reason": fallback_reason,
+                            "fallback_mode": "repo_only",
+                            "safe_fallback": True,
+                            "error_message": str(exc),
+                            "elapsed_ms": _elapsed_ms(overall_started_at),
+                        },
+                    )
+                    break
+                if _should_retry_codespace_error(exc) and attempt < 6:
+                    # GitHub can briefly lag while a new repo settles, so we
+                    # retry the not-found case without degrading the flow.
+                    logger.warning(
+                        "github_codespace_provision_retrying",
+                        extra={
+                            "trial_id": trial_id,
+                            "candidate_session_id": candidate_session_id,
+                            "repo_full_name": repo_full_name,
+                            "status_code": exc.status_code,
+                            "retry_reason": "repo_not_ready_yet",
+                            "retryable": True,
+                            "attempt": attempt + 1,
+                            "elapsed_ms": _elapsed_ms(overall_started_at),
+                        },
+                    )
                     await asyncio.sleep(_CODESPACE_RETRY_DELAY_SECONDS)
-        if codespace is None:
-            assert last_codespace_error is not None
-            if last_codespace_error.status_code in {404, 422}:
-                logger.warning(
-                    "github_codespace_provision_degraded",
+                    continue
+                logger.error(
+                    "github_codespace_provision_failed",
                     extra={
                         "trial_id": trial_id,
                         "candidate_session_id": candidate_session_id,
                         "repo_full_name": repo_full_name,
-                        "status_code": last_codespace_error.status_code,
-                        "elapsed_ms": _elapsed_ms(overall_started_at),
+                        "status_code": exc.status_code,
+                        "failure_class": "hard_failure",
+                        "retryable": False,
+                        "error_message": str(exc),
+                        "attempt": attempt + 1,
                     },
                 )
+                raise
+        if codespace is None:
+            assert last_codespace_error is not None
+            fallback_reason = _codespace_degradation_reason(last_codespace_error)
+            if fallback_reason is not None:
                 codespace_name = None
                 codespace_state = None
                 codespace_url = build_codespace_url(repo_full_name)

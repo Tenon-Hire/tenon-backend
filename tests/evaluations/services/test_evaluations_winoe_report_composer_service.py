@@ -50,7 +50,11 @@ async def test_build_ready_payload_uses_persisted_run_shape(async_session):
         overall_winoe_score=0.78,
         recommendation="hire",
         confidence=0.82,
-        metadata_json={"disabledDayIndexes": [4]},
+        metadata_json={
+            "disabledDayIndexes": [4],
+            "aiPolicyProvider": "anthropic",
+            "aiPolicySnapshotDigest": "digest-1",
+        },
         raw_report_json={"overallWinoeScore": 0.78},
         day_scores=[
             {
@@ -91,6 +95,7 @@ async def test_build_ready_payload_uses_persisted_run_shape(async_session):
     assert report["recommendation"] == "positive_signal"
     assert report["confidence"] == 0.82
     assert report["version"]["model"] == "fit-evaluator"
+    assert report["version"]["provider"] == "anthropic"
     assert report["version"]["promptVersion"] == "winoe-report-v1"
     assert report["version"]["rubricVersion"] == "rubric-v3"
     assert report["disabledDayIndexes"] == [4]

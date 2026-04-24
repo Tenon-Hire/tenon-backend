@@ -56,9 +56,12 @@ from app.tasks.routes.tasks import (
 )
 from app.trials.routes.trials_routes import create as sim_create_route
 from app.trials.routes.trials_routes import detail as sim_detail_route
+from app.trials.routes.trials_routes import detail_render as sim_detail_render_route
+from app.trials.routes.trials_routes import lifecycle as sim_lifecycle_route
 from app.trials.routes.trials_routes import (
     list_trials as sim_list_route,
 )
+from app.trials.routes.trials_routes import scenario as sim_scenario_route
 from app.trials.services import (
     trials_services_trials_invite_factory_service as invite_factory,
 )

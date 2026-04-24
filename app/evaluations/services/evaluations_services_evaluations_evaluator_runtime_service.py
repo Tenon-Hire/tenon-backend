@@ -10,6 +10,7 @@ from app.ai import (
     require_agent_policy_snapshot,
     require_agent_runtime,
     require_ai_policy_snapshot,
+    validate_ai_policy_snapshot_contract,
 )
 from app.evaluations.services.evaluations_services_evaluations_evaluator_evidence_service import (
     _build_day_evidence,
@@ -39,6 +40,10 @@ class DeterministicWinoeReportEvaluator:
         """Execute evaluate."""
         snapshot = require_ai_policy_snapshot(
             bundle.ai_policy_snapshot_json,
+            scenario_version_id=bundle.scenario_version_id,
+        )
+        validate_ai_policy_snapshot_contract(
+            snapshot,
             scenario_version_id=bundle.scenario_version_id,
         )
         disabled = set(bundle.disabled_day_indexes)
@@ -91,6 +96,10 @@ class LiveWinoeReportEvaluator:
         """Execute evaluate."""
         snapshot = require_ai_policy_snapshot(
             bundle.ai_policy_snapshot_json,
+            scenario_version_id=bundle.scenario_version_id,
+        )
+        validate_ai_policy_snapshot_contract(
+            snapshot,
             scenario_version_id=bundle.scenario_version_id,
         )
         disabled = set(bundle.disabled_day_indexes)
@@ -238,9 +247,13 @@ class LiveWinoeReportEvaluator:
                 "version": {
                     "model": bundle.model_name,
                     "modelVersion": bundle.model_version,
+                    "provider": aggregator_provider,
                     "promptVersion": bundle.prompt_version,
                     "rubricVersion": bundle.rubric_version,
-                    "aiPolicySnapshotDigest": bundle.ai_policy_snapshot_digest,
+                    "aiPolicySnapshotDigest": (
+                        bundle.ai_policy_snapshot_digest
+                        or snapshot.get("snapshotDigest")
+                    ),
                     "promptPackVersion": snapshot.get("promptPackVersion"),
                 },
             }
@@ -450,9 +463,14 @@ def _deterministic_aggregate_report(
         "version": {
             "model": bundle.model_name,
             "modelVersion": bundle.model_version,
+            "provider": str(
+                snapshot_json["agents"]["winoeReport"]["runtime"]["provider"]
+            ),
             "promptVersion": bundle.prompt_version,
             "rubricVersion": bundle.rubric_version,
-            "aiPolicySnapshotDigest": bundle.ai_policy_snapshot_digest,
+            "aiPolicySnapshotDigest": (
+                bundle.ai_policy_snapshot_digest or snapshot_json.get("snapshotDigest")
+            ),
             "promptPackVersion": snapshot_json.get("promptPackVersion"),
         },
     }

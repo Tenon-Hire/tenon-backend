@@ -9,6 +9,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai import validate_ai_policy_snapshot_contract
 from app.shared.database.shared_database_models_model import ScenarioVersion, Trial
 from app.shared.utils.shared_utils_errors_utils import ApiError
 from app.trials.repositories.scenario_versions.trials_repositories_scenario_versions_trials_scenario_versions_model import (
@@ -43,6 +44,10 @@ async def lock_active_scenario_for_invites(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Trial not found"
             )
     active = await get_active_scenario_for_update(db, locked_trial)
+    validate_ai_policy_snapshot_contract(
+        getattr(active, "ai_policy_snapshot_json", None),
+        scenario_version_id=active.id,
+    )
     if active.status == SCENARIO_VERSION_STATUS_LOCKED:
         return active
     if active.status != SCENARIO_VERSION_STATUS_READY:

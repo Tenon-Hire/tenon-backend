@@ -148,7 +148,7 @@ def test_call_openai_json_schema_passes_bounded_reasoning_controls(monkeypatch) 
 
     result = call_openai_json_schema(
         api_key="test-key",
-        model="gpt-5.4-mini",
+        model="gpt-5.2-codex",
         system_prompt="system",
         user_prompt="user",
         response_model=_TinyResponse,
@@ -260,7 +260,7 @@ def test_call_anthropic_json_validates_complete_tool_payload(monkeypatch) -> Non
 
     result = call_anthropic_json(
         api_key="test-key",
-        model="claude-opus-4-6",
+        model="claude-opus-4-7",
         system_prompt="system",
         user_prompt="user",
         response_model=ScenarioGenerationOutput,
@@ -308,7 +308,7 @@ def test_call_anthropic_json_rejects_partial_tool_payload(monkeypatch) -> None:
     with pytest.raises(AIProviderExecutionError, match="anthropic_invalid_json_output"):
         call_anthropic_json(
             api_key="test-key",
-            model="claude-opus-4-6",
+            model="claude-opus-4-7",
             system_prompt="system",
             user_prompt="user",
             response_model=ScenarioGenerationOutput,
