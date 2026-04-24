@@ -7,9 +7,11 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai import AIPolicySnapshotError
 from app.shared.auth.shared_auth_current_user_utils import get_current_user
 from app.shared.auth.shared_auth_roles_utils import ensure_talent_partner_or_none
 from app.shared.database import get_session
+from app.shared.utils.shared_utils_errors_utils import ApiError
 from app.trials import services as sim_service
 from app.trials.routes.trials_routes.trials_routes_trials_routes_trials_routes_rate_limits_routes import (
     enforce_scenario_regenerate_limit,
@@ -93,12 +95,23 @@ async def approve_scenario_version(
 ):
     """Approve scenario version."""
     ensure_talent_partner_or_none(user)
-    trial, scenario_version = await sim_service.approve_scenario_version(
-        db,
-        trial_id=trial_id,
-        scenario_version_id=scenario_version_id,
-        actor_user_id=user.id,
-    )
+    try:
+        trial, scenario_version = await sim_service.approve_scenario_version(
+            db,
+            trial_id=trial_id,
+            scenario_version_id=scenario_version_id,
+            actor_user_id=user.id,
+        )
+    except AIPolicySnapshotError as exc:
+        raise ApiError(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Frozen AI policy snapshot is invalid.",
+            error_code=getattr(
+                exc, "error_code", "scenario_version_ai_policy_snapshot_invalid"
+            ),
+            retryable=False,
+            details=getattr(exc, "details", {}),
+        ) from exc
     return build_approve_response(trial, scenario_version)
 
 

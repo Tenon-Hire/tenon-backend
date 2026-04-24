@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from app.ai import compute_ai_policy_snapshot_digest
+from app.ai import (
+    compute_ai_policy_snapshot_digest,
+    validate_ai_policy_snapshot_contract,
+)
 from app.shared.jobs.repositories.shared_jobs_repositories_models_repository import (
     JOB_STATUS_DEAD_LETTER,
     JOB_STATUS_QUEUED,
@@ -33,6 +36,7 @@ def _scenario_agent_runtime_summary(
 ) -> list[dict[str, str]] | None:
     if not isinstance(snapshot_json, Mapping):
         return None
+    validate_ai_policy_snapshot_contract(snapshot_json)
     raw_agents = snapshot_json.get("agents")
     if not isinstance(raw_agents, Mapping):
         return None
@@ -91,6 +95,10 @@ def _scenario_snapshot_summary(
     snapshot_json = getattr(scenario_version, "ai_policy_snapshot_json", None)
     if not isinstance(snapshot_json, Mapping):
         return None
+    validate_ai_policy_snapshot_contract(
+        snapshot_json,
+        scenario_version_id=getattr(scenario_version, "id", None),
+    )
     return {
         "scenarioVersionId": scenario_version.id,
         "snapshotDigest": compute_ai_policy_snapshot_digest(snapshot_json),
@@ -207,6 +215,34 @@ def render_trial_detail(
     active_snapshot_json = getattr(
         active_scenario_version, "ai_policy_snapshot_json", None
     )
+    current_ai_policy_snapshot_json = (
+        current_ai_policy_snapshot_json or review_snapshot_json or active_snapshot_json
+    )
+    if isinstance(active_snapshot_json, Mapping):
+        validate_ai_policy_snapshot_contract(
+            active_snapshot_json,
+            scenario_version_id=getattr(active_scenario_version, "id", None),
+        )
+    if (
+        isinstance(review_snapshot_json, Mapping)
+        and review_snapshot_json is not active_snapshot_json
+    ):
+        validate_ai_policy_snapshot_contract(
+            review_snapshot_json,
+            scenario_version_id=getattr(review_scenario_version, "id", None),
+        )
+    if isinstance(current_ai_policy_snapshot_json, Mapping):
+        validate_ai_policy_snapshot_contract(
+            current_ai_policy_snapshot_json,
+            scenario_version_id=getattr(
+                _latest_relevant_scenario_version(
+                    active_scenario_version=active_scenario_version,
+                    pending_scenario_version=pending_scenario_version,
+                ),
+                "id",
+                None,
+            ),
+        )
     active_snapshot_digest = compute_ai_policy_snapshot_digest(active_snapshot_json)
     current_snapshot_digest = compute_ai_policy_snapshot_digest(
         current_ai_policy_snapshot_json

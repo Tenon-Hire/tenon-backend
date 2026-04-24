@@ -8,14 +8,12 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai import build_ai_policy_snapshot
+from app.ai import AIPolicySnapshotError
 from app.shared.auth.shared_auth_current_user_utils import get_current_user
 from app.shared.auth.shared_auth_roles_utils import ensure_talent_partner_or_none
 from app.shared.database import get_session
 from app.shared.database.shared_database_models_model import Job, ScenarioVersion
-from app.talent_partners.repositories.companies.talent_partners_repositories_companies_talent_partners_companies_core_model import (
-    Company,
-)
+from app.shared.utils.shared_utils_errors_utils import ApiError
 from app.trials import services as sim_service
 from app.trials.routes.trials_routes.trials_routes_trials_routes_trials_routes_detail_render_routes import (
     render_trial_detail,
@@ -74,26 +72,33 @@ async def get_trial_detail(
     pending_scenario_version = await _load_scenario_version(
         db, getattr(sim, "pending_scenario_version_id", None)
     )
-    company = await db.scalar(select(Company).where(Company.id == sim.company_id))
-    current_ai_policy_snapshot_json = build_ai_policy_snapshot(
-        trial=sim,
-        company_prompt_overrides_json=getattr(
-            company, "ai_prompt_overrides_json", None
-        ),
-        trial_prompt_overrides_json=getattr(sim, "ai_prompt_overrides_json", None),
+    current_snapshot_source = pending_scenario_version or active_scenario_version
+    current_ai_policy_snapshot_json = getattr(
+        current_snapshot_source, "ai_policy_snapshot_json", None
     )
     scenario_generation_job = await _load_latest_scenario_generation_job(
         db,
         trial_id=trial_id,
         company_id=sim.company_id,
     )
-    return render_trial_detail(
-        sim,
-        tasks,
-        active_scenario_version,
-        pending_scenario_version=pending_scenario_version,
-        current_ai_policy_snapshot_json=current_ai_policy_snapshot_json,
-        active_bundle_status=None,
-        pending_bundle_status=None,
-        scenario_generation_job=scenario_generation_job,
-    )
+    try:
+        return render_trial_detail(
+            sim,
+            tasks,
+            active_scenario_version,
+            pending_scenario_version=pending_scenario_version,
+            current_ai_policy_snapshot_json=current_ai_policy_snapshot_json,
+            active_bundle_status=None,
+            pending_bundle_status=None,
+            scenario_generation_job=scenario_generation_job,
+        )
+    except AIPolicySnapshotError as exc:
+        raise ApiError(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Frozen AI policy snapshot is invalid.",
+            error_code=getattr(
+                exc, "error_code", "scenario_version_ai_policy_snapshot_invalid"
+            ),
+            retryable=False,
+            details=getattr(exc, "details", {}),
+        ) from exc

@@ -42,7 +42,7 @@ def test_openai_winoe_report_review_day_keeps_non_retryable_error_via_subprocess
                 request=WinoeReportDayReviewRequest(
                     system_prompt="system",
                     user_prompt="user",
-                    model="gpt-5.4-mini",
+                    model="gpt-5.2-codex",
                 )
             )
         except WinoeReportReviewProviderError as exc:
@@ -106,16 +106,16 @@ def test_openai_winoe_report_review_day_escalates_anthropic_model_after_invalid_
 
         provider = provider_module.OpenAIWinoeReportReviewProvider()
         result = provider.review_day(
-            request=WinoeReportDayReviewRequest(
-                system_prompt="system",
-                user_prompt="user",
-                model="gpt-5.4-mini",
-            )
+                request=WinoeReportDayReviewRequest(
+                    system_prompt="system",
+                    user_prompt="user",
+                    model="gpt-5.2-codex",
+                )
         )
 
         assert result.dayIndex == 2
         assert calls == [
-            ("openai", "gpt-5.4-mini"),
+            ("openai", "gpt-5.2-codex"),
             ("anthropic", "claude-haiku-4-5"),
             ("anthropic", "claude-sonnet-4-6"),
         ]

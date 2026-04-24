@@ -71,12 +71,12 @@ def test_anthropic_scenario_generation_provider_uses_larger_output_budget(
         request=ScenarioGenerationProviderRequest(
             system_prompt="system",
             user_prompt="user",
-            model="claude-opus-4-6",
+            model="claude-opus-4-7",
         )
     )
 
     assert len(calls) == 1
     assert calls[0]["max_tokens"] == 6_144
-    assert response.model_name == "claude-opus-4-6"
-    assert response.model_version == "claude-opus-4-6"
+    assert response.model_name == "claude-opus-4-7"
+    assert response.model_version == "claude-opus-4-7"
     assert response.result.storyline_md == "Short scenario"

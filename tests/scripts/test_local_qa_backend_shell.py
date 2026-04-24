@@ -22,6 +22,7 @@ set -euo pipefail
   echo "winoe_env:${WINOE_ENV:-missing}"
   echo "dev_auth_bypass:${DEV_AUTH_BYPASS:-missing}"
   echo "winoe_dev_auth_bypass:${WINOE_DEV_AUTH_BYPASS:-missing}"
+  echo "scenario_generation_runtime_mode:${WINOE_SCENARIO_GENERATION_RUNTIME_MODE:-missing}"
 } >> "$TEST_COMMAND_LOG"
 """,
         encoding="utf-8",
@@ -48,7 +49,8 @@ set -euo pipefail
     assert result.returncode == 0, result.stderr
     log_output = log_file.read_text(encoding="utf-8")
     assert "argv:./runBackend.sh api" in log_output
-    assert "env_file:/dev/null" in log_output
+    assert f"env_file:{env['ENV_FILE']}" in log_output
     assert "winoe_env:local" in log_output
     assert "dev_auth_bypass:1" in log_output
     assert "winoe_dev_auth_bypass:1" in log_output
+    assert "scenario_generation_runtime_mode:real" in log_output

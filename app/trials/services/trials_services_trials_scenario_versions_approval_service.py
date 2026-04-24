@@ -9,6 +9,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai import validate_ai_policy_snapshot_contract
 from app.shared.database.shared_database_models_model import (
     ScenarioVersion,
     Task,
@@ -61,6 +62,10 @@ async def approve_scenario_version(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Scenario version not found"
         )
+    validate_ai_policy_snapshot_contract(
+        getattr(target, "ai_policy_snapshot_json", None),
+        scenario_version_id=target.id,
+    )
     pending_id = trial.pending_scenario_version_id
     if pending_id is None:
         return await _approve_without_pending(db, trial, target, approved_at)

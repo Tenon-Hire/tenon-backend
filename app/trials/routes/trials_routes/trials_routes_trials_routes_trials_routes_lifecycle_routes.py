@@ -7,6 +7,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai import AIPolicySnapshotError
 from app.shared.auth.shared_auth_current_user_utils import get_current_user
 from app.shared.auth.shared_auth_roles_utils import ensure_talent_partner_or_none
 from app.shared.database import get_session
@@ -59,9 +60,20 @@ async def activate_trial(
     """Activate trial."""
     ensure_talent_partner_or_none(user)
     _require_confirmation(payload)
-    trial = await sim_service.activate_trial(
-        db, trial_id=trial_id, actor_user_id=user.id
-    )
+    try:
+        trial = await sim_service.activate_trial(
+            db, trial_id=trial_id, actor_user_id=user.id
+        )
+    except AIPolicySnapshotError as exc:
+        raise ApiError(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Frozen AI policy snapshot is invalid.",
+            error_code=getattr(
+                exc, "error_code", "scenario_version_ai_policy_snapshot_invalid"
+            ),
+            retryable=False,
+            details=getattr(exc, "details", {}),
+        ) from exc
     status_value = sim_service.normalize_trial_status_or_raise(trial.status)
     return TrialActivateResponse(
         trialId=trial.id,

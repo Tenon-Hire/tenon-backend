@@ -8,8 +8,10 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import (
+    AIPolicySnapshotError,
     compute_ai_policy_snapshot_digest,
     require_candidate_settings_from_snapshot,
+    validate_ai_policy_snapshot_contract,
 )
 from app.evaluations.repositories import repository as evaluation_repo
 from app.evaluations.services.evaluations_services_evaluations_winoe_report_access_service import (
@@ -94,6 +96,10 @@ async def _build_generation_basis_fingerprint(
     ai_policy_snapshot_json = getattr(
         context.scenario_version, "ai_policy_snapshot_json", None
     )
+    validate_ai_policy_snapshot_contract(
+        ai_policy_snapshot_json,
+        scenario_version_id=context.candidate_session.scenario_version_id,
+    )
     (
         _snapshot_notice_version,
         _snapshot_notice_text,
@@ -163,7 +169,20 @@ async def generate_winoe_report(
         candidate_session_id=candidate_session_id,
         user=user,
     )
-    basis_fingerprint = await _build_generation_basis_fingerprint(db, context=context)
+    try:
+        basis_fingerprint = await _build_generation_basis_fingerprint(
+            db, context=context
+        )
+    except AIPolicySnapshotError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "errorCode": getattr(
+                    exc, "error_code", "scenario_version_ai_policy_snapshot_invalid"
+                ),
+                "message": "Frozen AI policy snapshot is invalid.",
+            },
+        ) from exc
     job = await enqueue_evaluation_run(
         db,
         candidate_session_id=context.candidate_session.id,
