@@ -61,6 +61,10 @@ def _manifest_path() -> Path:
     return _prompt_assets_root() / "manifest.json"
 
 
+def _prompt_asset_path(file_name: str) -> Path:
+    return _prompt_assets_root() / file_name
+
+
 def _hash_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
@@ -95,8 +99,18 @@ def _read_json_file(path: Path) -> dict[str, Any]:
     return data
 
 
+def _read_text_file(path: Path) -> str:
+    if not path.is_file():
+        raise FileNotFoundError(f"Prompt asset file not found: {path}")
+    return path.read_text(encoding="utf-8").strip()
+
+
 def _normalize_json(value: dict[str, Any]) -> str:
     return json.dumps(value, indent=2, sort_keys=True)
+
+
+def _load_persona_governance_md() -> str:
+    return _read_text_file(_prompt_asset_path("SOUL.md"))
 
 
 @lru_cache(maxsize=1)
@@ -130,6 +144,13 @@ def _load_prompt_pack_bundle() -> PromptPackBundle:
         policy_text = policy_path.read_text(encoding="utf-8")
         instructions_md = _extract_markdown_section(policy_text, "Instructions")
         rubric_md = _extract_markdown_section(policy_text, "Rubric")
+        if key == "winoeReport":
+            persona_governance_md = _load_persona_governance_md()
+            instructions_md = (
+                "## Persona Governance\n"
+                f"{persona_governance_md}\n\n"
+                f"{instructions_md}"
+            )
 
         schema_json = _read_json_file(schema_path)
         expected_schema_json = output_model.model_json_schema()

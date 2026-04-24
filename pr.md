@@ -1,92 +1,213 @@
-# Enforce immutable agent model and prompt snapshots per Trial for candidate fairness #297
+## Summary
 
-## 1. Title
+- Added `app/ai/prompt_assets/v1/SOUL.md` as the source of truth for Winoe persona governance.
+- Wired `SOUL.md` into the `winoeReport` prompt-pack entry so Winoe Report generation receives persona governance through the existing snapshot/runtime prompt flow.
+- Added focused tests proving `SOUL.md` exists, includes required governance sections, and is included in the Winoe Report prompt path.
 
-Enforce immutable agent model and prompt snapshots per Trial for candidate fairness
+## Why
 
-## 2. Summary
+Winoe’s persona rules were not codified in the backend. Report generation needed explicit governance for Winoe’s identity, voice, evaluation philosophy, boundaries, discovery language, and retired terminology bans.
 
-This change makes the Trial-level AI policy immutable so every candidate in the same Trial is evaluated against the same frozen snapshot set.
+This change makes Winoe Report generation more consistent, evidence-first, and aligned with Winoe AI’s product language.
 
-The implementation persists the snapshot before invitations, uses the persisted snapshot as the runtime source of truth, and rejects invalid or mismatched snapshot usage at protected route and evaluation time. It also records audit metadata so every evaluation run can be traced back to the exact provider, model, version, prompt version, rubric version, and snapshot fingerprint that was used.
+## Implementation Details
 
-The active snapshot contract covers exactly:
+### SOUL.md
 
-- `prestart`
-- `designDocReviewer`
-- `codeImplementationReviewer`
-- `demoPresentationReviewer`
-- `reflectionEssayReviewer`
-- `winoeReport`
+Added `app/ai/prompt_assets/v1/SOUL.md` with these sections:
 
-The retired Codespace Specializor / `codespace` agent is not part of the active fairness contract.
+- Identity
+- Archetype
+- Voice
+- Evaluation Philosophy
+- Boundaries
+- Required Language
+- Retired Terminology Ban
+- Winoe Report Rules
 
-## 3. Problem
+The file codifies that:
 
-Before this fix, the Trial flow did not guarantee a single immutable AI policy snapshot across all candidates. That created a fairness gap because runtime agent resolution could drift from the Trial’s intended model, prompt, and rubric configuration.
+- Winoe is the Talent Intelligence Agent.
+- Winoe is AI and never claims to be human.
+- Winoe uses Caregiver + Sage voice: warm, careful, honest, evidence-driven.
+- Winoe evaluates work, not a person’s worth.
+- Winoe never makes hiring decisions.
+- The Talent Partner decides.
+- Every material claim should connect to Evidence Trail artifacts.
+- Winoe uses discovery/revelation language, not elimination language.
+- Retired terminology must not appear in generated Winoe Report output.
 
-This issue closes that gap by freezing the Trial snapshot ahead of invitations and making downstream evaluation and route handling fail closed on mismatch.
+### Prompt-pack wiring
 
-## 4. What Changed
+Updated `app/ai/ai_prompt_pack_service.py` to:
 
-- Persisted a Trial/scenario-level frozen AI policy snapshot before the invitation flow starts.
-- Validated the stored snapshot contract before protected route access and again during evaluation generation.
-- Rejected invalid or mismatched snapshots with `409` and preserved auditable failure metadata.
-- Used the persisted frozen snapshot as the source of truth for runtime provider, model, prompt, and rubric resolution.
-- Recorded audit fields for provider, model, model version, prompt version, rubric version, and snapshot digest/fingerprint.
-- Persisted failed evaluation runs for invalid snapshot attempts so the rejection path remains observable in audit history.
-- Excluded retired `codespace` from the active snapshot contract while allowing compatibility code paths to keep legacy configuration data isolated from the fairness contract.
-- Corrected legacy stale IDs in the final runtime configuration.
-- Updated the Anthropic adapter to remove the deprecated `temperature` request field.
-- Kept the normal local runtime path on real mode by default for the active path.
+- Load text prompt assets deterministically.
+- Fail loudly if `SOUL.md` is missing.
+- Inject `SOUL.md` only into the `winoeReport` prompt-pack entry.
+- Preserve scope by not injecting Winoe persona governance into reviewer sub-agent prompts.
 
-## 5. Final Active Runtime Mapping
+Runtime path verified:
 
-- Scenario generation -> `anthropic` / `claude-opus-4-7`
-- Day 1 / design doc reviewer -> `anthropic` / `claude-opus-4-7`
-- Day 2 / code implementation reviewer -> `openai` / `gpt-5.2-codex`
-- Day 3 / code implementation reviewer -> `openai` / `gpt-5.2-codex`
-- Day 4 / demo presentation reviewer -> `anthropic` / `claude-sonnet-4-6`
-- Day 5 / reflection essay reviewer -> `anthropic` / `claude-sonnet-4-6`
-- Winoe aggregator -> `openai` / `gpt-5.2`
-- Transcription -> `openai` / `gpt-4o-transcribe`
+- `build_prompt_pack_entry("winoeReport")` prepends `## Persona Governance` and `SOUL.md` content.
+- `build_ai_policy_snapshot(...)` stores the resolved Winoe Report instructions in the frozen snapshot.
+- `build_required_snapshot_prompt(...)` retrieves the resolved prompt.
+- The evaluator runtime calls `build_required_snapshot_prompt(...)` with `agent_key="winoeReport"` during Winoe Report generation.
 
-## 6. Acceptance Criteria Checklist
+### Tests
 
-- [x] Trial-level snapshot persisted before invitations
-- [x] Each agent uses specified snapshot
-- [x] Audit fields: model, version, prompt version, rubric version, provider
-- [x] Reject evaluation on snapshot mismatch
+Added `tests/ai/test_ai_prompt_pack_soul_service.py` to verify:
 
-## 7. QA / Verification
+- `SOUL.md` exists.
+- `SOUL.md` includes required sections.
+- `build_prompt_pack_entry("winoeReport")` includes persona governance.
+- The frozen snapshot/runtime prompt builder includes `SOUL.md` content.
+- The Winoe Report prompt includes discovery language, non-decision boundaries, and retired terminology restrictions.
+- `SOUL.md` injection remains scoped to `winoeReport`.
 
-### Automated Coverage
+## QA Evidence
 
-- Focused tests and lint passed for the final changes.
-- Full repo gate passed.
-- Pre-commit passed.
+### Commit / repo state
 
-### Manual End-to-End QA
+- Commit SHA: `5691b74bb40a0c633d20166a5dc707fd706160f8`
+- Working tree was clean after QA.
+- Expected files were tracked:
+  - `app/ai/ai_prompt_pack_service.py`
+  - `app/ai/prompt_assets/v1/SOUL.md`
+  - `tests/ai/test_ai_prompt_pack_soul_service.py`
 
-- Verified the issue end to end for the stated scope.
-- Real GitHub-backed invite flow succeeded.
-- Valid active snapshot persisted and exposed the correct active agent set.
-- Protected routes rejected invalid snapshots with `409`.
-- Evaluation generation rejected invalid snapshots.
-- Worker persisted auditable failed evaluation runs for invalid snapshot attempts.
-- Restored valid snapshot path still worked after rejection cases.
+### Automated tests
 
-### Real Provider Verification
+```bash
+poetry run pytest -o addopts='' tests/ai/test_ai_prompt_pack_soul_service.py -q
+```
 
-- Anthropic Day 1 succeeded on `claude-opus-4-7`.
-- OpenAI Day 2 / Day 3 succeeded on `gpt-5.2-codex`.
-- OpenAI aggregator succeeded on `gpt-5.2`.
+Result:
 
-## 8. Risks / Non-Blocking Notes
+```text
+3 passed
+```
 
-- Some targeted pytest slices in this Python 3.14 environment still show a pre-existing `pytest_asyncio` teardown issue.
-- This is not blocking #297 because the repo-level gate passed and the issue acceptance criteria were verified end to end.
+```bash
+poetry run pytest -o addopts='' tests/ai/test_ai_prompt_pack_soul_service.py tests/trials/services/test_trials_ai_policy_snapshot_contract_service.py tests/evaluations/services/test_evaluations_winoe_report_composer_service.py -q
+```
 
-## 9. Ready for Review
+Result:
 
-The Trial snapshot contract is now immutable, auditable, and enforced at runtime for candidate fairness.
+```text
+16 passed
+```
+
+```bash
+./precommit.sh
+```
+
+Result:
+
+```text
+1836 passed
+Required test coverage of 96% reached. Total coverage: 96.10%
+All pre-commit checks passed
+```
+
+### Runtime prompt-path verification
+
+Direct runtime prompt proof confirmed:
+
+```text
+PROMPT_PACK_HAS_PERSONA_GOVERNANCE=True
+PROMPT_PACK_HAS_I_AM_WINOE=True
+PROMPT_PACK_HAS_TALENT_INTELLIGENCE_AGENT=True
+PROMPT_PACK_HAS_TALENT_PARTNER_DECIDES=True
+PROMPT_PACK_HAS_RETIRED_TERMINOLOGY_BAN=True
+PROMPT_PACK_HAS_DISCOVERY_LANGUAGE=True
+PROMPT_PACK_HAS_NON_DECISION_BOUNDARY=True
+SNAPSHOT_HAS_PERSONA_GOVERNANCE=True
+SNAPSHOT_HAS_I_AM_WINOE=True
+SNAPSHOT_HAS_TALENT_INTELLIGENCE_AGENT=True
+SNAPSHOT_HAS_TALENT_PARTNER_DECIDES=True
+SNAPSHOT_HAS_RETIRED_TERMINOLOGY_BAN=True
+SNAPSHOT_HAS_DISCOVERY_LANGUAGE=True
+SNAPSHOT_HAS_NON_DECISION_BOUNDARY=True
+SNAPSHOT_RUNTIME_CONTEXT_PRESENT=True
+AGENT_KEY=winoeReport
+```
+
+### Local backend / worker QA
+
+Commands succeeded:
+
+```bash
+./runBackend.sh migrate
+./runBackend.sh bootstrap-local
+nohup ./runBackend.sh > /tmp/winoe-backend-qa-298.log 2>&1 &
+```
+
+Runtime verified:
+
+- API process was running:
+  - `uvicorn app.main:app --host 127.0.0.1 --port 8000`
+- Worker process was running:
+  - `python -m app.shared.jobs.shared_jobs_worker_service`
+- API was listening on:
+  - `127.0.0.1:8000`
+
+Cleanup completed successfully:
+
+- No backend/worker processes remained.
+- No listener remained on port `8000`.
+
+### Static scans
+
+Retired terminology scan:
+
+```bash
+rg -n -i "Tenon|Tenon AI|SimuHire|recruiter|simulation|Fit Profile|Fit Score|template catalog|precommit|Specializor" app/ai app/evaluations tests/ai tests/evaluations
+```
+
+Result:
+
+- Matches only in `SOUL.md` explicit retired-terminology ban list.
+- Classification: acceptable guardrail text, not active output language.
+
+Elimination-language scan:
+
+```bash
+rg -n -i "reject|rejected|eliminate|eliminated|screen out|pass/fail|not a fit|recommend proceeding|recommend not proceeding" app/ai app/evaluations tests/ai tests/evaluations
+```
+
+Result:
+
+- Matches only in `SOUL.md` guardrail/avoid sections and unrelated internal test names.
+- Classification: acceptable.
+- No unacceptable active report prompt/output language found.
+
+## Scope Control
+
+This PR does not implement unrelated Phase 5 work:
+
+- Does not change #318 rubric dimensions.
+- Does not change #301 GitHub provisioning.
+- Does not change #297 snapshot agent lists.
+- Does not change public API contracts.
+- Does not alter Trial/candidate workflows.
+
+## Risk / Notes
+
+- `SOUL.md` is injected only for `winoeReport`, not reviewer sub-agents. This matches issue scope: report-generation persona governance.
+- Retired terminology appears in `SOUL.md` only as explicit banned-term guardrail text.
+- Backend runtime QA verified API and worker startup, but no paid/external LLM invocation was required for this issue.
+
+## Checklist
+
+- [x] `SOUL.md` added under `app/ai/prompt_assets/v1/`
+- [x] `SOUL.md` defines identity, archetype, voice, philosophy, and boundaries
+- [x] Winoe Report prompts load `SOUL.md`
+- [x] Discovery language enforced
+- [x] Elimination language banned
+- [x] Retired terminology banned in generated output
+- [x] Focused tests pass
+- [x] Nearby contract/report tests pass
+- [x] Full precommit passes
+- [x] Local backend/worker startup verified
+
+Fixes #298
