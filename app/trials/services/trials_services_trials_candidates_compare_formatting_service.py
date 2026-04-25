@@ -5,8 +5,29 @@ from __future__ import annotations
 from typing import Any
 
 from app.evaluations.repositories.evaluations_repositories_evaluations_core_model import (
+    EVALUATION_RECOMMENDATION_HIRE,
+    EVALUATION_RECOMMENDATION_LEAN_HIRE,
+    EVALUATION_RECOMMENDATION_NO_HIRE,
+    EVALUATION_RECOMMENDATION_STRONG_HIRE,
     EVALUATION_RECOMMENDATIONS,
 )
+from app.trials.schemas.trials_schemas_trials_compare_schema import (
+    PublicCompareRecommendation,
+)
+
+_PUBLIC_RECOMMENDATIONS: set[PublicCompareRecommendation] = {
+    "strong_signal",
+    "positive_signal",
+    "mixed_signal",
+    "limited_signal",
+}
+
+_STORED_TO_PUBLIC_RECOMMENDATION = {
+    EVALUATION_RECOMMENDATION_STRONG_HIRE: "strong_signal",
+    EVALUATION_RECOMMENDATION_HIRE: "positive_signal",
+    EVALUATION_RECOMMENDATION_LEAN_HIRE: "mixed_signal",
+    EVALUATION_RECOMMENDATION_NO_HIRE: "limited_signal",
+}
 
 
 def anonymized_candidate_label(position: int) -> str:
@@ -42,14 +63,20 @@ def normalize_score(value: Any) -> float | None:
     return normalized if 0 <= normalized <= 1 else None
 
 
-def normalize_recommendation(value: Any) -> str | None:
+def normalize_recommendation(value: Any) -> PublicCompareRecommendation | None:
     """Normalize recommendation."""
     if not isinstance(value, str):
         return None
     normalized = value.strip().lower()
-    if not normalized or normalized not in EVALUATION_RECOMMENDATIONS:
+    if not normalized:
         return None
-    return normalized
+    if normalized in _PUBLIC_RECOMMENDATIONS:
+        return normalized
+    if normalized in _STORED_TO_PUBLIC_RECOMMENDATION:
+        return _STORED_TO_PUBLIC_RECOMMENDATION[normalized]
+    if normalized not in EVALUATION_RECOMMENDATIONS:
+        return None
+    return None
 
 
 __all__ = [

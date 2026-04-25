@@ -6,6 +6,9 @@ from app.trials.constants.trials_constants_trials_ai_config_constants import (
     AI_NOTICE_DEFAULT_TEXT,
     AI_NOTICE_DEFAULT_VERSION,
 )
+from app.trials.schemas.trials_schemas_trials_compare_schema import (
+    TrialCandidateCompareItem,
+)
 from app.trials.schemas.trials_schemas_trials_core_schema import (
     TrialDayWindowOverride,
     TrialDetailTask,
@@ -115,3 +118,31 @@ def test_build_trial_ai_config_falls_back_on_validation_error(monkeypatch):
         "4": True,
         "5": True,
     }
+
+
+def test_trial_candidates_compare_item_recommendation_uses_public_signals_only():
+    item = TrialCandidateCompareItem(
+        candidateSessionId=1,
+        candidateName="Candidate A",
+        candidateDisplayName="Candidate A",
+        status="evaluated",
+        winoeReportStatus="ready",
+        overallWinoeScore=0.91,
+        recommendation="positive_signal",
+        dayCompletion={"1": True, "2": True, "3": True, "4": True, "5": True},
+        updatedAt="2026-03-16T10:00:00Z",
+    )
+    assert item.recommendation == "positive_signal"
+
+    with pytest.raises(ValidationError):
+        TrialCandidateCompareItem(
+            candidateSessionId=1,
+            candidateName="Candidate A",
+            candidateDisplayName="Candidate A",
+            status="evaluated",
+            winoeReportStatus="ready",
+            overallWinoeScore=0.91,
+            recommendation="hire",
+            dayCompletion={"1": True, "2": True, "3": True, "4": True, "5": True},
+            updatedAt="2026-03-16T10:00:00Z",
+        )

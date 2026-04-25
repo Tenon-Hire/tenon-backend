@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest_asyncio
+import pytest
 from fastapi import HTTPException, Request, status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
@@ -20,8 +20,8 @@ from app.shared.http.dependencies.shared_http_dependencies_github_native_utils i
 from tests.shared.fixtures.shared_fixtures_github_stub_client import StubGithubClient
 
 
-@pytest_asyncio.fixture
-async def async_client(db_session: AsyncSession):
+@pytest.fixture
+def async_client(db_session: AsyncSession):
     async def override_get_session():
         yield db_session
 
@@ -82,10 +82,12 @@ async def async_client(db_session: AsyncSession):
     app.dependency_overrides[get_principal] = override_get_principal
     app.dependency_overrides[get_github_client] = lambda: StubGithubClient()
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    client = AsyncClient(transport=transport, base_url="http://testserver")
+    try:
         yield client
-    await asyncio.sleep(0)
-    app.dependency_overrides.pop(get_session, None)
-    app.dependency_overrides.pop(get_current_user, None)
-    app.dependency_overrides.pop(get_principal, None)
-    app.dependency_overrides.pop(get_github_client, None)
+    finally:
+        asyncio.run(client.aclose())
+        app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_principal, None)
+        app.dependency_overrides.pop(get_github_client, None)

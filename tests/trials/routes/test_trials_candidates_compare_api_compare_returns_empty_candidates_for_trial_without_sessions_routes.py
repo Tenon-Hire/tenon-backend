@@ -21,4 +21,11 @@ async def test_compare_returns_empty_candidates_for_trial_without_sessions(
         headers=auth_header_factory(talent_partner),
     )
     assert response.status_code == 200, response.text
-    assert response.json() == {"trialId": trial.id, "candidates": []}
+    payload = response.json()
+    assert payload == {
+        "trialId": trial.id,
+        "cohortSize": 0,
+        "state": "empty",
+        "message": "No completed Winoe Reports are available for this Trial yet.",
+        "candidates": [],
+    }

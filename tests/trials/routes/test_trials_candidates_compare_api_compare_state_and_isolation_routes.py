@@ -6,25 +6,25 @@ from tests.trials.routes.trials_candidates_compare_api_utils import *
 
 
 @pytest.mark.asyncio
-async def test_talent_partner_trials_compare_returns_public_signal_framing(
+async def test_compare_returns_partial_state_for_single_ready_candidate(
     async_client, async_session, auth_header_factory
 ):
     talent_partner = await create_talent_partner(
         async_session,
-        email="talent-partner-compare@test.com",
+        email="compare-single-ready@test.com",
     )
     trial, _tasks = await create_trial(async_session, created_by=talent_partner)
     candidate = await create_candidate_session(
         async_session,
         trial=trial,
-        candidate_name="Talent Partner Candidate",
-        invite_email="talent-partner-candidate@example.com",
+        candidate_name="Single Ready",
+        invite_email="compare-single-ready@example.com",
         status="completed",
     )
     await _create_ready_compare_run(
         async_session,
         candidate_session=candidate,
-        overall_winoe_score=0.74,
+        overall_winoe_score=0.81,
         recommendation="positive_signal",
     )
     await async_session.commit()
@@ -41,8 +41,15 @@ async def test_talent_partner_trials_compare_returns_public_signal_framing(
     assert payload["message"] == (
         "Limited comparison — only 1 candidate completed this Trial."
     )
-    assert payload["candidates"][0]["recommendation"] == "positive_signal"
-    assert payload["candidates"][0]["recommendation"] not in {
+    assert [row["candidateSessionId"] for row in payload["candidates"]] == [
+        candidate.id
+    ]
+    row = payload["candidates"][0]
+    assert row["candidateName"] == "Single Ready"
+    assert row["winoeReportStatus"] == "ready"
+    assert row["overallWinoeScore"] == 0.81
+    assert row["recommendation"] == "positive_signal"
+    assert row["recommendation"] not in {
         "hire",
         "lean_hire",
         "strong_hire",

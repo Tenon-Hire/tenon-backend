@@ -85,6 +85,18 @@ def _build_candidate_summary(
     }
 
 
+def _build_cohort_state(cohort_size: int) -> tuple[str, str | None]:
+    if cohort_size == 0:
+        return "empty", "No completed Winoe Reports are available for this Trial yet."
+    if cohort_size < 3:
+        noun = "candidate" if cohort_size == 1 else "candidates"
+        return (
+            "partial",
+            f"Limited comparison — only {cohort_size} {noun} completed this Trial.",
+        )
+    return "ready", None
+
+
 async def list_candidates_compare_summary(
     db: AsyncSession,
     *,
@@ -96,7 +108,20 @@ async def list_candidates_compare_summary(
     """Return candidates compare summary."""
     access = await require_access(db, trial_id=trial_id, user=user)
     rows = await fetch_candidate_compare_rows(db, trial_id=trial_id)
-    session_ids = [int(row.candidate_session_id) for row in rows]
+    ready_rows = [
+        row
+        for row in rows
+        if derive_winoe_report_status(
+            has_ready_profile=(
+                getattr(row, "latest_success_candidate_session_id", None) is not None
+                or getattr(row, "winoe_report_generated_at", None) is not None
+            ),
+            latest_run_status=getattr(row, "latest_run_status", None),
+            has_active_job=getattr(row, "active_job_updated_at", None) is not None,
+        )
+        == "ready"
+    ]
+    session_ids = [int(row.candidate_session_id) for row in ready_rows]
     (
         day_completion_by_session,
         latest_submission_by_session,
@@ -116,9 +141,16 @@ async def list_candidates_compare_summary(
                 int(row.candidate_session_id)
             ),
         )
-        for index, row in enumerate(rows)
+        for index, row in enumerate(ready_rows)
     ]
-    return {"trialId": access.trial_id, "candidates": candidates}
+    state, message = _build_cohort_state(len(candidates))
+    return {
+        "trialId": access.trial_id,
+        "cohortSize": len(candidates),
+        "state": state,
+        "message": message,
+        "candidates": candidates,
+    }
 
 
 __all__ = ["list_candidates_compare_summary"]

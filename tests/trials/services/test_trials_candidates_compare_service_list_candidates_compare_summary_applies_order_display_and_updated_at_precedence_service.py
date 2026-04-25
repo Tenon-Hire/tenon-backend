@@ -1,107 +1,97 @@
 from __future__ import annotations
 
-import pytest
+import asyncio
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
+from app.trials.services import (
+    trials_services_trials_candidates_compare_summary_service as compare_summary_service,
+)
 from tests.trials.services.trials_candidates_compare_service_utils import *
 
 
-@pytest.mark.asyncio
-async def test_list_candidates_compare_summary_applies_order_display_and_updated_at_precedence(
+def test_list_candidates_compare_summary_applies_order_display_and_updated_at_precedence(
     monkeypatch,
 ):
-    fit_timestamp = datetime(2026, 3, 16, 10, 15, tzinfo=UTC)
-    session_timestamp = datetime(2026, 3, 16, 9, 45, tzinfo=UTC)
-    created_timestamp = datetime(2026, 3, 16, 8, 30, tzinfo=UTC)
-
+    access = SimpleNamespace(trial_id=42)
+    report_time = datetime(2026, 3, 16, 10, 30, tzinfo=UTC)
+    session_time = datetime(2026, 3, 16, 9, 15, tzinfo=UTC)
     rows = [
         _candidate_row(
-            candidate_session_id=101,
+            candidate_session_id=11,
             candidate_name="   ",
             candidate_session_status="completed",
-            candidate_session_updated_at=fit_timestamp + timedelta(hours=1),
+            candidate_session_updated_at=session_time,
+            winoe_report_generated_at=report_time,
+            latest_success_candidate_session_id=11,
+            latest_success_generated_at=report_time,
             latest_run_status="completed",
-            latest_success_candidate_session_id=101,
-            overall_winoe_score=0.82,
-            recommendation="hire",
-            latest_success_completed_at=fit_timestamp,
+            overall_winoe_score=0.83,
+            recommendation="mixed_signal",
         ),
         _candidate_row(
-            candidate_session_id=102,
-            candidate_name="Ada Lovelace",
-            latest_run_status="running",
-        ),
-        _candidate_row(
-            candidate_session_id=103,
-            candidate_name="",
-            candidate_session_created_at=created_timestamp,
-        ),
-        _candidate_row(
-            candidate_session_id=104,
-            candidate_name="   ",
+            candidate_session_id=7,
+            candidate_name="Zed",
+            candidate_session_status="completed",
+            candidate_session_updated_at=session_time - timedelta(minutes=5),
+            latest_success_candidate_session_id=7,
+            latest_run_status="completed",
+            overall_winoe_score=0.67,
+            recommendation="positive_signal",
         ),
     ]
-    fake_db = _FakeDB([_RowsResult(rows)])
-    user = SimpleNamespace(id=700, company_id=55)
-    before_call = datetime.now(UTC).replace(microsecond=0)
-
-    monkeypatch.setattr(
-        compare_service,
-        "require_trial_compare_access",
-        AsyncMock(return_value=compare_service.TrialCompareAccessContext(trial_id=77)),
-    )
-    monkeypatch.setattr(
-        compare_service,
-        "_load_day_completion",
-        AsyncMock(
-            return_value=(
-                {
-                    101: _day_completion(completed_days={1, 2, 3, 4, 5}),
-                    102: _day_completion(completed_days={1}),
-                    103: _day_completion(),
-                    104: _day_completion(),
+    load_day_completion = AsyncMock(
+        return_value=(
+            {
+                11: {
+                    "1": True,
+                    "2": False,
+                    "3": False,
+                    "4": False,
+                    "5": False,
                 },
-                {
-                    101: None,
-                    102: session_timestamp,
-                    103: None,
-                    104: None,
+                7: {
+                    "1": True,
+                    "2": True,
+                    "3": True,
+                    "4": True,
+                    "5": True,
                 },
-            )
-        ),
+            },
+            {11: None, 7: session_time - timedelta(minutes=5)},
+        )
     )
 
-    payload = await list_candidates_compare_summary(
-        fake_db,
-        trial_id=77,
-        user=user,
+    fetch_rows = AsyncMock(return_value=rows)
+    monkeypatch.setattr(
+        compare_summary_service, "fetch_candidate_compare_rows", fetch_rows
     )
-    after_call = datetime.now(UTC).replace(microsecond=0)
 
-    assert "ORDER BY candidate_sessions.id ASC" in str(fake_db.executed_statements[0])
-    assert payload["trialId"] == 77
-    assert [c["candidateSessionId"] for c in payload["candidates"]] == [
-        101,
-        102,
-        103,
-        104,
-    ]
-    expected = [
-        ("Candidate A", "evaluated", "ready", fit_timestamp),
-        ("Ada Lovelace", "in_progress", "generating", session_timestamp),
-        ("Candidate C", "scheduled", "none", created_timestamp),
-    ]
-    for candidate, (name, status_value, winoe_report_status, updated_at) in zip(
-        payload["candidates"][:3],
-        expected,
-        strict=True,
-    ):
-        assert candidate["candidateName"] == name
-        assert candidate["candidateDisplayName"] == name
-        assert candidate["status"] == status_value
-        assert candidate["winoeReportStatus"] == winoe_report_status
-        assert candidate["updatedAt"] == updated_at
+    payload = asyncio.run(
+        compare_summary_service.list_candidates_compare_summary(
+            SimpleNamespace(),
+            trial_id=42,
+            user=SimpleNamespace(id=100, company_id=5),
+            require_access=AsyncMock(return_value=access),
+            load_day_completion_for_sessions=load_day_completion,
+        )
+    )
 
-    fourth = payload["candidates"][3]
-    assert fourth["candidateName"] == "Candidate D"
-    assert fourth["candidateDisplayName"] == "Candidate D"
-    assert before_call <= fourth["updatedAt"] <= after_call
+    assert payload["trialId"] == 42
+    assert payload["cohortSize"] == 2
+    assert payload["state"] == "partial"
+    assert payload["message"] == (
+        "Limited comparison — only 2 candidates completed this Trial."
+    )
+    assert [row["candidateSessionId"] for row in payload["candidates"]] == [11, 7]
+    assert payload["candidates"][0]["candidateName"] == "Candidate A"
+    assert payload["candidates"][0]["candidateDisplayName"] == "Candidate A"
+    assert payload["candidates"][0]["updatedAt"] == report_time
+    assert payload["candidates"][0]["recommendation"] == "mixed_signal"
+    assert payload["candidates"][1]["candidateName"] == "Zed"
+    assert payload["candidates"][1]["candidateDisplayName"] == "Zed"
+    assert payload["candidates"][1]["updatedAt"] == session_time - timedelta(minutes=5)
+    assert payload["candidates"][1]["recommendation"] == "positive_signal"
+    fetch_rows.assert_awaited_once()
+    assert load_day_completion.await_count == 1
