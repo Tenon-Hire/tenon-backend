@@ -36,6 +36,24 @@ async def test_compare_orders_candidates_and_assigns_deterministic_display_names
         invite_email="order-third@example.com",
         status="not_started",
     )
+    await _create_ready_compare_run(
+        async_session,
+        candidate_session=first,
+        overall_winoe_score=0.51,
+        recommendation="mixed_signal",
+    )
+    await _create_ready_compare_run(
+        async_session,
+        candidate_session=second,
+        overall_winoe_score=0.63,
+        recommendation="mixed_signal",
+    )
+    await _create_ready_compare_run(
+        async_session,
+        candidate_session=third,
+        overall_winoe_score=0.74,
+        recommendation="strong_signal",
+    )
     await async_session.commit()
 
     response = await async_client.get(
@@ -45,6 +63,9 @@ async def test_compare_orders_candidates_and_assigns_deterministic_display_names
     assert response.status_code == 200, response.text
     payload = response.json()
 
+    assert payload["cohortSize"] == 3
+    assert payload["state"] == "ready"
+    assert payload["message"] is None
     assert [row["candidateSessionId"] for row in payload["candidates"]] == [
         first.id,
         second.id,
@@ -60,3 +81,19 @@ async def test_compare_orders_candidates_and_assigns_deterministic_display_names
         "Katherine Johnson",
         "Candidate C",
     ]
+    assert {row["recommendation"] for row in payload["candidates"]} <= {
+        "strong_signal",
+        "positive_signal",
+        "mixed_signal",
+        "limited_signal",
+    }
+    assert not {
+        "hire",
+        "lean_hire",
+        "strong_hire",
+        "no_hire",
+        "reject",
+        "pass",
+        "fail",
+        "Winoe recommends",
+    }.intersection({row["recommendation"] for row in payload["candidates"]})

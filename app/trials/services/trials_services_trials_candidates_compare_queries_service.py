@@ -83,7 +83,7 @@ def candidate_compare_rows_stmt(*, trial_id: int) -> Any:
             latest_run_success.c.candidate_session_id == CandidateSession.id,
         )
         .outerjoin(active_job, active_job.c.candidate_session_id == CandidateSession.id)
-        .where(Trial.id == trial_id)
+        .where(CandidateSession.trial_id == trial_id)
         .order_by(CandidateSession.id.asc())
     )
 

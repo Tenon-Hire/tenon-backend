@@ -56,7 +56,28 @@ async def test_compare_updated_at_uses_fit_then_session_activity_precedence(
         completed_at=base - timedelta(minutes=12),
         generated_at=fit_generated_at,
         overall_winoe_score=0.71,
-        recommendation="lean_hire",
+        recommendation="mixed_signal",
+        commit=False,
+    )
+    session_generated_at = base - timedelta(minutes=8)
+    await evaluation_repo.create_run(
+        async_session,
+        candidate_session_id=session_candidate.id,
+        scenario_version_id=session_candidate.scenario_version_id,
+        status=EVALUATION_RUN_STATUS_COMPLETED,
+        model_name="gpt-5-evaluator",
+        model_version="2026-03-12",
+        prompt_version="prompt.v1",
+        rubric_version="rubric.v1",
+        day2_checkpoint_sha="day2-sha-2",
+        day3_final_sha="day3-sha-2",
+        cutoff_commit_sha="cutoff-sha-2",
+        transcript_reference="transcript-ref-2",
+        started_at=base - timedelta(minutes=11),
+        completed_at=base - timedelta(minutes=9),
+        generated_at=session_generated_at,
+        overall_winoe_score=0.62,
+        recommendation="mixed_signal",
         commit=False,
     )
     await async_session.commit()
@@ -72,5 +93,10 @@ async def test_compare_updated_at_uses_fit_then_session_activity_precedence(
     fit_row = rows_by_id[fit_candidate.id]
     session_row = rows_by_id[session_candidate.id]
 
+    assert payload["cohortSize"] == 2
+    assert payload["state"] == "partial"
+    assert payload["message"] == (
+        "Limited comparison — only 2 candidates completed this Trial."
+    )
     assert _parse_iso_utc(fit_row["updatedAt"]) == fit_generated_at
-    assert _parse_iso_utc(session_row["updatedAt"]) == base - timedelta(minutes=40)
+    assert _parse_iso_utc(session_row["updatedAt"]) == session_generated_at

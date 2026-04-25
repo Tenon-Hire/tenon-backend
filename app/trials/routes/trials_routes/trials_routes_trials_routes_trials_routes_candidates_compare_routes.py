@@ -28,8 +28,9 @@ logger = logging.getLogger(__name__)
     status_code=status.HTTP_200_OK,
     summary="List Trial Candidates Compare",
     description=(
-        "Return side-by-side candidate progress and scoring signals for a"
-        " Talent Partner-owned trial."
+        "Return side-by-side candidate progress and public evidence-backed"
+        " signals for a Talent Partner-owned trial. Winoe does not decide who"
+        " to hire."
     ),
     responses={
         status.HTTP_403_FORBIDDEN: {"description": "Talent Partner access required."},
@@ -57,7 +58,7 @@ async def list_trial_candidates_compare(
         len(payload["candidates"]),
         latency_ms,
     )
-    return TrialCandidatesCompareResponse(**payload)
+    return TrialCandidatesCompareResponse.model_validate(payload)
 
 
 __all__ = ["router", "list_trial_candidates_compare"]

@@ -1,122 +1,126 @@
-## Title
+# Summary
 
-Materialize per-Trial Winoe and company rubric snapshots for all five days
+Benchmarks now compare candidates only within the same Trial, preserving Winoe AI's fairness and evidence-trust guarantees.
 
-## Summary
+The public response now includes `cohortSize`, `state`, `message`, and public-only signal values in `recommendation`.
 
-This PR materializes immutable rubric snapshots per `ScenarioVersion` so every candidate in the same Trial is evaluated against the same Winoe baseline and any optional company-specific rubric content.
+# Changes
 
-Once snapshots exist, the pipeline consumes persisted snapshot content instead of mutable static rubric files. That freezes the evaluation inputs used by the Winoe Report and keeps Trial-level evaluation consistent over time.
+- Trial-scoped compare query/response path now filters Benchmarks to the requested Trial only.
+- Cohort metadata and empty/partial/ready states are returned in the live API contract.
+- Limited-comparison caveat is shown when cohort size is below 3.
+- Stored-to-public signal mapping is enforced:
+  - `strong_hire` -> `strong_signal`
+  - `hire` -> `positive_signal`
+  - `lean_hire` -> `mixed_signal`
+  - `no_hire` -> `limited_signal`
+- Public schema validation rejects internal hiring enums at the API boundary.
+- Singular/plural caveat copy is corrected so the message reads naturally for 1, 2, or 3+ candidates.
+- Route/API tests cover the contract behavior for 0, 1, 2, and 3+ candidate states.
+- Refresh-after-Winoe-Report-generation regression coverage confirms Benchmarks updates after new completed evaluations land.
+- Live-style smoke helper was added to exercise the contract against a running API instance.
 
-## What changed
+# QA / Verification
 
-- Added the `winoe_rubric_snapshots` persistence model and migration.
-- Added the `ScenarioVersion` relationship to rubric snapshots.
-- Added Trial-level `company_rubric_json` attachment support.
-- Added a Winoe rubric registry with explicit versions.
-- Added a snapshot materialization service with idempotency.
-- Materialized snapshots at the successful `ScenarioVersion` lifecycle boundary.
-- Added a lock-time deterministic backstop for legacy or incomplete rows.
-- Updated pipeline loading to use persisted rubric snapshot content.
-- Updated Winoe Report metadata to include rubric snapshot IDs, versions, hashes, and source paths.
-- Added tests covering persistence, idempotency, company rubric immutability, pipeline loading, report metadata, same-Trial reuse, fingerprint stability, and the scenario-generation failure regression.
+- Focused compare tests:
+  - `poetry run pytest --no-cov ...`
+  - Result: pass, `17 passed`
+- Full test suite:
+  - `poetry run pytest`
+  - Result: pass, `1846 passed`
+- Pre-commit:
+  - `poetry run pre-commit run --all-files` could not run because `pre-commit` was unavailable in the workspace.
+  - `poetry run python -m pre_commit run --all-files` could not run because the module was unavailable.
+  - The reported validation output showed coverage passing at `96.01%` with `1846 passed`.
 
-## Acceptance Criteria Coverage
+# Live HTTP Verification
 
-1. **Winoe rubrics versioned and referenced by `ScenarioVersion`**
+0 candidates:
 
-   The new `winoe_rubric_snapshots` table stores versioned baseline rubric material and is linked to `ScenarioVersion`. The registry carries explicit rubric versions, and snapshot materialization occurs at the successful `ScenarioVersion` lifecycle boundary so the frozen snapshot set is tied to that version, not to mutable source files.
+```json
+{"trialId":1,"cohortSize":0,"state":"empty","message":"No completed Winoe Reports are available for this Trial yet.","candidates":[]}
+```
 
-2. **Company-specific rubrics attachable per Trial**
+1 candidate:
 
-   `Trial.company_rubric_json` now carries optional company-specific rubric content. Company snapshots are materialized in the Trial scope, validated, and treated as immutable after materialization so the same Trial cannot drift between candidates.
+```json
+{"trialId":2,"cohortSize":1,"state":"partial","message":"Limited comparison — only 1 candidate completed this Trial.","candidates":[{"candidateSessionId":1,"recommendation":"positive_signal"}]}
+```
 
-3. **Version IDs in Winoe Report metadata**
+2 candidates:
 
-   `report.version.rubricSnapshots` now includes the full snapshot metadata needed for auditability:
+```json
+{"trialId":3,"cohortSize":2,"state":"partial","message":"Limited comparison — only 2 candidates completed this Trial.","candidates":[{"candidateSessionId":2,"recommendation":"mixed_signal"},{"candidateSessionId":3,"recommendation":"positive_signal"}]}
+```
 
-   - `snapshotId`
-   - `scenarioVersionId`
-   - `rubricScope`
-   - `rubricKind`
-   - `rubricKey`
-   - `rubricVersion`
-   - `contentHash`
-   - `sourcePath`
+3 candidates:
 
-4. **Pipeline loads correct versions**
+```json
+{"trialId":4,"cohortSize":3,"state":"ready","message":null,"candidates":[{"candidateSessionId":4,"recommendation":"strong_signal"},{"candidateSessionId":5,"recommendation":"positive_signal"},{"candidateSessionId":6,"recommendation":"mixed_signal"}]}
+```
 
-   The effective AI policy snapshot now persists `resolvedRubricMd`, and the evaluator bundle consumes that persisted snapshot content. This ensures the pipeline uses the exact rubric versions that were materialized for the Trial instead of rereading static files.
+Same-company/different-Trial isolation:
 
-## QA Evidence
+- Trial 2 returned candidate IDs `[1]`.
+- Trial 5 returned candidate ID `[7]`.
+- No cross-contamination between those Trials.
 
-Manual QA from Iteration 6:
+Different-company isolation:
 
-- `./runBackend.sh migrate` passed.
-- Schema verified:
-  - `winoe_rubric_snapshots`
-  - FK to `scenario_versions`
-  - uniqueness constraint on `(scenario_version_id, scope, rubric_kind, rubric_key, rubric_version)`
-  - `trials.company_rubric_json`
-- ScenarioVersion snapshot evidence:
-  - live `scenario_version_id = 7`
-  - 5 baseline snapshots
-  - snapshot IDs `[1, 2, 3, 4, 5]`
-- Idempotency:
-  - before first materialization: `0`
-  - after first: `5`
-  - after second: `5`
-  - IDs stable: `[1, 2, 3, 4, 5]`
-- Company rubric immutability:
-  - company `scenario_version_id = 8`
-  - company snapshot `id = 7`
-  - original hash: `a9fe9259f952749e8bf470065aa56e6174eb6ec3673f7bc276b798554f5bf80b`
-  - edited hash: `e0684b38150aca57fa0a46e1cf47d19234b05d3e9777171c116f49febf2885c8`
-  - persisted snapshot hash stayed unchanged: `a9fe9259f952749e8bf470065aa56e6174eb6ec3673f7bc276b798554f5bf80b`
-- Pipeline loading:
-  - `_read_text_file` patched to raise if static rubrics were reread
-  - report pipeline still completed for candidate sessions `7` and `8`
-  - effective bundle contained persisted `resolvedRubricMd`
-  - bundle snapshot IDs `[1, 2, 3, 4, 5]`
-- Winoe Report metadata:
-  - `fetch_winoe_report` returned `status: ready`
-  - metadata included `scenarioVersionId: 7`
-  - `rubricSnapshots` had 5 entries with required snapshot/version/hash/source fields
-- Same-Trial reuse:
-  - candidate sessions `7` and `8`
-  - shared `scenario_version_id = 7`
-  - both used snapshot IDs `[1, 2, 3, 4, 5]`
-- Scenario generation failure regression:
-  - focused tests passed functionally
-  - job failure/dead-letter behavior intact
-  - Trial remains `generating`
-  - retry still works
+```json
+{"status":403,"payload":{"detail":"Trial access forbidden"}}
+```
 
-## Automated Checks
+Authorization:
 
-- `./precommit.sh` passed
-- `1843 passed`
-- coverage: `96.04%`
-- `./runBackend.sh migrate` passed
-- forbidden terminology scan:
-  - newly introduced forbidden terms: `0`
-  - existing unrelated legacy matches remain outside the scope
+- Different-company access guard returned `403`.
+- Candidate-email dev request returned `401` in the local seeded DB because that dev user was not present.
 
-## Risks / Notes
+Refresh after Winoe Report generation:
 
-- Local QA rows for Trial and candidate test data remained in the local database because cleanup hit FK/check-constraint edges. This is local-only residue, not a code or migration issue.
-- Pipeline QA used a fake evaluator at the final scoring step to avoid external AI/provider dependence, while still exercising persisted snapshot loading and report metadata paths.
-- Existing unrelated legacy terminology remains in older repo areas and was not broadened by this PR.
+- Before report generation, Trial 7 returned `empty`.
+- After inserting the completed evaluation run, Trial 7 returned:
 
-## Final Checklist
+```json
+{"trialId":7,"cohortSize":1,"state":"partial","message":"Limited comparison — only 1 candidate completed this Trial.","candidates":[{"candidateSessionId":9,"recommendation":"strong_signal"}]}
+```
 
-- [x] Winoe baseline rubrics snapshotted per `ScenarioVersion`
-- [x] Company rubric attachment supported
-- [x] Snapshot materialization is idempotent
-- [x] Same Trial candidates reuse same rubric snapshots
-- [x] Evaluation pipeline consumes persisted snapshot content
-- [x] Winoe Report metadata includes snapshot/version/hash identifiers
-- [x] Scenario generation failure behavior preserved
-- [x] `./precommit.sh` passes
+# Risk / Notes
 
-Fixes #299
+- Live HTTP verification was performed against a local `uvicorn` instance with seeded sqlite data and dev-bypass auth.
+- The prior QA failure was caused by runtime drift and live verification mismatch; the route now explicitly validates the response model at the API boundary.
+- A live-style smoke helper was added to reduce the chance of this contract drifting again.
+
+# Acceptance Criteria Mapping
+
+- Compare only returns same-Trial candidates: covered by same-company/different-Trial and different-company checks.
+- No-data state for new Trials: covered by the 0-candidate payload.
+- Refreshes after report generation: covered by the Trial 7 before/after payload.
+- Framing does not imply Winoe decides: public signal values only; internal hiring enums are rejected.
+- 2+ same-Trial candidates: covered by the 2-candidate and 3-candidate payloads.
+- Cohort size: `cohortSize` is present in all payloads.
+- Limited caveat for cohort < 3: present for 1 and 2 candidates.
+- 0 -> 1 -> 2+ transitions: covered by the live HTTP payloads and tests.
+
+# Follow-ups
+
+- Consider wiring `scripts/compare_contract_smoke_test.py` into CI or the backend smoke pipeline.
+
+## Worker Report
+
+- Summary
+  - Benchmarks are now isolated to the requested Trial, with public contract fields and state handling that make the response predictable across 0, 1, 2, and 3+ candidate cohorts.
+- Files changed
+  - `pr.md`
+- Commands run
+  - `sed -n '1,240p' pr.md` - pass
+  - `sed -n '1,240p' issue.md` - pass
+  - `poetry run pytest --no-cov ...` - pass, `17 passed`
+  - `poetry run pytest` - pass, `1846 passed`
+  - `poetry run pre-commit run --all-files` - fail, `pre-commit` unavailable in the workspace
+  - `poetry run python -m pre_commit run --all-files` - fail, module unavailable
+- Risks / assumptions
+  - The live HTTP verification reflects a local `uvicorn` instance with seeded sqlite data and dev-bypass auth.
+  - The reported validation output is treated as the source of truth for the pre-commit/coverage status because the direct pre-commit commands could not execute.
+- Open questions / blockers
+  - None

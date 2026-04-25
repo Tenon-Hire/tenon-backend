@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 from app.evaluations.repositories import repository as evaluation_repo
 from app.evaluations.repositories.evaluations_repositories_evaluations_core_model import (
+    EVALUATION_RECOMMENDATIONS,
     EVALUATION_RUN_STATUS_COMPLETED,
 )
 from app.evaluations.services.evaluations_services_evaluations_winoe_report_jobs_service import (
@@ -25,6 +26,23 @@ def _all_days_true(day_completion: dict[str, bool]) -> bool:
 
 def _parse_iso_utc(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+
+
+_COMPARE_SIGNAL_TO_STORED_RECOMMENDATION = {
+    "strong_signal": "strong_hire",
+    "positive_signal": "hire",
+    "mixed_signal": "lean_hire",
+    "limited_signal": "no_hire",
+}
+
+
+def _stored_compare_recommendation(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized in _COMPARE_SIGNAL_TO_STORED_RECOMMENDATION:
+        return _COMPARE_SIGNAL_TO_STORED_RECOMMENDATION[normalized]
+    if normalized in EVALUATION_RECOMMENDATIONS:
+        return normalized
+    raise AssertionError(f"Unsupported compare recommendation: {value}")
 
 
 async def _seed_compare_candidates_scenario(async_session):
@@ -92,7 +110,7 @@ async def _seed_compare_candidates_scenario(async_session):
         completed_at=now - timedelta(minutes=16),
         generated_at=now - timedelta(minutes=15),
         overall_winoe_score=0.78,
-        recommendation="hire",
+        recommendation=_stored_compare_recommendation("positive_signal"),
         commit=False,
     )
     await create_job(
@@ -105,6 +123,47 @@ async def _seed_compare_candidates_scenario(async_session):
     )
     await async_session.commit()
     return talent_partner, trial, candidate_a, candidate_b, candidate_c
+
+
+async def _create_ready_compare_run(
+    async_session,
+    *,
+    candidate_session,
+    overall_winoe_score: float,
+    recommendation: str = "mixed_signal",
+    generated_at: datetime | None = None,
+    started_at: datetime | None = None,
+    completed_at: datetime | None = None,
+    model_name: str = "gpt-5-evaluator",
+    model_version: str = "2026-03-12",
+    prompt_version: str = "prompt.v1",
+    rubric_version: str = "rubric.v1",
+    day2_checkpoint_sha: str = "day2-sha",
+    day3_final_sha: str = "day3-sha",
+    cutoff_commit_sha: str = "cutoff-sha",
+    transcript_reference: str = "transcript-ref",
+):
+    now = datetime.now(UTC).replace(microsecond=0)
+    await evaluation_repo.create_run(
+        async_session,
+        candidate_session_id=candidate_session.id,
+        scenario_version_id=candidate_session.scenario_version_id,
+        status=EVALUATION_RUN_STATUS_COMPLETED,
+        model_name=model_name,
+        model_version=model_version,
+        prompt_version=prompt_version,
+        rubric_version=rubric_version,
+        day2_checkpoint_sha=day2_checkpoint_sha,
+        day3_final_sha=day3_final_sha,
+        cutoff_commit_sha=cutoff_commit_sha,
+        transcript_reference=transcript_reference,
+        started_at=started_at or now - timedelta(minutes=18),
+        completed_at=completed_at or now - timedelta(minutes=16),
+        generated_at=generated_at or now - timedelta(minutes=15),
+        overall_winoe_score=overall_winoe_score,
+        recommendation=_stored_compare_recommendation(recommendation),
+        commit=False,
+    )
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]
