@@ -12,6 +12,7 @@ from app.evaluations.services.evaluations_services_evaluations_evaluator_helpers
     _to_excerpt,
 )
 from app.evaluations.services.evaluations_services_evaluations_evaluator_models_service import (
+    CodeImplementationEvidenceContext,
     DayEvaluationInput,
     DayEvaluationResult,
     EvaluationInputBundle,
@@ -28,6 +29,7 @@ from app.evaluations.services.evaluations_services_evaluations_evaluator_scoring
 )
 
 __all__ = [
+    "CodeImplementationEvidenceContext",
     "DayEvaluationInput",
     "DayEvaluationResult",
     "DeterministicWinoeReportEvaluator",

@@ -7,6 +7,22 @@ from typing import Any, Protocol
 
 
 @dataclass(slots=True)
+class CodeImplementationEvidenceContext:
+    """Represent repository/process evidence for Days 2 and 3."""
+
+    repository_snapshot: dict[str, Any] | None = None
+    repository_url: str | None = None
+    repository_reference: str | None = None
+    repository_artifact_references: list[dict[str, Any]] = field(default_factory=list)
+    commit_history: list[dict[str, Any]] = field(default_factory=list)
+    file_creation_timeline: list[dict[str, Any]] = field(default_factory=list)
+    test_coverage_progression: list[dict[str, Any]] = field(default_factory=list)
+    dependency_metadata: dict[str, Any] | None = None
+    documentation_evolution: list[dict[str, Any]] = field(default_factory=list)
+    evidence_status: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
 class DayEvaluationInput:
     """Represent day evaluation input data and behavior."""
 
@@ -40,6 +56,9 @@ class EvaluationInputBundle:
     rubric_version: str
     disabled_day_indexes: list[int]
     day_inputs: list[DayEvaluationInput]
+    code_implementation_evidence: CodeImplementationEvidenceContext = field(
+        default_factory=CodeImplementationEvidenceContext
+    )
     trial_context_json: dict[str, Any] | None = None
     ai_policy_snapshot_json: dict[str, Any] | None = None
     ai_policy_snapshot_digest: str | None = None
@@ -96,6 +115,7 @@ class WinoeReportEvaluator(Protocol):
 __all__ = [
     "DayEvaluationInput",
     "DayEvaluationResult",
+    "CodeImplementationEvidenceContext",
     "EvaluationInputBundle",
     "EvaluationResult",
     "ReviewerReportResult",

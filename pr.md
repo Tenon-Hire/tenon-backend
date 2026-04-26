@@ -1,178 +1,239 @@
-# Harden empty-repo GitHub provisioning and evidence capture
+# PR: Update Day 2/3 Code Implementation Reviewer for from-scratch evaluation
 
 ## Summary
 
-This PR hardens GitHub provisioning for the v4 from-scratch Tech Trial flow.
+This PR updates the Day 2/3 Code Implementation Reviewer path for the v4 from-scratch Tech Trial model. The reviewer now evaluates the candidate’s complete repository and development process instead of treating Days 2/3 as a diff against pre-existing code.
 
-Candidate workspaces are now created as empty repos and initialized only with Winoe-owned workspace files. Candidate GitHub username is required before workspace provisioning, collaborator permissioning uses that username, evidence capture runs through the canonical workflow `.github/workflows/winoe-evidence-capture.yml`, stable evidence artifact names are parsed reliably, and cleanup is bounded and idempotent.
+The Day 2/3 rubric now scores from-scratch implementation work across project scaffolding, architecture, code quality, testing discipline, development process, documentation/handoff readiness, and requirements coverage. The reviewer prompt now receives structured repository/process evidence, including populated commit history, file creation timeline, and test coverage progression when persisted evidence exists.
 
 ## What changed
 
-- Empty-repo repo creation and recovery path for candidate workspaces.
-- Required bootstrap files are created in the repo:
-  - `.devcontainer/devcontainer.json`
-  - `README.md`
-  - `.gitignore`
-  - `.github/workflows/winoe-evidence-capture.yml`
-- Devcontainer defaults to the Microsoft universal image unless a language-specific image is selected for the Talent Partner's preferred language.
-- `README.md` is used as the Project Brief.
-- No app starter code is added to candidate repos.
-- Generated `.gitignore` does not ignore lockfiles.
-- Candidate GitHub username is required before provisioning continues.
-- Collaborator add behavior is retried safely when permissioning already exists or was partially applied.
-- Evidence workflow and artifact parser behavior were updated for the new canonical workflow and stable artifact names.
-- Invite and preprovision cleanup paths are more precise so they only remove resources created during the current attempt.
-- Retry and idempotency paths are covered by tests.
-- Documentation was updated to match the v4 empty-repo provisioning flow.
+- Rewrote `app/ai/prompt_assets/v1/winoe-day-2&3-rubric.md` for from-scratch Tech Trial evaluation.
+- Added scored rubric dimensions:
+  - Project scaffolding quality — 18 points
+  - Architectural coherence — 18 points
+  - Code quality and maintainability — 17 points
+  - Testing discipline — 15 points
+  - Development process and commit history — 12 points
+  - Documentation and handoff readiness — 10 points
+  - Requirements coverage and product completeness — 10 points
+- Added explicit rubric guidance that:
+  - the complete repository is the candidate’s work
+  - there is no pre-existing application code to compare against
+  - evaluation is tech-stack-agnostic
+  - AI coding assistants are allowed and not penalized by themselves
+  - AI-bulk-generation concerns must be evidence-backed
+- Added `CodeImplementationEvidenceContext` to the evaluator input bundle.
+- Threaded `reviewContext.codeImplementationEvidence` into the live Day 2/3 reviewer payload.
+- Integrated with the #296 artifact-parse path through persisted `Submission.test_output` evidence artifacts.
+- Populated reviewer evidence from persisted Day 2/3 artifacts:
+  - repository snapshot/reference
+  - commit history
+  - file creation timeline
+  - test coverage progression
+  - dependency metadata
+  - documentation evolution
+- Added honest evidence-status semantics:
+  - `available:` when persisted evidence exists
+  - `partial:` when repo identity exists but deeper snapshot artifacts are missing
+  - `unavailable:` when evidence is truly absent
+- Fixed report finalization validation so provider results with empty evidence arrays do not dead-letter the full evaluation run when scores and rubric breakdown are valid.
+- Added regression tests for rubric content, prompt rendering, evidence serialization, malformed evidence parsing, repository status semantics, and real route/worker completion behavior.
 
-## v4 pivot alignment
+## #296 integration
 
-- No generated-from-template repo path is used in active provisioning.
-- No template catalog dependency is used in active provisioning.
-- No precommit bundle is applied to candidate repos in the v4 path.
-- No Codespace Specializor or Specializer component is used.
-- The repo is evaluated as candidate-authored from scratch.
+#296 has landed, so this PR now fully wires #318 into the persisted evidence path instead of leaving evidence fields as prompt-only expectations.
 
-This wording reflects the active path only. It does not claim historical compatibility code was removed unless the implementation actually changed it.
+The Day 2/3 evidence builder hydrates `CodeImplementationEvidenceContext` from persisted submission evidence produced by the GitHub workflow artifact parse path:
 
-## Evidence / artifacts
+- `submission.test_output.summary.evidenceArtifacts.commitMetadata` → `commitHistory`
+- `submission.test_output.summary.evidenceArtifacts.fileCreationTimeline` → `fileCreationTimeline`
+- `submission.test_output.summary.testResults` + `coveragePath` → `testCoverageProgression`
+- `submission.test_output.summary.evidenceArtifacts.dependencyManifests` → `dependencyMetadata`
+- commit entries touching `README` or `docs/` paths → `documentationEvolution`
 
-Canonical artifact names:
+This means the Code Implementation Reviewer now receives actual populated Day 2/3 repository/process evidence when it exists, not just empty placeholder fields.
 
-- `winoe-commit-metadata`
-- `winoe-file-creation-timeline`
-- `winoe-repo-tree-summary`
-- `winoe-dependency-manifests`
-- `winoe-test-detection`
-- `winoe-test-results`
-- `winoe-lint-detection`
-- `winoe-lint-results`
-- `winoe-evidence-manifest`
+## Evidence semantics
 
-Canonical JSON files:
+The evidence contract is intentionally conservative:
 
-- `commit_metadata.json`
-- `file_creation_timeline.json`
-- `repo_tree_summary.json`
-- `dependency_manifests.json`
-- `test_detection.json`
-- `test_results.json`
-- `lint_detection.json`
-- `lint_results.json`
-- `evidence_manifest.json`
+- If persisted evidence exists, the reviewer payload marks the field `available:`.
+- If only repository identity exists, repository snapshot status is `partial:`.
+- If evidence is missing, the field remains empty and status is explicit `unavailable:`.
+- The reviewer prompt instructs the model not to infer process quality when commit history, file creation timeline, or test coverage progression are unavailable.
 
-Wrapper schema fields:
+This preserves Winoe AI’s evidence-first trust bar and prevents overclaiming.
 
-- `schema_version`
-- `repository_full_name`
-- `commit_sha`
-- `workflow_run_id`
-- `generated_at`
-- `status`
-- `payload`
+## Acceptance criteria
 
-Test and lint detection distinguishes:
-
-- `detected`
-- `not_detected`
-- failed command execution as evidence
-
-## Idempotency and recovery
-
-- Provisioning retry reuses the existing repo and workspace.
-- Missing bootstrap files are repaired.
-- Missing workflow files are repaired.
-- Collaborator add is safe on retry.
-- Codespace creation and recovery paths are retried safely.
-- Duplicate workspace groups and workspaces are avoided.
-- Day 2 and Day 3 share the canonical coding repo where expected.
-
-## Cleanup behavior
-
-- Cleanup is idempotent.
-- Invite rollback cleanup only targets repos created during the current attempt.
-- Existing or reused repos are not deleted accidentally.
-- Trial termination cleanup remains scoped to the Trial and workspace.
-- Already-cleaned resources are handled safely.
+- [x] `winoe-day-2&3-rubric.md` updated with from-scratch evaluation dimensions.
+- [x] No references to `precommit baseline`, `delta from precommit`, or `Specializor` in the Day 2/3 rubric.
+- [x] Project scaffolding quality is a scored dimension weighted 18 points.
+- [x] Development process / commit history analysis is a scored dimension weighted 12 points.
+- [x] Rubric is tech-stack-agnostic and does not penalize framework/language choice by itself.
+- [x] Rubric explicitly states AI tool usage is allowed and not penalized by itself.
+- [x] Rubric notes bulk AI generation without engineering judgment only when evidence supports it.
+- [x] Code Implementation Reviewer Sub-Agent prompt path uses the updated from-scratch rubric.
+- [x] Reviewer receives structured full repository/process evidence.
+- [x] Reviewer receives populated commit history, file creation timeline, and test coverage progression when persisted #296 evidence exists.
+- [x] Missing/partial evidence is marked honestly and does not cause the reviewer to overclaim.
 
 ## QA evidence
 
-```text
-QA PASS — ready for PR prompt
+### Focused tests
 
-Environment:
-- Branch: feature/harden-github-provisioning-for-empty-repo-codespace-creation-and-evidence-capture
-- Commit: d39e7dbf0b091bc239d4d50870d8d52a4af00d0b
-- Backend command: ./scripts/local_qa_backend.sh
-- Worker command: python -m app.shared.jobs.shared_jobs_worker_cli_service worker
-- Backend health: GET /health returned {"status":"ok"}
-- Worker readiness: GET /ready returned ready with fresh worker heartbeat
+Passed:
 
-Manual QA covered:
-- missing GitHub username gate
-- username-present provisioning
-- repo contents inspection
-- idempotent retry
-- partial recovery
-- evidence workflow contract
-- artifact parsing/retrieval
-- cleanup/termination
-- retired-terminology active-path check
+```bash
+poetry run pytest --no-cov -q tests/evaluations/services/test_evaluations_evaluator_runner_service.py tests/evaluations/services/test_evaluations_winoe_report_pipeline_rubric_snapshots_service.py tests/ai/test_ai_prompt_pack_code_implementation_reviewer_service.py
 ```
 
-```text
-Live GitHub push execution was not performed in this QA pass. Route probes used an in-memory stub GitHub provider. GitHub Actions workflow execution was verified by workflow YAML contract and backend tests; artifact parsing/retrieval was verified through backend test paths.
+Passed:
+
+```bash
+poetry run pytest --no-cov -q tests/evaluations/routes/test_evaluations_winoe_report_api_worker_completion_returns_ready_and_evidence_routes.py
 ```
 
-## Validation
+Passed:
 
-```text
-bash ./precommit.sh
-✅ passed
-1865 passed, 13 warnings
-Coverage: 96.00%
-Required coverage: 96%
+```bash
+poetry run pytest --no-cov -q tests/ai/test_ai_prompt_pack_soul_service.py tests/ai/test_ai_prompt_pack_code_implementation_reviewer_service.py tests/evaluations/services/test_evaluations_winoe_rubric_snapshots_service.py
 ```
 
-```text
-git diff --check
-✅ passed
+### Full test suite
+
+Passed:
+
+```bash
+poetry run pytest -q
 ```
 
-## Risks / limitations
+Result:
 
-- Live GitHub push execution was not performed in this QA pass.
-- Evidence capture execution was verified through workflow contract checks and backend tests rather than a live GitHub Actions run.
-- Cleanup correctness depends on the repo/workspace identifiers returned by the current attempt, so future changes to those identifiers should be revalidated.
+```text
+1876 passed, 13 warnings
+Required test coverage of 96% reached.
+Total coverage: 96.03%
+```
 
-## Issue checklist
+### Compile check
 
-- [x] Empty repo creation is idempotent and safe to retry
-- [x] Repo initialized with `.devcontainer/devcontainer.json`, `README.md`, `.gitignore`, and evidence-capture Actions workflow
-- [x] Devcontainer uses Microsoft universal image by default
-- [x] Recovery from partial GitHub API failure / partial repo initialization
-- [x] Candidate username-based permissioning via collaborator add
-- [x] GitHub Actions evidence-capture workflow runs on push
-- [x] Workflow captures commit metadata, file creation order, test detection, and linting results
-- [x] Evidence artifacts are uploaded and parseable/retrievable through backend paths
-- [x] Cleanup on Trial termination is idempotent and scoped
+Passed:
 
-## PR title
+```bash
+poetry run python -m compileall app/evaluations/services/evaluations_services_evaluations_winoe_report_pipeline_day_inputs_service.py tests/evaluations/services/test_evaluations_winoe_report_pipeline_rubric_snapshots_service.py tests/evaluations/services/test_evaluations_evaluator_runner_service.py
+```
 
-Harden empty-repo GitHub provisioning and evidence capture
+### Terminology checks
 
-Worker Report:
-- Summary
-  - Updated `pr.md` only to describe the v4 empty-repo GitHub provisioning and evidence capture flow.
-- Files changed
-  - `pr.md`
-- Commands run
-  - `git status --short` - pass
-  - `git diff --check` - pass
-  - `bash ./precommit.sh` - pass
-  - `git diff --check` - pass
-- Risks / assumptions
-  - Assumed the provided QA and validation text is the canonical PR-materials source.
-  - Kept the document aligned to the active v4 path and avoided retired product language in the main narrative.
-- Open questions / blockers
-  - None
+Passed:
+
+```bash
+rg -n "precommit baseline|delta from precommit|Specializor" app/ai/prompt_assets/v1/winoe-day-2\&3-rubric.md tests/ai/test_ai_prompt_pack_code_implementation_reviewer_service.py
+```
+
+Passed:
+
+```bash
+rg -n "template catalog|Fit Profile|Fit Score|simulation|recruiter|Tenon" app/ai/prompt_assets/v1/winoe-day-2\&3-rubric.md
+```
+
+### Pre-commit
+
+`pre-commit` was unavailable in the local environment, so it was not claimed as a pass.
+
+## Real end-to-end runtime QA
+
+Real local backend + worker QA passed.
+
+* Backend PID: `22463`
+* Worker PID: `22959`
+* Health check:
+
+```bash
+curl -sS http://127.0.0.1:8000/health
+```
+
+Response:
+
+```json
+{"status":"ok"}
+```
+
+Triggered Winoe Report generation through the real API:
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/api/candidate_sessions/6/winoe_report/generate \
+  -H 'x-dev-user-email: winoe-report-qa-iteration8b@test.com'
+```
+
+Response:
+
+```json
+{"jobId":"053c8a38-93b6-4ba9-bd26-d3f941ffaf0d","status":"queued"}
+```
+
+Final report fetch:
+
+```bash
+curl -sS http://127.0.0.1:8000/api/candidate_sessions/6/winoe_report \
+  -H 'x-dev-user-email: winoe-report-qa-iteration8b@test.com'
+```
+
+Result:
+
+* report status: `ready`
+* evaluation run ID: `4`
+* evaluation run status: `completed`
+* job ID: `053c8a38-93b6-4ba9-bd26-d3f941ffaf0d`
+* report score: `0.5759`
+
+## Runtime payload proof
+
+For the populated Day 2/3 evidence case, the live reviewer payload included:
+
+```json
+{
+  "dayIndex": 2,
+  "reviewContext": {
+    "instructions": "Use codeImplementationEvidence as primary evidence for Days 2 and 3. If commit history, file creation timeline, or test coverage progression are unavailable, say so explicitly and do not infer process quality.",
+    "codeImplementationEvidence": {
+      "repositoryReference": "winoe-ai/report-qa-repo",
+      "commitHistoryCount": 4,
+      "fileCreationTimelineCount": 8,
+      "testCoverageProgressionCount": 2,
+      "evidenceStatus": {
+        "repository_snapshot": "available: derived from day 2/3 repository and submission evidence",
+        "commit_history": "available: derived from persisted submission.test_output summary evidenceArtifacts.commitMetadata",
+        "file_creation_timeline": "available: derived from persisted submission.test_output summary evidenceArtifacts.fileCreationTimeline",
+        "test_coverage_progression": "available: derived from persisted submission.test_output summary evidenceArtifacts.testResults and coveragePath"
+      }
+    }
+  }
+}
+```
+
+For the repository-reference-only case, the payload correctly distinguishes partial evidence:
+
+```json
+{
+  "candidateSessionId": 7,
+  "repositoryReference": "winoe-ai/partial-repo",
+  "repositorySnapshotStatus": "partial: repository reference available; persisted repository snapshot artifacts not found for day 2/3 evidence",
+  "commitHistoryCount": 0,
+  "fileCreationTimelineCount": 0,
+  "testCoverageProgressionCount": 0,
+  "commitHistoryStatus": "unavailable: persisted submission.test_output summary evidenceArtifacts.commitMetadata not found for day 2/3 evidence",
+  "fileCreationTimelineStatus": "unavailable: persisted submission.test_output summary evidenceArtifacts.fileCreationTimeline not found for day 2/3 evidence",
+  "testCoverageProgressionStatus": "unavailable: persisted submission.test_output summary evidenceArtifacts.testResults coveragePath not found for day 2/3 evidence"
+}
+```
+
+## Notes / risks
+
+* Local QA used deterministic test runtime snapshots to exercise the full backend + worker path without external LLM flakiness.
+* Evidence parsing now uses persisted `Submission.test_output` artifact summaries as the current #296-backed source of truth.
+* If a future evidence persistence schema introduces dedicated artifact tables for commit/file/coverage data, this builder should get a small adapter layer, not a redesign.
+
+Fixes #318

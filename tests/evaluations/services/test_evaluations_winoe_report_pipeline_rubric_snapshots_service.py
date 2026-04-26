@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -34,6 +35,7 @@ from tests.evaluations.services.evaluations_winoe_report_pipeline_utils import (
 )
 from tests.shared.factories import (
     create_candidate_session,
+    create_submission,
     create_talent_partner,
     create_trial,
 )
@@ -136,6 +138,21 @@ async def test_process_evaluation_run_job_uses_persisted_rubric_snapshots(
     assert result["status"] == "completed"
     bundle = captured["bundle"]
     assert bundle is not None
+    assert hasattr(bundle, "code_implementation_evidence")
+    assert bundle.code_implementation_evidence.repository_snapshot is not None
+    assert (
+        bundle.code_implementation_evidence.repository_snapshot["repoFullName"] is None
+    )
+    assert (
+        bundle.code_implementation_evidence.repository_snapshot["daySubmissionRefs"]
+        == []
+    )
+    assert bundle.code_implementation_evidence.evidence_status[
+        "repository_snapshot"
+    ].startswith("unavailable:")
+    assert bundle.code_implementation_evidence.evidence_status[
+        "commit_history"
+    ].startswith("unavailable:")
     assert (
         bundle.ai_policy_snapshot_json["agents"]["designDocReviewer"][
             "resolvedRubricMd"
@@ -156,6 +173,385 @@ async def test_process_evaluation_run_job_uses_persisted_rubric_snapshots(
     assert {
         item["snapshotId"] for item in captured["run_metadata"]["rubricSnapshots"]
     } == {item["snapshotId"] for item in materialized["rubricSnapshots"]}
+    assert bundle.code_implementation_evidence.commit_history == []
+    assert bundle.code_implementation_evidence.file_creation_timeline == []
+    assert bundle.code_implementation_evidence.test_coverage_progression == []
+    assert bundle.code_implementation_evidence.evidence_status[
+        "commit_history"
+    ].startswith("unavailable:")
+
+
+@pytest.mark.asyncio
+async def test_process_evaluation_run_job_records_repository_evidence_when_present(
+    monkeypatch, async_session
+):
+    talent_partner = await create_talent_partner(
+        async_session, email="pipeline-repo@test.com"
+    )
+    trial, _tasks = await create_trial(async_session, created_by=talent_partner)
+    candidate_session = await create_candidate_session(async_session, trial=trial)
+    scenario_version = await async_session.scalar(
+        select(ScenarioVersion).where(
+            ScenarioVersion.id == candidate_session.scenario_version_id
+        )
+    )
+    assert scenario_version is not None
+
+    await rubric_service.materialize_scenario_version_rubric_snapshots(
+        async_session, scenario_version=scenario_version, trial=trial
+    )
+
+    monkeypatch.setattr(
+        rubric_service,
+        "_read_text_file",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("pipeline should not reread rubric source files")
+        ),
+    )
+
+    fake_submission = await create_submission(
+        async_session,
+        candidate_session=candidate_session,
+        task=next(task for task in _tasks if task.day_index == 2),
+        content_text="submission content",
+        content_json={},
+        code_repo_path="acme/repo",
+        commit_sha="commit-sha-123",
+        workflow_run_id="9001",
+        workflow_run_status="completed",
+        workflow_run_conclusion="success",
+        tests_passed=7,
+        tests_failed=0,
+        test_output=json.dumps(
+            {
+                "status": "passed",
+                "runId": 9001,
+                "conclusion": "success",
+                "passed": 7,
+                "failed": 0,
+                "total": 7,
+                "stdout": "ok",
+                "stderr": "",
+                "summary": {
+                    "detectedTool": "pytest",
+                    "command": "python -m pytest",
+                    "coveragePath": "artifacts/coverage",
+                    "outputLog": "artifacts/test-results/test-output.log",
+                    "evidenceArtifacts": {
+                        "commitMetadata": {
+                            "artifactName": "winoe-commit-metadata",
+                            "artifactId": 11,
+                            "data": {
+                                "payload": {
+                                    "commits": [
+                                        {
+                                            "sha": "commit-sha-123",
+                                            "timestamp": "2026-03-13T10:00:00Z",
+                                            "message": "Add app scaffold",
+                                            "files_changed": [
+                                                "README.md",
+                                                "src/app.py",
+                                            ],
+                                            "files_changed_count": 2,
+                                            "insertions": 120,
+                                            "deletions": 14,
+                                        }
+                                    ]
+                                }
+                            },
+                        },
+                        "fileCreationTimeline": {
+                            "artifactName": "winoe-file-creation-timeline",
+                            "artifactId": 12,
+                            "data": {
+                                "payload": {
+                                    "files": [
+                                        {
+                                            "commit_sha": "commit-sha-123",
+                                            "timestamp": "2026-03-13T09:00:00Z",
+                                            "message": "Bootstrap app",
+                                            "files": ["README.md", "src/app.py"],
+                                        }
+                                    ]
+                                }
+                            },
+                        },
+                        "dependencyManifests": {
+                            "artifactName": "winoe-dependency-manifests",
+                            "artifactId": 13,
+                            "data": {
+                                "payload": {
+                                    "detected": True,
+                                    "manifests": [
+                                        {
+                                            "path": "pyproject.toml",
+                                            "kind": "python",
+                                            "test_command": "python -m pytest",
+                                        }
+                                    ],
+                                }
+                            },
+                        },
+                        "repoTreeSummary": {
+                            "artifactName": "winoe-repo-tree-summary",
+                            "artifactId": 14,
+                            "data": {
+                                "payload": {
+                                    "files": ["README.md", "src/app.py"],
+                                    "file_count": 2,
+                                }
+                            },
+                        },
+                        "testResults": {
+                            "artifactName": "winoe-test-results",
+                            "artifactId": 15,
+                            "data": {
+                                "payload": {
+                                    "passed": 7,
+                                    "failed": 0,
+                                    "total": 7,
+                                    "summary": {
+                                        "coveragePath": "artifacts/coverage",
+                                        "outputLog": "artifacts/test-results/test-output.log",
+                                    },
+                                }
+                            },
+                        },
+                    },
+                },
+            }
+        ),
+    )
+    fake_day_audit = SimpleNamespace(
+        cutoff_commit_sha="cutoff-sha-123",
+        eval_basis_ref=None,
+    )
+
+    captured: dict[str, object] = {}
+
+    async def fake_get_or_start_run(**_kwargs):
+        return (
+            SimpleNamespace(
+                id=9002,
+                basis_fingerprint="basis-9002",
+                model_version="2026-03-12",
+                prompt_version="winoe-report-v1",
+                rubric_version="rubric-v1",
+            ),
+            None,
+        )
+
+    async def fake_evaluate_and_finalize_run(**kwargs):
+        captured["bundle"] = kwargs["bundle"]
+        return SimpleNamespace(
+            id=9002,
+            basis_fingerprint="basis-9002",
+            model_version=kwargs["bundle"].model_version,
+            prompt_version=kwargs["bundle"].prompt_version,
+            rubric_version=kwargs["bundle"].rubric_version,
+        )
+
+    monkeypatch.setattr(runner_service, "_get_or_start_run", fake_get_or_start_run)
+    monkeypatch.setattr(
+        runner_service, "_evaluate_and_finalize_run", fake_evaluate_and_finalize_run
+    )
+    evaluator_service = SimpleNamespace(
+        EvaluationInputBundle=EvaluationInputBundle,
+        get_winoe_report_evaluator=lambda: object(),
+    )
+
+    deps = dict(
+        async_session_maker=_session_maker_for(async_session),
+        get_candidate_session_evaluation_context=get_candidate_session_evaluation_context,
+        has_company_access=has_company_access,
+        _tasks_by_day=AsyncMock(return_value={}),
+        _submissions_by_day=AsyncMock(return_value={2: fake_submission}),
+        _day_audits_by_day=AsyncMock(return_value={2: fake_day_audit}),
+        _resolve_day4_transcript=AsyncMock(return_value=(None, "transcript:missing")),
+        evaluation_repo=SimpleNamespace(),
+        evaluation_runs=SimpleNamespace(),
+        winoe_report_repository=SimpleNamespace(),
+        evaluator_service=evaluator_service,
+        logger=SimpleNamespace(
+            info=lambda *args, **kwargs: None, warning=lambda *args, **kwargs: None
+        ),
+    )
+    result = await runner_service.process_evaluation_run_job_impl(
+        {
+            "candidateSessionId": candidate_session.id,
+            "companyId": trial.company_id,
+            "requestedByUserId": talent_partner.id,
+            "basisFingerprint": "ignored",
+        },
+        **deps,
+    )
+
+    assert result["status"] == "completed"
+    bundle = captured["bundle"]
+    assert bundle is not None
+    assert bundle.code_implementation_evidence.repository_reference == "acme/repo"
+    assert bundle.code_implementation_evidence.repository_url == (
+        "https://github.com/acme/repo"
+    )
+    assert bundle.code_implementation_evidence.repository_snapshot is not None
+    assert (
+        bundle.code_implementation_evidence.repository_snapshot["repoFullName"]
+        == "acme/repo"
+    )
+    assert bundle.code_implementation_evidence.repository_snapshot["daySubmissionRefs"]
+    assert bundle.code_implementation_evidence.evidence_status[
+        "repository_snapshot"
+    ].startswith("available:")
+    assert bundle.code_implementation_evidence.commit_history
+    assert bundle.code_implementation_evidence.file_creation_timeline
+    assert bundle.code_implementation_evidence.test_coverage_progression
+    assert bundle.code_implementation_evidence.evidence_status[
+        "commit_history"
+    ].startswith("available:")
+    assert bundle.code_implementation_evidence.evidence_status[
+        "file_creation_timeline"
+    ].startswith("available:")
+    assert bundle.code_implementation_evidence.evidence_status[
+        "test_coverage_progression"
+    ].startswith("available:")
+    assert (
+        bundle.code_implementation_evidence.commit_history[0]["sha"] == "commit-sha-123"
+    )
+    assert (
+        bundle.code_implementation_evidence.file_creation_timeline[0]["path"]
+        == "README.md"
+    )
+    assert (
+        bundle.code_implementation_evidence.test_coverage_progression[0]["coveragePath"]
+        == "artifacts/coverage"
+    )
+
+
+@pytest.mark.asyncio
+async def test_process_evaluation_run_job_marks_repo_reference_only_as_partial(
+    monkeypatch, async_session
+):
+    talent_partner = await create_talent_partner(
+        async_session, email="pipeline-partial@test.com"
+    )
+    trial, tasks = await create_trial(async_session, created_by=talent_partner)
+    candidate_session = await create_candidate_session(async_session, trial=trial)
+    scenario_version = await async_session.scalar(
+        select(ScenarioVersion).where(
+            ScenarioVersion.id == candidate_session.scenario_version_id
+        )
+    )
+    assert scenario_version is not None
+
+    await rubric_service.materialize_scenario_version_rubric_snapshots(
+        async_session, scenario_version=scenario_version, trial=trial
+    )
+
+    monkeypatch.setattr(
+        rubric_service,
+        "_read_text_file",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("pipeline should not reread rubric source files")
+        ),
+    )
+
+    fake_submission = await create_submission(
+        async_session,
+        candidate_session=candidate_session,
+        task=next(task for task in tasks if task.day_index == 2),
+        content_text="submission content",
+        content_json={},
+        code_repo_path="acme/repo",
+        commit_sha="commit-sha-456",
+        workflow_run_id="9003",
+        workflow_run_status="completed",
+        workflow_run_conclusion="success",
+        tests_passed=0,
+        tests_failed=0,
+        test_output=json.dumps({"summary": {}}),
+    )
+
+    captured: dict[str, object] = {}
+
+    async def fake_get_or_start_run(**_kwargs):
+        return (
+            SimpleNamespace(
+                id=9003,
+                basis_fingerprint="basis-9003",
+                model_version="2026-03-12",
+                prompt_version="winoe-report-v1",
+                rubric_version="rubric-v1",
+            ),
+            None,
+        )
+
+    async def fake_evaluate_and_finalize_run(**kwargs):
+        captured["bundle"] = kwargs["bundle"]
+        return SimpleNamespace(
+            id=9003,
+            basis_fingerprint="basis-9003",
+            model_version=kwargs["bundle"].model_version,
+            prompt_version=kwargs["bundle"].prompt_version,
+            rubric_version=kwargs["bundle"].rubric_version,
+        )
+
+    monkeypatch.setattr(runner_service, "_get_or_start_run", fake_get_or_start_run)
+    monkeypatch.setattr(
+        runner_service, "_evaluate_and_finalize_run", fake_evaluate_and_finalize_run
+    )
+    evaluator_service = SimpleNamespace(
+        EvaluationInputBundle=EvaluationInputBundle,
+        get_winoe_report_evaluator=lambda: object(),
+    )
+
+    fake_day_audit = SimpleNamespace(
+        cutoff_commit_sha="cutoff-sha-456",
+        eval_basis_ref=None,
+    )
+
+    deps = dict(
+        async_session_maker=_session_maker_for(async_session),
+        get_candidate_session_evaluation_context=get_candidate_session_evaluation_context,
+        has_company_access=has_company_access,
+        _tasks_by_day=AsyncMock(return_value={}),
+        _submissions_by_day=AsyncMock(return_value={2: fake_submission}),
+        _day_audits_by_day=AsyncMock(return_value={2: fake_day_audit}),
+        _resolve_day4_transcript=AsyncMock(return_value=(None, "transcript:missing")),
+        evaluation_repo=SimpleNamespace(),
+        evaluation_runs=SimpleNamespace(),
+        winoe_report_repository=SimpleNamespace(),
+        evaluator_service=evaluator_service,
+        logger=SimpleNamespace(
+            info=lambda *args, **kwargs: None, warning=lambda *args, **kwargs: None
+        ),
+    )
+
+    result = await runner_service.process_evaluation_run_job_impl(
+        {
+            "candidateSessionId": candidate_session.id,
+            "companyId": trial.company_id,
+            "requestedByUserId": talent_partner.id,
+            "basisFingerprint": "ignored",
+        },
+        **deps,
+    )
+
+    assert result["status"] == "completed"
+    bundle = captured["bundle"]
+    assert bundle is not None
+    assert bundle.code_implementation_evidence.repository_snapshot is not None
+    assert bundle.code_implementation_evidence.repository_snapshot["repoFullName"] == (
+        "acme/repo"
+    )
+    assert bundle.code_implementation_evidence.evidence_status[
+        "repository_snapshot"
+    ].startswith("partial:")
+    assert bundle.code_implementation_evidence.commit_history == []
+    assert bundle.code_implementation_evidence.file_creation_timeline == []
+    assert bundle.code_implementation_evidence.test_coverage_progression == []
+    assert bundle.code_implementation_evidence.evidence_status[
+        "commit_history"
+    ].startswith("unavailable:")
 
 
 @pytest.mark.asyncio

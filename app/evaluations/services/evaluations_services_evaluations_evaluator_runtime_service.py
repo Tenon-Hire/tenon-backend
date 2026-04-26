@@ -16,6 +16,7 @@ from app.evaluations.services.evaluations_services_evaluations_evaluator_evidenc
     _build_day_evidence,
 )
 from app.evaluations.services.evaluations_services_evaluations_evaluator_models_service import (
+    CodeImplementationEvidenceContext,
     DayEvaluationResult,
     EvaluationInputBundle,
     EvaluationResult,
@@ -330,6 +331,36 @@ def _build_day_run_context(
     bundle: EvaluationInputBundle,
     day_input,
 ) -> str:
+    evidence_lines: list[str] = []
+    evidence = bundle.code_implementation_evidence
+    if day_input.day_index in {2, 3} and isinstance(
+        evidence, CodeImplementationEvidenceContext
+    ):
+        status = evidence.evidence_status or {}
+        evidence_lines.extend(
+            [
+                "Code implementation evidence is supplied in the user prompt as codeImplementationEvidence.",
+                (
+                    "Repository snapshot status: "
+                    f"{status.get('repository_snapshot', 'unknown')}"
+                ),
+                (
+                    "Commit history status: "
+                    f"{status.get('commit_history', 'unknown')}"
+                ),
+                (
+                    "File creation timeline status: "
+                    f"{status.get('file_creation_timeline', 'unknown')}"
+                ),
+                (
+                    "Test coverage progression status: "
+                    f"{status.get('test_coverage_progression', 'unknown')}"
+                ),
+                (
+                    "Do not infer process quality when commit history, file creation timeline, or test coverage progression are unavailable."
+                ),
+            ]
+        )
     return (
         f"Candidate session ID: {bundle.candidate_session_id}\n"
         f"Scenario version ID: {bundle.scenario_version_id}\n"
@@ -337,6 +368,7 @@ def _build_day_run_context(
         f"Task type: {day_input.task_type or 'unknown'}\n"
         f"Commit SHA: {day_input.commit_sha or 'n/a'}\n"
         f"Transcript ref: {day_input.transcript_reference or 'n/a'}"
+        + ("\n" + "\n".join(evidence_lines) if evidence_lines else "")
     )
 
 
@@ -354,6 +386,11 @@ def _build_day_review_prompt(
     day_input,
     rubric_prompt: str,
 ) -> str:
+    code_implementation_evidence = (
+        _serialize_code_implementation_evidence(bundle.code_implementation_evidence)
+        if day_input.day_index in {2, 3}
+        else None
+    )
     return json.dumps(
         {
             "trialContext": bundle.trial_context_json or {},
@@ -375,11 +412,54 @@ def _build_day_review_prompt(
                 "cutoffCommitSha": day_input.cutoff_commit_sha,
                 "evalBasisRef": day_input.eval_basis_ref,
             },
+            "reviewContext": {
+                "codeImplementationEvidence": code_implementation_evidence,
+                "instructions": (
+                    "Use codeImplementationEvidence as primary evidence for Days 2 and 3. "
+                    "If commit history, file creation timeline, or test coverage progression are unavailable, say so explicitly and do not infer process quality."
+                    if day_input.day_index in {2, 3}
+                    else None
+                ),
+            },
             "rubricGuidance": rubric_prompt,
         },
         indent=2,
         sort_keys=True,
     )
+
+
+def _serialize_code_implementation_evidence(
+    evidence: CodeImplementationEvidenceContext,
+) -> dict[str, object]:
+    """Serialize code implementation evidence into prompt-ready JSON."""
+    return {
+        "repositorySnapshot": (
+            dict(evidence.repository_snapshot)
+            if isinstance(evidence.repository_snapshot, dict)
+            else None
+        ),
+        "repositoryUrl": evidence.repository_url,
+        "repositoryReference": evidence.repository_reference,
+        "repositoryArtifactReferences": [
+            dict(item) for item in evidence.repository_artifact_references
+        ],
+        "commitHistory": [dict(item) for item in evidence.commit_history],
+        "fileCreationTimeline": [
+            dict(item) for item in evidence.file_creation_timeline
+        ],
+        "testCoverageProgression": [
+            dict(item) for item in evidence.test_coverage_progression
+        ],
+        "dependencyMetadata": (
+            dict(evidence.dependency_metadata)
+            if isinstance(evidence.dependency_metadata, dict)
+            else None
+        ),
+        "documentationEvolution": [
+            dict(item) for item in evidence.documentation_evolution
+        ],
+        "evidenceStatus": dict(evidence.evidence_status),
+    }
 
 
 def _deterministic_day_review(

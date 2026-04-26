@@ -21,6 +21,7 @@ from app.evaluations.services.evaluations_services_evaluations_winoe_report_pipe
     DEFAULT_EVALUATION_PROMPT_VERSION,
 )
 from app.evaluations.services.evaluations_services_evaluations_winoe_report_pipeline_day_inputs_service import (
+    _build_code_implementation_evidence_context,
     _build_day_inputs,
     _resolve_rubric_version,
 )
@@ -306,6 +307,11 @@ async def process_evaluation_run_job_impl(
                 else []
             ),
         )
+        code_implementation_evidence = _build_code_implementation_evidence_context(
+            candidate_session_id=context.candidate_session.id,
+            submissions_by_day=submissions,
+            day_audits=audits,
+        )
 
         run_metadata, _basis_refs, day2_sha, day3_sha, cutoff_sha = _build_run_metadata(
             context=context,
@@ -379,6 +385,7 @@ async def process_evaluation_run_job_impl(
             rubric_version=rubric_version,
             disabled_day_indexes=effective_disabled_days,
             day_inputs=day_inputs,
+            code_implementation_evidence=code_implementation_evidence,
             trial_context_json={
                 "trialId": context.trial.id,
                 "title": getattr(context.trial, "title", None),
