@@ -11,6 +11,7 @@ from app.candidates.candidate_sessions.repositories import (
     repository_day_audits as cs_repo,
 )
 from app.shared.database.shared_database_models_model import CandidateSession
+from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
 from app.shared.utils.shared_utils_errors_utils import (
     TASK_WINDOW_CLOSED,
     ApiError,
@@ -71,6 +72,7 @@ async def ensure_day_flow_open(
     day_index = getattr(task, "day_index", None)
     if day_index not in _DAY_FLOW_INDEXES:
         return
+    now = shared_utcnow()
 
     day_audit = await cs_repo.get_day_audit(
         db,
@@ -78,29 +80,37 @@ async def ensure_day_flow_open(
         day_index=day_index,
     )
     if day_audit is not None:
-        raise _build_day_flow_cutoff_error(
-            candidate_session_id=candidate_session.id,
-            task_id=getattr(task, "id", None),
-            day_index=day_index,
-            cutoff_commit_sha=getattr(day_audit, "cutoff_commit_sha", None),
-            cutoff_at=getattr(day_audit, "cutoff_at", None),
-            eval_basis_ref=getattr(day_audit, "eval_basis_ref", None),
-        )
+        cutoff_at = getattr(day_audit, "cutoff_at", None)
+        if isinstance(cutoff_at, datetime) and cutoff_at.tzinfo is None:
+            cutoff_at = cutoff_at.replace(tzinfo=UTC)
+        if cutoff_at is None or now >= cutoff_at:
+            raise _build_day_flow_cutoff_error(
+                candidate_session_id=candidate_session.id,
+                task_id=getattr(task, "id", None),
+                day_index=day_index,
+                cutoff_commit_sha=getattr(day_audit, "cutoff_commit_sha", None),
+                cutoff_at=cutoff_at,
+                eval_basis_ref=getattr(day_audit, "eval_basis_ref", None),
+            )
+        return
 
     if workspace is None:
         return
     access_revoked_at = getattr(workspace, "access_revoked_at", None)
     if access_revoked_at is None:
         return
-    raise _build_day_flow_cutoff_error(
-        candidate_session_id=candidate_session.id,
-        task_id=getattr(task, "id", None),
-        day_index=day_index,
-        cutoff_commit_sha=None,
-        cutoff_at=access_revoked_at,
-        eval_basis_ref=None,
-        access_revoked_at=access_revoked_at,
-    )
+    if isinstance(access_revoked_at, datetime) and access_revoked_at.tzinfo is None:
+        access_revoked_at = access_revoked_at.replace(tzinfo=UTC)
+    if now >= access_revoked_at:
+        raise _build_day_flow_cutoff_error(
+            candidate_session_id=candidate_session.id,
+            task_id=getattr(task, "id", None),
+            day_index=day_index,
+            cutoff_commit_sha=None,
+            cutoff_at=access_revoked_at,
+            eval_basis_ref=None,
+            access_revoked_at=access_revoked_at,
+        )
 
 
 __all__ = ["ensure_day_flow_open"]

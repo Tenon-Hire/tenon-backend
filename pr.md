@@ -1,126 +1,91 @@
-# Summary
+# 1. Title
 
-Benchmarks now compare candidates only within the same Trial, preserving Winoe AI's fairness and evidence-trust guarantees.
+Unblock real Day 2 candidate verification by fixing GitHub/Codespace reliability, repo activation, and Actions dispatch behavior
 
-The public response now includes `cohortSize`, `state`, `message`, and public-only signal values in `recommendation`.
+# 2. Linked / Related Issues
 
-# Changes
+- Winoe-AI/winoe-backend issue #285: Require GitHub username capture and fix Codespace init contract
+- Winoe-AI/winoe-backend issue #286: Enforce Codespace-only Day 2/3 workflow and remove offline/local work permission
+- Related frontend dependency: Winoe-AI/winoe-frontend issue #183
 
-- Trial-scoped compare query/response path now filters Benchmarks to the requested Trial only.
-- Cohort metadata and empty/partial/ready states are returned in the live API contract.
-- Limited-comparison caveat is shown when cohort size is below 3.
-- Stored-to-public signal mapping is enforced:
-  - `strong_hire` -> `strong_signal`
-  - `hire` -> `positive_signal`
-  - `lean_hire` -> `mixed_signal`
-  - `no_hire` -> `limited_signal`
-- Public schema validation rejects internal hiring enums at the API boundary.
-- Singular/plural caveat copy is corrected so the message reads naturally for 1, 2, or 3+ candidates.
-- Route/API tests cover the contract behavior for 0, 1, 2, and 3+ candidate states.
-- Refresh-after-Winoe-Report-generation regression coverage confirms Benchmarks updates after new completed evaluations land.
-- Live-style smoke helper was added to exercise the contract against a running API instance.
+# 3. Problem / Why
 
-# QA / Verification
+Day 2 could not be verified end to end on the real stack until the backend-side Codespace and Actions contract was made reliable.
 
-- Focused compare tests:
-  - `poetry run pytest --no-cov ...`
-  - Result: pass, `17 passed`
-- Full test suite:
-  - `poetry run pytest`
-  - Result: pass, `1846 passed`
-- Pre-commit:
-  - `poetry run pre-commit run --all-files` could not run because `pre-commit` was unavailable in the workspace.
-  - `poetry run python -m pre_commit run --all-files` could not run because the module was unavailable.
-  - The reported validation output showed coverage passing at `96.01%` with `1846 passed`.
+The original blockers were the ones tracked in #285 and #286:
 
-# Live HTTP Verification
+- GitHub username capture and Codespace init contract support were incomplete.
+- The workflow still had ambiguity around Codespace-only candidate work.
+- The backend needed to produce the right day-flow state so the frontend could open, poll, and close Day 2 correctly.
 
-0 candidates:
+During live QA, additional reliability issues surfaced that had to be fixed before real candidate flow could be trusted:
 
-```json
-{"trialId":1,"cohortSize":0,"state":"empty","message":"No completed Winoe Reports are available for this Trial yet.","candidates":[]}
-```
+- shared-time consistency and candidate-session day-flow correctness
+- workspace repo / Codespace bootstrap robustness
+- archived workspace repos causing `workflow_dispatch` runs to queue without jobs
+- repo activation before Codespace init
+- repo activation before GitHub Actions dispatch
 
-1 candidate:
+# 4. What Changed
 
-```json
-{"trialId":2,"cohortSize":1,"state":"partial","message":"Limited comparison — only 1 candidate completed this Trial.","candidates":[{"candidateSessionId":1,"recommendation":"positive_signal"}]}
-```
+- Backend support now matches the GitHub username / Codespace init contract expected by the candidate flow.
+- Codespace-only workflow enforcement is supported from the backend side.
+- Candidate-session day-flow and shared-time handling were tightened so the frontend receives stable open/closed behavior.
+- Workspace repo and Codespace bootstrap state handling was hardened.
+- Workspace repos are activated / unarchived before Codespace init.
+- Workspace repos are activated / unarchived before GitHub Actions run dispatch.
+- The run-tests path now avoids the failure mode where a `workflow_dispatch` stays queued with `jobs: []`.
+- Targeted backend tests were added or updated around repo activation and run-tests behavior.
 
-2 candidates:
+# 5. Key Files Changed
 
-```json
-{"trialId":3,"cohortSize":2,"state":"partial","message":"Limited comparison — only 2 candidates completed this Trial.","candidates":[{"candidateSessionId":2,"recommendation":"mixed_signal"},{"candidateSessionId":3,"recommendation":"positive_signal"}]}
-```
+- `app/integrations/github/client/integrations_github_client_github_client_repos_client.py`
+- `app/submissions/services/submissions_services_submissions_workspace_bootstrap_service.py`
+- `app/submissions/services/submissions_services_submissions_workspace_repo_state_service.py`
+- `app/submissions/services/use_cases/submissions_services_use_cases_submissions_use_cases_run_tests_service.py`
+- Targeted backend tests covering repo activation, Codespace init, and run dispatch behavior
 
-3 candidates:
+# 6. QA / Validation Summary
 
-```json
-{"trialId":4,"cohortSize":3,"state":"ready","message":null,"candidates":[{"candidateSessionId":4,"recommendation":"strong_signal"},{"candidateSessionId":5,"recommendation":"positive_signal"},{"candidateSessionId":6,"recommendation":"mixed_signal"}]}
-```
+Validation was done in two layers:
 
-Same-company/different-Trial isolation:
+- Targeted backend checks passed for repo activation and run-tests behavior.
+- Ruff checks passed for the touched backend surface.
+- Full-stack live QA later exercised the real frontend + backend stack with a real browser auth session and no QA-driver state seeding.
 
-- Trial 2 returned candidate IDs `[1]`.
-- Trial 5 returned candidate ID `[7]`.
-- No cross-contamination between those Trials.
+The backend changes were verified by observing the real candidate flow from open Day 2 through run-tests completion and submit completion on the live stack.
 
-Different-company isolation:
+# 7. Live Evidence Summary
 
-```json
-{"status":403,"payload":{"detail":"Trial access forbidden"}}
-```
+- A live GitHub Actions run on `winoe-ai-repos/winoe-ws-36` was observed stuck in `queued` with `jobs: []`, which confirmed the archived-repo / activation failure mode.
+- After repo activation, a later Actions run succeeded, confirming the backend fix for dispatch reliability.
+- The final contract-live QA on the real stack reached terminal run-tests success and a successful submit on the candidate flow.
+- The frontend open-day and closed-day artifacts show the backend-backed open/closed day behavior that the UI now consumes.
 
-Authorization:
+# 8. Risks / Follow-Ups
 
-- Different-company access guard returned `403`.
-- Candidate-email dev request returned `401` in the local seeded DB because that dev user was not present.
+- This backend PR unblocked real Day 2 Actions dispatch and verification, but it does not by itself close the frontend issue.
+- If GitHub template repo state changes again, repo activation / unarchive preflight should continue to run before init and dispatch.
+- Any future Codespace or Actions contract changes should be revalidated against the live candidate flow, not just unit tests.
 
-Refresh after Winoe Report generation:
+# 9. Reviewer Notes
 
-- Before report generation, Trial 7 returned `empty`.
-- After inserting the completed evaluation run, Trial 7 returned:
+- The important outcome here is reliability: real Day 2 candidate execution can now be verified on the live stack.
+- This work is the backend side of the broader Day 2 fix; the frontend PR #183 is still the UI-facing part of the overall flow.
+- The root causes were not just one endpoint. They were a combination of contract mismatch, repo state handling, and Actions dispatch robustness.
+- The queued-with-no-jobs failure mode is the key evidence that repo activation had to happen before dispatch.
 
-```json
-{"trialId":7,"cohortSize":1,"state":"partial","message":"Limited comparison — only 1 candidate completed this Trial.","candidates":[{"candidateSessionId":9,"recommendation":"strong_signal"}]}
-```
-
-# Risk / Notes
-
-- Live HTTP verification was performed against a local `uvicorn` instance with seeded sqlite data and dev-bypass auth.
-- The prior QA failure was caused by runtime drift and live verification mismatch; the route now explicitly validates the response model at the API boundary.
-- A live-style smoke helper was added to reduce the chance of this contract drifting again.
-
-# Acceptance Criteria Mapping
-
-- Compare only returns same-Trial candidates: covered by same-company/different-Trial and different-company checks.
-- No-data state for new Trials: covered by the 0-candidate payload.
-- Refreshes after report generation: covered by the Trial 7 before/after payload.
-- Framing does not imply Winoe decides: public signal values only; internal hiring enums are rejected.
-- 2+ same-Trial candidates: covered by the 2-candidate and 3-candidate payloads.
-- Cohort size: `cohortSize` is present in all payloads.
-- Limited caveat for cohort < 3: present for 1 and 2 candidates.
-- 0 -> 1 -> 2+ transitions: covered by the live HTTP payloads and tests.
-
-# Follow-ups
-
-- Consider wiring `scripts/compare_contract_smoke_test.py` into CI or the backend smoke pipeline.
-
-## Worker Report
+Worker Report:
 
 - Summary
-  - Benchmarks are now isolated to the requested Trial, with public contract fields and state handling that make the response predictable across 0, 1, 2, and 3+ candidate cohorts.
+  - Updated `pr.md` only to describe the backend reliability work that unblocked real Day 2 verification.
 - Files changed
   - `pr.md`
 - Commands run
-  - `sed -n '1,240p' pr.md` - pass
-  - `sed -n '1,240p' issue.md` - pass
-  - `poetry run pytest --no-cov ...` - pass, `17 passed`
-  - `poetry run pytest` - pass, `1846 passed`
-  - `poetry run pre-commit run --all-files` - fail, `pre-commit` unavailable in the workspace
-  - `poetry run python -m pre_commit run --all-files` - fail, module unavailable
+  - `sed -n '1,260p' pr.md` - pass
+  - `rg -n "queued|jobs: \[\]|activation|unarchive|workflow_dispatch|repo|Codespace|github username|pollAfterMs|run_tests|Submit" ...` - pass
 - Risks / assumptions
-  - The live HTTP verification reflects a local `uvicorn` instance with seeded sqlite data and dev-bypass auth.
-  - The reported validation output is treated as the source of truth for the pre-commit/coverage status because the direct pre-commit commands could not execute.
+  - Assumed the live QA findings are the final source of truth for backend root causes and validation wording.
+  - Kept the backend PR honest about scope: it unblocked verification, but it does not alone close the frontend issue.
 - Open questions / blockers
   - None

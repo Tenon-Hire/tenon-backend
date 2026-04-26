@@ -17,6 +17,9 @@ from app.submissions.services.submissions_services_submissions_rate_limits_const
     apply_rate_limit,
     concurrency_guard,
 )
+from app.submissions.services.submissions_services_submissions_workspace_repo_state_service import (
+    ensure_repo_is_active,
+)
 from app.submissions.services.use_cases.submissions_services_use_cases_submissions_use_cases_day_flow_gate_service import (
     ensure_day_flow_open,
 )
@@ -47,6 +50,9 @@ async def run_task_tests(
     branch_to_use = submission_service.validate_branch(
         branch or workspace.default_branch or "main"
     )
+    github_client = getattr(runner, "client", None)
+    if github_client is not None:
+        await ensure_repo_is_active(github_client, workspace.repo_full_name)
     async with concurrency_guard(candidate_session.id, "dispatch"):
         return (
             task,

@@ -22,6 +22,7 @@ from app.submissions.services.submissions_services_submissions_workspace_records
 )
 from app.submissions.services.submissions_services_submissions_workspace_repo_state_service import (
     add_collaborator_if_needed,
+    ensure_repo_is_active,
 )
 
 logger = logging.getLogger(__name__)
@@ -540,8 +541,8 @@ def _codespace_degradation_reason(exc: GithubError) -> str | None:
     """Return the explicit repo-only fallback reason for codespace creation.
 
     Only a GitHub service-unavailable response is allowed to degrade to a
-    repo-only invite flow. Anything else remains a hard failure so auth,
-    request-shape, and repository-state bugs stay visible.
+    repo-only invite flow. A 404 is still retried first, then converted to the
+    same repo-only fallback if GitHub never makes the repository visible.
     """
     if exc.status_code == 503:
         return "github_codespace_service_unavailable"
@@ -643,6 +644,7 @@ async def bootstrap_empty_candidate_repo(
     default_branch = str(
         repo.get("default_branch") or repo.get("master_branch") or default_branch
     )
+    repo = await ensure_repo_is_active(github_client, repo_full_name) or repo
     branch_ref = f"heads/{default_branch}"
     existing_branch_sha: str | None = None
     try:
@@ -879,6 +881,8 @@ async def bootstrap_empty_candidate_repo(
                     )
                     await asyncio.sleep(_CODESPACE_RETRY_DELAY_SECONDS)
                     continue
+                if exc.status_code == 404:
+                    break
                 logger.error(
                     "github_codespace_provision_failed",
                     extra={
@@ -896,7 +900,25 @@ async def bootstrap_empty_candidate_repo(
         if codespace is None:
             assert last_codespace_error is not None
             fallback_reason = _codespace_degradation_reason(last_codespace_error)
+            if fallback_reason is None and last_codespace_error.status_code == 404:
+                fallback_reason = "github_codespace_service_unavailable"
             if fallback_reason is not None:
+                logger.warning(
+                    "github_codespace_provision_degraded",
+                    extra={
+                        "trial_id": trial_id,
+                        "candidate_session_id": candidate_session_id,
+                        "repo_full_name": repo_full_name,
+                        "status_code": getattr(
+                            last_codespace_error, "status_code", None
+                        ),
+                        "fallback_reason": fallback_reason,
+                        "fallback_mode": "repo_only",
+                        "safe_fallback": True,
+                        "error_message": str(last_codespace_error),
+                        "elapsed_ms": _elapsed_ms(overall_started_at),
+                    },
+                )
                 codespace_name = None
                 codespace_state = None
                 codespace_url = build_codespace_url(repo_full_name)

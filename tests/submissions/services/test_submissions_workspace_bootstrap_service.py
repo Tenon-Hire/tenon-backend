@@ -409,7 +409,7 @@ async def test_bootstrap_empty_candidate_repo_uses_canonical_project_brief_helpe
 
 
 @pytest.mark.asyncio
-async def test_bootstrap_empty_candidate_repo_retries_codespace_not_found_then_raises(
+async def test_bootstrap_empty_candidate_repo_retries_codespace_not_found_then_falls_back_to_repo_only(
     caplog, monkeypatch
 ):
     candidate_session = SimpleNamespace(id=79)
@@ -476,8 +476,8 @@ async def test_bootstrap_empty_candidate_repo_retries_codespace_not_found_then_r
 
     monkeypatch.setattr(bootstrap_service.asyncio, "sleep", _sleep)
 
-    with caplog.at_level(logging.WARNING), pytest.raises(GithubError, match="missing"):
-        await bootstrap_service.bootstrap_empty_candidate_repo(
+    with caplog.at_level(logging.WARNING):
+        result = await bootstrap_service.bootstrap_empty_candidate_repo(
             github_client=StubGithubClient(),
             candidate_session=candidate_session,
             trial=trial,
@@ -487,6 +487,12 @@ async def test_bootstrap_empty_candidate_repo_retries_codespace_not_found_then_r
             destination_owner="winoe-ai-repos",
         )
     assert sleep_calls == [bootstrap_service._CODESPACE_RETRY_DELAY_SECONDS] * 6
+    assert result.codespace_name is None
+    assert result.codespace_state is None
+    assert (
+        result.codespace_url
+        == "https://codespaces.new/winoe-ai-repos/winoe-ws-79?quickstart=1"
+    )
     assert any(
         record.message == "github_codespace_provision_retrying"
         and record.__dict__.get("status_code") == 404
@@ -495,7 +501,9 @@ async def test_bootstrap_empty_candidate_repo_retries_codespace_not_found_then_r
         for record in caplog.records
     )
     assert any(
-        record.message == "github_codespace_provision_failed"
+        record.message == "github_codespace_provision_degraded"
+        and record.__dict__.get("fallback_reason")
+        == "github_codespace_service_unavailable"
         and record.__dict__.get("status_code") == 404
         for record in caplog.records
     )

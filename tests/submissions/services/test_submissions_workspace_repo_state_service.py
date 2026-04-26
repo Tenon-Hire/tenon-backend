@@ -77,3 +77,28 @@ async def test_refresh_codespace_state_noop_without_codespace_reader():
     assert db.commit_calls == 0
     assert db.flush_calls == 0
     assert db.refresh_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_ensure_repo_is_active_unarchives_archived_repo():
+    calls: list[str] = []
+
+    class StubGithubClient:
+        async def get_repo(self, repo_full_name: str):
+            calls.append(f"get:{repo_full_name}")
+            return {"full_name": repo_full_name, "archived": True}
+
+        async def unarchive_repo(self, repo_full_name: str):
+            calls.append(f"unarchive:{repo_full_name}")
+            return {"full_name": repo_full_name, "archived": False}
+
+    result = await repo_state_service.ensure_repo_is_active(
+        StubGithubClient(),
+        "winoe-ai-repos/winoe-ws-123",
+    )
+
+    assert result == {"full_name": "winoe-ai-repos/winoe-ws-123", "archived": False}
+    assert calls == [
+        "get:winoe-ai-repos/winoe-ws-123",
+        "unarchive:winoe-ai-repos/winoe-ws-123",
+    ]

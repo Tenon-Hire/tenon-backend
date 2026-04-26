@@ -38,6 +38,28 @@ async def add_collaborator_if_needed(
         await github_client.add_collaborator(repo_full_name, github_username)
 
 
+async def ensure_repo_is_active(
+    github_client: GithubClient, repo_full_name: str
+) -> dict | None:
+    """Return a live repository payload, unarchiving archived repos when possible."""
+    get_repo = getattr(github_client, "get_repo", None)
+    if not callable(get_repo):
+        return None
+
+    repo = await get_repo(repo_full_name)
+    if not isinstance(repo, dict):
+        return repo
+    if not repo.get("archived"):
+        return repo
+
+    unarchive_repo = getattr(github_client, "unarchive_repo", None)
+    if not callable(unarchive_repo):
+        return repo
+
+    refreshed = await unarchive_repo(repo_full_name)
+    return refreshed if isinstance(refreshed, dict) else repo
+
+
 async def refresh_codespace_state(
     db: AsyncSession,
     *,

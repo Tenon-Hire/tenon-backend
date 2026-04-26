@@ -237,6 +237,12 @@ class RepoOperations:
         path = f"/repos/{owner}/{repo}"
         return await self._request("PATCH", path, json={"archived": True})
 
+    async def unarchive_repo(self, repo_full_name: str) -> dict:
+        """Execute unarchive repo."""
+        owner, repo = split_full_name(repo_full_name)
+        path = f"/repos/{owner}/{repo}"
+        return await self._request("PATCH", path, json={"archived": False})
+
     async def delete_repo(self, repo_full_name: str) -> dict:
         """Delete repo."""
         owner, repo = split_full_name(repo_full_name)

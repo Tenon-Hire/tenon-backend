@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import Depends, Header, status
@@ -15,6 +14,7 @@ from app.shared.auth.shared_auth_candidate_access_utils import (
 )
 from app.shared.database import get_session
 from app.shared.database.shared_database_models_model import CandidateSession
+from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
 from app.shared.utils.shared_utils_errors_utils import ApiError
 
 
@@ -32,7 +32,6 @@ async def candidate_session_from_headers(
             detail="Missing candidate session headers",
             error_code="CANDIDATE_SESSION_HEADER_REQUIRED",
         )
-    now = datetime.now(UTC)
     return await cs_service.fetch_owned_session(
-        db, int(x_candidate_session_id), principal, now=now
+        db, int(x_candidate_session_id), principal, now=shared_utcnow()
     )
