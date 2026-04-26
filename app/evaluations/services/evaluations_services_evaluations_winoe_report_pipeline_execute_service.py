@@ -21,13 +21,16 @@ def _build_day_scores(result) -> list[dict[str, Any]]:
             field_name=f"day_results[{day_result.day_index}].score",
             required=True,
         )
-        if not isinstance(rubric_breakdown, dict) or not rubric_breakdown:
+        if not isinstance(rubric_breakdown, dict):
             raise ValueError(
-                f"day_results[{day_result.day_index}] rubric_breakdown must be a non-empty object."
+                f"day_results[{day_result.day_index}] rubric_breakdown must be an object."
             )
-        if not isinstance(evidence, list) or not evidence:
+        # Provider output can omit evidence citations even when the score and
+        # rubric breakdown are usable. Do not fail the full evaluation run on
+        # that condition; persist the empty evidence list and surface the result.
+        if not isinstance(evidence, list):
             raise ValueError(
-                f"day_results[{day_result.day_index}] evidence must be a non-empty list."
+                f"day_results[{day_result.day_index}] evidence must be a list."
             )
         day_scores.append(
             {
