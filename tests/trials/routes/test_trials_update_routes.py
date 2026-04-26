@@ -23,7 +23,7 @@ async def test_update_trial_ai_partial_merge(
         {
             "title": "Sim Update",
             "role": "Backend Engineer",
-            "techStack": "Python",
+            "preferredLanguageFramework": "Python",
             "seniority": "Mid",
             "focus": "Update AI controls",
             "ai": {

@@ -11,7 +11,6 @@ from typing import Any
 
 from app.ai.ai_output_models import (
     AggregatedWinoeReportOutput,
-    CodespacePatchProposal,
     DayReviewerOutput,
     ScenarioGenerationOutput,
 )
@@ -47,7 +46,6 @@ class PromptPackBundle:
 
 _OUTPUT_MODELS: dict[str, type[Any]] = {
     "ScenarioGenerationOutput": ScenarioGenerationOutput,
-    "CodespacePatchProposal": CodespacePatchProposal,
     "DayReviewerOutput": DayReviewerOutput,
     "AggregatedWinoeReportOutput": AggregatedWinoeReportOutput,
 }

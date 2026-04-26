@@ -44,7 +44,7 @@ def build_rubric_json(*, role: str) -> dict[str, Any]:
     """Build rubric json."""
     role_label = normalize_text(role) or "Engineer"
     return {
-        "summary": f"Evaluate {role_label} performance across planning, implementation, wrap-up, demo presentation, and reflection in a from-scratch build.",
+        "summary": f"Evaluate {role_label} performance across planning, implementation, wrap-up, handoff demo, and reflection in a from-scratch build.",
         "dayWeights": {"1": 20, "2": 30, "3": 25, "4": 15, "5": 10},
         "dimensions": [
             {
@@ -63,7 +63,7 @@ def build_rubric_json(*, role: str) -> dict[str, Any]:
                 "description": "Finishes the core implementation, hardens edge cases, and leaves the codebase ready for reviewer handoff.",
             },
             {
-                "name": "Communication and presentation",
+                "name": "Handoff communication",
                 "weight": 20,
                 "description": "Explains decisions, risks, outcomes, and next steps clearly.",
             },

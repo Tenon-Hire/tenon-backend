@@ -19,20 +19,23 @@ async def test_create_trial_with_tasks_enqueues_scenario_generation_job(
         {
             "title": "Title",
             "role": "Role",
-            "techStack": "Python",
+            "preferredLanguageFramework": "Python",
             "seniority": "Mid",
             "focus": "Build",
-            "companyContext": {"domain": "social", "productArea": "creator tools"},
+            "companyContext": {
+                "domain": "social",
+                "productArea": "creator tools",
+                "preferredLanguageFramework": "Python",
+            },
             "ai": {
                 "noticeVersion": "mvp1",
                 "noticeText": "AI may assist with scenario generation.",
                 "evalEnabledByDay": {"1": True, "2": False, "9": True},
             },
-            "templateKey": "python-fastapi",
         },
     )()
 
-    sim, _tasks, scenario_job = await sim_service.create_trial_with_tasks(
+    sim, _tasks, scenario_job = await trial_service.create_trial_with_tasks(
         async_session, payload, talent_partner
     )
 
@@ -58,12 +61,16 @@ async def test_create_trial_with_tasks_enqueues_scenario_generation_job(
     assert job.max_attempts == scenario_generation.SCENARIO_GENERATION_JOB_MAX_ATTEMPTS
 
     assert job.payload_json["trialId"] == sim.id
-    assert job.payload_json["templateKey"] == "python-fastapi"
-    assert job.payload_json["scenarioTemplate"] == "python-fastapi"
+    assert "templateKey" not in job.payload_json
+    assert "scenarioTemplate" not in job.payload_json
     assert job.payload_json["talentPartnerContext"] == {
         "seniority": "mid",
         "focus": "Build",
-        "companyContext": {"domain": "social", "productArea": "creator tools"},
+        "companyContext": {
+            "domain": "social",
+            "productArea": "creator tools",
+            "preferredLanguageFramework": "Python",
+        },
         "ai": {
             "noticeVersion": "mvp1",
             "noticeText": "AI may assist with scenario generation.",
@@ -102,11 +109,11 @@ async def test_create_trial_with_tasks_accepts_pivoted_payload(
         },
     )()
 
-    sim, _tasks, scenario_job = await sim_service.create_trial_with_tasks(
+    sim, _tasks, scenario_job = await trial_service.create_trial_with_tasks(
         async_session, payload, talent_partner
     )
 
-    assert sim.tech_stack == "Python/FastAPI"
+    assert sim.tech_stack == ""
     assert sim.focus == ""
     assert sim.company_context == {
         "domain": "social",

@@ -25,7 +25,8 @@ from .trials_services_trials_creation_extractors_service import (
     extract_company_context,
     extract_day_window_config,
 )
-from .trials_services_trials_template_keys_service import resolve_template_key
+
+FROM_SCRATCH_TRIAL_KEY = "from-scratch"
 
 DAY5_DAY_WINDOW_OVERRIDE_ERROR_CODE = "TRIAL_DAY5_WINDOW_OVERRIDE_INVALID"
 
@@ -39,11 +40,7 @@ def _resolve_preferred_language_framework(payload: Any) -> str | None:
 
 
 def _resolve_tech_stack(payload: Any, preferred_language_framework: str | None) -> str:
-    raw_tech_stack = getattr(payload, "techStack", getattr(payload, "tech_stack", None))
-    if isinstance(raw_tech_stack, str) and raw_tech_stack.strip():
-        return raw_tech_stack.strip()
-    if preferred_language_framework is not None:
-        return preferred_language_framework
+    _ = (payload, preferred_language_framework)
     return ""
 
 
@@ -85,7 +82,7 @@ def build_trial_for_create(
     payload: Any, user: Any
 ) -> tuple[Trial, str, dict[str, bool]]:
     """Build trial for create."""
-    template_key = resolve_template_key(payload)
+    trial_key = FROM_SCRATCH_TRIAL_KEY
     started_at = datetime.now(UTC)
     (
         ai_notice_version,
@@ -139,10 +136,10 @@ def build_trial_for_create(
         day_window_end_local=day_window_end_local,
         day_window_overrides_enabled=day_window_overrides_enabled,
         day_window_overrides_json=day_window_overrides_json,
-        scenario_template=template_key,
+        scenario_template=trial_key,
         company_id=user.company_id,
         created_by=user.id,
-        template_key=template_key,
+        template_key=trial_key,
         status=TRIAL_STATUS_GENERATING,
         generating_at=started_at,
     )

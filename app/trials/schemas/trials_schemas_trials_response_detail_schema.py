@@ -12,7 +12,6 @@ from app.trials.schemas.trials_schemas_trials_ai_models_schema import (
     TrialCompanyContext,
 )
 from app.trials.schemas.trials_schemas_trials_scenario_summary_schema import (
-    ScenarioVersionSummary,
     TrialDetailScenario,
 )
 
@@ -65,10 +64,8 @@ class TrialDetailResponse(BaseModel):
 
     id: int
     title: str | None = None
-    templateKey: str | None = None
     role: str | None = None
     seniority: str | None = None
-    techStack: str | list[str] | None = None
     focus: str | list[str] | None = None
     companyContext: TrialCompanyContext | None = None
     ai: TrialAIConfig | None = None
@@ -86,7 +83,6 @@ class TrialDetailResponse(BaseModel):
     readyForReviewAt: datetime | None = None
     activatedAt: datetime | None = None
     terminatedAt: datetime | None = None
-    scenarioVersionSummary: ScenarioVersionSummary | None = None
     tasks: list[TrialDetailTask]
 
 

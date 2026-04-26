@@ -61,17 +61,17 @@ async def test_create_candidate_invite_happy_path(monkeypatch):
         talent_partner_sims, "ensure_talent_partner_or_none", lambda _u: None
     )
     monkeypatch.setattr(
-        talent_partner_sims.sim_service,
+        talent_partner_sims.trial_service,
         "require_owned_trial_with_tasks",
         _require_owned_with_tasks,
     )
     monkeypatch.setattr(
-        talent_partner_sims.sim_service,
+        talent_partner_sims.trial_service,
         "lock_active_scenario_for_invites",
         _lock_active_scenario_for_invites,
     )
     monkeypatch.setattr(
-        talent_partner_sims.sim_service,
+        talent_partner_sims.trial_service,
         "create_or_resend_invite",
         _create_or_resend_invite,
     )
@@ -84,7 +84,7 @@ async def test_create_candidate_invite_happy_path(monkeypatch):
         talent_partner_sims.submission_service, "ensure_workspace", _ensure_workspace
     )
     monkeypatch.setattr(
-        talent_partner_sims.sim_service,
+        talent_partner_sims.trial_service,
         "invite_url",
         lambda token: f"https://portal/{token}",
     )

@@ -32,10 +32,9 @@ async def test_seeded_tasks_leave_task_template_repo_empty(
         payload = {
             "title": "Backend Node Trial",
             "role": "Backend Engineer",
-            "techStack": "Node.js, PostgreSQL",
+            "preferredLanguageFramework": "Node.js, PostgreSQL",
             "seniority": "Mid",
             "focus": "Build new API feature and debug an issue",
-            "templateKey": "node-express-ts",
         }
 
         resp = await async_client.post("/api/trials", json=payload)

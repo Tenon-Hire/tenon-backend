@@ -30,10 +30,10 @@ async def test_list_trial_candidates_calls_service(monkeypatch):
         return [(cs, None)]
 
     monkeypatch.setattr(
-        talent_partner_sims.sim_service, "require_owned_trial", _require_owned
+        talent_partner_sims.trial_service, "require_owned_trial", _require_owned
     )
     monkeypatch.setattr(
-        talent_partner_sims.sim_service,
+        talent_partner_sims.trial_service,
         "list_candidates_with_profile",
         _list_candidates,
     )

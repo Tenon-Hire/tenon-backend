@@ -109,8 +109,3 @@ class ScenarioVersion(Base, TimestampMixin):
         back_populates="scenario_version",
         cascade="all, delete-orphan",
     )
-    precommit_bundles = relationship(
-        "PrecommitBundle",
-        back_populates="scenario_version",
-        cascade="all, delete-orphan",
-    )

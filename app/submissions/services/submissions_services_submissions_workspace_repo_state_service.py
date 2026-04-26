@@ -15,7 +15,7 @@ from app.submissions.repositories.github_native.workspaces.submissions_repositor
 )
 
 
-async def fetch_base_template_sha(
+async def fetch_bootstrap_commit_sha(
     github_client: GithubClient, repo_full_name: str, default_branch: str | None
 ) -> str | None:
     """Return base template sha."""

@@ -10,26 +10,6 @@ from app.submissions.services.submissions_services_submissions_workspace_bootstr
 class StubGithubClient:
     _workflow_text = build_evidence_capture_workflow_yaml()
 
-    async def generate_repo_from_template(
-        self,
-        *,
-        template_full_name: str,
-        new_repo_name: str,
-        owner=None,
-        private=True,
-    ):
-        owner_prefix = owner or "org"
-        return {
-            "owner": {"login": owner_prefix},
-            "name": new_repo_name,
-            "full_name": f"{owner_prefix}/{new_repo_name}",
-            "canonical_owner": owner_prefix,
-            "canonical_name": new_repo_name,
-            "canonical_full_name": f"{owner_prefix}/{new_repo_name}",
-            "id": 999,
-            "default_branch": "main",
-        }
-
     async def create_empty_repo(
         self,
         *,
@@ -93,7 +73,7 @@ class StubGithubClient:
     async def create_commit(
         self, repo_full_name: str, *, message: str, tree: str, parents: list[str]
     ):
-        return {"sha": "precommit-sha-789", "message": message, "tree": tree}
+        return {"sha": "commit-sha-789", "message": message, "tree": tree}
 
     async def update_ref(
         self, repo_full_name: str, *, ref: str, sha: str, force: bool = False

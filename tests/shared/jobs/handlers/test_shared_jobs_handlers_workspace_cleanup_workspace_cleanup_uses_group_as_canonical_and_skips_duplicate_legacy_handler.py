@@ -30,7 +30,7 @@ async def test_workspace_cleanup_uses_group_as_canonical_and_skips_duplicate_leg
         template_repo_full_name="org/template-repo",
         repo_full_name="org/shared-repo",
         default_branch="main",
-        base_template_sha="base-sha",
+        bootstrap_commit_sha="base-sha",
         created_at=created_at,
     )
 
@@ -46,7 +46,7 @@ async def test_workspace_cleanup_uses_group_as_canonical_and_skips_duplicate_leg
         repo_full_name=group.repo_full_name,
         repo_id=999,
         default_branch=group.default_branch,
-        base_template_sha=group.base_template_sha,
+        bootstrap_commit_sha=group.bootstrap_commit_sha,
         created_at=created_at,
     )
     legacy = await workspace_repo.create_workspace(
@@ -58,7 +58,7 @@ async def test_workspace_cleanup_uses_group_as_canonical_and_skips_duplicate_leg
         repo_full_name="org/shared-repo",
         repo_id=1000,
         default_branch="main",
-        base_template_sha="base-sha",
+        bootstrap_commit_sha="base-sha",
         created_at=created_at,
     )
     await async_session.commit()

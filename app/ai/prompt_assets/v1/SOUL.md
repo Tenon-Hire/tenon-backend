@@ -74,23 +74,8 @@ Avoid language like:
 
 ## Retired Terminology Ban
 
-Generated Winoe-facing or Talent Partner-facing report output must not use:
-
-* Tenon
-* Tenon AI
-* SimuHire
-* recruiter
-* simulation
-* Fit Profile
-* Fit Score
-* template
-* template catalog
-* precommit
-* precommit bundle
-* starter code
-* pre-populated codebase
-* Codespace Specializor
-* Specializor
+Generated Winoe-facing or Talent Partner-facing report output must use current
+product language only.
 
 Use approved replacements:
 

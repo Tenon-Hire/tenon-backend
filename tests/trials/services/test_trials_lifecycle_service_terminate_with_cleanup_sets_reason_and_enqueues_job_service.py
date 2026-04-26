@@ -36,23 +36,23 @@ async def test_terminate_with_cleanup_sets_reason_and_enqueues_job(async_session
         focus="Termination metadata",
         scenario_template="default-5day-node-postgres",
         created_by=owner.id,
-        status=sim_service.TRIAL_STATUS_GENERATING,
+        status=trial_service.TRIAL_STATUS_GENERATING,
         generating_at=datetime.now(UTC),
     )
     async_session.add(trial)
     await async_session.flush()
     await _attach_active_scenario(async_session, trial)
-    trial.status = sim_service.TRIAL_STATUS_READY_FOR_REVIEW
+    trial.status = trial_service.TRIAL_STATUS_READY_FOR_REVIEW
     trial.ready_for_review_at = datetime.now(UTC)
     await async_session.commit()
 
-    result = await sim_service.terminate_trial_with_cleanup(
+    result = await trial_service.terminate_trial_with_cleanup(
         async_session,
         trial_id=trial.id,
         actor_user_id=owner.id,
         reason="regenerate",
     )
-    assert result.trial.status == sim_service.TRIAL_STATUS_TERMINATED
+    assert result.trial.status == trial_service.TRIAL_STATUS_TERMINATED
     assert result.trial.terminated_reason == "regenerate"
     assert result.trial.terminated_by_talent_partner_id == owner.id
     assert len(result.cleanup_job_ids) == 1
@@ -99,7 +99,7 @@ async def test_terminate_with_cleanup_expires_pending_invites_and_cancels_trial_
         focus="Termination side effects",
         scenario_template="default-5day-node-postgres",
         created_by=owner.id,
-        status=sim_service.TRIAL_STATUS_GENERATING,
+        status=trial_service.TRIAL_STATUS_GENERATING,
         generating_at=datetime.now(UTC),
     )
     other_trial = Trial(
@@ -111,16 +111,16 @@ async def test_terminate_with_cleanup_expires_pending_invites_and_cancels_trial_
         focus="Unrelated trial",
         scenario_template="default-5day-node-postgres",
         created_by=owner.id,
-        status=sim_service.TRIAL_STATUS_GENERATING,
+        status=trial_service.TRIAL_STATUS_GENERATING,
         generating_at=datetime.now(UTC),
     )
     async_session.add_all([trial, other_trial])
     await async_session.flush()
     await _attach_active_scenario(async_session, trial)
     await _attach_active_scenario(async_session, other_trial)
-    trial.status = sim_service.TRIAL_STATUS_READY_FOR_REVIEW
+    trial.status = trial_service.TRIAL_STATUS_READY_FOR_REVIEW
     trial.ready_for_review_at = datetime.now(UTC)
-    other_trial.status = sim_service.TRIAL_STATUS_READY_FOR_REVIEW
+    other_trial.status = trial_service.TRIAL_STATUS_READY_FOR_REVIEW
     other_trial.ready_for_review_at = datetime.now(UTC)
 
     pending_session = await create_candidate_session(
@@ -184,14 +184,14 @@ async def test_terminate_with_cleanup_expires_pending_invites_and_cancels_trial_
     )
     await async_session.commit()
 
-    result = await sim_service.terminate_trial_with_cleanup(
+    result = await trial_service.terminate_trial_with_cleanup(
         async_session,
         trial_id=trial.id,
         actor_user_id=owner.id,
         reason="cleanup",
     )
 
-    assert result.trial.status == sim_service.TRIAL_STATUS_TERMINATED
+    assert result.trial.status == trial_service.TRIAL_STATUS_TERMINATED
     assert result.trial.terminated_reason == "cleanup"
     assert result.trial.terminated_by_talent_partner_id == owner.id
     assert len(result.cleanup_job_ids) == 1

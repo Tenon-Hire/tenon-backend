@@ -34,9 +34,9 @@ async def create_or_resend_invite(
     now = now or shared_utcnow()
     invite_email = str(payload.inviteEmail).strip().lower()
 
-    from app.trials import services as sim_service
+    from app.trials import services as trial_service
 
-    existing = await sim_service.cs_repo.get_by_trial_and_email_for_update(
+    existing = await trial_service.cs_repo.get_by_trial_and_email_for_update(
         db, trial_id=trial_id, invite_email=invite_email
     )
     if existing:

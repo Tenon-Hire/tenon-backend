@@ -12,7 +12,7 @@ async def test_create_or_resend_invite_resends_active(async_session):
     payload = type(
         "P", (), {"candidateName": "Jane", "inviteEmail": "jane@example.com"}
     )
-    first, _created = await sim_service.create_invite(
+    first, _created = await trial_service.create_invite(
         async_session,
         trial_id=sim.id,
         payload=payload,
@@ -20,7 +20,7 @@ async def test_create_or_resend_invite_resends_active(async_session):
         now=datetime.now(UTC),
     )
 
-    second, outcome = await sim_service.create_or_resend_invite(
+    second, outcome = await trial_service.create_or_resend_invite(
         async_session, trial_id=sim.id, payload=payload, now=datetime.now(UTC)
     )
 

@@ -17,7 +17,7 @@ async def build_diff_summary(
     github_client: GithubClient, workspace: Workspace, branch: str, head_sha: str
 ) -> str | None:
     """Build diff summary."""
-    base_sha = workspace.base_template_sha
+    base_sha = workspace.bootstrap_commit_sha
     if not base_sha:
         try:
             branch_payload = await github_client.get_branch(

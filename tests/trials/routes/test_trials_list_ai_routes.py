@@ -6,7 +6,7 @@ async def test_list_trials_includes_seniority_and_ai_eval_summary(authed_client)
     payload = {
         "title": "Sim With AI Settings",
         "role": "Frontend Engineer",
-        "techStack": "react-nextjs",
+        "preferredLanguageFramework": "react-nextjs",
         "seniority": "mid",
         "focus": "Prioritize API ergonomics.",
         "companyContext": {"domain": "social", "productArea": "creator tools"},
@@ -29,6 +29,9 @@ async def test_list_trials_includes_seniority_and_ai_eval_summary(authed_client)
     assert list_res.status_code == 200, list_res.text
     item = next(x for x in list_res.json() if x["id"] == sim_id)
     assert item["seniority"] == "mid"
-    assert item["companyContext"] == payload["companyContext"]
+    assert item["companyContext"] == {
+        **payload["companyContext"],
+        "preferredLanguageFramework": "react-nextjs",
+    }
     assert item["ai"]["noticeVersion"] == "mvp1"
     assert item["ai"]["evalEnabledByDay"] == payload["ai"]["evalEnabledByDay"]

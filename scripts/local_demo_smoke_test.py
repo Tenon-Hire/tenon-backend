@@ -104,7 +104,7 @@ def _create_trial(client: httpx.Client, *, email: str) -> dict[str, object]:
             json={
                 "title": "Local Demo Smoke Test",
                 "role": "Backend Engineer",
-                "techStack": "Python, FastAPI, PostgreSQL",
+                "preferredLanguageFramework": "Python, FastAPI, PostgreSQL",
                 "seniority": "Mid",
                 "focus": "Prove Trial generation reaches a ready scenario state",
             },

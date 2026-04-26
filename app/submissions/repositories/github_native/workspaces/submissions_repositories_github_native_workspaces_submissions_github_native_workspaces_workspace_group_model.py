@@ -35,7 +35,11 @@ class WorkspaceGroup(Base):
     )
     repo_full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     default_branch: Mapped[str | None] = mapped_column(String(120), nullable=True)
-    base_template_sha: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    bootstrap_commit_sha: Mapped[str | None] = mapped_column(
+        "base_template_sha",
+        String(100),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )

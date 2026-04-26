@@ -28,4 +28,4 @@ async def test_refresh_invite_token_exhausts_retries(monkeypatch):
         status="not_started",
     )
     with pytest.raises(HTTPException):
-        await sim_service._refresh_invite_token(DummyDB(), cs, now=datetime.now(UTC))
+        await trial_service._refresh_invite_token(DummyDB(), cs, now=datetime.now(UTC))

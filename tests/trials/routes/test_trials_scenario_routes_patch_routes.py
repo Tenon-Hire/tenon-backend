@@ -30,7 +30,9 @@ async def test_approve_scenario_route_promotes_pending(monkeypatch):
             SimpleNamespace(id=22, version_index=2, status="ready", locked_at=None),
         )
 
-    monkeypatch.setattr(scenario.sim_service, "approve_scenario_version", fake_approve)
+    monkeypatch.setattr(
+        scenario.trial_service, "approve_scenario_version", fake_approve
+    )
     response = await scenario.approve_scenario_version(
         trial_id=8,
         scenario_version_id=22,
@@ -51,7 +53,9 @@ async def test_approve_scenario_route_maps_snapshot_validation_error(monkeypatch
     async def fake_approve(*_args, **_kwargs):
         raise AIPolicySnapshotError("boom")
 
-    monkeypatch.setattr(scenario.sim_service, "approve_scenario_version", fake_approve)
+    monkeypatch.setattr(
+        scenario.trial_service, "approve_scenario_version", fake_approve
+    )
 
     with pytest.raises(ApiError) as excinfo:
         await scenario.approve_scenario_version(
@@ -76,7 +80,7 @@ async def test_patch_scenario_version_route_normalizes_fields(monkeypatch):
         assert actor_user_id == 9
         return SimpleNamespace(id=22, status="ready")
 
-    monkeypatch.setattr(scenario.sim_service, "patch_scenario_version", fake_patch)
+    monkeypatch.setattr(scenario.trial_service, "patch_scenario_version", fake_patch)
     payload = ScenarioVersionPatchRequest(
         storylineMd="Story v2",
         taskPrompts=[

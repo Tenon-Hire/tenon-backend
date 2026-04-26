@@ -42,7 +42,7 @@ async def provision_grouped_workspace(
     now: datetime,
     existing_group: WorkspaceGroup | None = None,
     commit: bool = True,
-    hydrate_precommit_bundle: bool = True,
+    hydrate_bundle: bool = True,
     existing_checked: bool = False,
     workspace_group_checked: bool = False,
     bootstrap_empty_repo: bool = False,
@@ -95,7 +95,7 @@ async def provision_grouped_workspace(
             task,
             github_client,
             github_username,
-            hydrate_precommit_bundle,
+            hydrate_bundle,
             commit,
             ensure_collaborator=True,
         )
@@ -108,10 +108,12 @@ async def provision_grouped_workspace(
             "repo_full_name": group.repo_full_name,
             "repo_id": repo_id,
             "default_branch": group.default_branch,
-            "base_template_sha": group.base_template_sha,
-            "codespace_url": codespace_url
-            if bootstrap_empty_repo and codespace_url
-            else build_codespace_url(group.repo_full_name),
+            "bootstrap_commit_sha": group.bootstrap_commit_sha,
+            "codespace_url": (
+                codespace_url
+                if bootstrap_empty_repo and codespace_url
+                else build_codespace_url(group.repo_full_name)
+            ),
             "codespace_name": codespace_name if bootstrap_empty_repo else None,
             "codespace_state": codespace_state if bootstrap_empty_repo else None,
             "created_at": now,
@@ -127,7 +129,7 @@ async def provision_grouped_workspace(
             task,
             github_client,
             github_username,
-            hydrate_precommit_bundle,
+            hydrate_bundle,
             commit,
         )
         result._provisioned_repo_created = True
@@ -154,6 +156,6 @@ async def provision_grouped_workspace(
             task,
             github_client,
             github_username,
-            hydrate_precommit_bundle,
+            hydrate_bundle,
             commit,
         )

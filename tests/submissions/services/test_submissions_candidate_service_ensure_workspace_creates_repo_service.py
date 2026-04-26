@@ -75,7 +75,7 @@ async def test_ensure_workspace_creates_repo(async_session):
         now=datetime.now(UTC),
     )
     assert ws.repo_full_name == f"org/prefix-{cs.id}-coding"
-    assert ws.base_template_sha == "commit-sha"
+    assert ws.bootstrap_commit_sha == "commit-sha"
 
 
 @pytest.mark.asyncio

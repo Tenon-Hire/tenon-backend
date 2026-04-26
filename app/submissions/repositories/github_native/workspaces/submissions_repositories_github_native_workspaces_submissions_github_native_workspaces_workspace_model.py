@@ -40,9 +40,11 @@ class Workspace(Base):
     repo_full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     repo_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     default_branch: Mapped[str | None] = mapped_column(String(120), nullable=True)
-    base_template_sha: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    precommit_sha: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    precommit_details_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    bootstrap_commit_sha: Mapped[str | None] = mapped_column(
+        "base_template_sha",
+        String(100),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )

@@ -66,7 +66,7 @@ async def get_or_create_workspace_group(
         default_branch = created_repo.default_branch
         repo_id = created_repo.repo_id
         # Legacy DB column name; this now stores the repo bootstrap commit SHA.
-        base_template_sha = created_repo.bootstrap_commit_sha
+        bootstrap_commit_sha = created_repo.bootstrap_commit_sha
         codespace_name = created_repo.codespace_name
         codespace_state = created_repo.codespace_state
         codespace_url = created_repo.codespace_url
@@ -90,7 +90,7 @@ async def get_or_create_workspace_group(
         "template_repo_full_name": template_repo,
         "repo_full_name": repo_full_name,
         "default_branch": default_branch,
-        "base_template_sha": base_template_sha,
+        "bootstrap_commit_sha": bootstrap_commit_sha,
         "created_at": now,
     }
     if not commit:

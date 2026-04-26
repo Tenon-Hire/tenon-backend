@@ -16,10 +16,6 @@ from pydantic import (
 )
 
 from app.config import settings
-from app.trials.constants.trials_constants_trials_template_keys_constants import (
-    DEFAULT_TEMPLATE_KEY,
-    validate_template_key,
-)
 from app.trials.schemas.trials_schemas_trials_ai_models_schema import (
     TrialAIConfig,
     TrialCompanyContext,
@@ -40,12 +36,6 @@ class TrialCreate(BaseModel):
 
     title: str = Field(..., min_length=1, max_length=200)
     role: str = Field(..., min_length=1, max_length=200)
-    techStack: str | None = Field(
-        default=None,
-        min_length=1,
-        max_length=500,
-        validation_alias=AliasChoices("techStack", "tech_stack"),
-    )
     seniority: str = Field(
         ...,
         min_length=1,
@@ -71,9 +61,6 @@ class TrialCreate(BaseModel):
         default=None, alias="companyContext"
     )
     ai: TrialAIConfig | None = None
-    templateKey: str = Field(
-        DEFAULT_TEMPLATE_KEY, min_length=1, max_length=255, description="Template key"
-    )
     dayWindowStartLocal: time = Field(default=time(hour=9, minute=0))
     dayWindowEndLocal: time = Field(default=time(hour=17, minute=0))
     dayWindowOverridesEnabled: bool = False
@@ -87,11 +74,6 @@ class TrialCreate(BaseModel):
             allowed = ", ".join(sorted(_ALLOWED_ROLE_LEVELS))
             raise ValueError(f"seniority must be one of: {allowed}")
         return normalized
-
-    @field_validator("templateKey")
-    @classmethod
-    def _validate_template_key(cls, value: str) -> str:
-        return validate_template_key(value)
 
     @field_validator("dayWindowOverrides", mode="before")
     @classmethod

@@ -41,9 +41,9 @@ async def test_update_trial_route_renders_detail_response(monkeypatch):
         captured["render_args"] = (sim, task_rows, scenario)
         return rendered
 
-    monkeypatch.setattr(update_routes.sim_service, "update_trial", _fake_update_trial)
+    monkeypatch.setattr(update_routes.trial_service, "update_trial", _fake_update_trial)
     monkeypatch.setattr(
-        update_routes.sim_service,
+        update_routes.trial_service,
         "get_active_scenario_version",
         _fake_get_active_scenario_version,
     )

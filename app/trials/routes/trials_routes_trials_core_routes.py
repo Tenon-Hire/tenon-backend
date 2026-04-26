@@ -5,7 +5,7 @@ from app.shared.auth.shared_auth_roles_utils import ensure_talent_partner_or_non
 from app.submissions.services import (
     submissions_services_submissions_candidate_service as submission_service,
 )
-from app.trials import services as sim_service
+from app.trials import services as trial_service
 from app.trials.routes.trials_routes import router
 from app.trials.routes.trials_routes import (
     trials_routes_trials_routes_trials_routes_rate_limits_routes as rate_limits,
@@ -68,7 +68,7 @@ __all__ = [
     "update_active_scenario_version",
     "notification_service",
     "submission_service",
-    "sim_service",
+    "trial_service",
     "ensure_talent_partner_or_none",
     "rate_limit",
     "INVITE_CREATE_RATE_LIMIT",

@@ -21,7 +21,7 @@ async def test_ensure_workspace_existing_and_missing_template(
         repo_full_name="org/existing",
         repo_id=1,
         default_branch="main",
-        base_template_sha=None,
+        bootstrap_commit_sha=None,
         created_at=now,
     )
 

@@ -21,8 +21,8 @@ from app.trials.services.trials_services_trials_scenario_generation_constants im
     SCENARIO_GENERATION_JOB_TYPE,
     SCENARIO_PROMPT_VERSION,
     SCENARIO_RUBRIC_VERSION,
+    SCENARIO_SOURCE_DETERMINISTIC_FALLBACK,
     SCENARIO_SOURCE_LLM,
-    SCENARIO_SOURCE_TEMPLATE_FALLBACK,
 )
 from app.trials.services.trials_services_trials_scenario_generation_env_service import (
     choose_generation_source,
@@ -205,7 +205,7 @@ def _generate_with_llm(
         raise RuntimeError(str(exc)) from exc
     logger.info(
         "scenario_generation_llm_completed",
-        extra={"role": role, "templateKey": template_key},
+        extra={"role": role, "trialKey": template_key},
     )
     return GeneratedScenarioPayload(
         storyline_md=response.result.storyline_md,
@@ -260,7 +260,7 @@ __all__ = [
     "SCENARIO_PROMPT_VERSION",
     "SCENARIO_RUBRIC_VERSION",
     "SCENARIO_SOURCE_LLM",
-    "SCENARIO_SOURCE_TEMPLATE_FALLBACK",
+    "SCENARIO_SOURCE_DETERMINISTIC_FALLBACK",
     "ScenarioGenerationMetadata",
     "GeneratedScenarioPayload",
     "is_demo_mode_enabled",

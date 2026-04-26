@@ -81,16 +81,6 @@ def resolve_scenario_generation_config() -> AIFeatureConfig:
     )
 
 
-def resolve_codespace_specializer_config() -> AIFeatureConfig:
-    return _build_feature_config(
-        runtime_mode=getattr(settings, "CODESPACE_SPECIALIZER_RUNTIME_MODE", None),
-        provider=settings.CODESPACE_SPECIALIZER_PROVIDER,
-        model=settings.CODESPACE_SPECIALIZER_MODEL,
-        timeout_seconds=settings.CODESPACE_SPECIALIZER_TIMEOUT_SECONDS,
-        max_retries=settings.CODESPACE_SPECIALIZER_MAX_RETRIES,
-    )
-
-
 def resolve_winoe_report_day1_config() -> AIFeatureConfig:
     return _build_feature_config(
         runtime_mode=getattr(settings, "WINOE_REPORT_DAY1_RUNTIME_MODE", None),
@@ -162,7 +152,6 @@ __all__ = [
     "AI_RUNTIME_MODE_TEST",
     "allow_demo_or_test_mode",
     "require_real_mode",
-    "resolve_codespace_specializer_config",
     "resolve_winoe_report_aggregator_config",
     "resolve_winoe_report_day1_config",
     "resolve_winoe_report_code_implementation_config",

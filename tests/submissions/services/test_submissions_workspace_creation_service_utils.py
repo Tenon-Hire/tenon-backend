@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
@@ -21,11 +20,8 @@ class _RollbackDB:
 
 
 @pytest.fixture(autouse=True)
-def _stub_precommit_bundle_apply(monkeypatch):
-    async def _no_bundle(*_args, **_kwargs):
-        return SimpleNamespace(state="no_bundle", precommit_sha=None, bundle_id=None)
-
-    monkeypatch.setattr(wc, "apply_precommit_bundle_if_available", _no_bundle)
+def _workspace_creation_imports_are_current():
+    assert hasattr(wc, "provision_workspace")
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]

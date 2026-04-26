@@ -60,16 +60,6 @@ class ScenarioGenerationOutput(BaseModel):
     rubric_json: ScenarioRubric
 
 
-class CodespacePatchProposal(BaseModel):
-    """Strict output contract for the codespace specializer agent."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    plan_md: str = Field(min_length=1, max_length=20_000)
-    commit_message: str = Field(min_length=1, max_length=200)
-    unified_diff: str = Field(min_length=1, max_length=500_000)
-
-
 class EvidencePointer(BaseModel):
     """Evidence reference returned by reviewer models."""
 
@@ -130,7 +120,6 @@ class AggregatedWinoeReportOutput(BaseModel):
 __all__ = [
     "AggregatedWinoeReportOutput",
     "AggregatorDayScore",
-    "CodespacePatchProposal",
     "DayReviewerOutput",
     "EvidencePointer",
     "ScenarioGenerationOutput",

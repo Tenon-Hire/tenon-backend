@@ -44,7 +44,7 @@ async def test_activate_maps_snapshot_validation_error(monkeypatch):
     async def fake_activate(*_args, **_kwargs):
         raise AIPolicySnapshotError("boom")
 
-    monkeypatch.setattr(lifecycle_route.sim_service, "activate_trial", fake_activate)
+    monkeypatch.setattr(lifecycle_route.trial_service, "activate_trial", fake_activate)
 
     with pytest.raises(ApiError) as excinfo:
         await lifecycle_route.activate_trial(

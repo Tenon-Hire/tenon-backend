@@ -129,7 +129,7 @@ async def init_codespace(
         destination_owner=destination_owner,
         now=now or datetime.now(UTC),
         commit=False,
-        hydrate_precommit_bundle=False,
+        hydrate_bundle=False,
         bootstrap_empty_repo=True,
     )
     if not workspace.repo_full_name:

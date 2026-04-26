@@ -32,12 +32,6 @@ from app.submissions.services.submissions_services_submissions_workspace_creatio
 from app.submissions.services.submissions_services_submissions_workspace_creation_grouped_service import (
     provision_grouped_workspace as _grouped_provision_workspace,
 )
-from app.submissions.services.submissions_services_submissions_workspace_creation_precommit_service import (
-    serialize_no_bundle_details as _serialize_no_bundle_details_impl,
-)
-from app.submissions.services.submissions_services_submissions_workspace_precommit_bundle_service import (
-    apply_precommit_bundle_if_available,
-)
 from app.submissions.services.submissions_services_submissions_workspace_repo_state_service import (
     add_collaborator_if_needed,
 )
@@ -45,13 +39,7 @@ from app.submissions.services.submissions_services_submissions_workspace_repo_st
 
 def _sync_dependencies() -> None:
     _single_module.add_collaborator_if_needed = add_collaborator_if_needed
-    _single_module.apply_precommit_bundle_if_available = (
-        apply_precommit_bundle_if_available
-    )
     _grouped_hydration_module.add_collaborator_if_needed = add_collaborator_if_needed
-    _grouped_hydration_module.apply_precommit_bundle_if_available = (
-        apply_precommit_bundle_if_available
-    )
     _group_repo_module.add_collaborator_if_needed = add_collaborator_if_needed
 
 
@@ -84,21 +72,14 @@ async def _provision_grouped_workspace(*args, **kwargs):
     return await _grouped_module.provision_grouped_workspace(*args, **kwargs)
 
 
-def _serialize_no_bundle_details(precommit_result: object) -> str | None:
-    return _serialize_no_bundle_details_impl(precommit_result)
-
-
 __all__ = [
     "provision_workspace",
     "_get_or_create_workspace_group",
     "_provision_grouped_workspace",
-    "_serialize_no_bundle_details",
     "workspace_repo",
     "create_group_repo",
     "get_or_create_workspace_group",
     "hydrate_existing_workspace",
     "_grouped_provision_workspace",
-    "_serialize_no_bundle_details_impl",
     "add_collaborator_if_needed",
-    "apply_precommit_bundle_if_available",
 ]

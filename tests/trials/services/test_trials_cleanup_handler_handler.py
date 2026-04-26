@@ -111,7 +111,7 @@ async def test_handle_trial_cleanup_processes_only_trial_owned_workspaces(
         template_repo_full_name="org/template-repo",
         repo_full_name="org/cleanup-target",
         default_branch="main",
-        base_template_sha="base-sha",
+        bootstrap_commit_sha="base-sha",
         created_at=created_at,
     )
     legacy_workspace = await workspace_repo.create_workspace(
@@ -123,7 +123,7 @@ async def test_handle_trial_cleanup_processes_only_trial_owned_workspaces(
         repo_full_name="org/cleanup-legacy",
         repo_id=5678,
         default_branch="main",
-        base_template_sha="base-sha",
+        bootstrap_commit_sha="base-sha",
         created_at=created_at,
     )
     other_group = await workspace_repo.create_workspace_group(
@@ -133,7 +133,7 @@ async def test_handle_trial_cleanup_processes_only_trial_owned_workspaces(
         template_repo_full_name="org/template-repo",
         repo_full_name="org/cleanup-other",
         default_branch="main",
-        base_template_sha="base-sha",
+        bootstrap_commit_sha="base-sha",
         created_at=created_at,
     )
     await cs_repo.create_day_audit_once(

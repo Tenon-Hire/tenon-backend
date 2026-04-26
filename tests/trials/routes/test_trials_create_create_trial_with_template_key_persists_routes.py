@@ -6,7 +6,7 @@ from tests.trials.routes.trials_create_api_utils import *
 
 
 @pytest.mark.asyncio
-async def test_create_trial_with_template_key_persists(
+async def test_create_trial_rejects_template_key(
     async_client, async_session, override_dependencies
 ):
     company = Company(name="Acme Inc")
@@ -32,22 +32,12 @@ async def test_create_trial_with_template_key_persists(
         payload = {
             "title": "Fullstack Trial",
             "role": "Fullstack Engineer",
-            "techStack": "Next.js, FastAPI",
+            "preferredLanguageFramework": "Next.js, FastAPI",
             "seniority": "Senior",
             "focus": "Ship a fullstack feature",
             "templateKey": "monorepo-nextjs-fastapi",
         }
 
         resp = await async_client.post("/api/trials", json=payload)
-        assert resp.status_code == 201, resp.text
-        data = resp.json()
-        assert data["templateKey"] == "monorepo-nextjs-fastapi"
-
-        sim_id = data["id"]
-        from app.trials.repositories.trials_repositories_trials_trial_model import (
-            Trial,
-        )
-
-        saved = await async_session.get(Trial, sim_id)
-        assert saved is not None
-        assert saved.template_key == "monorepo-nextjs-fastapi"
+        assert resp.status_code == 422, resp.text
+        assert resp.json()["errorCode"] == "INVALID_TEMPLATE_KEY"

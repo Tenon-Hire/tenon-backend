@@ -20,7 +20,7 @@ from app.trials.services.trials_services_trials_scenario_generation_constants im
     IMPLEMENTATION_WRAP_UP_SIGNALS,
     SCENARIO_PROMPT_VERSION,
     SCENARIO_RUBRIC_VERSION,
-    SCENARIO_SOURCE_TEMPLATE_FALLBACK,
+    SCENARIO_SOURCE_DETERMINISTIC_FALLBACK,
     STORYLINE_CONSTRAINTS,
     STORYLINE_CONTEXTS,
 )
@@ -130,7 +130,7 @@ def build_deterministic_template_scenario(
         rubric_json=build_rubric_json(role=role),
         ai_policy_snapshot_json=ai_policy_snapshot_json,
         metadata=ScenarioGenerationMetadata(
-            source=SCENARIO_SOURCE_TEMPLATE_FALLBACK,
+            source=SCENARIO_SOURCE_DETERMINISTIC_FALLBACK,
             model_name=FALLBACK_MODEL_NAME,
             model_version=FALLBACK_MODEL_VERSION,
             prompt_version=str(
@@ -163,7 +163,7 @@ def generate_scenario_payload(
     require_ai_policy_snapshot(ai_policy_snapshot_json)
     validate_ai_policy_snapshot_contract(ai_policy_snapshot_json)
     source = choose_source()
-    if source == SCENARIO_SOURCE_TEMPLATE_FALLBACK:
+    if source == SCENARIO_SOURCE_DETERMINISTIC_FALLBACK:
         return build_fallback(
             role=role,
             tech_stack=tech_stack,
@@ -196,7 +196,7 @@ def generate_scenario_payload(
     except Exception as exc:
         logger.warning(
             "scenario_generation_llm_failed",
-            extra={"templateKey": template_key, "errorType": type(exc).__name__},
+            extra={"trialKey": template_key, "errorType": type(exc).__name__},
         )
         raise
 

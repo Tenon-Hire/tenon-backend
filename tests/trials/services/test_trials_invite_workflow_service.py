@@ -52,7 +52,7 @@ async def test_invite_workflow_re_raises_unrelated_typeerror_from_require(monkey
         raise TypeError("unexpected signature mismatch")
 
     monkeypatch.setattr(
-        invite_workflow.sim_service,
+        invite_workflow.trial_service,
         "require_owned_trial_with_tasks",
         _raise_typeerror,
     )
@@ -78,17 +78,17 @@ async def test_invite_workflow_re_raises_unrelated_typeerror_from_lock(monkeypat
         raise TypeError("lock call failed")
 
     monkeypatch.setattr(
-        invite_workflow.sim_service,
+        invite_workflow.trial_service,
         "require_owned_trial_with_tasks",
         _require_owned,
     )
     monkeypatch.setattr(
-        invite_workflow.sim_service,
+        invite_workflow.trial_service,
         "require_trial_invitable",
         lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(
-        invite_workflow.sim_service,
+        invite_workflow.trial_service,
         "lock_active_scenario_for_invites",
         _raise_typeerror,
     )
@@ -144,22 +144,22 @@ async def test_invite_workflow_cleans_up_created_repo_when_email_send_fails(
         raise RuntimeError("email provider down")
 
     monkeypatch.setattr(
-        invite_workflow.sim_service,
+        invite_workflow.trial_service,
         "require_owned_trial_with_tasks",
         _require_owned,
     )
     monkeypatch.setattr(
-        invite_workflow.sim_service,
+        invite_workflow.trial_service,
         "require_trial_invitable",
         lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(
-        invite_workflow.sim_service,
+        invite_workflow.trial_service,
         "lock_active_scenario_for_invites",
         _lock_active,
     )
     monkeypatch.setattr(
-        invite_workflow.sim_service,
+        invite_workflow.trial_service,
         "create_or_resend_invite",
         _create_or_resend,
     )
@@ -229,22 +229,22 @@ async def test_invite_workflow_cleans_up_created_repo_when_preprovision_fails(
         raise exc
 
     monkeypatch.setattr(
-        invite_workflow.sim_service,
+        invite_workflow.trial_service,
         "require_owned_trial_with_tasks",
         _require_owned,
     )
     monkeypatch.setattr(
-        invite_workflow.sim_service,
+        invite_workflow.trial_service,
         "require_trial_invitable",
         lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(
-        invite_workflow.sim_service,
+        invite_workflow.trial_service,
         "lock_active_scenario_for_invites",
         _lock_active,
     )
     monkeypatch.setattr(
-        invite_workflow.sim_service,
+        invite_workflow.trial_service,
         "create_or_resend_invite",
         _create_or_resend,
     )
@@ -310,22 +310,22 @@ async def test_invite_workflow_handles_none_cleanup_targets_from_preprovision(
         raise RuntimeError("email provider down")
 
     monkeypatch.setattr(
-        invite_workflow.sim_service,
+        invite_workflow.trial_service,
         "require_owned_trial_with_tasks",
         _require_owned,
     )
     monkeypatch.setattr(
-        invite_workflow.sim_service,
+        invite_workflow.trial_service,
         "require_trial_invitable",
         lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(
-        invite_workflow.sim_service,
+        invite_workflow.trial_service,
         "lock_active_scenario_for_invites",
         _lock_active,
     )
     monkeypatch.setattr(
-        invite_workflow.sim_service,
+        invite_workflow.trial_service,
         "create_or_resend_invite",
         _create_or_resend,
     )

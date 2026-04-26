@@ -16,9 +16,8 @@ from app.shared.jobs.repositories.shared_jobs_repositories_models_repository imp
 from app.shared.utils.shared_utils_project_brief_service import (
     canonical_project_brief_markdown,
 )
-from app.trials import services as sim_service
+from app.trials import services as trial_service
 from app.trials.schemas.trials_schemas_trials_core_schema import (
-    ScenarioVersionSummary,
     TrialDetailResponse,
     TrialDetailScenario,
     TrialDetailTask,
@@ -102,9 +101,11 @@ def _scenario_snapshot_summary(
     return {
         "scenarioVersionId": scenario_version.id,
         "snapshotDigest": compute_ai_policy_snapshot_digest(snapshot_json),
-        "promptPackVersion": snapshot_json.get("promptPackVersion")
-        if isinstance(snapshot_json.get("promptPackVersion"), str)
-        else None,
+        "promptPackVersion": (
+            snapshot_json.get("promptPackVersion")
+            if isinstance(snapshot_json.get("promptPackVersion"), str)
+            else None
+        ),
         "bundleStatus": bundle_status,
         "agents": _scenario_agent_runtime_summary(snapshot_json),
     }
@@ -204,7 +205,7 @@ def render_trial_detail(
 ) -> TrialDetailResponse:
     """Render trial detail."""
     raw_status = getattr(sim, "status", None)
-    status_value = sim_service.normalize_trial_status_or_raise(raw_status)
+    status_value = trial_service.normalize_trial_status_or_raise(raw_status)
     review_scenario_version = _latest_relevant_scenario_version(
         active_scenario_version=active_scenario_version,
         pending_scenario_version=pending_scenario_version,
@@ -278,11 +279,9 @@ def render_trial_detail(
     return TrialDetailResponse(
         id=sim.id,
         title=sim.title,
-        templateKey=sim.template_key,
         role=sim.role,
         seniority=normalize_role_level(getattr(sim, "seniority", None))
         or getattr(sim, "seniority", None),
-        techStack=sim.tech_stack,
         focus=sim.focus,
         companyContext=build_trial_company_context(
             getattr(sim, "company_context", None)
@@ -337,12 +336,6 @@ def render_trial_detail(
                     and isinstance(review_snapshot_json.get("promptPackVersion"), str)
                     else None
                 ),
-                precommitBundleStatus=_scenario_review_bundle_status(
-                    active_scenario_version=active_scenario_version,
-                    pending_scenario_version=pending_scenario_version,
-                    active_bundle_status=active_bundle_status,
-                    pending_bundle_status=pending_bundle_status,
-                ),
                 agentRuntimeSummary=_scenario_agent_runtime_summary(
                     getattr(review_scenario_version, "ai_policy_snapshot_json", None)
                 ),
@@ -361,10 +354,6 @@ def render_trial_detail(
         readyForReviewAt=getattr(sim, "ready_for_review_at", None),
         activatedAt=getattr(sim, "activated_at", None),
         terminatedAt=getattr(sim, "terminated_at", None),
-        scenarioVersionSummary=ScenarioVersionSummary(
-            templateKey=getattr(sim, "template_key", None),
-            scenarioTemplate=getattr(sim, "scenario_template", None),
-        ),
         tasks=[
             TrialDetailTask(
                 dayIndex=task.day_index,

@@ -11,7 +11,7 @@ from app.notifications.services.notifications_services_notifications_email_sende
 )
 from app.shared.http.shared_http_error_utils import map_github_error
 from app.shared.utils.shared_utils_errors_utils import ApiError
-from app.trials import services as sim_service
+from app.trials import services as trial_service
 from app.trials.routes.trials_routes.trials_routes_trials_routes_trials_routes_invite_render_routes import (
     render_invite_error,
     render_invite_response,
@@ -60,7 +60,7 @@ async def create_invite_response(
             retryable=False,
             details=getattr(exc, "details", {}),
         ) from exc
-    except sim_service.InviteRejectedError as exc:
+    except trial_service.InviteRejectedError as exc:
         return render_invite_error(exc)
     except GithubError as exc:
         raise map_github_error(exc) from exc

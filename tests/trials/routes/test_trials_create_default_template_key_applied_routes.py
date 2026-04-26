@@ -35,8 +35,8 @@ async def test_default_template_key_applied_without_task_template_repo(
     )
     assert resp.status_code == 201, resp.text
     data = resp.json()
-    assert data["templateKey"] == "python-fastapi"
-    assert data["techStack"] == "Node.js, PostgreSQL"
+    assert "templateKey" not in data
+    assert "techStack" not in data
     assert data["focus"] == ""
     assert data["companyContext"]["preferredLanguageFramework"] == "Node.js, PostgreSQL"
     sim_id = data["id"]

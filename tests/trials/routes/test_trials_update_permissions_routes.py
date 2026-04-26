@@ -34,7 +34,7 @@ async def test_update_trial_forbidden_for_non_talent_partner(
         {
             "title": "Sim Forbidden",
             "role": "Backend Engineer",
-            "techStack": "Python",
+            "preferredLanguageFramework": "Python",
             "seniority": "Mid",
             "focus": "Forbidden updates",
         },

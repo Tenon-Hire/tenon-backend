@@ -35,7 +35,7 @@ async def _create_trial_via_api(
         json={
             "title": "Lifecycle Sim",
             "role": "Backend Engineer",
-            "techStack": "Python, FastAPI",
+            "preferredLanguageFramework": "Python, FastAPI",
             "seniority": "Mid",
             "focus": "Lifecycle behavior",
         },

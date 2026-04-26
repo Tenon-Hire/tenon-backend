@@ -15,7 +15,7 @@ async def test_create_invite_success(async_session):
     payload = type(
         "P", (), {"candidateName": "Jane", "inviteEmail": "jane@example.com"}
     )
-    cs, created = await sim_service.create_invite(
+    cs, created = await trial_service.create_invite(
         async_session,
         trial_id=sim.id,
         payload=payload,

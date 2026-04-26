@@ -390,7 +390,13 @@ async def process_evaluation_run_job_impl(
                 "trialId": context.trial.id,
                 "title": getattr(context.trial, "title", None),
                 "role": getattr(context.trial, "role", None),
-                "techStack": getattr(context.trial, "tech_stack", None),
+                "preferredLanguageFramework": (
+                    (getattr(context.trial, "company_context", None) or {}).get(
+                        "preferredLanguageFramework"
+                    )
+                    if isinstance(getattr(context.trial, "company_context", None), dict)
+                    else None
+                ),
                 "seniority": getattr(context.trial, "seniority", None),
                 "focus": getattr(context.trial, "focus", None),
                 "companyContext": getattr(context.trial, "company_context", None),

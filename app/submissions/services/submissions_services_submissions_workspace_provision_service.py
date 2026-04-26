@@ -40,7 +40,7 @@ async def ensure_workspace(
     now: datetime,
     workspace_resolution: workspace_repo.WorkspaceResolution | None = None,
     commit: bool = True,
-    hydrate_precommit_bundle: bool = True,
+    hydrate_bundle: bool = True,
     bootstrap_empty_repo: bool = False,
 ) -> Workspace:
     """Fetch or create a workspace for the candidate+task."""
@@ -76,7 +76,7 @@ async def ensure_workspace(
         github_username=github_username,
         workspace_resolution=resolved_workspace,
         commit=commit,
-        hydrate_precommit_bundle=hydrate_precommit_bundle,
+        hydrate_bundle=hydrate_bundle,
     )
     if existing:
         return existing
@@ -94,6 +94,6 @@ async def ensure_workspace(
         now=now,
         workspace_resolution=resolved_workspace,
         commit=commit,
-        hydrate_precommit_bundle=hydrate_precommit_bundle,
+        hydrate_bundle=hydrate_bundle,
         bootstrap_empty_repo=bootstrap_empty_repo,
     )

@@ -13,14 +13,14 @@ async def test_list_trials_returns_two(authed_client):
     payload1 = {
         "title": "Sim A",
         "role": "Backend Engineer",
-        "techStack": "Node.js, PostgreSQL",
+        "preferredLanguageFramework": "Node.js, PostgreSQL",
         "seniority": "Mid",
         "focus": "A",
     }
     payload2 = {
         "title": "Sim B",
         "role": "Backend Engineer",
-        "techStack": "Node.js, PostgreSQL",
+        "preferredLanguageFramework": "Node.js, PostgreSQL",
         "seniority": "Mid",
         "focus": "B",
     }
@@ -37,6 +37,6 @@ async def test_list_trials_returns_two(authed_client):
     for item in data:
         assert "id" in item
         assert item["role"] == "Backend Engineer"
-        assert item["techStack"] == "Node.js, PostgreSQL"
+        assert "techStack" not in item
         assert "createdAt" in item
         assert item["numCandidates"] == 0

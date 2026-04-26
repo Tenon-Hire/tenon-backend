@@ -48,7 +48,8 @@ def test_deterministic_template_generation_is_stable_for_same_inputs() -> None:
     assert len(first.task_prompts_json) == 5
     assert first.project_brief_md.startswith("# Project Brief")
     assert (
-        first.metadata.source == scenario_generation.SCENARIO_SOURCE_TEMPLATE_FALLBACK
+        first.metadata.source
+        == scenario_generation.SCENARIO_SOURCE_DETERMINISTIC_FALLBACK
     )
 
 
@@ -65,7 +66,7 @@ def test_choose_generation_source_prefers_fallback_in_demo_mode() -> None:
         demo_mode_enabled=True,
         llm_available=True,
     )
-    assert source == scenario_generation.SCENARIO_SOURCE_TEMPLATE_FALLBACK
+    assert source == scenario_generation.SCENARIO_SOURCE_DETERMINISTIC_FALLBACK
 
 
 def test_generate_scenario_payload_uses_fallback_when_runtime_selects_fallback(
@@ -74,7 +75,7 @@ def test_generate_scenario_payload_uses_fallback_when_runtime_selects_fallback(
     monkeypatch.setattr(
         scenario_generation,
         "choose_generation_source",
-        lambda **_kwargs: scenario_generation.SCENARIO_SOURCE_TEMPLATE_FALLBACK,
+        lambda **_kwargs: scenario_generation.SCENARIO_SOURCE_DETERMINISTIC_FALLBACK,
     )
     payload = scenario_generation.generate_scenario_payload(
         role="Backend Engineer",
@@ -83,7 +84,8 @@ def test_generate_scenario_payload_uses_fallback_when_runtime_selects_fallback(
         ai_policy_snapshot_json=_snapshot(),
     )
     assert (
-        payload.metadata.source == scenario_generation.SCENARIO_SOURCE_TEMPLATE_FALLBACK
+        payload.metadata.source
+        == scenario_generation.SCENARIO_SOURCE_DETERMINISTIC_FALLBACK
     )
 
 
@@ -91,7 +93,7 @@ def test_generate_scenario_payload_uses_fallback_in_demo_mode(monkeypatch) -> No
     monkeypatch.setattr(
         scenario_generation,
         "choose_generation_source",
-        lambda **_kwargs: scenario_generation.SCENARIO_SOURCE_TEMPLATE_FALLBACK,
+        lambda **_kwargs: scenario_generation.SCENARIO_SOURCE_DETERMINISTIC_FALLBACK,
     )
     payload = scenario_generation.generate_scenario_payload(
         role="Backend Engineer",
@@ -100,7 +102,8 @@ def test_generate_scenario_payload_uses_fallback_in_demo_mode(monkeypatch) -> No
         ai_policy_snapshot_json=_snapshot(),
     )
     assert (
-        payload.metadata.source == scenario_generation.SCENARIO_SOURCE_TEMPLATE_FALLBACK
+        payload.metadata.source
+        == scenario_generation.SCENARIO_SOURCE_DETERMINISTIC_FALLBACK
     )
 
 
@@ -206,14 +209,14 @@ def test_deterministic_template_generation_uses_demo_and_reflection_language() -
     day3 = next(
         prompt for prompt in payload.task_prompts_json if prompt["dayIndex"] == 3
     )
-    assert "demo presentation" in day4["description"].lower()
+    assert "handoff demo" in day4["description"].lower()
     assert "reflection essay" in day5["description"].lower()
     assert "implementation wrap-up" in day3["title"].lower()
     assert "wrap-up" in day3["description"].lower()
     assert "debug" not in day3["description"].lower()
     assert "wrap-up" in payload.rubric_json["summary"].lower()
     assert any(
-        dimension["name"] == "Communication and presentation"
+        dimension["name"] == "Handoff communication"
         for dimension in payload.rubric_json["dimensions"]
     )
     assert any(

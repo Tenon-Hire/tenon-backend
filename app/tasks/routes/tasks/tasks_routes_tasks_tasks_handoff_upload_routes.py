@@ -56,11 +56,6 @@ logger = logging.getLogger(__name__)
 
 
 @router.post(
-    "/{task_id}/presentation/upload/init",
-    include_in_schema=False,
-    deprecated=True,
-)
-@router.post(
     "/{task_id}/handoff/upload/init",
     response_model=HandoffUploadInitResponse,
     status_code=status.HTTP_200_OK,
@@ -100,11 +95,6 @@ async def init_handoff_upload_route(
 
 
 @router.post(
-    "/{task_id}/presentation/upload/complete",
-    include_in_schema=False,
-    deprecated=True,
-)
-@router.post(
     "/{task_id}/handoff/upload/complete",
     response_model=HandoffUploadCompleteResponse,
     status_code=status.HTTP_200_OK,
@@ -141,11 +131,6 @@ async def complete_handoff_upload_route(
     )
 
 
-@router.get(
-    "/{task_id}/presentation/upload/status",
-    include_in_schema=False,
-    deprecated=True,
-)
 @router.get(
     "/{task_id}/handoff/status",
     response_model=HandoffStatusResponse,

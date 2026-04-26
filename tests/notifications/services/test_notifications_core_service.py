@@ -11,7 +11,7 @@ from app.notifications.services.notifications_services_notifications_email_sende
 from app.shared.database.shared_database_models_model import (
     NotificationDeliveryAudit,
 )
-from app.trials import services as sim_service
+from app.trials import services as trial_service
 from tests.shared.factories import (
     create_candidate_session,
     create_talent_partner,
@@ -33,7 +33,7 @@ async def test_send_invite_email_tracks_status_and_rate_limit(async_session):
         async_session,
         candidate_session=cs,
         trial=sim,
-        invite_url=sim_service.invite_url(cs.token),
+        invite_url=trial_service.invite_url(cs.token),
         email_service=email_service,
         now=now,
     )
@@ -71,7 +71,7 @@ async def test_send_invite_email_tracks_status_and_rate_limit(async_session):
         async_session,
         candidate_session=cs,
         trial=sim,
-        invite_url=sim_service.invite_url(cs.token),
+        invite_url=trial_service.invite_url(cs.token),
         email_service=email_service,
         now=now,
     )
@@ -129,7 +129,7 @@ async def test_send_invite_email_failure_path(async_session):
         async_session,
         candidate_session=cs,
         trial=sim,
-        invite_url=sim_service.invite_url(cs.token),
+        invite_url=trial_service.invite_url(cs.token),
         email_service=email_service,
         now=datetime.now(UTC),
     )

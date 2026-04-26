@@ -30,7 +30,7 @@ async def test_activate_rejected_transition_surfaces_api_error(async_session):
         focus="Rejected transition",
         scenario_template="default-5day-node-postgres",
         created_by=owner.id,
-        status=sim_service.TRIAL_STATUS_GENERATING,
+        status=trial_service.TRIAL_STATUS_GENERATING,
         generating_at=datetime.now(UTC),
     )
     async_session.add(trial)
@@ -40,12 +40,12 @@ async def test_activate_rejected_transition_surfaces_api_error(async_session):
     assert active is not None
     active.status = "locked"
     active.locked_at = datetime.now(UTC)
-    trial.status = sim_service.TRIAL_STATUS_TERMINATED
+    trial.status = trial_service.TRIAL_STATUS_TERMINATED
     trial.terminated_at = datetime.now(UTC)
     await async_session.commit()
 
     with pytest.raises(ApiError) as excinfo:
-        await sim_service.activate_trial(
+        await trial_service.activate_trial(
             async_session,
             trial_id=trial.id,
             actor_user_id=owner.id,

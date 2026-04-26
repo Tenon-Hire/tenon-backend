@@ -36,8 +36,8 @@ async def test_create_invite_integrity_error_returns_existing(monkeypatch):
     async def _get_existing(*_args, **_kwargs):
         return existing
 
-    monkeypatch.setattr(sim_service.cs_repo, "get_by_trial_and_email", _get_existing)
-    cs, created = await sim_service.create_invite(
+    monkeypatch.setattr(trial_service.cs_repo, "get_by_trial_and_email", _get_existing)
+    cs, created = await trial_service.create_invite(
         StubSession(),
         trial_id=1,
         payload=type(

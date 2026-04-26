@@ -10,9 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.shared.auth.shared_auth_current_user_utils import get_current_user
 from app.shared.auth.shared_auth_roles_utils import ensure_talent_partner_or_none
 from app.shared.database import get_session
-from app.trials import services as sim_service
+from app.trials import services as trial_service
 from app.trials.schemas.trials_schemas_trials_core_schema import (
-    ScenarioVersionSummary,
     TrialListItem,
     build_trial_ai_config,
     build_trial_company_context,
@@ -30,7 +29,7 @@ async def list_trials(
 ):
     """List trials for Talent Partner dashboard (scoped to current user)."""
     ensure_talent_partner_or_none(user)
-    rows = await sim_service.list_trials(
+    rows = await trial_service.list_trials(
         db, user.id, include_terminated=includeTerminated
     )
     return [
@@ -38,7 +37,6 @@ async def list_trials(
             id=sim.id,
             title=sim.title,
             role=sim.role,
-            techStack=sim.tech_stack,
             seniority=normalize_role_level(getattr(sim, "seniority", None))
             or getattr(sim, "seniority", None),
             companyContext=build_trial_company_context(
@@ -50,16 +48,11 @@ async def list_trials(
                 eval_enabled_by_day=getattr(sim, "ai_eval_enabled_by_day", None),
                 prompt_overrides_json=getattr(sim, "ai_prompt_overrides_json", None),
             ),
-            templateKey=sim.template_key,
-            status=sim_service.normalize_trial_status_or_raise(
+            status=trial_service.normalize_trial_status_or_raise(
                 getattr(sim, "status", None)
             ),
             activatedAt=getattr(sim, "activated_at", None),
             terminatedAt=getattr(sim, "terminated_at", None),
-            scenarioVersionSummary=ScenarioVersionSummary(
-                templateKey=getattr(sim, "template_key", None),
-                scenarioTemplate=getattr(sim, "scenario_template", None),
-            ),
             createdAt=sim.created_at,
             numCandidates=int(num_candidates),
         )

@@ -33,6 +33,6 @@ async def test_refresh_invite_token_retries_on_integrity(monkeypatch):
         status="not_started",
     )
     db = DummyDB()
-    refreshed = await sim_service._refresh_invite_token(db, cs, now=datetime.now(UTC))
+    refreshed = await trial_service._refresh_invite_token(db, cs, now=datetime.now(UTC))
     assert refreshed.token != "tok"
     assert db.calls == 2

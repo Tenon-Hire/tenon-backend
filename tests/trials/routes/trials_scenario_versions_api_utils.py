@@ -32,7 +32,7 @@ async def _create_trial(async_client, async_session, headers: dict[str, str]) ->
         json={
             "title": "Scenario Version Sim",
             "role": "Backend Engineer",
-            "techStack": "Python, FastAPI",
+            "preferredLanguageFramework": "Python, FastAPI",
             "seniority": "mid",
             "focus": "Scenario lock semantics",
         },

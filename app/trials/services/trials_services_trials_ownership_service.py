@@ -17,9 +17,9 @@ async def require_owned_trial(
     for_update: bool = False,
 ) -> Trial:
     """Require owned trial."""
-    from app.trials import services as sim_service
+    from app.trials import services as trial_service
 
-    sim = await sim_service.sim_repo.get_owned(
+    sim = await trial_service.sim_repo.get_owned(
         db,
         trial_id,
         user_id,
@@ -42,9 +42,9 @@ async def require_owned_trial_with_tasks(
     for_update: bool = False,
 ) -> tuple[Trial, list[Task]]:
     """Require owned trial with tasks."""
-    from app.trials import services as sim_service
+    from app.trials import services as trial_service
 
-    sim, tasks = await sim_service.sim_repo.get_owned_with_tasks(
+    sim, tasks = await trial_service.sim_repo.get_owned_with_tasks(
         db,
         trial_id,
         user_id,

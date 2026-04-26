@@ -50,7 +50,7 @@ def test_llm_credentials_available_covers_provider_branches(monkeypatch):
 def test_choose_generation_source_handles_demo_and_errors():
     assert (
         scenario_env_service.choose_generation_source(demo_mode_enabled=True)
-        == scenario_env_service.SCENARIO_SOURCE_TEMPLATE_FALLBACK
+        == scenario_env_service.SCENARIO_SOURCE_DETERMINISTIC_FALLBACK
     )
     assert (
         scenario_env_service.choose_generation_source(

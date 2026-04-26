@@ -33,7 +33,7 @@ async def test_create_trial_forbidden_for_non_talent_partner(
         payload = {
             "title": "Backend Node Trial",
             "role": "Backend Engineer",
-            "techStack": "Node.js, PostgreSQL",
+            "preferredLanguageFramework": "Node.js, PostgreSQL",
             "seniority": "Mid",
             "focus": "Build new API feature and debug an issue",
         }

@@ -8,7 +8,7 @@ from app.shared.auth import rate_limit
 from app.shared.http import shared_http_error_utils as error_utils
 from app.shared.http.routes import trials
 from app.shared.utils.shared_utils_errors_utils import ApiError
-from app.trials import services as sim_service
+from app.trials import services as trial_service
 from app.trials.services import (
     trials_services_trials_invite_workflow_service as invite_workflow,
 )
@@ -42,11 +42,11 @@ async def test_create_candidate_invite_rejected(monkeypatch):
         return SimpleNamespace(id=99)
 
     async def fake_create(db, trial_id, payload, now, scenario_version_id=None):
-        raise sim_service.InviteRejectedError()
+        raise trial_service.InviteRejectedError()
 
-    monkeypatch.setattr(sim_service, "require_owned_trial_with_tasks", fake_require)
-    monkeypatch.setattr(sim_service, "lock_active_scenario_for_invites", fake_lock)
-    monkeypatch.setattr(sim_service, "create_or_resend_invite", fake_create)
+    monkeypatch.setattr(trial_service, "require_owned_trial_with_tasks", fake_require)
+    monkeypatch.setattr(trial_service, "lock_active_scenario_for_invites", fake_lock)
+    monkeypatch.setattr(trial_service, "create_or_resend_invite", fake_create)
     response = await trials.create_candidate_invite(
         trial_id=1,
         payload=SimpleNamespace(inviteEmail="a@b.com", candidateName="C"),
@@ -82,9 +82,9 @@ async def test_create_candidate_invite_github_error(monkeypatch):
     async def fail_workspace(_db, **_kwargs):
         raise GithubError("nope", status_code=403)
 
-    monkeypatch.setattr(sim_service, "require_owned_trial_with_tasks", fake_require)
-    monkeypatch.setattr(sim_service, "lock_active_scenario_for_invites", fake_lock)
-    monkeypatch.setattr(sim_service, "create_or_resend_invite", fake_create)
+    monkeypatch.setattr(trial_service, "require_owned_trial_with_tasks", fake_require)
+    monkeypatch.setattr(trial_service, "lock_active_scenario_for_invites", fake_lock)
+    monkeypatch.setattr(trial_service, "create_or_resend_invite", fake_create)
     monkeypatch.setattr(trials.submission_service, "ensure_workspace", fail_workspace)
     with pytest.raises(error_utils.ApiError) as excinfo:
         await trials.create_candidate_invite(
@@ -115,8 +115,8 @@ async def test_create_candidate_invite_maps_snapshot_validation_error(monkeypatc
     async def fake_create(*_args, **_kwargs):
         raise AIPolicySnapshotError("boom")
 
-    monkeypatch.setattr(sim_service, "require_owned_trial_with_tasks", fake_require)
-    monkeypatch.setattr(sim_service, "lock_active_scenario_for_invites", fake_lock)
+    monkeypatch.setattr(trial_service, "require_owned_trial_with_tasks", fake_require)
+    monkeypatch.setattr(trial_service, "lock_active_scenario_for_invites", fake_lock)
     monkeypatch.setattr(
         invite_workflow, "create_candidate_invite_workflow", fake_create
     )

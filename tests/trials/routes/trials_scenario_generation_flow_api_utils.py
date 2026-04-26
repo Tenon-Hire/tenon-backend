@@ -16,10 +16,9 @@ async def create_trial(async_client, headers: dict[str, str]) -> dict:
         json={
             "title": "Scenario Generation API",
             "role": "Backend Engineer",
-            "techStack": "Python, FastAPI, PostgreSQL",
+            "preferredLanguageFramework": "Python, FastAPI, PostgreSQL",
             "seniority": "Mid",
             "focus": "Validate scenario generation flow",
-            "templateKey": "python-fastapi",
         },
     )
     assert response.status_code == 201, response.text

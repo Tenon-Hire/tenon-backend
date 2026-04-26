@@ -4,12 +4,12 @@ from tests.shared.utils.shared_coverage_gaps_utils import *
 
 
 def test_invite_factory_fallbacks(monkeypatch):
-    from app.trials import services as sim_service
+    from app.trials import services as trial_service
 
     def marker():
         return "from-service"
 
-    monkeypatch.setattr(sim_service, "create_invite", marker)
+    monkeypatch.setattr(trial_service, "create_invite", marker)
     assert invite_factory.resolve_create_invite_callable() is marker
 
     original_import = builtins.__import__
