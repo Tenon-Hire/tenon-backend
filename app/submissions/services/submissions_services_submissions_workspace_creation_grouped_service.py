@@ -120,7 +120,7 @@ async def provision_grouped_workspace(
             create_workspace_kwargs["commit"] = False
             create_workspace_kwargs["refresh"] = False
         created = await workspace_repo.create_workspace(db, **create_workspace_kwargs)
-        return await hydrate_existing_workspace(
+        result = await hydrate_existing_workspace(
             db,
             created,
             candidate_session,
@@ -130,6 +130,8 @@ async def provision_grouped_workspace(
             hydrate_precommit_bundle,
             commit,
         )
+        result._provisioned_repo_created = True
+        return result
     except IntegrityError:
         await db.rollback()
         logger.warning(

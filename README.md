@@ -5,7 +5,7 @@ FastAPI + PostgreSQL backend for Winoe's async trial platform. Talent Partners c
 ## Overview
 
 - Domain modules: trials, candidate sessions, tasks, submissions, evaluations, media, notifications, talent_partners/admin, and shared runtime infrastructure.
-- GitHub-native flow: workspace repo provisioning from templates, Codespaces init/status, Actions run dispatch/polling, artifact parsing, and persisted run/test/diff metadata.
+- GitHub-native flow: empty-repo workspace provisioning, Codespaces init/status, Actions evidence capture, artifact parsing, and persisted run/test metadata.
 - Auth model: bearer-token principal model with talent_partner/candidate permission gates, plus admin key and demo admin dependency paths.
 - Current API surface: 57 HTTP endpoints (generated from live OpenAPI).
 
@@ -35,7 +35,7 @@ Dev/test tools: `pytest`, `pytest-asyncio`, `pytest-cov`, `httpx`, `ruff`, `blac
 - PostgreSQL (for local app runtime and Alembic migrations)
 - Optional for QA workflows:
   - Node.js + Newman for API QA runner
-  - Local GitHub credentials/token for template/workspace flows
+  - Local GitHub credentials/token for workspace flows
 
 ## Setup
 
@@ -138,7 +138,7 @@ Canonical env keys are summarized below by primary group.
 | `app/submissions/*` | Workspace provisioning, run persistence, talent_partner presentation |
 | `app/evaluations/*` | Winoe Report API, evaluators, evaluation repositories |
 | `app/media/*` | Recording/transcript storage + privacy services |
-| `app/talent_partners/*` | Talent Partner admin/template and demo admin operations |
+| `app/talent_partners/*` | Talent Partner admin and demo admin operations |
 | `app/shared/jobs/*` | Durable job models, handlers, worker services |
 | `alembic/` | DB migrations |
 | `docs/` | Canonical architecture/API documentation |
@@ -157,8 +157,6 @@ Canonical env keys are summarized below by primary group.
 
 ### Admin Templates / Demo Admin Ops
 
-- `GET /api/admin/templates/health`
-- `POST /api/admin/templates/health/run`
 - `POST /api/admin/candidate_sessions/{candidate_session_id}/day_windows/control`
 - `POST /api/admin/candidate_sessions/{candidate_session_id}/reset`
 - `POST /api/admin/jobs/{job_id}/requeue`
@@ -231,7 +229,7 @@ Detailed schema-level API docs are generated at [`docs/api.md`](docs/api.md).
 
 - Domain-first package organization with thin entrypoints and shared runtime composition (`app/shared/http`).
 - Settings use pydantic-settings with merge compatibility for nested legacy env structures.
-- Talent Partner/candidate authorization is dependency-based; admin template endpoints use explicit API key dependency.
+- Talent Partner/candidate authorization is dependency-based; admin endpoints use explicit API key dependency.
 - GitHub integration keeps transport/client/actions/artifact parsing concerns separated for testability.
 - Durable job status uses polling endpoints plus worker handlers for async side effects.
 - Worker health is tracked through a persisted heartbeat row per worker instance, which later readiness checks can inspect.

@@ -39,23 +39,23 @@ async def test_codespace_init_day3_keeps_legacy_task_scoped_behavior(
         created_at=datetime.now(UTC),
     )
 
-    calls: dict[str, int] = {"generate": 0}
+    calls: dict[str, int] = {"create": 0}
 
     class StubGithubClient:
-        async def generate_repo_from_template(
-            self,
-            *,
-            template_full_name: str,
-            new_repo_name: str,
-            owner=None,
-            private=True,
+        async def create_empty_repo(
+            self, *, owner, repo_name, private=True, default_branch="main"
         ):
-            calls["generate"] += 1
+            calls["create"] += 1
             return {
-                "full_name": f"{owner}/{new_repo_name}",
-                "id": 900 + calls["generate"],
-                "default_branch": "main",
+                "owner": {"login": owner},
+                "name": repo_name,
+                "full_name": f"{owner}/{repo_name}",
+                "id": 900 + calls["create"],
+                "default_branch": default_branch,
             }
+
+        async def get_file_contents(self, *_a, **_k):
+            raise GithubError("missing", status_code=404)
 
         async def add_collaborator(
             self, repo_full_name: str, username: str, *, permission: str = "push"
@@ -63,7 +63,32 @@ async def test_codespace_init_day3_keeps_legacy_task_scoped_behavior(
             return {"ok": True}
 
         async def get_branch(self, repo_full_name: str, branch: str):
-            return {"commit": {"sha": "base-sha"}}
+            raise GithubError("missing", status_code=404)
+
+        async def create_or_update_file(self, *_a, **_k):
+            return {"content": {"sha": "readme-sha"}}
+
+        async def create_blob(self, *_a, **_k):
+            return {"sha": "blob-sha"}
+
+        async def create_tree(self, *_a, **_k):
+            return {"sha": "tree-sha"}
+
+        async def create_commit(self, *_a, **_k):
+            return {"sha": "commit-sha"}
+
+        async def create_ref(self, *_a, **_k):
+            return {"ref": "refs/heads/main", "sha": "commit-sha"}
+
+        async def create_codespace(self, *_a, **_k):
+            return {
+                "name": "codespace-day3",
+                "state": "available",
+                "web_url": "https://codespace.example",
+            }
+
+        async def get_authenticated_user_login(self):
+            return "octocat"
 
     with override_dependencies(
         {candidate_submissions.get_github_client: lambda: StubGithubClient()}
@@ -91,7 +116,7 @@ async def test_codespace_init_day3_keeps_legacy_task_scoped_behavior(
     assert day2_status.json()["repoFullName"] == legacy_day2.repo_full_name
     assert day3_status.status_code == 200, day3_status.text
     assert day3_status.json()["repoFullName"] == day3_repo
-    assert calls["generate"] == 1
+    assert calls["create"] == 1
 
     workspace_groups = (
         (

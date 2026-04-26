@@ -13,7 +13,7 @@ async def test_build_actions_runner_returns_configured_runner_and_client():
             runner.workflow_file
             == parse_handler.settings.github.GITHUB_ACTIONS_WORKFLOW_FILE
         )
-        assert runner.workflow_file == "evidence-capture.yml"
+        assert runner.workflow_file == "winoe-evidence-capture.yml"
         assert runner.poll_interval_seconds == 2.0
         assert runner.max_poll_seconds == 90.0
     finally:

@@ -17,7 +17,7 @@ async def test_dispatch_uses_canonical_evidence_capture_workflow_first():
             return None
 
     client = StubClient()
-    runner = GithubActionsRunner(client, workflow_file="evidence-capture.yml")
+    runner = GithubActionsRunner(client, workflow_file="winoe-evidence-capture.yml")
 
     used = await runner._dispatch_with_fallbacks(
         "org/repo",
@@ -25,7 +25,7 @@ async def test_dispatch_uses_canonical_evidence_capture_workflow_first():
         inputs={"trialId": "123"},
     )
 
-    assert used == "evidence-capture.yml"
+    assert used == "winoe-evidence-capture.yml"
     assert client.calls == [
-        ("org/repo", "evidence-capture.yml", "main", {"trialId": "123"})
+        ("org/repo", "winoe-evidence-capture.yml", "main", {"trialId": "123"})
     ]

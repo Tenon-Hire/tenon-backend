@@ -13,7 +13,7 @@ async def test_ensure_workspace_handles_branch_fetch_error(async_session):
     expected_repo_name = f"pref-{cs.id}-coding"
 
     class StubGithub:
-        async def generate_repo_from_template(self, **_kw):
+        async def create_empty_repo(self, **_kw):
             return {
                 "owner": {"login": "org"},
                 "name": expected_repo_name,
@@ -22,8 +22,33 @@ async def test_ensure_workspace_handles_branch_fetch_error(async_session):
                 "id": 1,
             }
 
+        async def get_file_contents(self, *_a, **_k):
+            raise GithubError("missing", status_code=404)
+
         async def get_branch(self, *_a, **_k):
             raise GithubError("no branch")
+
+        async def create_or_update_file(self, *_a, **_k):
+            return {"content": {"sha": "readme-sha"}}
+
+        async def create_blob(self, *_a, **_k):
+            return {"sha": "blob-sha"}
+
+        async def create_tree(self, *_a, **_k):
+            return {"sha": "tree-sha"}
+
+        async def create_commit(self, *_a, **_k):
+            return {"sha": "commit-sha"}
+
+        async def create_ref(self, *_a, **_k):
+            return {"ref": "refs/heads/main", "sha": "commit-sha"}
+
+        async def create_codespace(self, *_a, **_k):
+            return {
+                "name": "codespace-1",
+                "state": "available",
+                "web_url": "https://codespace.example",
+            }
 
         async def add_collaborator(self, *_a, **_k):
             return None
@@ -38,4 +63,4 @@ async def test_ensure_workspace_handles_branch_fetch_error(async_session):
         destination_owner="org",
         now=datetime.now(UTC),
     )
-    assert ws.base_template_sha is None
+    assert ws.base_template_sha == "commit-sha"

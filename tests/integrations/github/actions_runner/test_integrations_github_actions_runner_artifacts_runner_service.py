@@ -34,6 +34,18 @@ class StubClient(GithubClient):
         return self._contents[artifact_id]
 
 
+def _wrap_artifact_payload(payload):
+    return {
+        "schema_version": "1",
+        "repository_full_name": "org/repo",
+        "commit_sha": "abc123",
+        "workflow_run_id": "11",
+        "generated_at": "2026-03-13T00:00:00Z",
+        "status": "success",
+        "payload": payload,
+    }
+
+
 def test_is_dispatched_run_filters_event_and_created_at():
     runner = GithubActionsRunner(
         DummyClient(), workflow_file="winoe-evidence-capture.yml"
@@ -102,58 +114,130 @@ async def test_parse_artifacts_surfaces_evidence_artifacts():
                 }
             ),
         )
+        zf.writestr(
+            "test_results.json",
+            json.dumps(
+                _wrap_artifact_payload(
+                    {"status": "success", "command": "python -m pytest"}
+                )
+            ),
+        )
 
     commit_buf = io.BytesIO()
     with ZipFile(commit_buf, "w") as zf:
         zf.writestr(
-            "commit-metadata.json",
-            json.dumps({"generatedAt": "2026-03-13T00:00:00Z", "commits": []}),
+            "commit_metadata.json",
+            json.dumps(
+                _wrap_artifact_payload(
+                    {"generatedAt": "2026-03-13T00:00:00Z", "commits": []}
+                )
+            ),
         )
 
     timeline_buf = io.BytesIO()
     with ZipFile(timeline_buf, "w") as zf:
         zf.writestr(
-            "file-creation-timeline.json",
-            json.dumps({"generatedAt": "2026-03-13T00:00:00Z", "filesCreated": []}),
+            "file_creation_timeline.json",
+            json.dumps(
+                _wrap_artifact_payload(
+                    {"generatedAt": "2026-03-13T00:00:00Z", "filesCreated": []}
+                )
+            ),
         )
 
     snapshot_buf = io.BytesIO()
     with ZipFile(snapshot_buf, "w") as zf:
         zf.writestr(
-            "repo-structure-snapshot.json",
+            "repo_tree_summary.json",
             json.dumps(
-                {"generatedAt": "2026-03-13T00:00:00Z", "paths": ["src/app.py"]}
+                _wrap_artifact_payload(
+                    {"generatedAt": "2026-03-13T00:00:00Z", "paths": ["src/app.py"]}
+                )
             ),
         )
-        zf.writestr("repo-structure-snapshot.txt", "src/app.py\n")
+        zf.writestr("repo_tree_summary.txt", "src/app.py\n")
+
+    dependency_buf = io.BytesIO()
+    with ZipFile(dependency_buf, "w") as zf:
+        zf.writestr(
+            "dependency_manifests.json",
+            json.dumps(
+                _wrap_artifact_payload(
+                    {"generatedAt": "2026-03-13T00:00:00Z", "manifests": []}
+                )
+            ),
+        )
+
+    test_detection_buf = io.BytesIO()
+    with ZipFile(test_detection_buf, "w") as zf:
+        zf.writestr(
+            "test_detection.json",
+            json.dumps(
+                _wrap_artifact_payload(
+                    {
+                        "detected": True,
+                        "command": "python -m pytest",
+                        "reason": "detected from pyproject.toml",
+                    }
+                )
+            ),
+        )
+
+    lint_detection_buf = io.BytesIO()
+    with ZipFile(lint_detection_buf, "w") as zf:
+        zf.writestr(
+            "lint_detection.json",
+            json.dumps(
+                _wrap_artifact_payload(
+                    {
+                        "detected": True,
+                        "command": "python -m ruff check .",
+                        "reason": "detected from pyproject.toml",
+                    }
+                )
+            ),
+        )
 
     lint_buf = io.BytesIO()
     with ZipFile(lint_buf, "w") as zf:
         zf.writestr(
-            "lint-results.json",
-            json.dumps({"actionOutcome": "success", "notes": "ok"}),
+            "lint_results.json",
+            json.dumps(
+                _wrap_artifact_payload(
+                    {"status": "success", "command": "python -m ruff check ."}
+                )
+            ),
         )
 
-    coverage_buf = io.BytesIO()
-    with ZipFile(coverage_buf, "w") as zf:
-        zf.writestr("coverage.xml", "<coverage />")
+    evidence_manifest_buf = io.BytesIO()
+    with ZipFile(evidence_manifest_buf, "w") as zf:
+        zf.writestr(
+            "evidence_manifest.json",
+            json.dumps(_wrap_artifact_payload({"artifacts": ["commit_metadata.json"]})),
+        )
 
     client = StubClient(
         artifacts=[
             {"id": 1, "name": "winoe-test-results"},
             {"id": 2, "name": "winoe-commit-metadata"},
             {"id": 3, "name": "winoe-file-creation-timeline"},
-            {"id": 4, "name": "winoe-repo-structure-snapshot"},
-            {"id": 5, "name": "winoe-lint-results"},
-            {"id": 6, "name": "winoe-coverage"},
+            {"id": 4, "name": "winoe-repo-tree-summary"},
+            {"id": 5, "name": "winoe-dependency-manifests"},
+            {"id": 6, "name": "winoe-test-detection"},
+            {"id": 7, "name": "winoe-lint-detection"},
+            {"id": 8, "name": "winoe-lint-results"},
+            {"id": 9, "name": "winoe-evidence-manifest"},
         ],
         contents={
             1: test_buf.getvalue(),
             2: commit_buf.getvalue(),
             3: timeline_buf.getvalue(),
             4: snapshot_buf.getvalue(),
-            5: lint_buf.getvalue(),
-            6: coverage_buf.getvalue(),
+            5: dependency_buf.getvalue(),
+            6: test_detection_buf.getvalue(),
+            7: lint_detection_buf.getvalue(),
+            8: lint_buf.getvalue(),
+            9: evidence_manifest_buf.getvalue(),
         },
     )
     runner = GithubActionsRunner(client, workflow_file="winoe-evidence-capture.yml")
@@ -163,15 +247,29 @@ async def test_parse_artifacts_surfaces_evidence_artifacts():
     assert parsed is not None
     assert parsed.summary is not None
     evidence = parsed.summary["evidenceArtifacts"]
-    assert evidence["commitMetadata"]["data"]["generatedAt"] == "2026-03-13T00:00:00Z"
-    assert evidence["fileCreationTimeline"]["data"]["filesCreated"] == []
-    assert evidence["repoStructureSnapshot"]["data"]["paths"] == ["src/app.py"]
+    assert evidence["commitMetadata"]["data"]["schema_version"] == "1"
+    assert evidence["commitMetadata"]["data"]["repository_full_name"] == "org/repo"
     assert (
-        evidence["repoStructureSnapshot"]["textFiles"]["repo-structure-snapshot.txt"]
+        evidence["commitMetadata"]["data"]["payload"]["generatedAt"]
+        == "2026-03-13T00:00:00Z"
+    )
+    assert evidence["fileCreationTimeline"]["data"]["payload"]["filesCreated"] == []
+    assert evidence["repoTreeSummary"]["data"]["payload"]["paths"] == ["src/app.py"]
+    assert (
+        evidence["repoTreeSummary"]["textFiles"]["repo_tree_summary.txt"]
         == "src/app.py\n"
     )
-    assert evidence["lintResults"]["data"]["actionOutcome"] == "success"
-    assert evidence["coverage"]["files"] == ["coverage.xml"]
+    assert evidence["dependencyManifests"]["data"]["payload"]["manifests"] == []
+    assert evidence["testDetection"]["data"]["payload"]["command"] == "python -m pytest"
+    assert evidence["testResults"]["data"]["payload"]["command"] == "python -m pytest"
+    assert (
+        evidence["lintDetection"]["data"]["payload"]["command"]
+        == "python -m ruff check ."
+    )
+    assert evidence["lintResults"]["data"]["payload"]["status"] == "success"
+    assert evidence["evidenceManifest"]["data"]["payload"]["artifacts"] == [
+        "commit_metadata.json"
+    ]
 
 
 @pytest.mark.asyncio
@@ -179,8 +277,21 @@ async def test_parse_artifacts_caches_evidence_summary_when_test_results_missing
     commit_buf = io.BytesIO()
     with ZipFile(commit_buf, "w") as zf:
         zf.writestr(
-            "commit-metadata.json",
-            json.dumps({"generatedAt": "2026-03-13T00:00:00Z", "commits": []}),
+            "commit_metadata.json",
+            json.dumps(
+                {
+                    "schema_version": "1",
+                    "repository_full_name": "org/repo",
+                    "commit_sha": "abc123",
+                    "workflow_run_id": "12",
+                    "generated_at": "2026-03-13T00:00:00Z",
+                    "status": "success",
+                    "payload": {
+                        "generatedAt": "2026-03-13T00:00:00Z",
+                        "commits": [],
+                    },
+                }
+            ),
         )
 
     client = StubClient(
@@ -243,7 +354,7 @@ async def test_parse_artifact_helpers_cover_download_failure_and_expired_filters
 
     assert _pick_test_artifacts(artifacts) == [{"id": 2, "name": "winoe-test-results"}]
 
-    parsed, error = await _parse_first_test_artifact(
+    parsed, error, evidence = await _parse_first_test_artifact(
         FailureClient(),
         runner.cache,
         "org/repo",
@@ -252,6 +363,7 @@ async def test_parse_artifact_helpers_cover_download_failure_and_expired_filters
     )
     assert parsed is None
     assert error == "artifact_download_failed"
+    assert evidence == {}
 
     class EvidenceClient(GithubClient):
         def __init__(self):

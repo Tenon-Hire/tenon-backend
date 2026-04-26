@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.github.client import GithubClient
 from app.shared.database.shared_database_models_model import CandidateSession, Task
+from app.shared.utils.shared_utils_errors_utils import ApiError
 from app.submissions.repositories.github_native.workspaces import (
     submissions_repositories_github_native_workspaces_submissions_github_native_workspaces_core_repository as workspace_repo,
 )
@@ -45,6 +46,16 @@ async def ensure_workspace(
     """Fetch or create a workspace for the candidate+task."""
     if github_username:
         validate_github_username(github_username)
+    elif bootstrap_empty_repo:
+        raise ApiError(
+            status_code=400,
+            detail=(
+                "Candidate GitHub username is required before opening the "
+                "Trial workspace."
+            ),
+            error_code="GITHUB_USERNAME_REQUIRED",
+            retryable=False,
+        )
 
     resolved_workspace = (
         workspace_resolution

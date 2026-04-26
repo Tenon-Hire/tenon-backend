@@ -30,11 +30,12 @@ async def preprovision_workspaces(
     *,
     now,
     fresh_candidate_session: bool = False,
-) -> None:
+) -> list[str]:
     """Execute preprovision workspaces."""
     repo_prefix = settings.github.GITHUB_REPO_PREFIX
     destination_owner = settings.github.GITHUB_ORG
     processed_workspace_keys: set[str] = set()
+    provisioned_repo_full_names: list[str] = []
     ensure_workspace_params = inspect.signature(
         submission_service.ensure_workspace
     ).parameters
@@ -49,6 +50,20 @@ async def preprovision_workspaces(
         workspace_key = resolve_workspace_key_for_task(task)
         if workspace_key and workspace_key in processed_workspace_keys:
             continue
+        github_username = (
+            getattr(candidate_session, "github_username", None) or ""
+        ).strip()
+        if not github_username:
+            logger.info(
+                "github_workspace_preprovision_skipped_missing_username",
+                extra={
+                    "trial_id": getattr(candidate_session, "trial_id", None),
+                    "candidate_session_id": getattr(candidate_session, "id", None),
+                    "task_id": task.id,
+                    "day_index": task.day_index,
+                },
+            )
+            continue
         try:
             ensure_workspace_kwargs = {
                 "candidate_session": candidate_session,
@@ -56,7 +71,7 @@ async def preprovision_workspaces(
                 "scenario_version": scenario_version,
                 "task": task,
                 "github_client": github_client,
-                "github_username": "",
+                "github_username": github_username,
                 "repo_prefix": repo_prefix,
                 "destination_owner": destination_owner,
                 "now": now,
@@ -79,10 +94,23 @@ async def preprovision_workspaces(
                 ensure_workspace_kwargs["commit"] = False
             if supports_hydrate_precommit_bundle:
                 ensure_workspace_kwargs["hydrate_precommit_bundle"] = False
-            await submission_service.ensure_workspace(db, **ensure_workspace_kwargs)
+            workspace = await submission_service.ensure_workspace(
+                db, **ensure_workspace_kwargs
+            )
+            repo_full_name = getattr(workspace, "repo_full_name", None)
+            if (
+                repo_full_name
+                and getattr(workspace, "_provisioned_repo_created", False)
+                and repo_full_name not in provisioned_repo_full_names
+            ):
+                provisioned_repo_full_names.append(repo_full_name)
             if workspace_key:
                 processed_workspace_keys.add(workspace_key)
-        except GithubError as exc:
+        except Exception as exc:
+            if provisioned_repo_full_names and not hasattr(
+                exc, "provisioned_repo_full_names"
+            ):
+                exc.provisioned_repo_full_names = tuple(provisioned_repo_full_names)
             logger.error(
                 "github_workspace_preprovision_failed",
                 extra={
@@ -100,3 +128,7 @@ async def preprovision_workspaces(
                 },
             )
             raise
+    return provisioned_repo_full_names
+
+
+__all__ = ["preprovision_workspaces", "GithubError"]

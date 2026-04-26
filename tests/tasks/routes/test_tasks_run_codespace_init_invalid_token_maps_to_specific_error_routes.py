@@ -23,7 +23,7 @@ async def test_codespace_init_invalid_token_maps_to_specific_error(
     await async_session.commit()
 
     class ErrorGithubClient:
-        async def generate_repo_from_template(self, **_kwargs):
+        async def create_empty_repo(self, **_kwargs):
             raise GithubError("bad token", status_code=401)
 
     with override_dependencies(

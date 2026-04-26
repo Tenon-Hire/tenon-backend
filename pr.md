@@ -1,91 +1,178 @@
-# 1. Title
+# Harden empty-repo GitHub provisioning and evidence capture
 
-Unblock real Day 2 candidate verification by fixing GitHub/Codespace reliability, repo activation, and Actions dispatch behavior
+## Summary
 
-# 2. Linked / Related Issues
+This PR hardens GitHub provisioning for the v4 from-scratch Tech Trial flow.
 
-- Winoe-AI/winoe-backend issue #285: Require GitHub username capture and fix Codespace init contract
-- Winoe-AI/winoe-backend issue #286: Enforce Codespace-only Day 2/3 workflow and remove offline/local work permission
-- Related frontend dependency: Winoe-AI/winoe-frontend issue #183
+Candidate workspaces are now created as empty repos and initialized only with Winoe-owned workspace files. Candidate GitHub username is required before workspace provisioning, collaborator permissioning uses that username, evidence capture runs through the canonical workflow `.github/workflows/winoe-evidence-capture.yml`, stable evidence artifact names are parsed reliably, and cleanup is bounded and idempotent.
 
-# 3. Problem / Why
+## What changed
 
-Day 2 could not be verified end to end on the real stack until the backend-side Codespace and Actions contract was made reliable.
+- Empty-repo repo creation and recovery path for candidate workspaces.
+- Required bootstrap files are created in the repo:
+  - `.devcontainer/devcontainer.json`
+  - `README.md`
+  - `.gitignore`
+  - `.github/workflows/winoe-evidence-capture.yml`
+- Devcontainer defaults to the Microsoft universal image unless a language-specific image is selected for the Talent Partner's preferred language.
+- `README.md` is used as the Project Brief.
+- No app starter code is added to candidate repos.
+- Generated `.gitignore` does not ignore lockfiles.
+- Candidate GitHub username is required before provisioning continues.
+- Collaborator add behavior is retried safely when permissioning already exists or was partially applied.
+- Evidence workflow and artifact parser behavior were updated for the new canonical workflow and stable artifact names.
+- Invite and preprovision cleanup paths are more precise so they only remove resources created during the current attempt.
+- Retry and idempotency paths are covered by tests.
+- Documentation was updated to match the v4 empty-repo provisioning flow.
 
-The original blockers were the ones tracked in #285 and #286:
+## v4 pivot alignment
 
-- GitHub username capture and Codespace init contract support were incomplete.
-- The workflow still had ambiguity around Codespace-only candidate work.
-- The backend needed to produce the right day-flow state so the frontend could open, poll, and close Day 2 correctly.
+- No generated-from-template repo path is used in active provisioning.
+- No template catalog dependency is used in active provisioning.
+- No precommit bundle is applied to candidate repos in the v4 path.
+- No Codespace Specializor or Specializer component is used.
+- The repo is evaluated as candidate-authored from scratch.
 
-During live QA, additional reliability issues surfaced that had to be fixed before real candidate flow could be trusted:
+This wording reflects the active path only. It does not claim historical compatibility code was removed unless the implementation actually changed it.
 
-- shared-time consistency and candidate-session day-flow correctness
-- workspace repo / Codespace bootstrap robustness
-- archived workspace repos causing `workflow_dispatch` runs to queue without jobs
-- repo activation before Codespace init
-- repo activation before GitHub Actions dispatch
+## Evidence / artifacts
 
-# 4. What Changed
+Canonical artifact names:
 
-- Backend support now matches the GitHub username / Codespace init contract expected by the candidate flow.
-- Codespace-only workflow enforcement is supported from the backend side.
-- Candidate-session day-flow and shared-time handling were tightened so the frontend receives stable open/closed behavior.
-- Workspace repo and Codespace bootstrap state handling was hardened.
-- Workspace repos are activated / unarchived before Codespace init.
-- Workspace repos are activated / unarchived before GitHub Actions run dispatch.
-- The run-tests path now avoids the failure mode where a `workflow_dispatch` stays queued with `jobs: []`.
-- Targeted backend tests were added or updated around repo activation and run-tests behavior.
+- `winoe-commit-metadata`
+- `winoe-file-creation-timeline`
+- `winoe-repo-tree-summary`
+- `winoe-dependency-manifests`
+- `winoe-test-detection`
+- `winoe-test-results`
+- `winoe-lint-detection`
+- `winoe-lint-results`
+- `winoe-evidence-manifest`
 
-# 5. Key Files Changed
+Canonical JSON files:
 
-- `app/integrations/github/client/integrations_github_client_github_client_repos_client.py`
-- `app/submissions/services/submissions_services_submissions_workspace_bootstrap_service.py`
-- `app/submissions/services/submissions_services_submissions_workspace_repo_state_service.py`
-- `app/submissions/services/use_cases/submissions_services_use_cases_submissions_use_cases_run_tests_service.py`
-- Targeted backend tests covering repo activation, Codespace init, and run dispatch behavior
+- `commit_metadata.json`
+- `file_creation_timeline.json`
+- `repo_tree_summary.json`
+- `dependency_manifests.json`
+- `test_detection.json`
+- `test_results.json`
+- `lint_detection.json`
+- `lint_results.json`
+- `evidence_manifest.json`
 
-# 6. QA / Validation Summary
+Wrapper schema fields:
 
-Validation was done in two layers:
+- `schema_version`
+- `repository_full_name`
+- `commit_sha`
+- `workflow_run_id`
+- `generated_at`
+- `status`
+- `payload`
 
-- Targeted backend checks passed for repo activation and run-tests behavior.
-- Ruff checks passed for the touched backend surface.
-- Full-stack live QA later exercised the real frontend + backend stack with a real browser auth session and no QA-driver state seeding.
+Test and lint detection distinguishes:
 
-The backend changes were verified by observing the real candidate flow from open Day 2 through run-tests completion and submit completion on the live stack.
+- `detected`
+- `not_detected`
+- failed command execution as evidence
 
-# 7. Live Evidence Summary
+## Idempotency and recovery
 
-- A live GitHub Actions run on `winoe-ai-repos/winoe-ws-36` was observed stuck in `queued` with `jobs: []`, which confirmed the archived-repo / activation failure mode.
-- After repo activation, a later Actions run succeeded, confirming the backend fix for dispatch reliability.
-- The final contract-live QA on the real stack reached terminal run-tests success and a successful submit on the candidate flow.
-- The frontend open-day and closed-day artifacts show the backend-backed open/closed day behavior that the UI now consumes.
+- Provisioning retry reuses the existing repo and workspace.
+- Missing bootstrap files are repaired.
+- Missing workflow files are repaired.
+- Collaborator add is safe on retry.
+- Codespace creation and recovery paths are retried safely.
+- Duplicate workspace groups and workspaces are avoided.
+- Day 2 and Day 3 share the canonical coding repo where expected.
 
-# 8. Risks / Follow-Ups
+## Cleanup behavior
 
-- This backend PR unblocked real Day 2 Actions dispatch and verification, but it does not by itself close the frontend issue.
-- If GitHub template repo state changes again, repo activation / unarchive preflight should continue to run before init and dispatch.
-- Any future Codespace or Actions contract changes should be revalidated against the live candidate flow, not just unit tests.
+- Cleanup is idempotent.
+- Invite rollback cleanup only targets repos created during the current attempt.
+- Existing or reused repos are not deleted accidentally.
+- Trial termination cleanup remains scoped to the Trial and workspace.
+- Already-cleaned resources are handled safely.
 
-# 9. Reviewer Notes
+## QA evidence
 
-- The important outcome here is reliability: real Day 2 candidate execution can now be verified on the live stack.
-- This work is the backend side of the broader Day 2 fix; the frontend PR #183 is still the UI-facing part of the overall flow.
-- The root causes were not just one endpoint. They were a combination of contract mismatch, repo state handling, and Actions dispatch robustness.
-- The queued-with-no-jobs failure mode is the key evidence that repo activation had to happen before dispatch.
+```text
+QA PASS — ready for PR prompt
+
+Environment:
+- Branch: feature/harden-github-provisioning-for-empty-repo-codespace-creation-and-evidence-capture
+- Commit: d39e7dbf0b091bc239d4d50870d8d52a4af00d0b
+- Backend command: ./scripts/local_qa_backend.sh
+- Worker command: python -m app.shared.jobs.shared_jobs_worker_cli_service worker
+- Backend health: GET /health returned {"status":"ok"}
+- Worker readiness: GET /ready returned ready with fresh worker heartbeat
+
+Manual QA covered:
+- missing GitHub username gate
+- username-present provisioning
+- repo contents inspection
+- idempotent retry
+- partial recovery
+- evidence workflow contract
+- artifact parsing/retrieval
+- cleanup/termination
+- retired-terminology active-path check
+```
+
+```text
+Live GitHub push execution was not performed in this QA pass. Route probes used an in-memory stub GitHub provider. GitHub Actions workflow execution was verified by workflow YAML contract and backend tests; artifact parsing/retrieval was verified through backend test paths.
+```
+
+## Validation
+
+```text
+bash ./precommit.sh
+✅ passed
+1865 passed, 13 warnings
+Coverage: 96.00%
+Required coverage: 96%
+```
+
+```text
+git diff --check
+✅ passed
+```
+
+## Risks / limitations
+
+- Live GitHub push execution was not performed in this QA pass.
+- Evidence capture execution was verified through workflow contract checks and backend tests rather than a live GitHub Actions run.
+- Cleanup correctness depends on the repo/workspace identifiers returned by the current attempt, so future changes to those identifiers should be revalidated.
+
+## Issue checklist
+
+- [x] Empty repo creation is idempotent and safe to retry
+- [x] Repo initialized with `.devcontainer/devcontainer.json`, `README.md`, `.gitignore`, and evidence-capture Actions workflow
+- [x] Devcontainer uses Microsoft universal image by default
+- [x] Recovery from partial GitHub API failure / partial repo initialization
+- [x] Candidate username-based permissioning via collaborator add
+- [x] GitHub Actions evidence-capture workflow runs on push
+- [x] Workflow captures commit metadata, file creation order, test detection, and linting results
+- [x] Evidence artifacts are uploaded and parseable/retrievable through backend paths
+- [x] Cleanup on Trial termination is idempotent and scoped
+
+## PR title
+
+Harden empty-repo GitHub provisioning and evidence capture
 
 Worker Report:
-
 - Summary
-  - Updated `pr.md` only to describe the backend reliability work that unblocked real Day 2 verification.
+  - Updated `pr.md` only to describe the v4 empty-repo GitHub provisioning and evidence capture flow.
 - Files changed
   - `pr.md`
 - Commands run
-  - `sed -n '1,260p' pr.md` - pass
-  - `rg -n "queued|jobs: \[\]|activation|unarchive|workflow_dispatch|repo|Codespace|github username|pollAfterMs|run_tests|Submit" ...` - pass
+  - `git status --short` - pass
+  - `git diff --check` - pass
+  - `bash ./precommit.sh` - pass
+  - `git diff --check` - pass
 - Risks / assumptions
-  - Assumed the live QA findings are the final source of truth for backend root causes and validation wording.
-  - Kept the backend PR honest about scope: it unblocked verification, but it does not alone close the frontend issue.
+  - Assumed the provided QA and validation text is the canonical PR-materials source.
+  - Kept the document aligned to the active v4 path and avoided retired product language in the main narrative.
 - Open questions / blockers
   - None

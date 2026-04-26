@@ -11,6 +11,18 @@ from app.integrations.github.artifacts import (
 )
 
 
+def _wrapped_payload(*, payload):
+    return {
+        "schema_version": "1",
+        "repository_full_name": "org/repo",
+        "commit_sha": "abc123",
+        "workflow_run_id": "99",
+        "generated_at": "2026-03-13T00:00:00Z",
+        "status": "success",
+        "payload": payload,
+    }
+
+
 def test_parse_test_results_prefers_json():
     buf = io.BytesIO()
     with ZipFile(buf, "w") as zf:
@@ -93,23 +105,32 @@ def test_parse_evidence_artifact_prefers_json_and_keeps_manifest():
     buf = io.BytesIO()
     with ZipFile(buf, "w") as zf:
         zf.writestr(
-            "repo-structure-snapshot.json",
-            json.dumps({"generatedAt": "2026-03-13T00:00:00Z", "paths": ["a.py"]}),
+            "repo_tree_summary.json",
+            json.dumps(
+                _wrapped_payload(
+                    payload={"generatedAt": "2026-03-13T00:00:00Z", "paths": ["a.py"]}
+                )
+            ),
         )
-        zf.writestr("repo-structure-snapshot.txt", "a.py\n")
-    parsed = parse_evidence_artifact_zip(
-        buf.getvalue(), "winoe-repo-structure-snapshot"
-    )
+        zf.writestr("repo_tree_summary.txt", "a.py\n")
+    parsed = parse_evidence_artifact_zip(buf.getvalue(), "winoe-repo-tree-summary")
     assert parsed is not None
-    assert parsed.artifact_name == "winoe-repo-structure-snapshot"
+    assert parsed.artifact_name == "winoe-repo-tree-summary"
     assert parsed.files == [
-        "repo-structure-snapshot.json",
-        "repo-structure-snapshot.txt",
+        "repo_tree_summary.json",
+        "repo_tree_summary.txt",
     ]
     assert parsed.data == {
-        "generatedAt": "2026-03-13T00:00:00Z",
-        "paths": ["a.py"],
+        "schema_version": "1",
+        "repository_full_name": "org/repo",
+        "commit_sha": "abc123",
+        "workflow_run_id": "99",
+        "generated_at": "2026-03-13T00:00:00Z",
+        "status": "success",
+        "payload": {"generatedAt": "2026-03-13T00:00:00Z", "paths": ["a.py"]},
     }
     summary = build_evidence_artifact_summary(parsed)
-    assert summary["artifactName"] == "winoe-repo-structure-snapshot"
-    assert summary["jsonFiles"]["repo-structure-snapshot.json"]["paths"] == ["a.py"]
+    assert summary["artifactName"] == "winoe-repo-tree-summary"
+    assert summary["jsonFiles"]["repo_tree_summary.json"]["payload"]["paths"] == [
+        "a.py"
+    ]

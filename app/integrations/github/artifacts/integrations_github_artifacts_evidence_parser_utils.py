@@ -14,8 +14,15 @@ from app.integrations.github.artifacts.integrations_github_artifacts_models_mode
 EVIDENCE_ARTIFACT_SUMMARY_KEYS: dict[str, str] = {
     "winoe-commit-metadata": "commitMetadata",
     "winoe-file-creation-timeline": "fileCreationTimeline",
-    "winoe-repo-structure-snapshot": "repoStructureSnapshot",
+    "winoe-repo-tree-summary": "repoTreeSummary",
+    "winoe-dependency-manifests": "dependencyManifests",
+    "winoe-test-detection": "testDetection",
+    "winoe-test-results": "testResults",
+    "winoe-lint-detection": "lintDetection",
     "winoe-lint-results": "lintResults",
+    "winoe-evidence-manifest": "evidenceManifest",
+    # Legacy compatibility only. The v4 active path uses repo-tree summary.
+    "winoe-repo-structure-snapshot": "repoStructureSnapshot",
     "winoe-coverage": "coverage",
 }
 
@@ -36,10 +43,10 @@ def parse_evidence_artifact_zip(
                         data = _safe_json_load(fp)
                     if data is not None:
                         json_files[name] = data
-                elif (
-                    artifact_name.lower() == "winoe-repo-structure-snapshot"
-                    and lower_name.endswith(".txt")
-                ):
+                elif artifact_name.lower() in {
+                    "winoe-repo-structure-snapshot",
+                    "winoe-repo-tree-summary",
+                } and lower_name.endswith(".txt"):
                     with zf.open(name) as fp:
                         text_files[name] = _safe_text_load(fp)
             data = _choose_primary_payload(
@@ -87,15 +94,28 @@ def _choose_primary_payload(
         if len(json_files) == 1:
             return next(iter(json_files.values()))
         preferred_file = {
+            "winoe-repo-tree-summary": "repo_tree_summary.json",
             "winoe-repo-structure-snapshot": "repo-structure-snapshot.json",
-            "winoe-commit-metadata": "commit-metadata.json",
-            "winoe-file-creation-timeline": "file-creation-timeline.json",
-            "winoe-lint-results": "lint-results.json",
+            "winoe-commit-metadata": "commit_metadata.json",
+            "winoe-file-creation-timeline": "file_creation_timeline.json",
+            "winoe-dependency-manifests": "dependency_manifests.json",
+            "winoe-test-detection": "test_detection.json",
+            "winoe-test-results": "test_results.json",
+            "winoe-lint-detection": "lint_detection.json",
+            "winoe-lint-results": "lint_results.json",
+            "winoe-evidence-manifest": "evidence_manifest.json",
         }.get(artifact_name.lower())
         if preferred_file and preferred_file in json_files:
             return json_files[preferred_file]
         return json_files
-    if artifact_name.lower() == "winoe-repo-structure-snapshot" and text_files:
+    if (
+        artifact_name.lower()
+        in {
+            "winoe-repo-structure-snapshot",
+            "winoe-repo-tree-summary",
+        }
+        and text_files
+    ):
         if len(text_files) == 1:
             return next(iter(text_files.values()))
         return text_files

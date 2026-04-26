@@ -35,19 +35,12 @@ async def test_codespace_init_reuses_existing_workspace_and_skips_github(
         created_at=datetime.now(UTC),
     )
 
-    calls: dict[str, int] = {"generate": 0}
+    calls: dict[str, int] = {"create": 0}
 
     class CountingGithubClient:
-        async def generate_repo_from_template(
-            self,
-            *,
-            template_full_name: str,
-            new_repo_name: str,
-            owner=None,
-            private=True,
-        ):
-            calls["generate"] += 1
-            raise AssertionError("generate_repo_from_template should not be called")
+        async def create_empty_repo(self, **_kwargs):
+            calls["create"] += 1
+            raise AssertionError("create_empty_repo should not be called")
 
         async def add_collaborator(
             self, repo_full_name: str, username: str, *, permission: str = "push"
@@ -75,7 +68,7 @@ async def test_codespace_init_reuses_existing_workspace_and_skips_github(
     body = resp.json()
     assert body["workspaceId"] == existing.id
     assert body["repoFullName"] == existing.repo_full_name
-    assert calls["generate"] == 0
+    assert calls["create"] == 0
 
     rows = await async_session.execute(
         select(Workspace).where(

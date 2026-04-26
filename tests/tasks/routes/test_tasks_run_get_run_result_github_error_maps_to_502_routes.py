@@ -30,30 +30,52 @@ async def test_get_run_result_github_error_maps_to_502(
             raise GithubError("nope")
 
     class StubGithubClient:
-        async def generate_repo_from_template(
-            self,
-            *,
-            template_full_name: str,
-            new_repo_name: str,
-            owner=None,
-            private=True,
+        async def create_empty_repo(
+            self, *, owner, repo_name, private=True, default_branch="main"
         ):
-            destination_owner = settings.github.GITHUB_ORG
             return {
-                "owner": {"login": destination_owner},
-                "name": new_repo_name,
-                "full_name": f"{destination_owner}/{new_repo_name}",
+                "owner": {"login": owner},
+                "name": repo_name,
+                "full_name": f"{owner}/{repo_name}",
                 "id": 1,
-                "default_branch": "main",
+                "default_branch": default_branch,
+            }
+
+        async def get_file_contents(self, *_a, **_k):
+            raise GithubError("missing", status_code=404)
+
+        async def get_branch(self, repo_full_name: str, branch: str):
+            return {"commit": {"sha": "base"}}
+
+        async def create_or_update_file(self, *_a, **_k):
+            return {"content": {"sha": "readme-sha"}}
+
+        async def create_blob(self, *_a, **_k):
+            return {"sha": "blob-sha"}
+
+        async def create_tree(self, *_a, **_k):
+            return {"sha": "tree-sha"}
+
+        async def create_commit(self, *_a, **_k):
+            return {"sha": "commit-sha"}
+
+        async def create_ref(self, *_a, **_k):
+            return {"ref": "refs/heads/main", "sha": "commit-sha"}
+
+        async def update_ref(self, *_a, **_k):
+            return {"ref": "refs/heads/main", "sha": "commit-sha"}
+
+        async def create_codespace(self, *_a, **_k):
+            return {
+                "name": "codespace-1",
+                "state": "available",
+                "web_url": "https://codespace.example",
             }
 
         async def add_collaborator(
             self, repo_full_name: str, username: str, *, permission: str = "push"
         ):
             return {"ok": True}
-
-        async def get_branch(self, repo_full_name: str, branch: str):
-            return {"commit": {"sha": "base"}}
 
         async def get_compare(self, repo_full_name: str, base: str, head: str):
             return {}

@@ -13,7 +13,7 @@ class GithubSettings(BaseSettings):
     GITHUB_ORG: str = "winoe-ai-repos"
     GITHUB_TOKEN: str = ""
     GITHUB_TEMPLATE_OWNER: str = "winoe-ai-repos"
-    GITHUB_ACTIONS_WORKFLOW_FILE: str = "evidence-capture.yml"
+    GITHUB_ACTIONS_WORKFLOW_FILE: str = "winoe-evidence-capture.yml"
     GITHUB_REPO_PREFIX: str = "winoe-ws-"
     GITHUB_CLEANUP_ENABLED: bool = False
     WORKSPACE_RETENTION_DAYS: int = 30

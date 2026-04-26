@@ -31,18 +31,34 @@ async def parse_artifacts(
     preferred, others = partition_artifacts(artifacts)
     test_artifacts = _pick_test_artifacts(preferred + others)
     evidence_key = (repo_full_name, run_id)
-    parsed, error = await _parse_first_test_artifact(
+    parsed, error, test_evidence = await _parse_first_test_artifact(
         client, cache, repo_full_name, run_id, test_artifacts
     )
-    evidence = await _collect_evidence_artifacts(
-        client, repo_full_name, preferred + others
-    )
-    if evidence:
-        cache.cache_evidence_summary(evidence_key, {"evidenceArtifacts": evidence})
+    evidence = cache.evidence_summary_cache.get(evidence_key)
+    if evidence is None:
+        evidence_artifacts = dict(test_evidence)
+        evidence_artifacts.update(
+            await _collect_evidence_artifacts(
+                client,
+                repo_full_name,
+                preferred + others,
+                excluded_artifact_ids={
+                    int(a["id"]) for a in test_artifacts if a.get("id")
+                },
+            )
+        )
+        if evidence_artifacts:
+            evidence = {"evidenceArtifacts": evidence_artifacts}
+            cache.cache_evidence_summary(evidence_key, evidence)
+    elif test_evidence:
+        evidence = dict(evidence)
+        merged_artifacts = dict(evidence.get("evidenceArtifacts", {}))
+        merged_artifacts.update(test_evidence)
+        evidence["evidenceArtifacts"] = merged_artifacts
     if parsed:
         summary = dict(parsed.summary or {})
         if evidence:
-            summary["evidenceArtifacts"] = evidence
+            summary["evidenceArtifacts"] = evidence.get("evidenceArtifacts", {})
         parsed.summary = summary or None
         cache.cache_evidence_summary(evidence_key, summary)
         return parsed, None
@@ -59,7 +75,7 @@ async def _parse_first_test_artifact(
     repo_full_name: str,
     run_id: int,
     artifacts: list[dict[str, Any]],
-) -> tuple[ParsedTestResults | None, str | None]:
+) -> tuple[ParsedTestResults | None, str | None, dict[str, dict[str, Any]]]:
     """Parse the first parseable test-results artifact."""
     found = False
     last_error: str | None = None
@@ -67,13 +83,14 @@ async def _parse_first_test_artifact(
         artifact_id = artifact.get("id")
         if not artifact_id:
             continue
+        artifact_name = str(artifact.get("name") or "").lower()
         found = True
         cache_key = (repo_full_name, run_id, int(artifact_id))
         cached = cache.artifact_cache.get(cache_key)
         if cached:
             parsed_cached, cached_error = cached
             if parsed_cached or cached_error:
-                return parsed_cached, cached_error
+                return parsed_cached, cached_error, {}
         try:
             content = await client.download_artifact_zip(
                 repo_full_name, int(artifact_id)
@@ -84,22 +101,56 @@ async def _parse_first_test_artifact(
         parsed = parse_test_results_zip(content)
         if parsed:
             cache.cache_artifact_result(cache_key, parsed, None)
-            return parsed, None
+            return (
+                parsed,
+                None,
+                _collect_evidence_from_test_artifact(
+                    content, artifact_name, artifact_id
+                ),
+            )
         last_error = "artifact_corrupt"
         cache.cache_artifact_result(cache_key, None, last_error)
     if found:
-        return None, last_error or "artifact_unavailable"
-    return None, None
+        return None, last_error or "artifact_unavailable", {}
+    return None, None, {}
+
+
+def _collect_evidence_from_test_artifact(
+    content: bytes, artifact_name: str, artifact_id: Any
+) -> dict[str, dict[str, Any]]:
+    """Parse evidence payloads that share the test-results artifact zip."""
+    summary_key = EVIDENCE_ARTIFACT_SUMMARY_KEYS.get(artifact_name)
+    if summary_key is None:
+        return {}
+    parsed = parse_evidence_artifact_zip(content, artifact_name)
+    if parsed is None:
+        return {
+            summary_key: {
+                "artifactName": artifact_name,
+                "artifactId": int(artifact_id),
+                "error": "artifact_corrupt",
+            }
+        }
+    summary = build_evidence_artifact_summary(parsed)
+    summary["artifactId"] = int(artifact_id)
+    return {summary_key: summary}
 
 
 async def _collect_evidence_artifacts(
-    client: GithubClient, repo_full_name: str, artifacts: list[dict[str, Any]]
+    client: GithubClient,
+    repo_full_name: str,
+    artifacts: list[dict[str, Any]],
+    *,
+    excluded_artifact_ids: set[int] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Collect evidence artifact summaries best-effort."""
     evidence: dict[str, dict[str, Any]] = {}
+    excluded_artifact_ids = excluded_artifact_ids or set()
     for artifact in artifacts:
         artifact_id = artifact.get("id")
         if not artifact_id:
+            continue
+        if int(artifact_id) in excluded_artifact_ids:
             continue
         artifact_name = str(artifact.get("name") or "").lower()
         summary_key = EVIDENCE_ARTIFACT_SUMMARY_KEYS.get(artifact_name)

@@ -23,7 +23,7 @@ async def test_codespace_init_error_includes_error_code_and_sanitizes_tokens(
     await async_session.commit()
 
     class ErrorGithubClient:
-        async def generate_repo_from_template(self, **_kwargs):
+        async def create_empty_repo(self, **_kwargs):
             raise GithubError(
                 "Authorization: Bearer eyJFAKE.JWT.TOKEN ghp_FAKEGITHUBTOKEN123",
                 status_code=403,

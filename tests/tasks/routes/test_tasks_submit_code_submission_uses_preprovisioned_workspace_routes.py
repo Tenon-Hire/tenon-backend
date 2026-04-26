@@ -38,6 +38,13 @@ async def test_code_submission_uses_preprovisioned_workspace(
     assert day2["currentDayIndex"] == 2
     day2_task_id = day2["currentTask"]["id"]
 
+    init_resp = await async_client.post(
+        f"/api/tasks/{day2_task_id}/codespace/init",
+        headers=candidate_headers(cs_id, access_token),
+        json={"githubUsername": "janegithub"},
+    )
+    assert init_resp.status_code == 200, init_resp.text
+
     workspace = (
         await async_session.execute(
             select(Workspace).where(

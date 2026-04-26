@@ -74,7 +74,10 @@ async def test_create_candidate_invite_github_error(monkeypatch):
         return SimpleNamespace(id=11, template_key="python-fastapi")
 
     async def fake_create(db, trial_id, payload, now, scenario_version_id=None):
-        return SimpleNamespace(id=10, token="tok"), "created"
+        return (
+            SimpleNamespace(id=10, token="tok", github_username="octocat"),
+            "created",
+        )
 
     async def fail_workspace(_db, **_kwargs):
         raise GithubError("nope", status_code=403)

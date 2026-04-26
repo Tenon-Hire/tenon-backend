@@ -35,7 +35,7 @@ async def test_dispatch_and_wait_returns_running_when_run_is_queued(monkeypatch)
 
     runner = GithubActionsRunner(
         QueuedClient(),
-        workflow_file="evidence-capture.yml",
+        workflow_file="winoe-evidence-capture.yml",
         poll_interval_seconds=0.01,
         max_poll_seconds=0.05,
     )

@@ -25,7 +25,7 @@ async def test_codespace_init_maps_github_errors_to_502(
     await async_session.commit()
 
     class ErrorGithubClient:
-        async def generate_repo_from_template(self, **_kwargs):
+        async def create_empty_repo(self, **_kwargs):
             raise GithubError("Bad credentials", status_code=403)
 
     with override_dependencies(

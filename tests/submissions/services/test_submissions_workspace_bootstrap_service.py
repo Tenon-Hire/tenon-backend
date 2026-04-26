@@ -18,7 +18,7 @@ def test_build_evidence_capture_workflow_yaml_is_valid_and_structured():
     parsed = yaml.load(workflow_text, Loader=yaml.BaseLoader)
 
     assert parsed["name"] == "Winoe Evidence Capture"
-    assert parsed["on"]["push"]["branches"] == ["main"]
+    assert parsed["on"]["push"] in ({}, None, "")
     assert "workflow_dispatch" in parsed["on"]
 
     steps = parsed["jobs"]["capture"]["steps"]
@@ -27,9 +27,7 @@ def test_build_evidence_capture_workflow_yaml_is_valid_and_structured():
     )
     assert checkout_step["with"]["fetch-depth"] == "0"
 
-    capture_step = next(
-        step for step in steps if step["name"] == "Capture repository evidence"
-    )
+    capture_step = next(step for step in steps if step["name"] == "Capture evidence")
     assert capture_step["continue-on-error"] == "true"
 
     upload_steps = {
@@ -41,12 +39,13 @@ def test_build_evidence_capture_workflow_yaml_is_valid_and_structured():
     assert (
         upload_steps["winoe-file-creation-timeline"]["with"]["retention-days"] == "90"
     )
-    assert (
-        upload_steps["winoe-repo-structure-snapshot"]["with"]["retention-days"] == "90"
-    )
+    assert upload_steps["winoe-repo-tree-summary"]["with"]["retention-days"] == "90"
+    assert upload_steps["winoe-dependency-manifests"]["with"]["retention-days"] == "90"
+    assert upload_steps["winoe-test-detection"]["with"]["retention-days"] == "90"
     assert upload_steps["winoe-test-results"]["with"]["retention-days"] == "90"
-    assert upload_steps["winoe-coverage"]["with"]["retention-days"] == "90"
+    assert upload_steps["winoe-lint-detection"]["with"]["retention-days"] == "90"
     assert upload_steps["winoe-lint-results"]["with"]["retention-days"] == "90"
+    assert upload_steps["winoe-evidence-manifest"]["with"]["retention-days"] == "90"
 
 
 @pytest.mark.asyncio
@@ -158,31 +157,46 @@ async def test_bootstrap_empty_candidate_repo_writes_only_allowed_files():
     assert result.codespace_url == "https://codespace-77.github.dev"
     assert [entry["path"] for entry in client.tree_entries] == [
         ".devcontainer/devcontainer.json",
-        ".gitignore",
-        ".github/workflows/evidence-capture.yml",
         "README.md",
+        ".gitignore",
+        ".github/workflows/winoe-evidence-capture.yml",
     ]
-    assert ".github/workflows/winoe-evidence-capture.yml" not in {
+    assert ".github/workflows/evidence-capture.yml" not in {
         entry["path"] for entry in client.tree_entries
     }
     workflow_entry = next(
         entry
         for entry in client.tree_entries
-        if entry["path"] == ".github/workflows/evidence-capture.yml"
+        if entry["path"] == ".github/workflows/winoe-evidence-capture.yml"
     )
     workflow_text = workflow_entry["content"]
     assert "push:" in workflow_text
-    assert "branches:" in workflow_text
     assert "continue-on-error: true" in workflow_text
     assert "fetch-depth: 0" in workflow_text
     assert "retention-days: 90" in workflow_text
-    assert "npm test -- --coverage" in workflow_text
-    assert "python -m pytest --cov=." in workflow_text
+    assert "commit_metadata.json" in workflow_text
+    assert "file_creation_timeline.json" in workflow_text
+    assert "repo_tree_summary.json" in workflow_text
+    assert "dependency_manifests.json" in workflow_text
+    assert "test_detection.json" in workflow_text
+    assert "test_results.json" in workflow_text
+    assert "lint_detection.json" in workflow_text
+    assert "lint_results.json" in workflow_text
+    assert "evidence_manifest.json" in workflow_text
+    assert "package.json found without test or lint scripts" in workflow_text
+    assert "detected package.json scripts" in workflow_text
+    assert "detected Python project manifest and common test paths" in workflow_text
     assert (
-        "go test ./... -coverprofile=artifacts/coverage/coverage.out" in workflow_text
+        "detected Python project manifest without obvious test paths" in workflow_text
     )
-    assert "mvn test" in workflow_text
-    assert "github/super-linter/slim@v6" in workflow_text
+    assert "no supported manifest with a runnable command found" in workflow_text
+    gitignore_entry = next(
+        entry for entry in client.tree_entries if entry["path"] == ".gitignore"
+    )
+    assert "package-lock.json" not in gitignore_entry["content"]
+    assert "pnpm-lock.yaml" not in gitignore_entry["content"]
+    assert "yarn.lock" not in gitignore_entry["content"]
+    assert gitignore_entry["content"].count(".vscode/") == 1
     readme_entry = next(
         entry for entry in client.tree_entries if entry["path"] == "README.md"
     )
@@ -872,15 +886,19 @@ async def test_bootstrap_empty_candidate_repo_initializes_empty_repo_via_content
     assert len(client.created_blobs) == 4
     assert [entry["path"] for entry in client.tree_entries] == [
         ".devcontainer/devcontainer.json",
-        ".gitignore",
-        ".github/workflows/evidence-capture.yml",
         "README.md",
+        ".gitignore",
+        ".github/workflows/winoe-evidence-capture.yml",
     ]
-    workflow_text = client.created_blobs[2]
+    workflow_text = client.created_blobs[3]
     assert "workflow_dispatch:" in workflow_text
     assert "continue-on-error: true" in workflow_text
     assert "retention-days: 90" in workflow_text
-    assert "github/super-linter/slim@v6" in workflow_text
+    assert "repo_tree_summary.json" in workflow_text
+    assert "evidence_manifest.json" in workflow_text
+    assert "package-lock.json" not in client.created_blobs[2]
+    assert "pnpm-lock.yaml" not in client.created_blobs[2]
+    assert "yarn.lock" not in client.created_blobs[2]
     assert client.commit_args == {
         "message": "chore: bootstrap candidate repo",
         "tree": "tree-sha",
@@ -892,7 +910,141 @@ async def test_bootstrap_empty_candidate_repo_initializes_empty_repo_via_content
 
 
 @pytest.mark.asyncio
-async def test_bootstrap_empty_candidate_repo_cleans_up_on_late_failure():
+async def test_bootstrap_empty_candidate_repo_recovers_when_bootstrap_files_are_missing():
+    candidate_session = SimpleNamespace(id=90)
+    trial = SimpleNamespace(title="Recovery trial", role="Backend Engineer")
+    scenario_version = SimpleNamespace(
+        storyline_md="# Recovery",
+        project_brief_md="# Project Brief\n\n## Business Context\n\nRecover partially seeded repos.\n",
+    )
+
+    collaborator_calls: list[tuple[str, str]] = []
+
+    class StubGithubClient:
+        def __init__(self):
+            self.created_blobs = []
+            self.tree_entries = None
+            self.commit_args = None
+            self.ref_args = None
+            self.codespace_request = None
+            self.created_repo_calls = 0
+
+        async def create_empty_repo(
+            self, *, owner, repo_name, private=True, default_branch="main"
+        ):
+            self.created_repo_calls += 1
+            raise GithubError("repo exists", status_code=422)
+
+        async def get_repo(self, repo_full_name):
+            return {
+                "owner": {"login": repo_full_name.split("/", 1)[0]},
+                "name": repo_full_name.split("/", 1)[1],
+                "full_name": repo_full_name,
+                "id": 999,
+                "default_branch": "main",
+            }
+
+        async def get_branch(self, *_args, **_kwargs):
+            return {"commit": {"sha": "existing-sha"}}
+
+        async def get_file_contents(self, repo_full_name, file_path, *, ref=None):
+            if file_path == "README.md":
+                return {"content": "existing readme"}
+            raise GithubError("missing", status_code=404)
+
+        async def create_blob(self, _repo_full_name, *, content):
+            sha = f"blob-{len(self.created_blobs) + 1}"
+            self.created_blobs.append(content)
+            return {"sha": sha}
+
+        async def get_commit(self, _repo_full_name, sha):
+            assert sha == "existing-sha"
+            return {"tree": {"sha": "existing-tree-sha"}}
+
+        async def create_tree(self, _repo_full_name, *, tree, base_tree=None):
+            self.tree_entries = tree
+            assert base_tree == "existing-tree-sha"
+            return {"sha": "tree-sha"}
+
+        async def create_commit(self, _repo_full_name, *, message, tree, parents):
+            self.commit_args = {
+                "message": message,
+                "tree": tree,
+                "parents": parents,
+            }
+            return {"sha": "commit-sha"}
+
+        async def update_ref(self, _repo_full_name, *, ref, sha, force=False):
+            self.ref_args = (ref, sha, force)
+            return {"ref": ref, "sha": sha}
+
+        async def get_authenticated_user_login(self):
+            return "octocat"
+
+        async def create_codespace(
+            self,
+            repo_full_name,
+            *,
+            ref=None,
+            devcontainer_path=None,
+            machine=None,
+            location=None,
+        ):
+            self.codespace_request = {
+                "repo_full_name": repo_full_name,
+                "ref": ref,
+                "devcontainer_path": devcontainer_path,
+                "machine": machine,
+                "location": location,
+            }
+            return {
+                "name": "codespace-90",
+                "state": "available",
+                "web_url": "https://codespace-90.github.dev",
+            }
+
+    client = StubGithubClient()
+
+    async def _add_collaborator_if_needed(github_client, repo_full_name, username):
+        collaborator_calls.append((repo_full_name, username))
+
+    original_add_collaborator = bootstrap_service.add_collaborator_if_needed
+    bootstrap_service.add_collaborator_if_needed = _add_collaborator_if_needed
+    try:
+        result = await bootstrap_service.bootstrap_empty_candidate_repo(
+            github_client=client,
+            candidate_session=candidate_session,
+            trial=trial,
+            scenario_version=scenario_version,
+            task=SimpleNamespace(title="Day 2 coding"),
+            repo_prefix="winoe-ws-",
+            destination_owner="winoe-ai-repos",
+        )
+    finally:
+        bootstrap_service.add_collaborator_if_needed = original_add_collaborator
+
+    assert client.created_repo_calls == 1
+    assert len(client.created_blobs) == 4
+    assert [entry["path"] for entry in client.tree_entries] == [
+        ".devcontainer/devcontainer.json",
+        "README.md",
+        ".gitignore",
+        ".github/workflows/winoe-evidence-capture.yml",
+    ]
+    assert collaborator_calls == [("winoe-ai-repos/winoe-ws-90", "octocat")]
+    assert client.codespace_request == {
+        "repo_full_name": "winoe-ai-repos/winoe-ws-90",
+        "ref": "main",
+        "devcontainer_path": ".devcontainer/devcontainer.json",
+        "machine": None,
+        "location": None,
+    }
+    assert result.bootstrap_commit_sha == "commit-sha"
+    assert result.codespace_url == "https://codespace-90.github.dev"
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_empty_candidate_repo_keeps_repo_on_late_failure():
     candidate_session = SimpleNamespace(id=89)
     trial = SimpleNamespace(title="Cleanup trial", role="Backend Engineer")
     scenario_version = SimpleNamespace(
@@ -962,7 +1114,7 @@ async def test_bootstrap_empty_candidate_repo_cleans_up_on_late_failure():
             destination_owner="winoe-ai-repos",
         )
 
-    assert client.deleted_repos == ["winoe-ai-repos/winoe-ws-89"]
+    assert client.deleted_repos == []
 
 
 @pytest.mark.asyncio

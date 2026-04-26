@@ -7,13 +7,9 @@ from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.integrations.github import GithubClient
 from app.notifications.services import service as notification_service
 from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
-from app.submissions.services.submissions_services_submissions_workspace_bootstrap_service import (
-    build_candidate_repo_name,
-)
 from app.trials import services as sim_service
 from app.trials.services import (
     trials_services_trials_invite_preprovision_service as invite_preprovision,
@@ -22,23 +18,26 @@ from app.trials.services import (
 logger = logging.getLogger(__name__)
 
 
-async def _cleanup_candidate_repo(
-    github_client: GithubClient, repo_full_name: str
-) -> None:
-    """Delete a freshly created candidate repo best-effort."""
-    try:
-        await github_client.delete_repo(repo_full_name)
-    except Exception as exc:  # pragma: no cover - cleanup should not mask root cause
-        logger.warning(
-            "candidate_repo_cleanup_failed",
-            extra={"repo_full_name": repo_full_name, "error": str(exc)},
-        )
-
-
 async def _rollback_if_supported(db: AsyncSession) -> None:
     rollback = getattr(db, "rollback", None)
     if callable(rollback):
         await rollback()
+
+
+async def _cleanup_provisioned_repos(
+    github_client: GithubClient, repo_full_names: tuple[str, ...] | list[str]
+) -> None:
+    delete_repo = getattr(github_client, "delete_repo", None)
+    if not callable(delete_repo):
+        return
+    for repo_full_name in dict.fromkeys(repo_full_names):
+        try:
+            await delete_repo(repo_full_name)
+        except Exception:
+            logger.warning(
+                "github_workspace_preprovision_cleanup_failed",
+                extra={"repo_full_name": repo_full_name},
+            )
 
 
 async def create_candidate_invite_workflow(
@@ -93,8 +92,9 @@ async def create_candidate_invite_workflow(
     )
     fresh_candidate_session = bool(getattr(cs, "_invite_newly_created", False))
     invite_url = sim_service.invite_url(cs.token)
+    provisioned_repo_full_names: tuple[str, ...] = ()
     try:
-        await invite_preprovision.preprovision_workspaces(
+        provisioned_repo_full_names = await invite_preprovision.preprovision_workspaces(
             db,
             cs,
             sim,
@@ -112,14 +112,17 @@ async def create_candidate_invite_workflow(
             email_service=email_service,
             now=now,
         )
-    except Exception:
-        await _rollback_if_supported(db)
+    except Exception as exc:
         if fresh_candidate_session:
-            repo_name = build_candidate_repo_name(
-                settings.github.GITHUB_REPO_PREFIX, cs
+            cleanup_targets = getattr(exc, "provisioned_repo_full_names", ())
+            if not cleanup_targets:
+                cleanup_targets = provisioned_repo_full_names
+            if cleanup_targets is None:
+                cleanup_targets = ()
+            await _cleanup_provisioned_repos(
+                github_client,
+                tuple(cleanup_targets),
             )
-            await _cleanup_candidate_repo(
-                github_client, f"{settings.github.GITHUB_ORG}/{repo_name}"
-            )
+        await _rollback_if_supported(db)
         raise
     return cs, sim, outcome, invite_url

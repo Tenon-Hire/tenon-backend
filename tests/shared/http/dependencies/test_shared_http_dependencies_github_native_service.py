@@ -18,7 +18,7 @@ def test_actions_runner_singleton_reused_and_custom_client_gets_new_runner():
         runner1.workflow_file
         == github_native.settings.github.GITHUB_ACTIONS_WORKFLOW_FILE
     )
-    assert runner1.workflow_file == "evidence-capture.yml"
+    assert runner1.workflow_file == "winoe-evidence-capture.yml"
 
     custom_client = GithubClient(
         base_url="https://api.github.com", token="custom-token", default_org="org"

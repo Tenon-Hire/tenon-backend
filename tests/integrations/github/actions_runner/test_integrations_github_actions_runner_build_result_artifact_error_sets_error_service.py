@@ -43,11 +43,19 @@ async def test_build_result_surfaces_evidence_summary_when_artifacts_missing():
             buf = io.BytesIO()
             with zipfile.ZipFile(buf, "w") as zf:
                 zf.writestr(
-                    "commit-metadata.json",
+                    "commit_metadata.json",
                     json.dumps(
                         {
-                            "generatedAt": "2026-03-13T00:00:00Z",
-                            "commits": [],
+                            "schema_version": "1",
+                            "repository_full_name": "org/repo",
+                            "commit_sha": "abc123",
+                            "workflow_run_id": "11",
+                            "generated_at": "2026-03-13T00:00:00Z",
+                            "status": "success",
+                            "payload": {
+                                "generatedAt": "2026-03-13T00:00:00Z",
+                                "commits": [],
+                            },
                         }
                     ),
                 )
@@ -91,11 +99,19 @@ async def test_build_result_surfaces_evidence_summary_when_test_results_corrupt(
             buf = io.BytesIO()
             with zipfile.ZipFile(buf, "w") as zf:
                 zf.writestr(
-                    "commit-metadata.json",
+                    "commit_metadata.json",
                     json.dumps(
                         {
-                            "generatedAt": "2026-03-13T00:00:00Z",
-                            "commits": [],
+                            "schema_version": "1",
+                            "repository_full_name": "org/repo",
+                            "commit_sha": "abc123",
+                            "workflow_run_id": "11",
+                            "generated_at": "2026-03-13T00:00:00Z",
+                            "status": "success",
+                            "payload": {
+                                "generatedAt": "2026-03-13T00:00:00Z",
+                                "commits": [],
+                            },
                         }
                     ),
                 )

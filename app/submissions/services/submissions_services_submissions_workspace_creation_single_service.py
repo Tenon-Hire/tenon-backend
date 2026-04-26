@@ -80,6 +80,7 @@ async def provision_single_workspace(
         create_workspace_kwargs["refresh"] = False
     workspace = await workspace_repo.create_workspace(db, **create_workspace_kwargs)
     if not hydrate_precommit_bundle:
+        workspace._provisioned_repo_created = True
         return workspace
     precommit_result = await apply_precommit_bundle_if_available(
         db,
@@ -91,6 +92,8 @@ async def provision_single_workspace(
         base_template_sha=workspace.base_template_sha,
         existing_precommit_sha=workspace.precommit_sha,
     )
-    return await persist_precommit_result(
+    result = await persist_precommit_result(
         db, workspace=workspace, precommit_result=precommit_result, commit=commit
     )
+    result._provisioned_repo_created = True
+    return result

@@ -41,20 +41,47 @@ async def test_run_tests_handles_artifact_missing_status_error(
             )
 
     class StubGithubClient:
-        async def generate_repo_from_template(
-            self, *, template_full_name, new_repo_name, owner=None, private=True
+        async def create_empty_repo(
+            self, *, owner, repo_name, private=True, default_branch="main"
         ):
             return {
-                "full_name": f"{owner}/{new_repo_name}",
+                "owner": {"login": owner},
+                "name": repo_name,
+                "full_name": f"{owner}/{repo_name}",
                 "id": 999,
-                "default_branch": "main",
+                "default_branch": default_branch,
             }
+
+        async def get_file_contents(self, *_a, **_k):
+            raise GithubError("missing", status_code=404)
 
         async def add_collaborator(self, *_a, **_k):
             return {"ok": True}
 
         async def get_branch(self, *_a, **_k):
             return {"commit": {"sha": "base"}}
+
+        async def create_blob(self, *_a, **_k):
+            return {"sha": "blob-sha"}
+
+        async def create_tree(self, *_a, **_k):
+            return {"sha": "tree-sha"}
+
+        async def create_commit(self, *_a, **_k):
+            return {"sha": "commit-sha"}
+
+        async def create_ref(self, *_a, **_k):
+            return {"ref": "refs/heads/main", "sha": "commit-sha"}
+
+        async def update_ref(self, *_a, **_k):
+            return {"ref": "refs/heads/main", "sha": "commit-sha"}
+
+        async def create_codespace(self, *_a, **_k):
+            return {
+                "name": "codespace-1",
+                "state": "available",
+                "web_url": "https://example.com/codespace",
+            }
 
         async def get_compare(self, *_a, **_k):
             return {}
@@ -66,11 +93,12 @@ async def test_run_tests_handles_artifact_missing_status_error(
         }
     ):
         headers = candidate_header_factory(cs)
-        await async_client.post(
+        init_resp = await async_client.post(
             f"/api/tasks/{tasks[1].id}/codespace/init",
             headers=headers,
             json={"githubUsername": "octocat"},
         )
+        assert init_resp.status_code == 200, init_resp.text
         resp = await async_client.post(
             f"/api/tasks/{tasks[1].id}/run",
             headers=headers,
