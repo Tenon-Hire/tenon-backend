@@ -17,6 +17,9 @@ from app.integrations.scenario_generation.base_client import (
     ScenarioGenerationProviderResponse,
 )
 from app.trials.services import scenario_generation
+from app.trials.services import (
+    trials_services_trials_scenario_generation_runtime_service as scenario_generation_runtime,
+)
 
 
 def _snapshot():
@@ -426,3 +429,30 @@ def test_generate_scenario_payload_requires_snapshot() -> None:
             tech_stack="Python",
             template_key="python-fastapi",
         )
+
+
+def test_pick_returns_empty_string_for_no_options() -> None:
+    assert scenario_generation._pick((), 1, 2) == ""
+
+
+def test_preferred_language_framework_helper_strips_explicit_value() -> None:
+    assert (
+        scenario_generation._preferred_language_framework(
+            company_context=None,
+            company_prompt_overrides_json=None,
+            trial_prompt_overrides_json=None,
+            preferred_language_framework="  TypeScript  ",
+        )
+        == "TypeScript"
+    )
+
+
+def test_runtime_preferred_language_framework_helper_reads_company_context() -> None:
+    assert (
+        scenario_generation_runtime._preferred_language_framework(
+            company_context={"preferredLanguageFramework": "  Go  "},
+            company_prompt_overrides_json=None,
+            trial_prompt_overrides_json=None,
+        )
+        == "Go"
+    )

@@ -18,6 +18,9 @@ def test_compare_helpers_cover_edge_branches():
     assert compare_service._normalize_recommendation("lean_hire") == "mixed_signal"
     assert compare_service._normalize_recommendation("no_hire") == "limited_signal"
     assert compare_service._normalize_recommendation("mixed_signal") == "mixed_signal"
+    assert compare_service._normalize_recommendation(None) is None
+    assert compare_service._normalize_recommendation("   ") is None
+    assert compare_service._normalize_recommendation("unexpected") is None
     assert (
         compare_service._candidate_session_created_at(
             SimpleNamespace(candidate_session_created_at="not-a-datetime")

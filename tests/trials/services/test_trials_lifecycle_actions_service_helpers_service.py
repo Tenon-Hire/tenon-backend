@@ -98,3 +98,100 @@ async def test_transition_owned_trial_impl_success_and_load_trial_tasks(async_se
     expected = sorted(task.day_index for task in tasks)
     assert [task.day_index for task in lifecycle_loaded] == expected
     assert [task.day_index for task in approval_loaded] == expected
+
+
+@pytest.mark.asyncio
+async def test_transition_owned_trial_impl_logs_and_re_raises_api_error():
+    trial = SimpleNamespace(
+        id=1,
+        status="ready",
+        pending_scenario_version_id=None,
+    )
+    commit_calls = []
+    refresh_calls = []
+    warnings = []
+
+    class FakeDB:
+        async def commit(self):
+            commit_calls.append("commit")
+
+        async def refresh(self, obj):
+            refresh_calls.append(getattr(obj, "id", None))
+
+    async def fake_require_owner(*_args, **_kwargs):
+        return trial
+
+    def fake_apply_transition(*_args, **_kwargs):
+        raise ApiError(
+            status_code=400,
+            detail="transition rejected",
+            error_code="TRANSITION_REJECTED",
+            retryable=False,
+        )
+
+    logger = SimpleNamespace(
+        info=lambda *_a, **_k: None,
+        warning=lambda *args, **_kwargs: warnings.append(args),
+    )
+
+    with pytest.raises(ApiError):
+        await lifecycle_actions_service._transition_owned_trial_impl(
+            FakeDB(),
+            trial_id=trial.id,
+            actor_user_id=7,
+            target_status="active_inviting",
+            require_owner=fake_require_owner,
+            apply_transition=fake_apply_transition,
+            normalize_status=lambda value: value,
+            logger=logger,
+        )
+
+    assert commit_calls == []
+    assert refresh_calls == []
+    assert warnings
+
+
+@pytest.mark.asyncio
+async def test_transition_owned_trial_impl_idempotent_path_logs_without_change():
+    trial = SimpleNamespace(
+        id=2,
+        status="ready",
+        pending_scenario_version_id=None,
+    )
+    commit_calls = []
+    refresh_calls = []
+    infos = []
+
+    class FakeDB:
+        async def commit(self):
+            commit_calls.append("commit")
+
+        async def refresh(self, obj):
+            refresh_calls.append(getattr(obj, "id", None))
+
+    async def fake_require_owner(*_args, **_kwargs):
+        return trial
+
+    def fake_apply_transition(*_args, **_kwargs):
+        return False
+
+    logger = SimpleNamespace(
+        info=lambda *args, **_kwargs: infos.append(args),
+        warning=lambda *_a, **_k: None,
+    )
+
+    updated_trial = await lifecycle_actions_service._transition_owned_trial_impl(
+        FakeDB(),
+        trial_id=trial.id,
+        actor_user_id=7,
+        target_status="ready",
+        require_owner=fake_require_owner,
+        apply_transition=fake_apply_transition,
+        normalize_status=lambda value: value,
+        logger=logger,
+    )
+
+    assert updated_trial is trial
+    assert commit_calls == ["commit"]
+    assert refresh_calls == [trial.id]
+    assert infos
