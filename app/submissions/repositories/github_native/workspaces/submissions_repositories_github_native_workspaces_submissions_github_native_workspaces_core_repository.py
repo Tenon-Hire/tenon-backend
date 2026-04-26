@@ -14,8 +14,6 @@ from app.submissions.repositories.github_native.workspaces.submissions_repositor
     create_workspace,
     create_workspace_group,
     set_access_revocation_state,
-    set_precommit_details,
-    set_precommit_sha,
 )
 from app.submissions.repositories.github_native.workspaces.submissions_repositories_github_native_workspaces_submissions_github_native_workspaces_queries_repository import (
     get_by_session_and_workspace_key,
@@ -83,6 +81,4 @@ __all__ = [
     "resolve_workspace_resolution",
     "session_uses_grouped_workspace",
     "set_access_revocation_state",
-    "set_precommit_details",
-    "set_precommit_sha",
 ]

@@ -10,7 +10,7 @@ async def test_create_trial_unauthorized_returns_401(async_client):
     payload = {
         "title": "Backend Node Trial",
         "role": "Backend Engineer",
-        "techStack": "Node.js, PostgreSQL",
+        "preferredLanguageFramework": "Node.js, PostgreSQL",
         "seniority": "Mid",
         "focus": "Build new API feature and debug an issue",
     }

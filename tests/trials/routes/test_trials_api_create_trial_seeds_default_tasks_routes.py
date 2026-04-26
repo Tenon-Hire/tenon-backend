@@ -27,7 +27,8 @@ async def test_create_trial_seeds_default_tasks(
 
     body = res.json()
     assert body["title"] == payload["title"]
-    assert body["techStack"] == "Node.js, PostgreSQL"
+    assert "techStack" not in body
+    assert "templateKey" not in body
     assert body["focus"] == ""
     assert body["companyContext"]["preferredLanguageFramework"] == "Node.js, PostgreSQL"
     assert len(body["tasks"]) == 5

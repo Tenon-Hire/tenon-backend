@@ -29,8 +29,8 @@ def test_build_scenario_generation_payload_includes_talent_partner_context_field
     payload = build_scenario_generation_payload(trial)
 
     assert payload["trialId"] == 42
-    assert payload["templateKey"] == "python-fastapi"
-    assert payload["scenarioTemplate"] == "default-5day-node-postgres"
+    assert "templateKey" not in payload
+    assert "scenarioTemplate" not in payload
     assert payload["talentPartnerContext"]["seniority"] == "mid"
     assert payload["talentPartnerContext"]["focus"] == trial.focus
     assert payload["talentPartnerContext"]["companyContext"] == trial.company_context

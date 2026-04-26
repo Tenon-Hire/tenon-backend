@@ -37,7 +37,7 @@ async def test_run_task_tests_persists_running_result(
         repo_full_name="org/candidate-running-result",
         repo_id=4242,
         default_branch="main",
-        base_template_sha="base-sha",
+        bootstrap_commit_sha="base-sha",
         created_at=datetime.now(UTC),
     )
     await async_session.commit()

@@ -19,7 +19,7 @@ async def test_create_trial_with_tasks_logs_ai_config_changes_without_notice_tex
         {
             "title": "Title",
             "role": "Role",
-            "techStack": "Python",
+            "preferredLanguageFramework": "Python",
             "seniority": "Mid",
             "focus": "Build",
             "ai": {
@@ -35,14 +35,14 @@ async def test_create_trial_with_tasks_logs_ai_config_changes_without_notice_tex
         "INFO",
         logger="app.trials.services.trials_services_trials_creation_service",
     )
-    sim, tasks, _scenario_job = await sim_service.create_trial_with_tasks(
+    sim, tasks, _scenario_job = await trial_service.create_trial_with_tasks(
         async_session,
         payload,
         talent_partner,
     )
 
     assert sim.id is not None
-    assert len(tasks) == len(sim_service.DEFAULT_5_DAY_BLUEPRINT)
+    assert len(tasks) == len(trial_service.DEFAULT_5_DAY_BLUEPRINT)
 
     log_text = "\n".join(record.getMessage() for record in caplog.records)
     assert (

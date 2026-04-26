@@ -123,7 +123,7 @@ def build_project_brief_markdown(
             "- Do not prescribe a specific framework, language, or database.",
             "- Keep the architecture open-ended so multiple reasonable stack choices are possible.",
             "- Assume the repo starts with workspace configuration, evidence capture, and this README only.",
-            "- Do not require cloned starter code or pre-populated implementation files.",
+            "- Do not require cloned or pre-populated implementation files.",
             "",
             "## Deliverables",
             "",
@@ -161,7 +161,7 @@ def build_task_description(
             "tightening tests, improving docs, and polishing the codebase for handoff."
         )
     if day_index == 4:
-        return "Prepare a concise demo presentation that walks through the implemented solution, key decisions, tradeoffs, outcomes, and remaining risks for reviewers."
+        return "Prepare a concise handoff demo that walks through the implemented solution, key decisions, tradeoffs, outcomes, and remaining risks for reviewers."
     return "Write a markdown reflection essay covering your experience, challenges, decisions, tradeoffs, communication, and what you would do next."
 
 

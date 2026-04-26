@@ -54,7 +54,7 @@ async def _prepare_workspace(
             template_repo_full_name="org/template-repo",
             repo_full_name="org/candidate-repo",
             default_branch="main",
-            base_template_sha="base-sha",
+            bootstrap_commit_sha="base-sha",
             created_at=created_at,
         )
         workspace_group_id = group.id
@@ -67,7 +67,7 @@ async def _prepare_workspace(
         repo_full_name="org/candidate-repo",
         repo_id=1234,
         default_branch="main",
-        base_template_sha="base-sha",
+        bootstrap_commit_sha="base-sha",
         created_at=created_at,
     )
     if with_cutoff:

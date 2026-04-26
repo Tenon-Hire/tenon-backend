@@ -14,7 +14,7 @@ from app.shared.database.shared_database_models_model import (
     Trial,
 )
 from app.shared.types.shared_types_types_model import CANDIDATE_SESSION_STATUS_COMPLETED
-from app.trials import services as sim_service
+from app.trials import services as trial_service
 from app.trials.services import (
     trials_services_trials_creation_service as sim_creation,
 )

@@ -23,7 +23,7 @@ async def test_update_trial_rejects_invalid_ai_day_key(
         {
             "title": "Sim Invalid Update",
             "role": "Backend Engineer",
-            "techStack": "Python",
+            "preferredLanguageFramework": "Python",
             "seniority": "Mid",
             "focus": "Invalid AI update",
         },

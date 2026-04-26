@@ -12,7 +12,7 @@ from app.shared.auth.shared_auth_current_user_utils import get_current_user
 from app.shared.auth.shared_auth_roles_utils import ensure_talent_partner_or_none
 from app.shared.database import get_session
 from app.shared.utils.shared_utils_errors_utils import ApiError
-from app.trials import services as sim_service
+from app.trials import services as trial_service
 from app.trials.routes.trials_routes.trials_routes_trials_routes_trials_routes_rate_limits_routes import (
     enforce_scenario_regenerate_limit,
 )
@@ -66,7 +66,7 @@ async def regenerate_scenario_version(
         _trial,
         scenario_version,
         scenario_job,
-    ) = await sim_service.request_scenario_regeneration(
+    ) = await trial_service.request_scenario_regeneration(
         db,
         trial_id=trial_id,
         actor_user_id=user.id,
@@ -96,7 +96,7 @@ async def approve_scenario_version(
     """Approve scenario version."""
     ensure_talent_partner_or_none(user)
     try:
-        trial, scenario_version = await sim_service.approve_scenario_version(
+        trial, scenario_version = await trial_service.approve_scenario_version(
             db,
             trial_id=trial_id,
             scenario_version_id=scenario_version_id,
@@ -136,7 +136,7 @@ async def update_active_scenario_version(
 ):
     """Update active scenario version."""
     ensure_talent_partner_or_none(user)
-    scenario_version = await sim_service.update_active_scenario_version(
+    scenario_version = await trial_service.update_active_scenario_version(
         db,
         trial_id=trial_id,
         actor_user_id=user.id,
@@ -170,7 +170,7 @@ async def patch_scenario_version(
 ):
     """Patch scenario version."""
     ensure_talent_partner_or_none(user)
-    scenario_version = await sim_service.patch_scenario_version(
+    scenario_version = await trial_service.patch_scenario_version(
         db,
         trial_id=trial_id,
         scenario_version_id=scenario_version_id,

@@ -35,7 +35,7 @@ async def test_codespace_init_day3_keeps_legacy_task_scoped_behavior(
         repo_full_name="org/legacy-day2-repo",
         repo_id=321,
         default_branch="main",
-        base_template_sha="base-precreated",
+        bootstrap_commit_sha="base-precreated",
         created_at=datetime.now(UTC),
     )
 

@@ -54,7 +54,7 @@ def _trial_payload() -> object:
         {
             "title": "Scenario Job Sim",
             "role": "Backend Engineer",
-            "techStack": "Python, FastAPI",
+            "preferredLanguageFramework": "Python, FastAPI",
             "seniority": "Mid",
             "focus": "Deterministic scenario generation flow",
             "templateKey": "python-fastapi",

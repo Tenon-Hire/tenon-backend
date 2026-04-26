@@ -14,7 +14,7 @@ async def test_create_or_resend_invite_rejects_completed(async_session):
     payload = type(
         "P", (), {"candidateName": "Jane", "inviteEmail": "jane@example.com"}
     )
-    cs, _created = await sim_service.create_invite(
+    cs, _created = await trial_service.create_invite(
         async_session,
         trial_id=sim.id,
         payload=payload,
@@ -25,8 +25,8 @@ async def test_create_or_resend_invite_rejects_completed(async_session):
     cs.completed_at = datetime.now(UTC)
     await async_session.commit()
 
-    with pytest.raises(sim_service.InviteRejectedError) as excinfo:
-        await sim_service.create_or_resend_invite(
+    with pytest.raises(trial_service.InviteRejectedError) as excinfo:
+        await trial_service.create_or_resend_invite(
             async_session, trial_id=sim.id, payload=payload, now=datetime.now(UTC)
         )
     assert excinfo.value.outcome == "rejected"

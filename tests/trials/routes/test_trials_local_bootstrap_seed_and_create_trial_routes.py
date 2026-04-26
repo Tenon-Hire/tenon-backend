@@ -71,7 +71,7 @@ async def _seed_reset_proof_rows(
         template_repo_full_name="org/template",
         repo_full_name="org/workspace-group",
         default_branch="main",
-        base_template_sha="sha-group",
+        bootstrap_commit_sha="sha-group",
         created_at=datetime.now(UTC),
     )
     async_session.add(group)
@@ -84,7 +84,7 @@ async def _seed_reset_proof_rows(
         repo_full_name="org/workspace",
         repo_id=1234,
         default_branch="main",
-        base_template_sha="sha-workspace",
+        bootstrap_commit_sha="sha-workspace",
         created_at=datetime.now(UTC),
     )
     async_session.add(workspace)
@@ -134,7 +134,7 @@ async def test_local_bootstrap_seeds_talent_partner_and_allows_trial_creation(
 
     assert response.status_code == 201, response.text
     assert response.json()["title"] == "Local Trial"
-    assert response.json()["techStack"] == "Python, PostgreSQL"
+    assert "techStack" not in response.json()
     assert response.json()["companyContext"]["preferredLanguageFramework"] == (
         "Python, PostgreSQL"
     )

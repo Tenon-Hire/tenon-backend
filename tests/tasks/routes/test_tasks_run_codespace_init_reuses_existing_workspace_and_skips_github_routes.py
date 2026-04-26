@@ -31,7 +31,7 @@ async def test_codespace_init_reuses_existing_workspace_and_skips_github(
         repo_full_name="org/precreated-repo",
         repo_id=321,
         default_branch="main",
-        base_template_sha="base-precreated",
+        bootstrap_commit_sha="base-precreated",
         created_at=datetime.now(UTC),
     )
 

@@ -34,7 +34,7 @@ async def test_activate_rejected_when_scenario_unlocked(async_session):
         focus="Reject lifecycle activate unless scenario is locked",
         scenario_template="default-5day-node-postgres",
         created_by=owner.id,
-        status=sim_service.TRIAL_STATUS_GENERATING,
+        status=trial_service.TRIAL_STATUS_GENERATING,
         generating_at=datetime.now(UTC),
     )
     async_session.add(trial)
@@ -43,7 +43,7 @@ async def test_activate_rejected_when_scenario_unlocked(async_session):
     await async_session.commit()
 
     with pytest.raises(ApiError) as excinfo:
-        await sim_service.activate_trial(
+        await trial_service.activate_trial(
             async_session,
             trial_id=trial.id,
             actor_user_id=owner.id,
@@ -77,7 +77,7 @@ async def test_activate_rejected_when_scenario_snapshot_invalid(async_session):
         focus="Reject lifecycle activation if snapshot is malformed",
         scenario_template="default-5day-node-postgres",
         created_by=owner.id,
-        status=sim_service.TRIAL_STATUS_GENERATING,
+        status=trial_service.TRIAL_STATUS_GENERATING,
         generating_at=datetime.now(UTC),
     )
     async_session.add(trial)
@@ -117,7 +117,7 @@ async def test_activate_rejected_when_scenario_snapshot_invalid(async_session):
         AIPolicySnapshotError,
         match="scenario_version_ai_policy_snapshot_agent_contract_mismatch",
     ):
-        await sim_service.activate_trial(
+        await trial_service.activate_trial(
             async_session,
             trial_id=trial.id,
             actor_user_id=owner.id,

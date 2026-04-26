@@ -36,7 +36,7 @@ async def test_create_invite_handles_token_collisions(monkeypatch):
             return _Result()
 
     with pytest.raises(Exception) as excinfo:
-        await sim_service.create_invite(
+        await trial_service.create_invite(
             StubSession(),
             trial_id=1,
             payload=type("P", (), {"candidateName": "x", "inviteEmail": "y"}),

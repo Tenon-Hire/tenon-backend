@@ -37,7 +37,7 @@ async def test_codespace_status_allows_before_cutoff_when_day_audit_exists(
         repo_full_name="org/status-repo-open-cutoff",
         repo_id=111,
         default_branch="main",
-        base_template_sha="base",
+        bootstrap_commit_sha="base",
         created_at=datetime.now(UTC),
     )
     await cs_repo.create_day_audit_once(

@@ -20,7 +20,7 @@ async def test_ensure_workspace_reuses_existing(async_session):
         repo_full_name="owner/repo",
         repo_id=123,
         default_branch="main",
-        base_template_sha="abc",
+        bootstrap_commit_sha="abc",
         created_at=datetime.now(UTC),
     )
 

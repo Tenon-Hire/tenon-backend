@@ -66,15 +66,15 @@ async def test_create_trial_creates_sim_and_5_tasks(
             "Architecture Plan",
             "Feature Implementation",
             "Implementation Wrap-Up",
-            "Demo Presentation",
+            "Handoff + Demo",
             "Reflection Essay",
         ]
-        assert data["techStack"] == "Node.js, PostgreSQL"
+        assert "techStack" not in data
         assert data["focus"] == ""
         assert data["companyContext"]["preferredLanguageFramework"] == (
             "Node.js, PostgreSQL"
         )
-        assert data["templateKey"] == "python-fastapi"
+        assert "templateKey" not in data
         assert data["status"] == "generating"
         assert isinstance(data["scenarioGenerationJobId"], str)
         assert data["scenarioGenerationJobId"]

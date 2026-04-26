@@ -87,7 +87,7 @@ async def _prepare_workspace(
             template_repo_full_name="org/template-repo",
             repo_full_name=f"org/workspace-{candidate_session.id}",
             default_branch="main",
-            base_template_sha="base-sha",
+            bootstrap_commit_sha="base-sha",
             created_at=created_at,
         )
         workspace_group_id = workspace_group.id
@@ -100,7 +100,7 @@ async def _prepare_workspace(
             repo_full_name=workspace_group.repo_full_name,
             repo_id=1234,
             default_branch=workspace_group.default_branch,
-            base_template_sha=workspace_group.base_template_sha,
+            bootstrap_commit_sha=workspace_group.bootstrap_commit_sha,
             created_at=created_at,
         )
     else:
@@ -113,7 +113,7 @@ async def _prepare_workspace(
             repo_full_name=f"org/workspace-{candidate_session.id}",
             repo_id=1234,
             default_branch="main",
-            base_template_sha="base-sha",
+            bootstrap_commit_sha="base-sha",
             created_at=created_at,
         )
 

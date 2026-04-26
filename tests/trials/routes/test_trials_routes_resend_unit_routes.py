@@ -4,7 +4,7 @@ import pytest
 
 from app.shared.auth import rate_limit
 from app.shared.http.routes import trials
-from app.trials import services as sim_service
+from app.trials import services as trial_service
 
 
 def _fake_request():
@@ -44,7 +44,7 @@ async def test_resend_candidate_invite_rate_limited(monkeypatch):
         fake_cs.invite_email_status = "sent"
         return SimpleNamespace(status="sent")
 
-    monkeypatch.setattr(sim_service, "require_owned_trial", fake_require)
+    monkeypatch.setattr(trial_service, "require_owned_trial", fake_require)
     monkeypatch.setattr(trials.notification_service, "send_invite_email", fake_send)
     result = await trials.resend_candidate_invite(
         trial_id=1,
@@ -69,7 +69,7 @@ async def test_resend_candidate_invite_not_found(monkeypatch):
         async def get(self, model, id):
             return SimpleNamespace(trial_id=999)
 
-    monkeypatch.setattr(sim_service, "require_owned_trial", fake_require)
+    monkeypatch.setattr(trial_service, "require_owned_trial", fake_require)
     with pytest.raises(Exception) as excinfo:
         await trials.resend_candidate_invite(
             trial_id=1,

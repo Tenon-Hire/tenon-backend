@@ -23,7 +23,7 @@ async def test_update_trial_omitted_ai_preserves_existing(
         {
             "title": "Sim Preserve",
             "role": "Backend Engineer",
-            "techStack": "Python",
+            "preferredLanguageFramework": "Python",
             "seniority": "Mid",
             "focus": "No-op AI update",
             "ai": {

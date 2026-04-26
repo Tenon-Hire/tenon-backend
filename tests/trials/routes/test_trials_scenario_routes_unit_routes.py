@@ -33,7 +33,7 @@ async def test_regenerate_scenario_route_returns_scenario_summary(monkeypatch):
         )
 
     monkeypatch.setattr(
-        scenario.sim_service, "request_scenario_regeneration", fake_regenerate
+        scenario.trial_service, "request_scenario_regeneration", fake_regenerate
     )
     monkeypatch.setattr(
         scenario,
@@ -62,7 +62,7 @@ async def test_update_active_scenario_route_normalizes_fields(monkeypatch):
         return SimpleNamespace(id=15, version_index=3, status="draft", locked_at=None)
 
     monkeypatch.setattr(
-        scenario.sim_service, "update_active_scenario_version", fake_update
+        scenario.trial_service, "update_active_scenario_version", fake_update
     )
     payload = ScenarioActiveUpdateRequest(
         storylineMd="Story",

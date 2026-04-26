@@ -15,7 +15,7 @@ async def test_create_or_resend_invite_refreshes_expired(async_session):
         "P", (), {"candidateName": "Jane", "inviteEmail": "jane@example.com"}
     )
     now = datetime.now(UTC)
-    cs, _created = await sim_service.create_invite(
+    cs, _created = await trial_service.create_invite(
         async_session,
         trial_id=sim.id,
         payload=payload,
@@ -26,7 +26,7 @@ async def test_create_or_resend_invite_refreshes_expired(async_session):
     cs.expires_at = now - timedelta(days=1)
     await async_session.commit()
 
-    refreshed, outcome = await sim_service.create_or_resend_invite(
+    refreshed, outcome = await trial_service.create_or_resend_invite(
         async_session, trial_id=sim.id, payload=payload, now=now
     )
 

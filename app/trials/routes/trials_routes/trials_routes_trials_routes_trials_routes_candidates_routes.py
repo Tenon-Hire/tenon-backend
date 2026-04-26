@@ -14,7 +14,7 @@ from app.shared.auth.shared_auth_current_user_utils import get_current_user
 from app.shared.auth.shared_auth_roles_utils import ensure_talent_partner_or_none
 from app.shared.database import get_session
 from app.shared.types.shared_types_progress_model import ProgressSummary
-from app.trials import services as sim_service
+from app.trials import services as trial_service
 from app.trials.services.trials_services_trials_candidates_compare_day_completion_service import (
     load_day_completion,
 )
@@ -38,13 +38,13 @@ async def list_trial_candidates(
 ):
     """List candidate sessions for a trial (Talent Partner-only)."""
     ensure_talent_partner_or_none(user)
-    await sim_service.require_owned_trial(
+    await trial_service.require_owned_trial(
         db,
         trial_id,
         user.id,
         include_terminated=includeTerminated,
     )
-    rows = await sim_service.list_candidates_with_profile(db, trial_id)
+    rows = await trial_service.list_candidates_with_profile(db, trial_id)
     session_ids = [cs.id for cs, _ in rows]
     day_completion_by_session: dict[int, dict[str, bool]] = {}
     if session_ids and hasattr(db, "execute"):

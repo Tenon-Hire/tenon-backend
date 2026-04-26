@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-# helper import baseline for restructure-compat
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
@@ -8,14 +7,13 @@ import pytest
 from fastapi import HTTPException
 
 from app.config import settings
-from app.integrations.github.actions_runner import ActionsRunResult
-from app.integrations.github.client import GithubError
+from app.integrations.github import ActionsRunResult, GithubError
 from app.shared.auth.principal import Principal
 from app.shared.http.dependencies.shared_http_dependencies_candidate_sessions_utils import (
     candidate_session_from_headers,
 )
 from app.shared.http.routes import tasks_codespaces as candidate_submissions
-from app.submissions.schemas.submissions_schemas_submissions_requests_schema import (
+from app.submissions.schemas.submissions_schemas_submissions_core_schema import (
     CodespaceInitRequest,
     RunTestsRequest,
     SubmissionCreateRequest,
@@ -44,7 +42,7 @@ def _stub_task():
         id=2,
         trial_id=1,
         type="code",
-        template_repo="org/template",
+        template_repo=None,
         day_index=2,
         title="t",
         description="d",
@@ -56,8 +54,7 @@ def _stub_workspace():
         repo_full_name="org/repo",
         default_branch="main",
         id="ws1",
-        base_template_sha="base",
-        precommit_sha=None,
+        bootstrap_commit_sha="base",
         last_test_summary_json=None,
         latest_commit_sha=None,
         last_workflow_run_id=None,

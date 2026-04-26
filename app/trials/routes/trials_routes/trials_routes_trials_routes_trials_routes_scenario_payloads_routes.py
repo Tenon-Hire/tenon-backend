@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.trials import services as sim_service
+from app.trials import services as trial_service
 from app.trials.schemas.trials_schemas_trials_core_schema import (
     ScenarioActiveUpdateResponse,
     ScenarioApproveResponse,
@@ -56,7 +56,7 @@ def build_approve_response(
     """Build approve response."""
     return ScenarioApproveResponse(
         trialId=trial.id,
-        status=sim_service.normalize_trial_status_or_raise(trial.status),
+        status=trial_service.normalize_trial_status_or_raise(trial.status),
         activeScenarioVersionId=trial.active_scenario_version_id or scenario_version.id,
         pendingScenarioVersionId=trial.pending_scenario_version_id,
         scenario=build_scenario_state_summary(scenario_version),

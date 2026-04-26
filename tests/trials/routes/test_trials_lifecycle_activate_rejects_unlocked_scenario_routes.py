@@ -28,7 +28,7 @@ async def test_activate_rejects_unlocked_scenario(
         json={
             "title": "Unlocked Guard",
             "role": "Backend Engineer",
-            "techStack": "Python, FastAPI",
+            "preferredLanguageFramework": "Python, FastAPI",
             "seniority": "Mid",
             "focus": "Verify activation is blocked before approval",
         },

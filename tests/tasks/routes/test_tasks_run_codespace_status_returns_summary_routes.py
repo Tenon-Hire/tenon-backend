@@ -30,7 +30,7 @@ async def test_codespace_status_returns_summary(
         repo_full_name="org/status-repo",
         repo_id=111,
         default_branch="main",
-        base_template_sha="base",
+        bootstrap_commit_sha="base",
         created_at=datetime.now(UTC),
     )
     workspace.last_test_summary_json = "{not-json"

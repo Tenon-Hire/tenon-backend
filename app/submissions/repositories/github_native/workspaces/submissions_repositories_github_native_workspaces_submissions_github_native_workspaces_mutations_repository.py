@@ -20,7 +20,7 @@ async def create_workspace_group(
     template_repo_full_name: str | None,
     repo_full_name: str,
     default_branch: str | None,
-    base_template_sha: str | None,
+    bootstrap_commit_sha: str | None,
     created_at,
     commit: bool = True,
     refresh: bool = True,
@@ -32,7 +32,7 @@ async def create_workspace_group(
         template_repo_full_name=template_repo_full_name,
         repo_full_name=repo_full_name,
         default_branch=default_branch,
-        base_template_sha=base_template_sha,
+        bootstrap_commit_sha=bootstrap_commit_sha,
         created_at=created_at,
     )
     db.add(group)
@@ -52,12 +52,10 @@ async def create_workspace(
     repo_full_name: str,
     repo_id: int | None,
     default_branch: str | None,
-    base_template_sha: str | None,
+    bootstrap_commit_sha: str | None,
     codespace_url: str | None = None,
     codespace_name: str | None = None,
     codespace_state: str | None = None,
-    precommit_sha: str | None = None,
-    precommit_details_json: str | None = None,
     created_at,
     commit: bool = True,
     refresh: bool = True,
@@ -71,12 +69,10 @@ async def create_workspace(
         repo_full_name=repo_full_name,
         repo_id=repo_id,
         default_branch=default_branch,
-        base_template_sha=base_template_sha,
+        bootstrap_commit_sha=bootstrap_commit_sha,
         codespace_url=codespace_url,
         codespace_name=codespace_name,
         codespace_state=codespace_state,
-        precommit_sha=precommit_sha,
-        precommit_details_json=precommit_details_json,
         created_at=created_at,
     )
     db.add(ws)
@@ -84,39 +80,6 @@ async def create_workspace(
     if refresh:
         await db.refresh(ws)
     return ws
-
-
-async def set_precommit_sha(
-    db: AsyncSession,
-    *,
-    workspace: Workspace,
-    precommit_sha: str,
-    commit: bool = True,
-    refresh: bool = True,
-) -> Workspace:
-    """Set precommit sha."""
-    workspace.precommit_sha = precommit_sha
-    workspace.precommit_details_json = None
-    await (db.commit() if commit else db.flush())
-    if refresh:
-        await db.refresh(workspace)
-    return workspace
-
-
-async def set_precommit_details(
-    db: AsyncSession,
-    *,
-    workspace: Workspace,
-    precommit_details_json: str,
-    commit: bool = True,
-    refresh: bool = True,
-) -> Workspace:
-    """Set precommit details."""
-    workspace.precommit_details_json = precommit_details_json
-    await (db.commit() if commit else db.flush())
-    if refresh:
-        await db.refresh(workspace)
-    return workspace
 
 
 async def set_codespace_state(
@@ -158,6 +121,4 @@ __all__ = [
     "create_workspace_group",
     "set_access_revocation_state",
     "set_codespace_state",
-    "set_precommit_details",
-    "set_precommit_sha",
 ]

@@ -30,9 +30,9 @@ DEFAULT_5_DAY_BLUEPRINT = [
     {
         "day_index": 4,
         "type": "handoff",
-        "title": "Demo Presentation",
+        "title": "Handoff + Demo",
         "description": (
-            "Upload a short demo presentation walking through the work, "
+            "Upload a short handoff demo walking through the work, "
             "key decisions, tradeoffs, and outcomes from your trial."
         ),
     },

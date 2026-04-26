@@ -26,7 +26,7 @@ async def test_workspace_cleanup_group_target_dedupes_same_repo(async_session):
         template_repo_full_name="org/template-repo",
         repo_full_name="org/shared-repo",
         default_branch="main",
-        base_template_sha="base-sha",
+        bootstrap_commit_sha="base-sha",
         created_at=created_at,
     )
     await workspace_repo.create_workspace_group(
@@ -36,7 +36,7 @@ async def test_workspace_cleanup_group_target_dedupes_same_repo(async_session):
         template_repo_full_name="org/template-repo",
         repo_full_name="org/shared-repo",
         default_branch="main",
-        base_template_sha="base-sha",
+        bootstrap_commit_sha="base-sha",
         created_at=created_at,
     )
     await async_session.commit()

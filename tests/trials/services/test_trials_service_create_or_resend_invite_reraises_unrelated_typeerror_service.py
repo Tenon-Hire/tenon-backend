@@ -14,14 +14,14 @@ async def test_create_or_resend_invite_reraises_unrelated_typeerror(monkeypatch)
         raise TypeError("unexpected internal typing issue")
 
     monkeypatch.setattr(
-        sim_service.cs_repo,
+        trial_service.cs_repo,
         "get_by_trial_and_email_for_update",
         fake_get_for_update,
     )
-    monkeypatch.setattr(sim_service, "create_invite", fake_create_invite)
+    monkeypatch.setattr(trial_service, "create_invite", fake_create_invite)
 
     with pytest.raises(TypeError):
-        await sim_service.create_or_resend_invite(
+        await trial_service.create_or_resend_invite(
             db=None,
             trial_id=1,
             payload=SimpleNamespace(inviteEmail="typeerror@test.com"),

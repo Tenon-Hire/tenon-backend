@@ -63,4 +63,4 @@ async def test_ensure_workspace_handles_branch_fetch_error(async_session):
         destination_owner="org",
         now=datetime.now(UTC),
     )
-    assert ws.base_template_sha == "commit-sha"
+    assert ws.bootstrap_commit_sha == "commit-sha"

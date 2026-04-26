@@ -21,17 +21,17 @@ async def test_trial_lifecycle_routes_cover_response_paths(monkeypatch):
         lifecycle_route, "ensure_talent_partner_or_none", lambda *_args, **_kwargs: None
     )
     monkeypatch.setattr(
-        lifecycle_route.sim_service,
+        lifecycle_route.trial_service,
         "activate_trial",
         _async_return(trial),
     )
     monkeypatch.setattr(
-        lifecycle_route.sim_service,
+        lifecycle_route.trial_service,
         "terminate_trial_with_cleanup",
         _async_return(terminated),
     )
     monkeypatch.setattr(
-        lifecycle_route.sim_service,
+        lifecycle_route.trial_service,
         "normalize_trial_status_or_raise",
         lambda _status: "active_inviting",
     )

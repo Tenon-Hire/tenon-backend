@@ -6,7 +6,7 @@ from tests.trials.routes.trials_create_api_utils import *
 
 
 @pytest.mark.asyncio
-async def test_list_includes_template_key(
+async def test_list_omits_template_key(
     async_client, async_session, auth_header_factory
 ):
     company = Company(name="ListCo")
@@ -29,10 +29,9 @@ async def test_list_includes_template_key(
         json={
             "title": "ML Trial",
             "role": "ML Infra Engineer",
-            "techStack": "Python",
+            "preferredLanguageFramework": "Python",
             "seniority": "Senior",
             "focus": "MLOps",
-            "templateKey": "ml-infra-mlops",
         },
     )
     assert create.status_code == 201, create.text
@@ -42,4 +41,5 @@ async def test_list_includes_template_key(
     items = resp.json()
     assert len(items) >= 1
     item = next(i for i in items if i["id"] == create.json()["id"])
-    assert item["templateKey"] == "ml-infra-mlops"
+    assert "templateKey" not in item
+    assert "techStack" not in item

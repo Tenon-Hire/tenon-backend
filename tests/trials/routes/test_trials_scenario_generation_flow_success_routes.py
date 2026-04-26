@@ -84,7 +84,7 @@ async def test_scenario_generation_job_creates_v1_and_updates_detail_read(
         and scenario_v1.project_brief_md
         and isinstance(scenario_v1.rubric_json, dict)
     )
-    assert scenario_v1.model_name == "template_catalog_fallback"
+    assert scenario_v1.model_name == "deterministic_trial_fallback"
     assert scenario_v1.prompt_version == f"{PROMPT_PACK_VERSION}:prestart"
     assert len(task_rows) == 5
     assert all((task.description or "").strip() for task in task_rows)

@@ -20,7 +20,7 @@ async def test_create_trial_forbidden_for_non_talent_partner(
         json={
             "title": "Should Fail",
             "role": "Backend",
-            "techStack": "Python",
+            "preferredLanguageFramework": "Python",
             "seniority": "Mid",
             "focus": "N/A",
         },

@@ -6,7 +6,7 @@ from tests.trials.routes.trials_create_api_utils import *
 
 
 @pytest.mark.asyncio
-async def test_create_trial_with_unknown_template_key_is_accepted(
+async def test_create_trial_with_unknown_template_key_is_rejected(
     async_client, async_session, override_dependencies
 ):
     company = Company(name="Acme Inc")
@@ -32,13 +32,12 @@ async def test_create_trial_with_unknown_template_key_is_accepted(
         payload = {
             "title": "Backend Node Trial",
             "role": "Backend Engineer",
-            "techStack": "Node.js, PostgreSQL",
+            "preferredLanguageFramework": "Node.js, PostgreSQL",
             "seniority": "Mid",
             "focus": "Build new API feature and debug an issue",
             "templateKey": "unknown-template-key",
         }
 
         resp = await async_client.post("/api/trials", json=payload)
-        assert resp.status_code == 201, resp.text
-        body = resp.json()
-        assert body["templateKey"] == "unknown-template-key"
+        assert resp.status_code == 422, resp.text
+        assert resp.json()["errorCode"] == "INVALID_TEMPLATE_KEY"

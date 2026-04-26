@@ -49,7 +49,7 @@ async def test_create_route_rejects_invalid_status(monkeypatch):
         return sim, [task], scenario_job
 
     monkeypatch.setattr(
-        sim_create_route.sim_service, "create_trial_with_tasks", _fake_create
+        sim_create_route.trial_service, "create_trial_with_tasks", _fake_create
     )
 
     with pytest.raises(ApiError) as excinfo:
@@ -74,7 +74,7 @@ async def test_list_route_rejects_invalid_status(monkeypatch):
     async def _fake_list(*_args, **_kwargs):
         return [(sim, 0)]
 
-    monkeypatch.setattr(sim_list_route.sim_service, "list_trials", _fake_list)
+    monkeypatch.setattr(sim_list_route.trial_service, "list_trials", _fake_list)
 
     with pytest.raises(ApiError) as excinfo:
         await sim_list_route.list_trials(

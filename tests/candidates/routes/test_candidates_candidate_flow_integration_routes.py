@@ -64,7 +64,7 @@ async def test_full_flow_invite_through_first_submission(
     sim_payload = {
         "title": "Flow Test Sim",
         "role": "Backend Engineer",
-        "techStack": "Node.js, PostgreSQL",
+        "preferredLanguageFramework": "Node.js, PostgreSQL",
         "seniority": "Mid",
         "focus": "End-to-end candidate flow",
     }

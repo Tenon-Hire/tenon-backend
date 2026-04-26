@@ -16,7 +16,7 @@ from app.shared.database.shared_database_models_model import (
     User,
 )
 from app.shared.utils.shared_utils_errors_utils import ApiError
-from app.trials import services as sim_service
+from app.trials import services as trial_service
 from app.trials.constants.trials_constants_trials_ai_config_constants import (
     AI_NOTICE_DEFAULT_TEXT,
     AI_NOTICE_DEFAULT_VERSION,

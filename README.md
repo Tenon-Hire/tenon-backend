@@ -210,9 +210,6 @@ Canonical env keys are summarized below by primary group.
 - `POST /api/tasks/{task_id}/submit`
 - `GET /api/tasks/{task_id}/draft`
 - `PUT /api/tasks/{task_id}/draft`
-- `POST /api/tasks/{task_id}/presentation/upload/init`
-- `POST /api/tasks/{task_id}/presentation/upload/complete`
-- `GET /api/tasks/{task_id}/presentation/upload/status`
 - `POST /api/tasks/{task_id}/handoff/upload/init`
 - `POST /api/tasks/{task_id}/handoff/upload/complete`
 - `GET /api/tasks/{task_id}/handoff/status`

@@ -13,7 +13,7 @@ from app.shared.auth.shared_auth_current_user_utils import get_current_user
 from app.shared.auth.shared_auth_roles_utils import ensure_talent_partner
 from app.shared.database import get_session
 from app.shared.database.shared_database_models_model import User
-from app.trials import services as sim_service
+from app.trials import services as trial_service
 from app.trials.schemas.trials_schemas_trials_compare_schema import (
     TrialCandidatesCompareResponse,
 )
@@ -45,7 +45,7 @@ async def list_trial_candidates_compare(
     """Return trial candidates compare."""
     ensure_talent_partner(user)
     started_at = perf_counter()
-    payload = await sim_service.list_candidates_compare_summary(
+    payload = await trial_service.list_candidates_compare_summary(
         db,
         trial_id=trial_id,
         user=user,

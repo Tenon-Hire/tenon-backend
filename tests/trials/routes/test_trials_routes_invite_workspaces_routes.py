@@ -4,7 +4,7 @@ import pytest
 
 from app.shared.auth import rate_limit
 from app.shared.http.routes import trials
-from app.trials import services as sim_service
+from app.trials import services as trial_service
 
 
 def _fake_request():
@@ -46,9 +46,9 @@ async def test_create_candidate_invite_skips_non_code_tasks(monkeypatch):
     async def fake_email(*_args, **_kwargs):
         return SimpleNamespace(status="sent")
 
-    monkeypatch.setattr(sim_service, "require_owned_trial_with_tasks", fake_require)
-    monkeypatch.setattr(sim_service, "lock_active_scenario_for_invites", fake_lock)
-    monkeypatch.setattr(sim_service, "create_or_resend_invite", fake_create)
+    monkeypatch.setattr(trial_service, "require_owned_trial_with_tasks", fake_require)
+    monkeypatch.setattr(trial_service, "lock_active_scenario_for_invites", fake_lock)
+    monkeypatch.setattr(trial_service, "create_or_resend_invite", fake_create)
     monkeypatch.setattr(trials.submission_service, "ensure_workspace", ensure_workspace)
     monkeypatch.setattr(trials.notification_service, "send_invite_email", fake_email)
     resp = await trials.create_candidate_invite(

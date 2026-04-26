@@ -29,7 +29,7 @@ async def test_detail_includes_status_and_lifecycle_timestamps(
     assert body["generatingAt"] is not None
     assert body["readyForReviewAt"] is not None
     assert body["activatedAt"] is None
-    assert body["scenarioVersionSummary"]["templateKey"] == "python-fastapi"
+    assert "scenarioVersionSummary" not in body
 
     await _approve_trial(
         async_client, sim_id=sim_id, headers=auth_header_factory(talent_partner)

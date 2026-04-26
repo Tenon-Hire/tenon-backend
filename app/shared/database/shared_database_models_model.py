@@ -28,9 +28,6 @@ from app.submissions.repositories.github_native.workspaces.submissions_repositor
     Workspace,
     WorkspaceGroup,
 )
-from app.submissions.repositories.precommit_bundles.submissions_repositories_precommit_bundles_submissions_precommit_bundles_core_model import (
-    PrecommitBundle,
-)
 from app.submissions.repositories.submissions_repositories_submissions_submission_model import (
     Submission,
 )
@@ -74,7 +71,6 @@ __all__ = [
     "Job",
     "NotificationDeliveryAudit",
     "WorkerHeartbeat",
-    "PrecommitBundle",
     "RecordingAsset",
     "ScenarioEditAudit",
     "ScenarioVersion",

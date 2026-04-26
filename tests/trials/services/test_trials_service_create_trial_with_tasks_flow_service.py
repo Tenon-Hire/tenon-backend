@@ -14,14 +14,14 @@ async def test_create_trial_with_tasks_flow(async_session, monkeypatch):
         {
             "title": "Title",
             "role": "Role",
-            "techStack": "Python",
+            "preferredLanguageFramework": "Python",
             "seniority": "Mid",
             "focus": "Build",
             "templateKey": "python-fastapi",
         },
     )()
     user = type("U", (), {"company_id": 1, "id": 2})
-    sim, tasks, scenario_job = await sim_service.create_trial_with_tasks(
+    sim, tasks, scenario_job = await trial_service.create_trial_with_tasks(
         async_session, payload, user
     )
     assert sim.id is not None
@@ -33,7 +33,7 @@ async def test_create_trial_with_tasks_flow(async_session, monkeypatch):
     }
     assert scenario_job.job_type == "scenario_generation"
     assert scenario_job.payload_json["trialId"] == sim.id
-    assert len(tasks) == len(sim_service.DEFAULT_5_DAY_BLUEPRINT)
+    assert len(tasks) == len(trial_service.DEFAULT_5_DAY_BLUEPRINT)
     # ensure tasks are sorted and refreshed
     assert tasks[0].day_index == 1
     assert tasks[-1].type == "reflection"

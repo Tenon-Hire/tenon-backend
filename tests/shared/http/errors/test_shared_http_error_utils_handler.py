@@ -34,4 +34,4 @@ def test_validation_error_handler_template_key(monkeypatch):
     resp = error_utils.validation_error_handler(Request(scope={"type": "http"}), err)
     payload = json.loads(resp.body.decode())
     assert payload["errorCode"] == "INVALID_TEMPLATE_KEY"
-    assert "allowed" in payload["details"]
+    assert "details" not in payload

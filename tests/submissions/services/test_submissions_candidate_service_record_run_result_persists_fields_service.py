@@ -19,7 +19,7 @@ async def test_record_run_result_persists_fields(async_session):
         repo_full_name="org/record-repo",
         repo_id=999,
         default_branch="main",
-        base_template_sha="base",
+        bootstrap_commit_sha="base",
         created_at=now,
     )
 

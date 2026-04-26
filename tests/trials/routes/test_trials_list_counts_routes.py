@@ -17,7 +17,7 @@ async def test_list_trials_candidate_counts(authed_client, async_session):
     payload = {
         "title": "Sim With Candidates",
         "role": "Backend Engineer",
-        "techStack": "Node.js, PostgreSQL",
+        "preferredLanguageFramework": "Node.js, PostgreSQL",
         "seniority": "Mid",
         "focus": "Counts",
     }

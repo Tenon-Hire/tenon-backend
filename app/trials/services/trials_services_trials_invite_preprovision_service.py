@@ -41,9 +41,7 @@ async def preprovision_workspaces(
     ).parameters
     supports_workspace_resolution = "workspace_resolution" in ensure_workspace_params
     supports_commit = "commit" in ensure_workspace_params
-    supports_hydrate_precommit_bundle = (
-        "hydrate_precommit_bundle" in ensure_workspace_params
-    )
+    supports_hydrate_bundle = "hydrate_bundle" in ensure_workspace_params
     for task in tasks:
         if task.day_index not in {2, 3} or not submission_service.is_code_task(task):
             continue
@@ -92,8 +90,8 @@ async def preprovision_workspaces(
                 )
             if supports_commit:
                 ensure_workspace_kwargs["commit"] = False
-            if supports_hydrate_precommit_bundle:
-                ensure_workspace_kwargs["hydrate_precommit_bundle"] = False
+            if supports_hydrate_bundle:
+                ensure_workspace_kwargs["hydrate_bundle"] = False
             workspace = await submission_service.ensure_workspace(
                 db, **ensure_workspace_kwargs
             )

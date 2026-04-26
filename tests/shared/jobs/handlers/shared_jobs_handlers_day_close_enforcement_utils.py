@@ -73,7 +73,7 @@ async def _prepare_code_day_context(async_session: AsyncSession):
         template_repo_full_name="org/template-repo",
         repo_full_name="org/candidate-repo",
         default_branch="main",
-        base_template_sha="template-base-sha",
+        bootstrap_commit_sha="template-base-sha",
         created_at=now,
     )
     await workspace_repo.create_workspace(
@@ -85,7 +85,7 @@ async def _prepare_code_day_context(async_session: AsyncSession):
         repo_full_name=group.repo_full_name,
         repo_id=12345,
         default_branch=group.default_branch,
-        base_template_sha=group.base_template_sha,
+        bootstrap_commit_sha=group.bootstrap_commit_sha,
         created_at=now,
     )
     await async_session.commit()

@@ -8,12 +8,6 @@ from app.submissions.repositories.github_native.workspaces import (
 from app.submissions.services.submissions_services_submissions_workspace_bootstrap_service import (
     bootstrap_empty_candidate_repo,
 )
-from app.submissions.services.submissions_services_submissions_workspace_creation_precommit_service import (
-    persist_precommit_result,
-)
-from app.submissions.services.submissions_services_submissions_workspace_precommit_bundle_service import (
-    apply_precommit_bundle_if_available,
-)
 from app.submissions.services.submissions_services_submissions_workspace_records_service import (
     build_codespace_url,
 )
@@ -32,7 +26,7 @@ async def provision_single_workspace(
     destination_owner,
     now,
     commit,
-    hydrate_precommit_bundle,
+    hydrate_bundle,
     bootstrap_empty_repo: bool = False,
     trial=None,
     scenario_version=None,
@@ -57,7 +51,7 @@ async def provision_single_workspace(
     repo_full_name = result.repo_full_name
     default_branch = result.default_branch
     repo_id = result.repo_id
-    base_template_sha = result.bootstrap_commit_sha
+    bootstrap_commit_sha = result.bootstrap_commit_sha
     codespace_url = result.codespace_url or build_codespace_url(repo_full_name)
     codespace_name = result.codespace_name
     codespace_state = result.codespace_state
@@ -69,7 +63,7 @@ async def provision_single_workspace(
         "repo_full_name": repo_full_name,
         "repo_id": repo_id,
         "default_branch": default_branch,
-        "base_template_sha": base_template_sha,
+        "bootstrap_commit_sha": bootstrap_commit_sha,
         "codespace_url": codespace_url,
         "codespace_name": codespace_name,
         "codespace_state": codespace_state,
@@ -79,21 +73,6 @@ async def provision_single_workspace(
         create_workspace_kwargs["commit"] = False
         create_workspace_kwargs["refresh"] = False
     workspace = await workspace_repo.create_workspace(db, **create_workspace_kwargs)
-    if not hydrate_precommit_bundle:
-        workspace._provisioned_repo_created = True
-        return workspace
-    precommit_result = await apply_precommit_bundle_if_available(
-        db,
-        github_client=github_client,
-        candidate_session=candidate_session,
-        task=task,
-        repo_full_name=workspace.repo_full_name,
-        default_branch=workspace.default_branch,
-        base_template_sha=workspace.base_template_sha,
-        existing_precommit_sha=workspace.precommit_sha,
-    )
-    result = await persist_precommit_result(
-        db, workspace=workspace, precommit_result=precommit_result, commit=commit
-    )
-    result._provisioned_repo_created = True
-    return result
+    _ = hydrate_bundle
+    workspace._provisioned_repo_created = True
+    return workspace

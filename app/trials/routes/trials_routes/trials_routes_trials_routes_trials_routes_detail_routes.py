@@ -14,7 +14,7 @@ from app.shared.auth.shared_auth_roles_utils import ensure_talent_partner_or_non
 from app.shared.database import get_session
 from app.shared.database.shared_database_models_model import Job, ScenarioVersion
 from app.shared.utils.shared_utils_errors_utils import ApiError
-from app.trials import services as sim_service
+from app.trials import services as trial_service
 from app.trials.routes.trials_routes.trials_routes_trials_routes_trials_routes_detail_render_routes import (
     render_trial_detail,
 )
@@ -65,8 +65,10 @@ async def get_trial_detail(
 ):
     """Return a trial detail view for talent_partners."""
     ensure_talent_partner_or_none(user)
-    sim, tasks = await sim_service.require_owned_trial_with_tasks(db, trial_id, user.id)
-    active_scenario_version = await sim_service.get_active_scenario_version(
+    sim, tasks = await trial_service.require_owned_trial_with_tasks(
+        db, trial_id, user.id
+    )
+    active_scenario_version = await trial_service.get_active_scenario_version(
         db, trial_id
     )
     pending_scenario_version = await _load_scenario_version(

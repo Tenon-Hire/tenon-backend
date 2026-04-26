@@ -121,17 +121,17 @@ async def test_trial_routes_execute_service_calls(monkeypatch):
     captured_detail = {}
 
     monkeypatch.setattr(
-        sim_create_route.sim_service,
+        sim_create_route.trial_service,
         "create_trial_with_tasks",
         _create_sim_with_tasks,
     )
     monkeypatch.setattr(
-        sim_detail_route.sim_service,
+        sim_detail_route.trial_service,
         "require_owned_trial_with_tasks",
         _require_owned,
     )
     monkeypatch.setattr(
-        sim_detail_route.sim_service,
+        sim_detail_route.trial_service,
         "get_active_scenario_version",
         _get_active_scenario,
     )
@@ -155,7 +155,7 @@ async def test_trial_routes_execute_service_calls(monkeypatch):
             "tasks": _tasks,
         },
     )
-    monkeypatch.setattr(sim_list_route.sim_service, "list_trials", _list_sims)
+    monkeypatch.setattr(sim_list_route.trial_service, "list_trials", _list_sims)
 
     class _DbStub:
         async def scalar(self, *_args, **_kwargs):

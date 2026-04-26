@@ -108,14 +108,6 @@ def canonical_project_brief_markdown(
     if project_brief_md:
         return project_brief_md
 
-    legacy_brief = _field_value(scenario_version, "codespace_spec_json")
-    if isinstance(legacy_brief, str) and legacy_brief.strip():
-        return legacy_brief.strip()
-    if isinstance(legacy_brief, Mapping):
-        derived = _legacy_brief_lines(legacy_brief)
-        if derived:
-            return derived
-
     fallback_context = (storyline_md or "").strip() or (
         trial_title.strip()
         if isinstance(trial_title, str) and trial_title.strip()
@@ -141,7 +133,7 @@ def canonical_project_brief_markdown(
             "## Technical Constraints",
             "",
             "- Keep the solution open-ended so multiple implementation approaches remain valid.",
-            "- Do not rely on starter code or a prebuilt template.",
+            "- Do not rely on pre-populated implementation files.",
             "- Keep the scope realistic for two focused implementation days.",
             "",
             "## Deliverables",

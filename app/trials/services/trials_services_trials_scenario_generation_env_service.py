@@ -9,8 +9,8 @@ from app.ai import (
 from app.ai.ai_provider_clients_service import api_key_configured
 from app.config import settings
 from app.trials.services.trials_services_trials_scenario_generation_constants import (
+    SCENARIO_SOURCE_DETERMINISTIC_FALLBACK,
     SCENARIO_SOURCE_LLM,
-    SCENARIO_SOURCE_TEMPLATE_FALLBACK,
 )
 
 
@@ -38,7 +38,7 @@ def choose_generation_source(
     if demo_mode_enabled is None:
         demo_mode_enabled = is_demo_mode_enabled()
     if demo_mode_enabled:
-        return SCENARIO_SOURCE_TEMPLATE_FALLBACK
+        return SCENARIO_SOURCE_DETERMINISTIC_FALLBACK
     if llm_available is None:
         llm_available = llm_credentials_available()
     if not llm_available:

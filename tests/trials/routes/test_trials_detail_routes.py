@@ -10,7 +10,7 @@ from app.shared.jobs.repositories.shared_jobs_repositories_models_repository imp
     JOB_STATUS_RUNNING,
 )
 from app.shared.utils.shared_utils_errors_utils import ApiError
-from app.trials import services as sim_service
+from app.trials import services as trial_service
 from app.trials.routes.trials_routes import detail as detail_route
 from app.trials.routes.trials_routes.trials_routes_trials_routes_trials_routes_detail_render_routes import (
     _generation_failure_summary,
@@ -52,8 +52,8 @@ async def test_get_trial_detail_happy_path(
     assert body["scenario"]["notes"] == sim.focus
     assert body["scenario"]["projectBriefMd"]
     assert "codespaceSpecJson" not in body["scenario"]
-    assert body["templateKey"] == sim.template_key
-    assert body["techStack"] == sim.tech_stack
+    assert "templateKey" not in body
+    assert "techStack" not in body
     assert isinstance(body["tasks"], list)
     assert [task["dayIndex"] for task in body["tasks"]] == [
         task.day_index for task in tasks
@@ -83,7 +83,7 @@ async def test_trial_context_round_trips_on_create_and_detail(
     payload = {
         "title": "Frontend Trial",
         "role": "Frontend Engineer",
-        "techStack": "react-nextjs",
+        "preferredLanguageFramework": "react-nextjs",
         "seniority": "mid",
         "focus": "Emphasize documentation and test discipline.",
         "companyContext": {"domain": "social", "productArea": "creator tools"},
@@ -109,7 +109,10 @@ async def test_trial_context_round_trips_on_create_and_detail(
     created = create_res.json()
     assert created["seniority"] == "mid"
     assert created["focus"] == payload["focus"]
-    assert created["companyContext"] == payload["companyContext"]
+    assert created["companyContext"] == {
+        **payload["companyContext"],
+        "preferredLanguageFramework": "react-nextjs",
+    }
     assert created["ai"] == payload["ai"]
 
     trial = await async_session.get(Trial, created["id"])
@@ -120,7 +123,7 @@ async def test_trial_context_round_trips_on_create_and_detail(
         )
     ).all()
     assert len(tasks) == 5
-    scenario_version = await sim_service.create_initial_scenario_version(
+    scenario_version = await trial_service.create_initial_scenario_version(
         async_session,
         trial=trial,
         tasks=list(tasks),
@@ -141,7 +144,10 @@ async def test_trial_context_round_trips_on_create_and_detail(
     detail = detail_res.json()
     assert detail["seniority"] == "mid"
     assert detail["focus"] == payload["focus"]
-    assert detail["companyContext"] == payload["companyContext"]
+    assert detail["companyContext"] == {
+        **payload["companyContext"],
+        "preferredLanguageFramework": "react-nextjs",
+    }
     assert detail["ai"]["noticeVersion"] == payload["ai"]["noticeVersion"]
     assert detail["ai"]["noticeText"] == payload["ai"]["noticeText"]
     assert detail["ai"]["evalEnabledByDay"] == payload["ai"]["evalEnabledByDay"]
@@ -172,12 +178,12 @@ async def test_get_trial_detail_maps_snapshot_validation_error(monkeypatch):
         raise AIPolicySnapshotError("boom")
 
     monkeypatch.setattr(
-        detail_route.sim_service,
+        detail_route.trial_service,
         "require_owned_trial_with_tasks",
         _require_owned,
     )
     monkeypatch.setattr(
-        detail_route.sim_service,
+        detail_route.trial_service,
         "get_active_scenario_version",
         _get_active_scenario,
     )

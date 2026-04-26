@@ -2,7 +2,6 @@
 
 from .ai_output_models import (
     AggregatedWinoeReportOutput,
-    CodespacePatchProposal,
     DayReviewerOutput,
     ScenarioGenerationOutput,
 )
@@ -42,7 +41,6 @@ from .ai_runtime_config_service import (
     AIFeatureConfig,
     allow_demo_or_test_mode,
     require_real_mode,
-    resolve_codespace_specializer_config,
     resolve_runtime_mode,
     resolve_scenario_generation_config,
     resolve_transcription_config,
@@ -64,7 +62,6 @@ __all__ = [
     "AIPolicySnapshotError",
     "AggregatedWinoeReportOutput",
     "AgentPromptOverride",
-    "CodespacePatchProposal",
     "DayReviewerOutput",
     "PROMPT_PACK_VERSION",
     "PromptOverrideSet",
@@ -87,7 +84,6 @@ __all__ = [
     "validate_ai_policy_snapshot_contract",
     "validate_current_ai_policy_snapshot_contract",
     "require_real_mode",
-    "resolve_codespace_specializer_config",
     "resolve_winoe_report_aggregator_config",
     "resolve_winoe_report_code_implementation_config",
     "resolve_winoe_report_day1_config",

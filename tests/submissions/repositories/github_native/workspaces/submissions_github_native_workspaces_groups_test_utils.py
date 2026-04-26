@@ -38,7 +38,7 @@ async def create_coding_workspace_group(async_session, *, candidate_session_id, 
         template_repo_full_name=task.template_repo or "org/template",
         repo_full_name="org/session-coding",
         default_branch="main",
-        base_template_sha="base-sha",
+        bootstrap_commit_sha="base-sha",
         created_at=utc_now(),
     )
 
@@ -53,7 +53,7 @@ async def create_workspace(
         "repo_full_name": "org/legacy-day2",
         "repo_id": repo_id,
         "default_branch": "main",
-        "base_template_sha": "base-sha",
+        "bootstrap_commit_sha": "base-sha",
         "created_at": utc_now(),
     }
     if group is not None:
@@ -63,7 +63,7 @@ async def create_workspace(
                 "template_repo_full_name": group.template_repo_full_name,
                 "repo_full_name": group.repo_full_name,
                 "default_branch": group.default_branch,
-                "base_template_sha": group.base_template_sha,
+                "bootstrap_commit_sha": group.bootstrap_commit_sha,
             }
         )
     return await workspace_repo.create_workspace(async_session, **kwargs)

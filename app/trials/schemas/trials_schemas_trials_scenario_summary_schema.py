@@ -16,9 +16,6 @@ from app.trials.schemas.trials_schemas_trials_ai_models_schema import (
 class ScenarioVersionSummary(BaseModel):
     """Stable summary for scenario/version related metadata."""
 
-    templateKey: str | None = None
-    scenarioTemplate: str | None = None
-
 
 class ScenarioStateSummary(BaseModel):
     """Scenario version metadata shown on trial detail."""
@@ -43,7 +40,6 @@ class TrialDetailScenario(ScenarioStateSummary):
     rubricVersion: str | None = None
     aiPolicySnapshotDigest: str | None = None
     aiPromptPackVersion: str | None = None
-    precommitBundleStatus: str | None = None
     agentRuntimeSummary: list[TrialAIAgentRuntimeSummary] | None = None
 
 

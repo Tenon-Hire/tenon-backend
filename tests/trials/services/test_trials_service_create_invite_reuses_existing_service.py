@@ -12,7 +12,7 @@ async def test_create_invite_reuses_existing(async_session, monkeypatch):
     payload = type(
         "P", (), {"candidateName": "Jane", "inviteEmail": "jane@example.com"}
     )
-    first, created = await sim_service.create_invite(
+    first, created = await trial_service.create_invite(
         async_session,
         trial_id=sim.id,
         payload=payload,
@@ -35,8 +35,8 @@ async def test_create_invite_reuses_existing(async_session, monkeypatch):
         return type("S", (), {"id": first_id})()
 
     monkeypatch.setattr(async_session, "commit", _commit_with_integrity_error)
-    monkeypatch.setattr(sim_service.cs_repo, "get_by_trial_and_email", _get_existing)
-    second, created = await sim_service.create_invite(
+    monkeypatch.setattr(trial_service.cs_repo, "get_by_trial_and_email", _get_existing)
+    second, created = await trial_service.create_invite(
         async_session,
         trial_id=sim.id,
         payload=payload,

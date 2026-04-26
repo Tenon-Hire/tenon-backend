@@ -44,7 +44,5 @@ def build_scenario_generation_payload(trial: Any) -> dict[str, Any]:
 
     return {
         "trialId": getattr(trial, "id", None),
-        "templateKey": getattr(trial, "template_key", None),
-        "scenarioTemplate": getattr(trial, "scenario_template", None),
         "talentPartnerContext": talent_partner_context,
     }
