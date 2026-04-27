@@ -36,9 +36,11 @@ from app.trials.schemas.trials_schemas_trials_limits_schema import (
     normalize_role_level,
 )
 from app.trials.schemas.trials_schemas_trials_response_detail_schema import (
+    TrialBackgroundFailures,
     TrialDetailResponse,
     TrialDetailTask,
     TrialGenerationFailure,
+    TrialLatestFailureSummary,
     TrialLifecycleRequest,
 )
 from app.trials.schemas.trials_schemas_trials_response_overview_schema import (
@@ -123,10 +125,12 @@ _TRIALS_SCHEMA_REEXPORTS = (
     TrialCreate,
     TrialCreateResponse,
     TrialDayWindowOverride,
+    TrialBackgroundFailures,
     TrialDetailResponse,
     TrialDetailScenario,
     TrialDetailTask,
     TrialGenerationFailure,
+    TrialLatestFailureSummary,
     TrialLifecycleRequest,
     TrialListItem,
     TrialTerminateResponse,

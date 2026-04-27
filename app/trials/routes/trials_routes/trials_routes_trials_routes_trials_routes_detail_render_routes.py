@@ -18,6 +18,7 @@ from app.shared.utils.shared_utils_project_brief_service import (
 )
 from app.trials import services as trial_service
 from app.trials.schemas.trials_schemas_trials_core_schema import (
+    TrialBackgroundFailures,
     TrialDetailResponse,
     TrialDetailScenario,
     TrialDetailTask,
@@ -202,6 +203,7 @@ def render_trial_detail(
     active_bundle_status: str | None = None,
     pending_bundle_status: str | None = None,
     scenario_generation_job=None,
+    background_failures=None,
 ) -> TrialDetailResponse:
     """Render trial detail."""
     raw_status = getattr(sim, "status", None)
@@ -254,6 +256,7 @@ def render_trial_detail(
         and isinstance(current_ai_policy_snapshot_json.get("promptPackVersion"), str)
         else None
     )
+    background_failures = background_failures or TrialBackgroundFailures()
     generation_failure = _generation_failure_summary(scenario_generation_job)
     scenario_locked = bool(
         review_scenario_version is not None
@@ -346,6 +349,7 @@ def render_trial_detail(
         status=status_value,
         generationStatus=generation_status,
         generationFailure=generation_failure,
+        backgroundFailures=background_failures,
         scenarioLocked=scenario_locked,
         canApproveScenario=can_approve_scenario,
         canActivateTrial=can_activate_trial,

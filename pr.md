@@ -1,162 +1,101 @@
-# PR: Normalize Candidate Trial routes and storage keys to Winoe terminology
+# PR: Add operator endpoints for failed jobs and retry controls
 
 ## Summary
 
-This PR adds canonical Candidate Trial route/resource naming while preserving legacy `candidate_sessions` / `candidate/session` compatibility aliases. It adds legacy deprecation headers for both success and error responses, supports canonical `x-candidate-trial-id` while preserving legacy `x-candidate-session-id`, and migrates new media upload keys from `candidate-sessions/...` to `candidate-trials/...`.
+- Adds admin-only operator visibility for failed background jobs so production and demo operators can inspect failures without reading worker logs or raw job payloads.
+- Adds retry controls for dead-letter jobs, including safe state transition back to `queued`.
+- Surfaces safe, human-readable failure summaries on Trial detail through `backgroundFailures`.
+- Extends local/dev admin QA support with real DB-backed admin users while preserving production JWT/Auth0 admin role behavior.
+- Covers auth, retry behavior, redaction, Trial scoping, and route/detail regressions with focused and full-suite tests.
 
-Legacy persisted media keys remain readable/deletable, Winoe Report ownership copy now uses Candidate Trial terminology, and docs now prefer `x-candidate-trial-id` for task auth.
+## What Changed
 
-## Issue / Acceptance Criteria
+- Added `GET /api/admin/jobs/failed` to list failed and dead-letter background jobs for admins.
+- Added `POST /api/admin/jobs/{job_id}/retry` to retry retryable dead-letter jobs.
+- Added safe failure reason summaries that avoid exposing secrets, stack traces, bearer tokens, API keys, GitHub tokens, or raw payloads.
+- Added Trial detail `backgroundFailures` so failed generation/evaluation work is visible in the Trial view.
+- Scoped Trial failure visibility to the relevant Trial and company.
+- Supported local/dev admin auth via `x-dev-user-email` only when the email belongs to a real DB user with `role="admin"`.
+- Kept production admin auth on the existing JWT/Auth0 admin role path.
+- Removed generated `issue-305-iteration*.diff` artifacts from the PR contents.
 
-Closes #304
+## API Changes
+### `GET /api/admin/jobs/failed`
 
-- Consistent Winoe terminology: canonical API routes, docs, auth wording, and Winoe Report ownership copy now use Candidate Trial terminology.
-- Media storage key migration: new uploads use `candidate-trials/...` keys.
-- Backward compatibility aliases/deprecation behavior: legacy route aliases and legacy headers remain accepted and legacy route responses include deprecation metadata.
-- Non-breaking migration: legacy routes still work, legacy headers still work, persisted DB names remain as the compatibility/persistence boundary, no destructive migration was added, and old media keys remain readable/deletable via persisted `storage_key`.
+- Returns a failed-job listing for admin operators.
+- Includes safe job metadata and human-readable failure reason summaries.
+- Restricts access to admin users only.
+- Rejects unauthenticated requests with `401`.
+- Rejects Talent Partner and candidate access with `403`.
 
-## Implementation Details
+### `POST /api/admin/jobs/{job_id}/retry`
 
-### Routes
+- Retries a dead-letter job by moving it back to `queued`.
+- Returns `404 JOB_NOT_FOUND` for unknown job IDs.
+- Returns `409 JOB_NOT_RETRYABLE` when the job is not in a retryable dead-letter state.
+- Restricts access to admin users only.
 
-Canonical routes added:
+### Trial detail `backgroundFailures`
 
-- `/api/candidate/trials/...`
-- `/api/candidate_trials/{candidate_trial_id}/winoe_report`
-- `/api/admin/candidate_trials/...`
+- Adds `backgroundFailures` to Trial detail responses.
+- Reports safe failure summaries for failed background jobs tied to the Trial.
+- Excludes unrelated Trial failures.
+- Preserves company scoping; cross-company Trial access returns `404`.
 
-Legacy aliases preserved:
+## Security / Access Control
 
-- `/api/candidate/session/...`
-- `/api/candidate_sessions/...`
-- `/api/admin/candidate_sessions/...`
+- Operator endpoints are admin-only.
+- Local/dev admin QA uses `x-dev-user-email` with a real DB user whose `role="admin"`.
+- Production auth still relies on the existing JWT/Auth0 admin role path.
+- Talent Partner and candidate access to operator endpoints returns `403`.
+- Unauthenticated access to operator endpoints returns `401`.
+- Cross-company Trial access remains hidden with `404`.
 
-Legacy aliases include:
+## Failure Reason Redaction
 
-- `Deprecation: true`
-- `X-Winoe-Canonical-Resource: candidate_trials`
-- `Link: <canonical-path>; rel="successor-version"`
+- Failure summaries are human-readable but safe for operator UI/API use.
+- Raw secrets, stack traces, bearer tokens, API keys, GitHub tokens, and raw payloads are not exposed.
+- Redaction behavior is covered by focused tests and manual API QA.
 
-Middleware now applies those compatibility headers to legacy error responses, not just successful route responses.
+## Data / Migration Notes
 
-### Headers
-
-Task auth now supports canonical `x-candidate-trial-id` while preserving legacy `x-candidate-session-id`. Requests with either header are accepted, requests with both headers set to the same value are accepted, and mismatched values are rejected with `403`.
-
-### Media
-
-New upload keys use:
-
-```text
-candidate-trials/{candidate_trial_id}/tasks/{task_id}/recordings/...
-```
-
-Existing `candidate-sessions/...` rows remain readable/deletable because media workflows use the persisted `storage_key`.
-
-### Docs
-
-`README.md` and `docs/api.md` were regenerated/updated. Endpoint coverage is `62`, task auth docs now prefer `x-candidate-trial-id`, and `x-candidate-session-id` is documented only as legacy compatibility.
-
-### Persistence Boundary
-
-DB table/model names like `candidate_sessions` remain intentionally as persistence compatibility. No DB rename was attempted and no migration is required.
+- No migration was needed because existing job fields were sufficient.
+- `failedAt` uses `updated_at` for dead-letter rows because the job model has no dedicated `failed_at`.
+- Retry reuses existing job state fields and moves retryable dead-letter jobs back to `queued`.
+- Generated `issue-305-iteration*.diff` artifacts were removed/not included.
 
 ## QA Evidence
+### Automated
 
-### Live backend QA
+- Ruff: poetry run ruff check app tests — passed
+- Focused #305 tests: 17 passed
+- Route pattern regression: 1 passed
+- Trial detail snapshot regression: 1 passed
+- Full suite: 1850 passed, 13 warnings
+- Coverage: 96.06%
 
-- `/health` returned `200 OK`.
-- `/ready` returned `200 OK` after worker startup.
-- Canonical and legacy Candidate Trial routes were exercised live.
-- Legacy current-task error response returned `409` with deprecation headers.
-- Canonical current-task error response returned the same domain response without deprecation headers.
-- Legacy review incomplete-Trial response returned `409` with deprecation headers.
-- Canonical review incomplete-Trial response returned the same domain response without deprecation headers.
-- Winoe Report other-company access returned `403` with `Candidate Trial access forbidden`.
-- Docs auth wording verified.
-- Media upload init produced a canonical key:
+### Manual API QA
 
-```text
-candidate-trials/<candidate_trial_id>/tasks/<task_id>/recordings/<uuid>.mp4
-```
+- Admin failed-job list returned `200`
+- Talent Partner and candidate access returned `403`
+- Unauthenticated access returned `401`
+- Retry dead-letter job returned `200`
+- Retried job moved to `queued`
+- Unknown job returned `404 JOB_NOT_FOUND`
+- Non-retryable job returned `409 JOB_NOT_RETRYABLE`
+- Trial detail returned `backgroundFailures`
+- Unrelated Trial failures excluded
+- Cross-company Trial access returned `404`
+- Raw secrets, stack traces, bearer tokens, API keys, GitHub tokens, and raw payloads were not exposed
 
-- Legacy persisted media key was readable/deletable:
+### Grep Verification
 
-```text
-candidate-sessions/<candidate_trial_id>/tasks/<task_id>/recordings/qa304-legacy.mp4
-```
+- Changed-file legacy terminology grep: no hits
+- Changed-file retired v3 terminology grep: no hits
 
-### Automated tests
+## Risks / Follow-ups
 
-```bash
-poetry run pytest --no-cov -q tests/candidates/routes/test_candidates_session_resolve_current_task_pre_start_returns_schedule_not_started_routes.py
-# 1 passed
+- `failedAt` is derived from `updated_at` for dead-letter rows until the job model grows a dedicated failure timestamp.
+- Retry behavior is intentionally limited to retryable dead-letter jobs; broader operator workflows can build on these endpoints later.
 
-poetry run pytest --no-cov -q tests/candidates/routes/test_candidates_session_review_returns_completed_artifacts_routes.py
-# 2 passed
-
-poetry run pytest --no-cov -q tests/evaluations/routes/test_evaluations_winoe_report_api_auth_404_and_403_routes.py
-# 1 passed
-
-poetry run pytest --no-cov -q tests/shared/http/test_shared_http_app_internals_service.py
-# 10 passed
-
-poetry run pytest --no-cov -q tests/shared/http/routes/test_shared_http_routes_winoe_report_and_jobs_routes.py
-# 5 passed
-
-poetry run python code-quality/documentation/scripts/docs_api_export.py --strict --verify-doc README.md docs/api.md
-# passed, 62/62 endpoints covered
-
-poetry run ruff check .
-# passed
-
-./precommit.sh
-# passed, 1833 passed, coverage 96.21%
-```
-
-Earlier broad focused suite evidence:
-
-```bash
-poetry run pytest --no-cov -q tests/candidates/routes tests/media/services tests/media/routes tests/evaluations/routes tests/talent_partners/routes tests/tasks/routes
-# 325 passed
-
-poetry run pytest --no-cov -q tests/core/db/migrations
-# 46 passed
-```
-
-## Grep Verification
-
-```bash
-grep -rn "Candidate session access forbidden" app/ tests/ docs/ --exclude-dir=.venv --exclude-dir=__pycache__ || true
-# no output
-
-grep -rn "plus x-candidate-session-id" README.md docs/api.md code-quality/documentation app/ tests/ --exclude-dir=.venv --exclude-dir=__pycache__ || true
-# no output
-
-grep -rn "Auth: Candidate bearer token.*x-candidate-session-id" README.md docs/api.md --exclude-dir=.venv --exclude-dir=__pycache__ || true
-# matches only canonical-first docs wording:
-# Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-trial-id`; legacy `x-candidate-session-id` is accepted during the compatibility window.
-```
-
-Broader grep posture:
-
-- Remaining `candidate_sessions` hits are persistence boundary, compatibility aliases/tests, historical migrations, or explicitly documented legacy compatibility.
-- No canonical route/storage-key path uses the old media prefix.
-- New uploads use `candidate-trials/...`.
-
-## Risk / Rollback
-
-- Breaking-change risk: low, because legacy aliases and headers remain.
-- Migration risk: low, because no destructive DB migration/table rename.
-- Demo risk: low, because live route/header/media QA passed.
-- Security risk: low, because auth checks and ownership enforcement remain unchanged.
-- Rollback: revert PR; no irreversible schema/blob migration performed.
-
-## Reviewer Notes
-
-- Legacy aliases are intentionally aliases, not redirects, to avoid breaking POST/auth/header clients.
-- Middleware applies compatibility headers to legacy error responses because route-level `Response` headers do not survive exception handling.
-- Persistence names remain legacy internally by design to avoid risky schema churn.
-- `candidate_sessions` error codes may remain for client compatibility, but user-facing detail text uses Candidate Trial terminology.
-
-Fixes #304
+Fixes #305

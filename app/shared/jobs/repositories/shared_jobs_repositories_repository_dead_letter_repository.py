@@ -14,6 +14,46 @@ from app.shared.jobs.repositories.shared_jobs_repositories_models_repository imp
 )
 
 
+def _apply_dead_letter_requeue(job: Job, *, now: datetime) -> Job:
+    job.status = JOB_STATUS_QUEUED
+    job.next_run_at = now
+    job.locked_at = None
+    job.locked_by = None
+    job.last_error = None
+    job.result_json = None
+    job.updated_at = now
+    return job
+
+
+async def requeue_dead_letter_job(
+    db: AsyncSession,
+    *,
+    job_id: str,
+    now: datetime,
+    commit: bool = True,
+) -> Job | None:
+    """Requeue one dead-letter job and return its updated row."""
+    normalized_id = job_id.strip()
+    if not normalized_id:
+        return None
+    job = (
+        await db.execute(
+            select(Job).where(
+                Job.id == normalized_id,
+                Job.status == JOB_STATUS_DEAD_LETTER,
+            )
+        )
+    ).scalar_one_or_none()
+    if job is None:
+        return None
+    _apply_dead_letter_requeue(job, now=now)
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()
+    return job
+
+
 async def requeue_dead_letter_jobs(
     db: AsyncSession,
     *,
@@ -31,15 +71,10 @@ async def requeue_dead_letter_jobs(
     if not jobs:
         return 0
     for job in jobs:
-        job.status = JOB_STATUS_QUEUED
-        job.next_run_at = now
-        job.locked_at = None
-        job.locked_by = None
-        job.last_error = None
-        job.result_json = None
-        job.updated_at = now
+        _apply_dead_letter_requeue(job, now=now)
+    await db.flush()
     await db.commit()
     return len(jobs)
 
 
-__all__ = ["requeue_dead_letter_jobs"]
+__all__ = ["requeue_dead_letter_job", "requeue_dead_letter_jobs"]

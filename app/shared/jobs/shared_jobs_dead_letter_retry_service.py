@@ -26,4 +26,21 @@ async def retry_dead_letter_jobs(
         )
 
 
-__all__ = ["retry_dead_letter_jobs"]
+async def retry_dead_letter_job(
+    db: AsyncSession,
+    *,
+    job_id: str,
+    now: datetime | None = None,
+    commit: bool = True,
+):
+    """Retry one dead-letter job using the same state transition as the CLI."""
+    resolved_now = now or datetime.now(UTC)
+    return await jobs_repo.requeue_dead_letter_job(
+        db,
+        job_id=job_id,
+        now=resolved_now,
+        commit=commit,
+    )
+
+
+__all__ = ["retry_dead_letter_job", "retry_dead_letter_jobs"]

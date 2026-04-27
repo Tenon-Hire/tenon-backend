@@ -118,6 +118,13 @@ async def test_trial_routes_execute_service_calls(monkeypatch):
     async def _load_latest_job(*_a, **_k):
         return scenario_job
 
+    async def _trial_background_failures(*_a, **_k):
+        return SimpleNamespace(
+            hasFailedJobs=False,
+            failedJobsCount=0,
+            latestFailure=None,
+        )
+
     captured_detail = {}
 
     monkeypatch.setattr(
@@ -144,6 +151,11 @@ async def test_trial_routes_execute_service_calls(monkeypatch):
         sim_detail_route,
         "_load_latest_scenario_generation_job",
         _load_latest_job,
+    )
+    monkeypatch.setattr(
+        sim_detail_route,
+        "trial_background_failures",
+        _trial_background_failures,
     )
     monkeypatch.setattr(
         sim_detail_route,
@@ -185,6 +197,7 @@ async def test_trial_routes_execute_service_calls(monkeypatch):
     assert detail["id"] == sim.id
     assert captured_detail["current_ai_policy_snapshot_json"] is pending_snapshot
     assert captured_detail["scenario_generation_job"] is scenario_job
+    assert captured_detail["background_failures"].failedJobsCount == 0
     assert rendered_detail.ai.prompt_pack_version == "winoe-ai-pack-v1"
     assert rendered_detail.scenario.id == pending_version.id
     assert listed[0].numCandidates == 2

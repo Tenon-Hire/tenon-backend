@@ -174,6 +174,9 @@ async def test_get_trial_detail_maps_snapshot_validation_error(monkeypatch):
     async def _load_job(*_a, **_k):
         return None
 
+    async def _trial_background_failures(*_a, **_k):
+        return None
+
     def _render_trial_detail(*_a, **_k):
         raise AIPolicySnapshotError("boom")
 
@@ -189,6 +192,9 @@ async def test_get_trial_detail_maps_snapshot_validation_error(monkeypatch):
     )
     monkeypatch.setattr(detail_route, "_load_scenario_version", _load_pending)
     monkeypatch.setattr(detail_route, "_load_latest_scenario_generation_job", _load_job)
+    monkeypatch.setattr(
+        detail_route, "trial_background_failures", _trial_background_failures
+    )
     monkeypatch.setattr(detail_route, "render_trial_detail", _render_trial_detail)
 
     with pytest.raises(ApiError) as excinfo:

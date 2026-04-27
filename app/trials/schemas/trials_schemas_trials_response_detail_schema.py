@@ -28,6 +28,27 @@ class TrialGenerationFailure(BaseModel):
     canRetry: bool = False
 
 
+class TrialLatestFailureSummary(BaseModel):
+    """Latest safe background failure for a Trial."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    jobId: str
+    jobType: str
+    failedAt: datetime | None = None
+    reason: str
+
+
+class TrialBackgroundFailures(BaseModel):
+    """Background failure state for a Trial."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    hasFailedJobs: bool = False
+    failedJobsCount: int = 0
+    latestFailure: TrialLatestFailureSummary | None = None
+
+
 class TrialDetailTask(BaseModel):
     """Task summary for Talent Partner trial detail view."""
 
@@ -75,6 +96,9 @@ class TrialDetailResponse(BaseModel):
     status: TrialStatus
     generationStatus: str | None = None
     generationFailure: TrialGenerationFailure | None = None
+    backgroundFailures: TrialBackgroundFailures = Field(
+        default_factory=TrialBackgroundFailures
+    )
     scenarioLocked: bool = False
     canApproveScenario: bool = False
     canActivateTrial: bool = False
@@ -98,4 +122,6 @@ __all__ = [
     "TrialDetailTask",
     "TrialLifecycleRequest",
     "TrialGenerationFailure",
+    "TrialBackgroundFailures",
+    "TrialLatestFailureSummary",
 ]

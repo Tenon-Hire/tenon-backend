@@ -13,6 +13,9 @@ from app.shared.auth.shared_auth_current_user_utils import get_current_user
 from app.shared.auth.shared_auth_roles_utils import ensure_talent_partner_or_none
 from app.shared.database import get_session
 from app.shared.database.shared_database_models_model import Job, ScenarioVersion
+from app.shared.jobs.shared_jobs_failure_summaries_service import (
+    trial_background_failures,
+)
 from app.shared.utils.shared_utils_errors_utils import ApiError
 from app.trials import services as trial_service
 from app.trials.routes.trials_routes.trials_routes_trials_routes_trials_routes_detail_render_routes import (
@@ -83,6 +86,11 @@ async def get_trial_detail(
         trial_id=trial_id,
         company_id=sim.company_id,
     )
+    background_failures = await trial_background_failures(
+        db,
+        trial_id=trial_id,
+        company_id=sim.company_id,
+    )
     try:
         return render_trial_detail(
             sim,
@@ -93,6 +101,7 @@ async def get_trial_detail(
             active_bundle_status=None,
             pending_bundle_status=None,
             scenario_generation_job=scenario_generation_job,
+            background_failures=background_failures,
         )
     except AIPolicySnapshotError as exc:
         raise ApiError(

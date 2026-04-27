@@ -18,6 +18,7 @@ from app.shared.jobs.repositories.shared_jobs_repositories_repository_claim_repo
     claim_next_runnable,
 )
 from app.shared.jobs.repositories.shared_jobs_repositories_repository_dead_letter_repository import (
+    requeue_dead_letter_job,
     requeue_dead_letter_jobs,
 )
 from app.shared.jobs.repositories.shared_jobs_repositories_repository_lookup_repository import (
@@ -98,6 +99,7 @@ __all__ = [
     "mark_succeeded",
     "requeue_nonterminal_idempotent_job",
     "requeue_dead_letter_jobs",
+    "requeue_dead_letter_job",
     "sanitize_error",
     "upsert_worker_heartbeat",
     "_job_from_spec",
