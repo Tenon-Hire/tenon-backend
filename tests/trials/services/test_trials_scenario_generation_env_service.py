@@ -19,6 +19,28 @@ def test_is_demo_mode_enabled_delegates_to_runtime_mode(monkeypatch):
     assert scenario_env_service.is_demo_mode_enabled() is True
 
 
+def test_is_demo_mode_enabled_honors_settings_override(monkeypatch):
+    monkeypatch.setattr(
+        scenario_env_service,
+        "resolve_scenario_generation_config",
+        lambda: SimpleNamespace(runtime_mode="real", provider="openai"),
+    )
+    monkeypatch.setattr(scenario_env_service.settings, "DEMO_MODE", True)
+
+    assert scenario_env_service.is_demo_mode_enabled() is True
+
+
+def test_is_demo_mode_enabled_honors_demo_env_key(monkeypatch):
+    monkeypatch.setattr(
+        scenario_env_service,
+        "resolve_scenario_generation_config",
+        lambda: SimpleNamespace(runtime_mode="real", provider="openai"),
+    )
+    monkeypatch.setenv("WINOE_DEMO_MODE", "1")
+
+    assert scenario_env_service.is_demo_mode_enabled() is True
+
+
 def test_llm_credentials_available_covers_provider_branches(monkeypatch):
     monkeypatch.setattr(
         scenario_env_service,

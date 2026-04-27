@@ -1,67 +1,93 @@
+## Title
+
+Support contract-live Day 2/3 verification for Codespace-only candidate QA
+
 ## Summary
 
-This PR adds regression coverage for Trial/candidate data isolation and production security posture. The patch verifies that Talent Partner and Candidate access boundaries remain enforced, sensitive error details stay out of auth responses, dev bypasses fail closed outside local/test use, and CORS/CSRF behavior remains locked down for production-relevant flows.
+This backend patch stays narrow for frontend issue #194 contract-live support.
 
-## What Changed
+It does two things:
 
-- Added consolidated #303 regression suite:
-  - `tests/security/test_issue_303_trial_candidate_isolation.py`
-- Updated auth dependency coverage:
-  - `tests/shared/auth/dependencies/test_shared_auth_dependencies_service.py`
-- Verified/narrowed production dev-bypass behavior:
-  - `app/shared/auth/dependencies/shared_auth_dependencies_dev_bypass_utils.py`
-- The production behavior was already fail-closed; this PR is test-focused.
+- Keeps the candidate day-window admin operation local/test-only, while also updating the associated day audit and workspace revocation state for the day 2/3 contract-live proof.
+- Lets scenario generation treat demo mode as env-controlled, so local QA can fall back without hard-coding runtime behavior into `runBackend.sh`.
 
-## Security Coverage
+## Final Scope
 
-- Talent Partner A cannot read Talent Partner B's candidates.
-- Candidate A cannot read Candidate B's session or artifacts.
-- Forbidden/auth error responses do not leak stack traces, SQL/ORM details, raw auth claims, config secrets, tokens, or other users' identity data.
-- Dev bypasses fail closed in `prod`, `production`, and `staging`.
-- `DEV_AUTH_BYPASS=0` is treated as disabled.
-- Local/test intended behavior remains preserved.
-- CORS/CSRF tests cover trusted origin, untrusted origin, untrusted preflight, production wildcard rejection, cross-origin state-changing cookie-auth rejection, and same-origin authenticated state-changing behavior.
+In scope:
+
+- `app/talent_partners/services/talent_partners_services_talent_partners_admin_ops_candidate_day_window_service.py`
+- `app/trials/services/trials_services_trials_scenario_generation_env_service.py`
+- `tests/talent_partners/services/test_talent_partners_admin_ops_set_candidate_session_day_window_updates_schedule_and_jobs_service.py`
+- `tests/trials/services/test_trials_scenario_generation_env_service.py`
+
+Out of scope:
+
+- compare-summary behavior
+- production auth behavior
+- Winoe Report scoring/evaluation behavior
+- hard-coded credentials
+- committed prod env files
+- dev-auth bypass changes
+- production runtime/provider/model default changes
+- migration-smoke / precommit QA-gate changes
 
 ## QA Evidence
 
+Frontend contract-live evidence bundle:
+
+- `winoe-frontend/qa_verifications/Contract-Live-QA/contract_live_qa_latest/artifacts/20260426T201813`
+- sequence: `talent_partner-fresh,candidate-schedule,candidate-day:1,candidate-day:2,candidate-day:3,talent_partner-review`
+- `trialId=1`
+- `candidateSessionId=1`
+
+Observed browser coverage:
+
+- Day 2 reached in browser.
+- Day 3 reached in browser.
+- Talent Partner submissions/review page reached in browser.
+- Dev-auth bypass was not used.
+- Prod env files were not sourced.
+
+## Backend Checks
+
 ```bash
-poetry run pytest --no-cov -q tests/security/test_issue_303_trial_candidate_isolation.py tests/shared/auth/dependencies/test_shared_auth_dependencies_service.py
-# 26 passed
+python3 -m py_compile app/talent_partners/services/talent_partners_services_talent_partners_admin_ops_candidate_day_window_service.py app/trials/services/trials_services_trials_scenario_generation_env_service.py tests/talent_partners/services/test_talent_partners_admin_ops_set_candidate_session_day_window_updates_schedule_and_jobs_service.py tests/trials/services/test_trials_scenario_generation_env_service.py
 
-poetry run pytest --no-cov -q tests/security tests/shared/auth tests/shared/middleware tests/config
-# 172 passed
+poetry run pytest tests/talent_partners/services/test_talent_partners_admin_ops_set_candidate_session_day_window_updates_schedule_and_jobs_service.py -q --no-cov
+# 3 passed
 
-poetry run pytest --no-cov -q tests/trials/routes/test_trials_candidates_list_authz_routes.py tests/trials/routes/test_trials_candidates_list_populated_routes.py tests/trials/routes/test_trials_candidates_compare_api_compare_returns_403_for_forbidden_company_or_scope_routes.py tests/trials/routes/test_trials_candidates_compare_api_compare_state_and_isolation_routes.py tests/candidates/routes/test_candidates_session_api_current_task_token_mismatch_routes.py tests/candidates/routes/test_candidates_session_api_invites_list_shows_candidates_for_email_routes.py tests/submissions/routes/test_submissions_talent_partner_get_talent_partner_cannot_access_other_talent_partners_submission_routes.py
-# 9 passed
+poetry run pytest tests/trials/services/test_trials_scenario_generation_env_service.py -q --no-cov
+# 6 passed
 
-poetry run ruff check .
-# passed
-
-poetry run ruff format --check .
-# 2145 files already formatted
-
-poetry run pytest --no-cov -q tests
-# 1828 passed, 13 warnings
-
-poetry run python scripts/check_fresh_migrations.py
+git diff --check
 # passed
 ```
 
-`pre-commit` executable was unavailable on PATH and unavailable through Poetry. Non-mutating equivalent validations were run and passed.
+## Changed Files
 
-No live external API/server smoke was run; QA used pytest/test-client coverage.
+- `app/talent_partners/services/talent_partners_services_talent_partners_admin_ops_candidate_day_window_service.py`
+  - local/test-only day-window control now also updates day audit and workspace revocation state for the relevant day 2/3 window
+- `app/trials/services/trials_services_trials_scenario_generation_env_service.py`
+  - demo-mode detection now honors env-driven flags before falling back to runtime config
+- `tests/talent_partners/services/test_talent_partners_admin_ops_set_candidate_session_day_window_updates_schedule_and_jobs_service.py`
+  - covers retiming existing day audits and creating/revoking the matching workspace state
+- `tests/trials/services/test_trials_scenario_generation_env_service.py`
+  - covers settings/env-driven demo mode and existing LLM-availability paths
+
+## Final Confirmation
+
+- [x] No compare-summary behavior is included in this backend diff.
+- [x] No hard-coded credentials are included.
+- [x] No prod env files are committed.
+- [x] No dev-auth bypass changes are included.
+- [x] Demo fallback remains env-controlled only.
+- [x] Day-window support remains local/test-only gated.
+- [x] No production runtime/provider/model defaults were changed.
+- [x] Migration-smoke and precommit QA-gate changes were reverted.
+- [x] Conflict marker scan found only fixture/log strings, not merge markers.
 
 ## Risk / Rollback
 
-Risk is low because the PR is regression-test focused. If production code changed, rollback is limited to the dev-bypass safe-error adjustment.
+Risk is low if the local/test-only gates remain intact.
 
-No schema migration is included. No external service behavior is required.
-
-## Notes for Reviewer
-
-- Review the #303 suite for direct acceptance-criteria coverage.
-- Review dev-bypass assertions carefully.
-- Existing active-code legacy grep hits are outside #303 scope and were not introduced by this patch.
-- Changed files did not introduce retired terminology.
-
-Fixes #303
+Rollback is to revert the four backend support files above.

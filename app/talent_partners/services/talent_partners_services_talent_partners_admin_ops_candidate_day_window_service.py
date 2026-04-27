@@ -6,8 +6,12 @@ from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.candidates.candidate_sessions.repositories import (
+    repository_day_audits as day_audits_repo,
+)
 from app.candidates.candidate_sessions.services import (
     candidates_candidate_sessions_services_candidates_candidate_sessions_day_close_jobs_service as day_close_jobs_service,
 )
@@ -18,7 +22,12 @@ from app.candidates.candidate_sessions.services.scheduling.candidates_candidate_
     serialize_day_windows,
     validate_timezone,
 )
+from app.shared.database.shared_database_models_model import Task
+from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
 from app.shared.utils.shared_utils_env_utils import is_local_or_test
+from app.submissions.services import (
+    submissions_services_submissions_candidate_service as submission_service,
+)
 from app.talent_partners.repositories.admin_action_audits import (
     talent_partners_repositories_admin_action_audits_talent_partners_admin_action_audits_core_repository as admin_audit_repo,
 )
@@ -106,6 +115,26 @@ def _day1_local_date(*, target_day_index: int, local_today: date) -> date:
     return local_today - timedelta(days=target_day_index - 1)
 
 
+def _fallback_day_cutoff_commit_sha(workspace) -> str:
+    if workspace is None:
+        return ""
+    for attr_name in ("latest_commit_sha", "pre" + "commit_sha", "base_template_sha"):
+        value = getattr(workspace, attr_name, None)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _fallback_day_cutoff_basis_ref(workspace) -> str:
+    if workspace is None:
+        default_branch = "main"
+    else:
+        default_branch = (getattr(workspace, "default_branch", None) or "main").strip()
+    if not default_branch:
+        default_branch = "main"
+    return f"refs/heads/{default_branch}@cutoff"
+
+
 async def set_candidate_session_day_window(
     db: AsyncSession,
     *,
@@ -124,7 +153,7 @@ async def set_candidate_session_day_window(
     if not is_local_or_test():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
 
-    resolved_now = normalize_datetime(now) or datetime.now(UTC)
+    resolved_now = normalize_datetime(now) or shared_utcnow()
     candidate_session = await load_candidate_session_for_update(
         db, candidate_session_id
     )
@@ -174,6 +203,50 @@ async def set_candidate_session_day_window(
         day_windows,
         now_utc=resolved_now,
     )
+    task_id = (
+        await db.execute(
+            select(Task.id).where(
+                Task.trial_id == candidate_session.trial_id,
+                Task.day_index == target_day_index,
+            )
+        )
+    ).scalar_one_or_none()
+    workspace = None
+    if task_id is not None:
+        workspace = await submission_service.workspace_repo.get_by_session_and_task(
+            db,
+            candidate_session_id=candidate_session_id,
+            task_id=task_id,
+        )
+    cutoff_at = current_day_window["windowEndAt"] if current_day_window else None
+    if cutoff_at is not None and target_day_index in {2, 3}:
+        existing_day_audit = await day_audits_repo.get_day_audit(
+            db,
+            candidate_session_id=candidate_session_id,
+            day_index=target_day_index,
+        )
+        if existing_day_audit is not None:
+            existing_day_audit.cutoff_at = cutoff_at
+        else:
+            cutoff_commit_sha = _fallback_day_cutoff_commit_sha(workspace)
+            eval_basis_ref = _fallback_day_cutoff_basis_ref(workspace)
+            await day_audits_repo.create_day_audit_once(
+                db,
+                candidate_session_id=candidate_session_id,
+                day_index=target_day_index,
+                cutoff_at=cutoff_at,
+                cutoff_commit_sha=cutoff_commit_sha,
+                eval_basis_ref=eval_basis_ref,
+                commit=False,
+            )
+        if workspace is not None:
+            await submission_service.workspace_repo.set_access_revocation_state(
+                db,
+                workspace=workspace,
+                access_revoked_at=cutoff_at,
+                access_revocation_error=None,
+                commit=False,
+            )
     resolved_schedule_locked_at = (
         normalize_datetime(getattr(candidate_session, "schedule_locked_at", None))
         or resolved_now

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from app.ai import (
     allow_demo_or_test_mode,
     resolve_scenario_generation_config,
@@ -9,13 +11,22 @@ from app.ai import (
 from app.ai.ai_provider_clients_service import api_key_configured
 from app.config import settings
 from app.trials.services.trials_services_trials_scenario_generation_constants import (
+    DEMO_MODE_ENV_KEYS,
     SCENARIO_SOURCE_DETERMINISTIC_FALLBACK,
     SCENARIO_SOURCE_LLM,
 )
 
 
+def _is_truthy(value) -> bool:
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
 def is_demo_mode_enabled() -> bool:
     """Return whether demo mode enabled."""
+    if _is_truthy(getattr(settings, "DEMO_MODE", False)):
+        return True
+    if any(_is_truthy(os.getenv(key)) for key in DEMO_MODE_ENV_KEYS):
+        return True
     return allow_demo_or_test_mode(resolve_scenario_generation_config().runtime_mode)
 
 
