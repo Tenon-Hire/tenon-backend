@@ -48,6 +48,7 @@ async def test_recordings_repository_retention_helpers(async_session):
     await recordings_repo.mark_purged(
         async_session,
         recording=old_recording,
+        purge_reason=RECORDING_ASSET_PURGE_REASON_RETENTION_EXPIRED,
         commit=True,
     )
     assert old_recording.purged_at is not None
@@ -94,6 +95,7 @@ async def test_recordings_repository_mark_deleted_and_mark_purged_preserve_termi
     await recordings_repo.mark_purged(
         async_session,
         recording=recording,
+        purge_reason=RECORDING_ASSET_PURGE_REASON_RETENTION_EXPIRED,
         now=datetime.now(UTC),
         commit=False,
     )

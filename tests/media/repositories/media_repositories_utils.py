@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from app.media.repositories.recordings import (
+    RECORDING_ASSET_PURGE_REASON_RETENTION_EXPIRED,
     RECORDING_ASSET_STATUS_DELETED,
     RECORDING_ASSET_STATUS_FAILED,
     RECORDING_ASSET_STATUS_PURGED,

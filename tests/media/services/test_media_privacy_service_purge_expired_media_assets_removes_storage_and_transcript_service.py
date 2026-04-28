@@ -68,4 +68,8 @@ async def test_purge_expired_media_assets_removes_storage_and_transcript(async_s
     assert refreshed is not None
     assert refreshed.status == RECORDING_ASSET_STATUS_PURGED
     assert refreshed.purged_at is not None
-    assert transcript is None
+    assert refreshed.retention_expires_at is not None
+    assert transcript is not None
+    assert transcript.text is None
+    assert transcript.segments_json is None
+    assert transcript.deleted_at is not None

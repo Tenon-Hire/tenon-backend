@@ -4,6 +4,7 @@ from .media_repositories_transcripts_media_transcripts_create_repository import 
 )
 from .media_repositories_transcripts_media_transcripts_delete_repository import (
     hard_delete_by_recording_id,
+    redact_by_recording_id,
 )
 from .media_repositories_transcripts_media_transcripts_lookup_repository import (
     TRANSCRIPT_EVALUATION_STATE_EMPTY,
@@ -24,6 +25,7 @@ from .media_repositories_transcripts_media_transcripts_update_repository import 
 __all__ = [
     "create_transcript",
     "hard_delete_by_recording_id",
+    "redact_by_recording_id",
     "get_by_recording_id",
     "get_or_create_transcript",
     "mark_deleted",

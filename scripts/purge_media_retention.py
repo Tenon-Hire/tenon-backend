@@ -43,6 +43,7 @@ async def _run(retention_days: int | None, batch_limit: int) -> int:
         "media_retention_purge"
         f" scanned={result.scanned_count}"
         f" purged={result.purged_count}"
+        f" skipped={result.skipped_count}"
         f" failed={result.failed_count}"
     )
     if result.purged_recording_ids:

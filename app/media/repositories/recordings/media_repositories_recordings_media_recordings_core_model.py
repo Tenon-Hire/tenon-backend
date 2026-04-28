@@ -26,6 +26,11 @@ RECORDING_ASSET_STATUS_DELETED = "deleted"
 RECORDING_ASSET_STATUS_PURGED = "purged"
 RECORDING_ASSET_KIND_RECORDING = "recording"
 RECORDING_ASSET_KIND_SUPPLEMENTAL = "supplemental"
+RECORDING_ASSET_PURGE_STATUS_PENDING = "pending"
+RECORDING_ASSET_PURGE_STATUS_PURGED = "purged"
+RECORDING_ASSET_PURGE_STATUS_FAILED = "failed"
+RECORDING_ASSET_PURGE_REASON_RETENTION_EXPIRED = "retention_expired"
+RECORDING_ASSET_PURGE_REASON_DATA_REQUEST = "data_request"
 
 RECORDING_ASSET_STATUSES = (
     RECORDING_ASSET_STATUS_UPLOADING,
@@ -68,6 +73,11 @@ class RecordingAsset(Base, TimestampMixin):
         Index("ix_recording_assets_candidate_session_id", "candidate_session_id"),
         Index("ix_recording_assets_task_id", "task_id"),
         Index(
+            "ix_recording_assets_retention_expires_purged",
+            "retention_expires_at",
+            "purged_at",
+        ),
+        Index(
             "ix_recording_assets_candidate_session_task_kind",
             "candidate_session_id",
             "task_id",
@@ -103,6 +113,11 @@ class RecordingAsset(Base, TimestampMixin):
     purged_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    retention_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    purge_reason: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    purge_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
     consent_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
     consent_timestamp: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -125,6 +140,11 @@ __all__ = [
     "RECORDING_ASSET_STATUS_PURGED",
     "RECORDING_ASSET_KIND_RECORDING",
     "RECORDING_ASSET_KIND_SUPPLEMENTAL",
+    "RECORDING_ASSET_PURGE_STATUS_PENDING",
+    "RECORDING_ASSET_PURGE_STATUS_PURGED",
+    "RECORDING_ASSET_PURGE_STATUS_FAILED",
+    "RECORDING_ASSET_PURGE_REASON_RETENTION_EXPIRED",
+    "RECORDING_ASSET_PURGE_REASON_DATA_REQUEST",
     "RECORDING_ASSET_STATUSES",
     "RECORDING_ASSET_STATUS_CHECK_CONSTRAINT_NAME",
     "RECORDING_ASSET_STORAGE_KEY_UNIQUE_CONSTRAINT_NAME",

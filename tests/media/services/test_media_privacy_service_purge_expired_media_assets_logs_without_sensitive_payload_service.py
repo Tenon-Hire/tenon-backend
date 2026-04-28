@@ -60,6 +60,6 @@ async def test_purge_expired_media_assets_logs_without_sensitive_payload(
 
     log_text = "\n".join(record.getMessage() for record in caplog.records)
     assert recording.id in result.purged_recording_ids
-    assert f"purge executed recordingId={recording.id}" in log_text
+    assert f"mediaId={recording.id}" in log_text
     assert "do-not-log-this-purge-transcript" not in log_text
     assert "https://" not in log_text

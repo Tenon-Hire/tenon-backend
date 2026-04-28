@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.media.repositories.recordings.media_repositories_recordings_media_recordings_core_model import (
     RECORDING_ASSET_KIND_RECORDING,
+    RECORDING_ASSET_PURGE_STATUS_PURGED,
     RECORDING_ASSET_STATUS_DELETED,
     RECORDING_ASSET_STATUS_PURGED,
     RecordingAsset,
@@ -28,6 +29,7 @@ async def create_recording_asset(
     consent_version: str | None = None,
     consent_timestamp: datetime | None = None,
     ai_notice_version: str | None = None,
+    retention_expires_at: datetime | None = None,
     created_at: datetime | None = None,
     commit: bool = True,
 ) -> RecordingAsset:
@@ -44,6 +46,7 @@ async def create_recording_asset(
         consent_version=consent_version,
         consent_timestamp=consent_timestamp,
         ai_notice_version=ai_notice_version,
+        retention_expires_at=retention_expires_at,
         created_at=created_at or datetime.now(UTC),
     )
     db.add(recording)
@@ -98,6 +101,7 @@ async def mark_purged(
     db: AsyncSession,
     *,
     recording: RecordingAsset,
+    purge_reason: str,
     now: datetime | None = None,
     commit: bool = True,
 ) -> RecordingAsset:
@@ -108,6 +112,8 @@ async def mark_purged(
     if recording.purged_at is None:
         recording.purged_at = resolved_now
     recording.status = RECORDING_ASSET_STATUS_PURGED
+    recording.purge_reason = purge_reason
+    recording.purge_status = RECORDING_ASSET_PURGE_STATUS_PURGED
     if commit:
         await db.commit()
         await db.refresh(recording)

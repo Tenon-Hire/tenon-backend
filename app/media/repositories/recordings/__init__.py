@@ -4,6 +4,8 @@ import app.media.repositories.recordings.media_repositories_recordings_media_rec
 import app.media.repositories.recordings.media_repositories_recordings_media_recordings_predicates_repository as repository_predicates
 import app.media.repositories.recordings.media_repositories_recordings_media_recordings_queries_repository as repository_queries
 from app.media.repositories.recordings.media_repositories_recordings_media_recordings_core_model import (
+    RECORDING_ASSET_PURGE_REASON_DATA_REQUEST,
+    RECORDING_ASSET_PURGE_REASON_RETENTION_EXPIRED,
     RECORDING_ASSET_STATUS_DELETED,
     RECORDING_ASSET_STATUS_FAILED,
     RECORDING_ASSET_STATUS_PROCESSING,
@@ -32,6 +34,8 @@ from app.media.repositories.recordings.media_repositories_recordings_media_recor
 
 __all__ = [
     "DOWNLOADABLE_RECORDING_STATUSES",
+    "RECORDING_ASSET_PURGE_REASON_DATA_REQUEST",
+    "RECORDING_ASSET_PURGE_REASON_RETENTION_EXPIRED",
     "RECORDING_ASSET_STATUSES",
     "RECORDING_ASSET_STATUS_DELETED",
     "RECORDING_ASSET_STATUS_FAILED",

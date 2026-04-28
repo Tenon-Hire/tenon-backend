@@ -9,6 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.media.repositories.recordings.media_repositories_recordings_media_recordings_core_model import (
     RECORDING_ASSET_KIND_RECORDING,
+    RECORDING_ASSET_STATUS_DELETED,
+    RECORDING_ASSET_STATUS_FAILED,
+    RECORDING_ASSET_STATUS_READY,
+    RECORDING_ASSET_STATUS_UPLOADED,
     RecordingAsset,
 )
 from app.media.repositories.recordings.media_repositories_recordings_media_recordings_predicates_repository import (
@@ -103,11 +107,49 @@ async def get_expired_for_retention(
     limit: int = 200,
 ) -> list[RecordingAsset]:
     """Return expired for retention."""
-    cutoff = (now or datetime.now(UTC)) - timedelta(days=max(1, int(retention_days)))
+    resolved_now = now or datetime.now(UTC)
+    cutoff = resolved_now - timedelta(days=max(1, int(retention_days)))
     stmt = (
         select(RecordingAsset)
-        .where(RecordingAsset.created_at <= cutoff, RecordingAsset.purged_at.is_(None))
+        .where(
+            RecordingAsset.purged_at.is_(None),
+            RecordingAsset.status.in_(
+                (
+                    RECORDING_ASSET_STATUS_UPLOADED,
+                    RECORDING_ASSET_STATUS_READY,
+                    RECORDING_ASSET_STATUS_FAILED,
+                    RECORDING_ASSET_STATUS_DELETED,
+                )
+            ),
+            (
+                (RecordingAsset.retention_expires_at.is_not(None))
+                & (RecordingAsset.retention_expires_at <= resolved_now)
+            )
+            | (
+                (RecordingAsset.retention_expires_at.is_(None))
+                & (RecordingAsset.created_at <= cutoff)
+            ),
+        )
         .order_by(RecordingAsset.created_at.asc(), RecordingAsset.id.asc())
         .limit(max(1, int(limit)))
     )
+    return (await db.execute(stmt)).scalars().all()
+
+
+async def list_for_candidate_session(
+    db: AsyncSession,
+    *,
+    candidate_session_id: int,
+    include_purged: bool = False,
+    limit: int = 500,
+) -> list[RecordingAsset]:
+    """Return media assets scoped to a Candidate session."""
+    stmt = select(RecordingAsset).where(
+        RecordingAsset.candidate_session_id == candidate_session_id
+    )
+    if not include_purged:
+        stmt = stmt.where(RecordingAsset.purged_at.is_(None))
+    stmt = stmt.order_by(
+        RecordingAsset.created_at.asc(), RecordingAsset.id.asc()
+    ).limit(max(1, int(limit)))
     return (await db.execute(stmt)).scalars().all()

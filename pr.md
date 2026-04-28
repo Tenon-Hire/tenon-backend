@@ -1,101 +1,236 @@
-# PR: Add operator endpoints for failed jobs and retry controls
-
 ## Summary
 
-- Adds admin-only operator visibility for failed background jobs so production and demo operators can inspect failures without reading worker logs or raw job payloads.
-- Adds retry controls for dead-letter jobs, including safe state transition back to `queued`.
-- Surfaces safe, human-readable failure summaries on Trial detail through `backgroundFailures`.
-- Extends local/dev admin QA support with real DB-backed admin users while preserving production JWT/Auth0 admin role behavior.
-- Covers auth, retry behavior, redaction, Trial scoping, and route/detail regressions with focused and full-suite tests.
+Implement policy-driven media retention and purge scheduling for Day 4 media artifacts.
 
-## What Changed
+This PR adds configurable retention metadata, an expired-media purge path, privacy-safe purge audit records, and a scoped data-request deletion hook. The purge flow redacts transcript content while preserving auditability and Evidence Trail shape.
 
-- Added `GET /api/admin/jobs/failed` to list failed and dead-letter background jobs for admins.
-- Added `POST /api/admin/jobs/{job_id}/retry` to retry retryable dead-letter jobs.
-- Added safe failure reason summaries that avoid exposing secrets, stack traces, bearer tokens, API keys, GitHub tokens, or raw payloads.
-- Added Trial detail `backgroundFailures` so failed generation/evaluation work is visible in the Trial view.
-- Scoped Trial failure visibility to the relevant Trial and company.
-- Supported local/dev admin auth via `x-dev-user-email` only when the email belongs to a real DB user with `role="admin"`.
-- Kept production admin auth on the existing JWT/Auth0 admin role path.
-- Removed generated `issue-305-iteration*.diff` artifacts from the PR contents.
+## What changed
 
-## API Changes
-### `GET /api/admin/jobs/failed`
+- Added configurable media retention via `MEDIA_RETENTION_DAYS`.
+- Added retention expiration and purge metadata to recording assets.
+- Added media purge audit records for retention and data-request purges.
+- Added expired-media purge service behavior.
+- Registered the `media_retention_purge` shared worker handler.
+- Added script/operator paths for triggering retention purge.
+- Added scoped data-request media purge support for Candidate sessions.
+- Redacted transcript text/segments during purge instead of silently hard-deleting transcript rows.
+- Preserved idempotency for already-purged media and missing storage objects.
+- Added tests for config, retention selection, purge behavior, audit records, worker registration, operator route behavior, missing storage, and data-request scoping.
 
-- Returns a failed-job listing for admin operators.
-- Includes safe job metadata and human-readable failure reason summaries.
-- Restricts access to admin users only.
-- Rejects unauthenticated requests with `401`.
-- Rejects Talent Partner and candidate access with `403`.
+## Acceptance criteria
 
-### `POST /api/admin/jobs/{job_id}/retry`
+- [x] Configurable retention period
+  - `MEDIA_RETENTION_DAYS` is configurable.
+  - Default remains `45`, matching the existing repo convention.
+  - Invalid values such as `0` are rejected.
 
-- Retries a dead-letter job by moving it back to `queued`.
-- Returns `404 JOB_NOT_FOUND` for unknown job IDs.
-- Returns `409 JOB_NOT_RETRYABLE` when the job is not in a retryable dead-letter state.
-- Restricts access to admin users only.
+- [x] Purge job for expired media
+  - Expired media is selected by retention metadata.
+  - Purge runs through the media privacy service.
+  - `media_retention_purge` is registered with the shared worker runtime.
+  - Admin/operator and script trigger paths are available.
+  - Purge is idempotent and safe to rerun.
 
-### Trial detail `backgroundFailures`
+- [x] Audit log for purge events
+  - `media_purge_audits` records purge attempts.
+  - Audit rows include media, Candidate session, Trial, actor, reason, outcome, and safe error summary where applicable.
+  - Worker/system purges use `actor_type=system`.
+  - Operator-triggered purges use `actor_type=operator`.
+  - Audit records do not include signed URLs, credentials, tokens, or raw transcript body.
 
-- Adds `backgroundFailures` to Trial detail responses.
-- Reports safe failure summaries for failed background jobs tied to the Trial.
-- Excludes unrelated Trial failures.
-- Preserves company scoping; cross-company Trial access returns `404`.
+- [x] Deletion workflows for data requests
+  - Added `purge_candidate_session_media_for_data_request(...)`.
+  - Data-request purge is scoped to the requested Candidate session.
+  - Unrelated Candidate/Trial media is not touched.
+  - Reruns are idempotent.
+  - Audit reason is `data_request`.
 
-## Security / Access Control
+## QA evidence
 
-- Operator endpoints are admin-only.
-- Local/dev admin QA uses `x-dev-user-email` with a real DB user whose `role="admin"`.
-- Production auth still relies on the existing JWT/Auth0 admin role path.
-- Talent Partner and candidate access to operator endpoints returns `403`.
-- Unauthenticated access to operator endpoints returns `401`.
-- Cross-company Trial access remains hidden with `404`.
+### Migration / schema
 
-## Failure Reason Redaction
+- `poetry run alembic upgrade head` passed.
+- `poetry run alembic heads` returned `202604200001 (head)`.
+- Verified schema:
+  - `recording_assets.retention_expires_at`
+  - `recording_assets.purge_reason`
+  - `recording_assets.purge_status`
+  - existing `recording_assets.purged_at`
+  - `media_purge_audits`
+- Verified indexes:
+  - `ix_recording_assets_retention_expires_purged`
+  - `ix_media_purge_audits_media_created_at`
+  - `ix_media_purge_audits_reason_created_at`
+  - `ix_media_purge_audits_candidate_session_created_at`
 
-- Failure summaries are human-readable but safe for operator UI/API use.
-- Raw secrets, stack traces, bearer tokens, API keys, GitHub tokens, and raw payloads are not exposed.
-- Redaction behavior is covered by focused tests and manual API QA.
+### Config verification
 
-## Data / Migration Notes
+- `poetry run pytest --no-cov -q tests/config/test_config_storage_media_settings_utils.py`
+  - `11 passed in 0.59s`
+- Runtime checks:
+  - default `MEDIA_RETENTION_DAYS = 45`
+  - override `MEDIA_RETENTION_DAYS=7` works
+  - invalid `MEDIA_RETENTION_DAYS=0` is rejected
 
-- No migration was needed because existing job fields were sufficient.
-- `failedAt` uses `updated_at` for dead-letter rows because the job model has no dedicated `failed_at`.
-- Retry reuses existing job state fields and moves retryable dead-letter jobs back to `queued`.
-- Generated `issue-305-iteration*.diff` artifacts were removed/not included.
+### Focused automated tests
 
-## QA Evidence
-### Automated
+- `poetry run pytest --no-cov -q tests/config tests/media tests/shared/jobs tests/talent_partners/routes/test_talent_partners_admin_media_purge_routes.py tests/integrations/storage_media/test_integrations_storage_media_s3_provider_delete_object_handles_success_and_missing_service.py`
+  - `332 passed in 19.34s`
 
-- Ruff: poetry run ruff check app tests — passed
-- Focused #305 tests: 17 passed
-- Route pattern regression: 1 passed
-- Trial detail snapshot regression: 1 passed
-- Full suite: 1850 passed, 13 warnings
-- Coverage: 96.06%
+- Previously failing direct test:
+  - `poetry run pytest --no-cov -q tests/media/repositories/test_media_repositories_recordings_repository_retention_helpers_repository.py`
+  - `2 passed in 0.33s`
 
-### Manual API QA
+### Full regression / precommit
 
-- Admin failed-job list returned `200`
-- Talent Partner and candidate access returned `403`
-- Unauthenticated access returned `401`
-- Retry dead-letter job returned `200`
-- Retried job moved to `queued`
-- Unknown job returned `404 JOB_NOT_FOUND`
-- Non-retryable job returned `409 JOB_NOT_RETRYABLE`
-- Trial detail returned `backgroundFailures`
-- Unrelated Trial failures excluded
-- Cross-company Trial access returned `404`
-- Raw secrets, stack traces, bearer tokens, API keys, GitHub tokens, and raw payloads were not exposed
+- `./precommit.sh`
+  - `1857 passed, 13 warnings`
+  - coverage `96.02%`
+  - required coverage `96%` reached
+  - all precommit checks passed
 
-### Grep Verification
+- `git diff --check`
+  - passed
 
-- Changed-file legacy terminology grep: no hits
-- Changed-file retired v3 terminology grep: no hits
+## Manual QA evidence
 
-## Risks / Follow-ups
+### Retention purge success path
 
-- `failedAt` is derived from `updated_at` for dead-letter rows until the job model grows a dedicated failure timestamp.
-- Retry behavior is intentionally limited to retryable dead-letter jobs; broader operator workflows can build on these endpoints later.
+Seeded:
+- Talent Partner
+- Trial
+- Candidate session
+- Day 4 handoff task
+- ready media asset
+- transcript with text/segments
+- fake storage object
+- expired `retention_expires_at`
 
-Fixes #305
+Observed:
+- `scanned_count=1`
+- `purged_count=1`
+- `failed_count=0`
+- media `status=purged`
+- `purge_reason=retention_expired`
+- `purge_status=purged`
+- `purged_at` set
+- transcript row still exists
+- transcript `text=null`
+- transcript `segments_json=null`
+- transcript `deleted_at` set
+- storage object removed
+- audit row written with `outcome=success`
+- audit actor type `system`
+- audit actor id `null`
+- Candidate session and Trial context present
+
+### Day 4 upload retention metadata
+
+Verified Day 4 upload completion sets retention metadata:
+- `status=uploaded`
+- `retention_expires_at` set
+- retention delta matches `45` days
+
+### Idempotent rerun
+
+Second purge against already-purged media:
+- `scanned_count=0`
+- `purged_count=0`
+- `failed_count=0`
+- media stayed purged
+- transcript stayed redacted
+- audit count remained stable
+
+### Missing storage object behavior
+
+Seeded two expired assets:
+- one missing from storage
+- one present in storage
+
+Observed:
+- `scanned_count=2`
+- `purged_count=2`
+- `failed_count=0`
+- both media records became purged
+- both transcripts redacted
+- audit rows written with `outcome=success`
+- missing object did not fail the batch
+
+### Operator-triggered purge
+
+Direct admin route invocation returned:
+- `status=ok`
+- `scannedCount=1`
+- `purgedCount=1`
+- `skippedCount=0`
+- `failedCount=0`
+
+Audit verified:
+- `actor_type=operator`
+- `actor_id=admin-qa-306`
+- `purge_reason=retention_expired`
+
+### Shared worker/system purge
+
+Verified:
+- `media_retention_purge` handler is registered.
+- Payload maps `batchLimit` and `retentionDays`.
+- Worker result:
+  - `scannedCount=1`
+  - `purgedCount=1`
+  - `skippedCount=0`
+  - `failedCount=0`
+
+Audit verified:
+- `actor_type=system`
+- `actor_id=null`
+- `purge_reason=retention_expired`
+
+### Data-request deletion hook
+
+Seeded Candidate session A and B under the same Trial.
+
+Ran `purge_candidate_session_media_for_data_request(...)` for Candidate session A only.
+
+Observed:
+- Candidate session A media purged.
+- Candidate session A transcript redacted.
+- Candidate session A audit reason `data_request`.
+- Candidate session A audit actor `operator`.
+- Candidate session A audit actor id `privacy-qa-operator`.
+- Candidate session B media remained uploaded.
+- Candidate session B transcript remained untouched.
+- Candidate session B had no audit row.
+- Rerun for Candidate session A returned no additional purge work.
+
+## Security / privacy
+
+Verified #306 manual QA logs and audit rows do not contain:
+- signed URLs
+- access tokens
+- storage credentials
+- raw transcript body
+- raw transcript segments
+- full exception traces in operator-facing output
+
+## Terminology check
+
+Changed-file terminology scan passed with zero hits for retired terms.
+
+## Notes / limitations
+
+- No app-level periodic scheduler/cron cadence exists in this repo.
+- This PR provides the registered shared worker handler, operator/admin trigger path, and script trigger path.
+- Deployment cadence for invoking the idempotent purge job remains an ops concern.
+
+## Risk
+
+Low-to-medium.
+
+The purge path touches privacy-sensitive media and Evidence Trail artifacts, so the risk is primarily around data deletion correctness and auditability. Manual QA covered success, rerun idempotency, missing storage, operator/system actor semantics, and scoped data-request deletion.
+
+## Rollback
+
+Revert this PR and run Alembic downgrade according to repo migration conventions if needed. Existing media records are only purged when the purge job/operator path runs; the migration itself adds metadata/audit structures and backfills retention timestamps.
+
+Fixes #306

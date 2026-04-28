@@ -16,6 +16,14 @@ def test_storage_media_settings_validates_media_retention_days():
         StorageMediaSettings(MEDIA_RETENTION_DAYS=0)
 
 
+def test_storage_media_settings_default_media_retention_days():
+    assert StorageMediaSettings().MEDIA_RETENTION_DAYS == 45
+
+
+def test_storage_media_settings_allows_media_retention_days_override():
+    assert StorageMediaSettings(MEDIA_RETENTION_DAYS=7).MEDIA_RETENTION_DAYS == 7
+
+
 def test_storage_media_settings_validates_signed_url_expiry_positive():
     with pytest.raises(ValidationError):
         StorageMediaSettings(SIGNED_URL_EXPIRY_SECONDS=0)

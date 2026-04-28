@@ -18,6 +18,7 @@ from app.media.repositories.transcripts.media_repositories_transcripts_media_tra
     get_or_create_transcript,
     hard_delete_by_recording_id,
     mark_deleted,
+    redact_by_recording_id,
     update_status,
     update_transcript,
 )
@@ -31,6 +32,7 @@ __all__ = [
     "Transcript",
     "create_transcript",
     "hard_delete_by_recording_id",
+    "redact_by_recording_id",
     "get_by_recording_id",
     "get_or_create_transcript",
     "mark_deleted",

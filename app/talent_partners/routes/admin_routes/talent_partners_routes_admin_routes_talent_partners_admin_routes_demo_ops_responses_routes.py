@@ -46,6 +46,7 @@ def build_media_purge_response(result) -> MediaRetentionPurgeResponse:
         status="ok",
         scannedCount=result.scanned_count,
         purgedCount=result.purged_count,
+        skippedCount=getattr(result, "skipped_count", 0),
         failedCount=result.failed_count,
         purgedRecordingIds=result.purged_recording_ids,
     )

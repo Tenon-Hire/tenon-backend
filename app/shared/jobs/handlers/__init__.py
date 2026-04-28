@@ -10,6 +10,7 @@ import app.shared.jobs.handlers.shared_jobs_handlers_evaluation_run_handler as e
 import app.shared.jobs.handlers.shared_jobs_handlers_github_workflow_artifact_parse_handler as github_workflow_artifact_parse
 import app.shared.jobs.handlers.shared_jobs_handlers_github_workflow_artifact_parse_payload_handler as github_workflow_artifact_parse_payload
 import app.shared.jobs.handlers.shared_jobs_handlers_github_workflow_artifact_parse_persist_handler as github_workflow_artifact_parse_persist
+import app.shared.jobs.handlers.shared_jobs_handlers_media_retention_purge_handler as media_retention_purge
 import app.shared.jobs.handlers.shared_jobs_handlers_notifications_talent_partner_updates_handler as notifications_talent_partner_updates
 import app.shared.jobs.handlers.shared_jobs_handlers_scenario_generation_handler as scenario_generation
 import app.shared.jobs.handlers.shared_jobs_handlers_scenario_generation_parse_handler as scenario_generation_parse
@@ -45,6 +46,10 @@ from app.shared.jobs.handlers.shared_jobs_handlers_github_workflow_artifact_pars
     GITHUB_WORKFLOW_ARTIFACT_PARSE_JOB_TYPE,
     handle_github_workflow_artifact_parse,
 )
+from app.shared.jobs.handlers.shared_jobs_handlers_media_retention_purge_handler import (
+    MEDIA_RETENTION_PURGE_JOB_TYPE,
+    handle_media_retention_purge,
+)
 from app.shared.jobs.handlers.shared_jobs_handlers_notifications_talent_partner_updates_handler import (
     CANDIDATE_COMPLETED_NOTIFICATION_JOB_TYPE,
     WINOE_REPORT_READY_NOTIFICATION_JOB_TYPE,
@@ -77,6 +82,8 @@ __all__ = [
     "handle_evaluation_run",
     "GITHUB_WORKFLOW_ARTIFACT_PARSE_JOB_TYPE",
     "handle_github_workflow_artifact_parse",
+    "MEDIA_RETENTION_PURGE_JOB_TYPE",
+    "handle_media_retention_purge",
     "CANDIDATE_COMPLETED_NOTIFICATION_JOB_TYPE",
     "WINOE_REPORT_READY_NOTIFICATION_JOB_TYPE",
     "handle_candidate_completed_notification",
@@ -101,6 +108,7 @@ __all__ = [
     "github_workflow_artifact_parse",
     "github_workflow_artifact_parse_payload",
     "github_workflow_artifact_parse_persist",
+    "media_retention_purge",
     "notifications_talent_partner_updates",
     "scenario_generation",
     "scenario_generation_parse",

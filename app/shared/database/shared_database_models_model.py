@@ -10,6 +10,9 @@ from app.evaluations.repositories.evaluations_repositories_evaluations_core_mode
 from app.evaluations.repositories.evaluations_repositories_evaluations_rubric_snapshot_model import (
     WinoeRubricSnapshot,
 )
+from app.media.repositories.purge_audits.media_repositories_purge_audits_core_model import (
+    MediaPurgeAudit,
+)
 from app.media.repositories.recordings.media_repositories_recordings_media_recordings_core_model import (
     RecordingAsset,
 )
@@ -69,6 +72,7 @@ __all__ = [
     "EvaluationReviewerReport",
     "WinoeRubricSnapshot",
     "Job",
+    "MediaPurgeAudit",
     "NotificationDeliveryAudit",
     "WorkerHeartbeat",
     "RecordingAsset",

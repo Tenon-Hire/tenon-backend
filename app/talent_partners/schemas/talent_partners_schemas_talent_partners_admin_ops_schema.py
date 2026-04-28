@@ -110,6 +110,7 @@ class MediaRetentionPurgeResponse(APIModel):
     status: Literal["ok"]
     scannedCount: int
     purgedCount: int
+    skippedCount: int = 0
     failedCount: int
     purgedRecordingIds: list[int]
 

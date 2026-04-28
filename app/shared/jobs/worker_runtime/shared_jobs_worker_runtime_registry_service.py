@@ -45,6 +45,7 @@ def register_builtin_handlers() -> None:
         DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE,
         EVALUATION_RUN_JOB_TYPE,
         GITHUB_WORKFLOW_ARTIFACT_PARSE_JOB_TYPE,
+        MEDIA_RETENTION_PURGE_JOB_TYPE,
         SCENARIO_GENERATION_JOB_TYPE,
         TRANSCRIBE_RECORDING_JOB_TYPE,
         TRIAL_CLEANUP_JOB_TYPE,
@@ -55,6 +56,7 @@ def register_builtin_handlers() -> None:
         handle_day_close_finalize_text,
         handle_evaluation_run,
         handle_github_workflow_artifact_parse,
+        handle_media_retention_purge,
         handle_scenario_generation,
         handle_transcribe_recording,
         handle_trial_cleanup,
@@ -81,6 +83,7 @@ def register_builtin_handlers() -> None:
     )
     register_handler(SCENARIO_GENERATION_JOB_TYPE, handle_scenario_generation)
     register_handler(TRANSCRIBE_RECORDING_JOB_TYPE, handle_transcribe_recording)
+    register_handler(MEDIA_RETENTION_PURGE_JOB_TYPE, handle_media_retention_purge)
 
 
 __all__ = [

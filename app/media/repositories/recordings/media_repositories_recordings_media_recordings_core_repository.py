@@ -18,6 +18,7 @@ from .media_repositories_recordings_media_recordings_queries_repository import (
     get_expired_for_retention,
     get_latest_for_task_session,
     get_latest_playback_safe_for_task_session,
+    list_for_candidate_session,
     list_for_task_session,
 )
 
@@ -29,6 +30,7 @@ __all__ = [
     "get_by_id_for_update",
     "get_latest_for_task_session",
     "get_latest_playback_safe_for_task_session",
+    "list_for_candidate_session",
     "list_for_task_session",
     "is_deleted_or_purged",
     "is_downloadable",

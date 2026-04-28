@@ -39,6 +39,7 @@ from app.media.services.media_services_media_handoff_upload_validation_service i
     require_recording_access,
 )
 from app.media.services.media_services_media_privacy_service import (
+    compute_media_retention_expires_at,
     require_media_consent,
 )
 from app.media.services.media_services_media_transcription_jobs_service import (
@@ -99,6 +100,10 @@ async def complete_handoff_upload(
                 actual_duration_seconds=object_metadata.duration_seconds
             )
         recording.status = RECORDING_ASSET_STATUS_UPLOADED
+    if recording.retention_expires_at is None:
+        recording.retention_expires_at = compute_media_retention_expires_at(
+            datetime.now(UTC)
+        )
     transcript = None
     transcript_created = False
     job = None

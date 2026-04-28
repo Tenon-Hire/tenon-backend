@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Path, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.storage_media import StorageMediaProvider
+from app.media.repositories.purge_audits import MEDIA_PURGE_ACTOR_OPERATOR
 from app.media.services.media_services_media_privacy_service import (
     purge_expired_media_assets,
 )
@@ -198,12 +199,13 @@ async def purge_media_retention(
     ],
 ) -> MediaRetentionPurgeResponse:
     """Purge media retention."""
-    del actor
     result = await purge_expired_media_assets(
         db,
         storage_provider=storage_provider,
         retention_days=payload.retentionDays,
         batch_limit=payload.batchLimit,
+        actor_type=MEDIA_PURGE_ACTOR_OPERATOR,
+        actor_id=getattr(actor, "actor_id", None),
     )
     return build_media_purge_response(result)
 

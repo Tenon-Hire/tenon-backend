@@ -11,5 +11,6 @@ class MediaRetentionPurgeResult:
 
     scanned_count: int
     purged_count: int
+    skipped_count: int
     failed_count: int
     purged_recording_ids: list[int]
