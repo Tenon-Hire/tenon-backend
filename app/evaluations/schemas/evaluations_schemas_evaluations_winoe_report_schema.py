@@ -24,9 +24,17 @@ class WinoeReportEvidenceOut(APIModel):
     ref: str | None = None
     url: str | None = None
     excerpt: str | None = None
+    label: str | None = None
+    title: str | None = None
+    description: str | None = None
     startMs: int | None = None
     endMs: int | None = None
     dayIndex: int | None = None
+    dayLabel: str | None = None
+    sourceLabel: str | None = None
+    dimensionKey: str | None = None
+    dimensionLabel: str | None = None
+    anchor: str | None = None
 
 
 class WinoeReportReviewerReportOut(APIModel):

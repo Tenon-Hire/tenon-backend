@@ -5,6 +5,26 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+_OPTIONAL_TEXT_EVIDENCE_KEYS = (
+    "label",
+    "title",
+    "description",
+    "dayLabel",
+    "sourceLabel",
+    "dimensionKey",
+    "dimensionLabel",
+    "anchor",
+)
+
+
+def _copy_optional_text_fields(
+    pointer: Mapping[str, Any], sanitized: dict[str, Any]
+) -> None:
+    for key in _OPTIONAL_TEXT_EVIDENCE_KEYS:
+        value = pointer.get(key)
+        if isinstance(value, str) and value.strip():
+            sanitized[key] = value.strip()
+
 
 def _sanitize_evidence(pointer: Any) -> dict[str, Any] | None:
     if not isinstance(pointer, Mapping):
@@ -34,6 +54,7 @@ def _sanitize_evidence(pointer: Any) -> dict[str, Any] | None:
             sanitized["startMs"] = sanitized["endMs"]
         if "endMs" not in sanitized and "startMs" in sanitized:
             sanitized["endMs"] = sanitized["startMs"]
+    _copy_optional_text_fields(pointer, sanitized)
     day_index = pointer.get("dayIndex")
     if isinstance(day_index, int) and 1 <= day_index <= 5:
         sanitized["dayIndex"] = day_index

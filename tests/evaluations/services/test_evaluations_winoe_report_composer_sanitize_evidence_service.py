@@ -19,6 +19,8 @@ def test_winoe_report_composer_sanitize_evidence():
             "startMs": -1,
             "endMs": 20,
             "excerpt": " hello ",
+            "label": " Handoff + Demo transcript ",
+            "dimensionKey": " communication_handoff_demo ",
         }
     ) == {
         "kind": "transcript",
@@ -26,6 +28,8 @@ def test_winoe_report_composer_sanitize_evidence():
         "startMs": 20,
         "endMs": 20,
         "excerpt": "hello",
+        "label": "Handoff + Demo transcript",
+        "dimensionKey": "communication_handoff_demo",
     }
     assert winoe_report_composer._sanitize_evidence(
         {
@@ -33,6 +37,8 @@ def test_winoe_report_composer_sanitize_evidence():
             "ref": "t:2",
             "startMs": 12,
             "quote": " using quote ",
+            "sourceLabel": " Day 4 ",
+            "anchor": " timeline-4 ",
         }
     ) == {
         "kind": "transcript",
@@ -40,4 +46,6 @@ def test_winoe_report_composer_sanitize_evidence():
         "startMs": 12,
         "endMs": 12,
         "excerpt": "using quote",
+        "sourceLabel": "Day 4",
+        "anchor": "timeline-4",
     }

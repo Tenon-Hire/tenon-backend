@@ -9,6 +9,9 @@ from app.evaluations.repositories import repository as evaluation_repo
 from app.evaluations.repositories.evaluations_repositories_evaluations_core_model import (
     EVALUATION_RUN_STATUS_COMPLETED,
 )
+from app.evaluations.schemas.evaluations_schemas_evaluations_winoe_report_schema import (
+    WinoeReportStatusResponse,
+)
 from app.evaluations.services.evaluations_services_evaluations_winoe_report_composer_service import (
     build_ready_payload,
 )
@@ -66,6 +69,7 @@ async def test_build_ready_payload_uses_persisted_run_shape(async_session):
                         "kind": "commit",
                         "ref": "abc123",
                         "url": "https://github.com/acme/repo/commit/abc123",
+                        "dimensionKey": "development_process",
                     }
                 ],
             },
@@ -100,6 +104,10 @@ async def test_build_ready_payload_uses_persisted_run_shape(async_session):
     assert report["version"]["rubricVersion"] == "rubric-v3"
     assert report["disabledDayIndexes"] == [4]
     assert report["reviewerReports"] == []
+
+    serialized = WinoeReportStatusResponse(**payload).model_dump()
+    serialized_evidence = serialized["report"]["dayScores"][0]["evidence"][0]
+    assert serialized_evidence["dimensionKey"] == "development_process"
 
     transcript_evidence = report["dayScores"][1]["evidence"][0]
     assert transcript_evidence["kind"] == "transcript"
@@ -201,6 +209,7 @@ async def test_build_ready_payload_includes_persisted_reviewer_reports(async_ses
                         "ref": "abc123",
                         "url": "https://github.com/acme/repo/commit/abc123",
                         "dayIndex": 2,
+                        "dimensionKey": "development_process",
                     }
                 ],
                 "assessment_text": "Evidence shows solid implementation progress.",
@@ -224,6 +233,7 @@ async def test_build_ready_payload_includes_persisted_reviewer_reports(async_ses
                         "ref": "workflow:qa",
                         "url": "https://github.com/acme/repo/actions/runs/99",
                         "dayIndex": 3,
+                        "dimensionKey": "testing_discipline",
                     }
                 ],
                 "assessment_text": "Continuation of the implementation review.",
@@ -254,4 +264,7 @@ async def test_build_ready_payload_includes_persisted_reviewer_reports(async_ses
         reviewer_report["assessment"] == "Evidence shows solid implementation progress."
     )
     assert reviewer_report["evidenceCitations"][0]["dayIndex"] == 2
+    assert (
+        reviewer_report["evidenceCitations"][0]["dimensionKey"] == "development_process"
+    )
     assert reviewer_reports[1]["evidenceCitations"][0]["kind"] == "tests"
